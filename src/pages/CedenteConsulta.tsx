@@ -96,6 +96,20 @@ export interface CedenteDetail {
     valor_taxa: number | null;
     etapa: string | null;
   }>;
+  suspeitasFraude: Array<{
+    id: number;
+    sacado: string | null;
+    cpf_cnpj_sacado: string | null;
+    numero_documento: string | null;
+    valor: number | null;
+    vencimento: string | null;
+    data_quitacao: string | null;
+    criticas: string | null;
+    banco_cobrador: string | null;
+    agencia_cobradora: string | null;
+    praca_pagamento: string | null;
+    localidade_sacado: string | null;
+  }>;
 }
 
 export default function CedenteConsulta() {

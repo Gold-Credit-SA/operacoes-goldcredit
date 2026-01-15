@@ -85,6 +85,13 @@ Deno.serve(async (req) => {
           .select('*')
           .eq('cpf_cnpj_cedente', cpf_cnpj);
 
+        // Buscar títulos com suspeita de fraude
+        const { data: suspeitasFraude } = await supabase
+          .from('titulos_quitados_suspeita_fraude')
+          .select('*')
+          .eq('cpf_cnpj_cedente', cpf_cnpj)
+          .order('data_quitacao', { ascending: false });
+
         // Calcular primeira e última operação
         const primeiraOp = operacoes?.length ? operacoes[operacoes.length - 1]?.data : null;
         const ultimaOp = operacoes?.length ? operacoes[0]?.data : null;
@@ -292,6 +299,20 @@ Deno.serve(async (req) => {
                 etapa: op.etapa
               };
             }) || [],
+            suspeitasFraude: suspeitasFraude?.map(sf => ({
+              id: sf.id,
+              sacado: sf.sacado,
+              cpf_cnpj_sacado: sf.cpf_cnpj_sacado,
+              numero_documento: sf.numero_documento,
+              valor: sf.valor,
+              vencimento: sf.vencimento,
+              data_quitacao: sf.data_quitacao,
+              criticas: sf.criticas,
+              banco_cobrador: sf.banco_cobrador,
+              agencia_cobradora: sf.agencia_cobradora,
+              praca_pagamento: sf.praca_pagamento,
+              localidade_sacado: sf.localidade_sacado,
+            })) || [],
           }
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
