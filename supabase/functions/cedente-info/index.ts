@@ -95,6 +95,13 @@ Deno.serve(async (req) => {
         const valorLiquidoTotal = operacoes?.reduce((acc, op) => acc + (op.valor_liquido || 0), 0) || 0;
         const receitaTotal = operacoes?.reduce((acc, op) => acc + (op.valor_receita || 0), 0) || 0;
 
+        // Calcular taxa média (média das taxas de cada operação)
+        const taxasOperacoes = operacoes?.filter(op => op.valor_bruto && op.valor_bruto > 0)
+          .map(op => ((op.valor_bruto - (op.valor_liquido || 0)) / op.valor_bruto) * 100) || [];
+        const taxaMedia = taxasOperacoes.length > 0 
+          ? taxasOperacoes.reduce((acc, taxa) => acc + taxa, 0) / taxasOperacoes.length 
+          : 0;
+
         // Calcular limites
         const limiteGlobal = cedente.limite_global || 0;
         const riscoAtual = cedente.risco_atual || 0;
@@ -237,6 +244,7 @@ Deno.serve(async (req) => {
               valorBrutoTotal,
               valorLiquidoTotal,
               receitaTotal,
+              taxaMedia,
             },
             limites: {
               global: limiteGlobal,
