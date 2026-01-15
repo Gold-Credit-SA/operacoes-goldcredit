@@ -1,1 +1,4 @@
 project_id = "cwjrkygliokjseprelax"
+
+[functions.process-sql]
+verify_jwt = false

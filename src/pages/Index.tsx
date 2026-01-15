@@ -28,7 +28,7 @@ export default function Index() {
         setCedentes([]);
       }
     } catch (err) {
-      setError('Erro de conexão. Verifique se o servidor backend está rodando na porta 3001.');
+      setError('Erro ao carregar cedentes.');
       setCedentes([]);
     } finally {
       setIsLoading(false);

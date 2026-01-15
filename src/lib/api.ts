@@ -1,35 +1,68 @@
+import { supabase } from '@/integrations/supabase/client';
 import { Cedente, ApiResponse } from '@/types/cedente';
 
-const API_BASE_URL = 'http://localhost:3001/api';
-
 export async function uploadSqlFile(file: File): Promise<ApiResponse<{ rowsAffected: number }>> {
-  const formData = new FormData();
-  formData.append('sqlFile', file);
+  try {
+    const sql = await file.text();
+    
+    const { data, error } = await supabase.functions.invoke('process-sql', {
+      body: { action: 'import', sql }
+    });
 
-  const response = await fetch(`${API_BASE_URL}/upload-sql`, {
-    method: 'POST',
-    body: formData,
-  });
+    if (error) {
+      return { success: false, error: error.message };
+    }
 
-  return response.json();
+    return data;
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
 }
 
 export async function getCedentes(search?: string): Promise<ApiResponse<Cedente[]>> {
-  const params = new URLSearchParams();
-  if (search) {
-    params.append('search', search);
-  }
+  try {
+    const { data, error } = await supabase.functions.invoke('process-sql', {
+      body: { action: 'list', search }
+    });
 
-  const response = await fetch(`${API_BASE_URL}/cedentes?${params.toString()}`);
-  return response.json();
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return data;
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
 }
 
 export async function getCedenteById(id: number): Promise<ApiResponse<Cedente>> {
-  const response = await fetch(`${API_BASE_URL}/cedentes/${id}`);
-  return response.json();
+  try {
+    const { data, error } = await supabase.functions.invoke('process-sql', {
+      body: { action: 'get', id }
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return data;
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
 }
 
 export async function checkDatabaseConnection(): Promise<ApiResponse<{ connected: boolean }>> {
-  const response = await fetch(`${API_BASE_URL}/health`);
-  return response.json();
+  try {
+    const { data, error } = await supabase.functions.invoke('process-sql', {
+      body: { action: 'list' }
+    });
+
+    if (error) {
+      return { success: false, data: { connected: false }, error: error.message };
+    }
+
+    return { success: true, data: { connected: true } };
+  } catch (err) {
+    return { success: false, data: { connected: false }, error: (err as Error).message };
+  }
 }
