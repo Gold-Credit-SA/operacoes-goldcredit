@@ -243,7 +243,13 @@ Deno.serve(async (req) => {
         throw new Error('SQL não fornecido');
       }
 
-      console.log(`[process-sql] Processing SQL file, length: ${sql.length}`);
+      const sqlLength = sql.length;
+      console.log(`[process-sql] Processing SQL chunk, length: ${sqlLength}`);
+      
+      // Limite de segurança - chunks maiores que 2MB são rejeitados
+      if (sqlLength > 2 * 1024 * 1024) {
+        throw new Error('Chunk muito grande. Máximo 2MB por chunk.');
+      }
       
       // Converter para PostgreSQL
       const convertedSQL = convertMySQLToPostgres(sql);
@@ -260,8 +266,8 @@ Deno.serve(async (req) => {
         return new Response(
           JSON.stringify({ 
             success: true, 
-            data: { rowsAffected: 0 },
-            message: 'Nenhum statement válido encontrado no arquivo SQL'
+            data: { rowsAffected: 0, statementsExecuted: 0 },
+            message: 'Nenhum statement válido encontrado neste chunk'
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
