@@ -20,6 +20,7 @@ interface DadosEmpresaProps {
     primeiraOperacao: string | null;
     ultimaOperacao: string | null;
     totalOperacoes: number;
+    taxaMedia?: number;
   };
 }
 
@@ -135,9 +136,17 @@ export function DadosEmpresa({ cedente, resumo }: DadosEmpresaProps) {
               </div>
             )}
 
-            <div className="pt-2 border-t border-border">
-              <p className="text-xs text-muted-foreground">Total de operações</p>
-              <p className="text-lg font-bold text-primary">{resumo.totalOperacoes}</p>
+            <div className="pt-2 border-t border-border grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-muted-foreground">Total de operações</p>
+                <p className="text-lg font-bold text-primary">{resumo.totalOperacoes}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Taxa média</p>
+                <p className="text-lg font-bold text-primary">
+                  {resumo.taxaMedia !== undefined ? `${resumo.taxaMedia.toFixed(2)}%` : '-'}
+                </p>
+              </div>
             </div>
           </div>
         </div>
