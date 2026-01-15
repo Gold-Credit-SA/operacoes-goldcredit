@@ -1,6 +1,7 @@
-import { Database, LayoutDashboard, Upload, Search } from 'lucide-react';
+import { LayoutDashboard, Upload, Search } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import logo from '@/assets/logo.svg';
 
 export function Header() {
   const location = useLocation();
@@ -16,12 +17,10 @@ export function Header() {
       <div className="container-app py-4">
         <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-              <Database className="h-5 w-5 text-primary-foreground" />
-            </div>
+            <img src={logo} alt="Gold Credit" className="h-10 w-10" />
             <div>
               <h1 className="text-xl font-semibold text-foreground">Consulta Cedentes</h1>
-              <p className="text-sm text-muted-foreground">Sistema de consulta</p>
+              <p className="text-sm text-muted-foreground">Gold Credit</p>
             </div>
           </Link>
 
