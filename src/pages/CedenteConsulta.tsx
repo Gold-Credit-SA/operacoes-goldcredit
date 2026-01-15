@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Header } from '@/components/Header';
+import { MainLayout } from '@/components/layout/MainLayout';
 import { CedenteSearch } from '@/components/consulta/CedenteSearch';
 import { CedenteInfoPanel } from '@/components/consulta/CedenteInfoPanel';
 import { supabase } from '@/integrations/supabase/client';
@@ -177,54 +177,40 @@ export default function CedenteConsulta() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      
-      <main className="container-app py-8">
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="h-1 w-8 bg-primary rounded-full" />
-            <h1 className="text-2xl font-bold text-foreground">Painel de Informação</h1>
+    <MainLayout title="Consulta" subtitle="Consulta detalhada de cedentes com cruzamento de dados">
+      <CedenteSearch
+        cedentes={cedentes}
+        selectedCedente={selectedCedente}
+        search={search}
+        onSearchChange={setSearch}
+        onSelectCedente={handleSelectCedente}
+        isLoading={isLoadingList}
+      />
+
+      {isLoadingDetail ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <span className="text-muted-foreground font-medium">Carregando dados...</span>
           </div>
-          <p className="text-muted-foreground ml-11">
-            Consulta detalhada de cedentes com cruzamento de dados
-          </p>
         </div>
-
-        <CedenteSearch
-          cedentes={cedentes}
-          selectedCedente={selectedCedente}
-          search={search}
-          onSearchChange={setSearch}
-          onSelectCedente={handleSelectCedente}
-          isLoading={isLoadingList}
-        />
-
-        {isLoadingDetail ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="flex flex-col items-center gap-3">
-              <Loader2 className="h-10 w-10 animate-spin text-primary" />
-              <span className="text-muted-foreground font-medium">Carregando dados...</span>
-            </div>
+      ) : cedenteDetail ? (
+        <CedenteInfoPanel data={cedenteDetail} />
+      ) : selectedCedente ? (
+        <div className="text-center py-16">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
+            <Search className="h-8 w-8 text-muted-foreground" />
           </div>
-        ) : cedenteDetail ? (
-          <CedenteInfoPanel data={cedenteDetail} />
-        ) : selectedCedente ? (
-          <div className="text-center py-16">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
-              <Search className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <p className="text-muted-foreground font-medium">Nenhum dado encontrado para este cedente</p>
+          <p className="text-muted-foreground font-medium">Nenhum dado encontrado para este cedente</p>
+        </div>
+      ) : (
+        <div className="text-center py-16">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-accent mb-4">
+            <Search className="h-8 w-8 text-primary" />
           </div>
-        ) : (
-          <div className="text-center py-16">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-accent mb-4">
-              <Search className="h-8 w-8 text-primary" />
-            </div>
-            <p className="text-muted-foreground font-medium">Selecione um cedente para visualizar as informações</p>
-          </div>
-        )}
-      </main>
-    </div>
+          <p className="text-muted-foreground font-medium">Selecione um cedente para visualizar as informações</p>
+        </div>
+      )}
+    </MainLayout>
   );
 }
