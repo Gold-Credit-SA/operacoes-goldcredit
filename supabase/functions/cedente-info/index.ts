@@ -262,7 +262,17 @@ Deno.serve(async (req) => {
               percentualLiquidado: 100 - percentualRecompra,
             },
             receitaMensal,
-            ultimasOperacoes: operacoes?.slice(0, 10) || [],
+            ultimasOperacoes: operacoes?.slice(0, 10).map(op => ({
+              id: op.id,
+              operacao: op.operacao,
+              data: op.data,
+              valor_bruto: op.valor_bruto,
+              valor_liquido: op.valor_liquido,
+              valor_taxa: op.valor_bruto && op.valor_liquido && op.valor_bruto > 0
+                ? ((op.valor_bruto - op.valor_liquido) / op.valor_bruto) * 100
+                : 0,
+              etapa: op.etapa
+            })) || [],
           }
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
