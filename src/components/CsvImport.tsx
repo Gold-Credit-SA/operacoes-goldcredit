@@ -186,34 +186,67 @@ export function CsvImport({ onImportSuccess }: CsvImportProps) {
       const mapping = fileMappings[i];
       setCurrentFile(mapping.file.name);
       
-      // Update status to importing
       setFileMappings(prev => prev.map((m, idx) => 
         idx === i ? { ...m, status: 'importing' } : m
       ));
 
       try {
         const csvContent = await mapping.file.text();
-        const lines = csvContent.trim().split('\n').length - 1;
+        const lines = csvContent.trim().split('\n');
+        const totalLines = lines.length - 1;
+        
+        // For large files, split into chunks
+        const MAX_LINES_PER_REQUEST = 2000;
+        let totalInserted = 0;
+        let allErrors: string[] = [];
+        
+        if (totalLines > MAX_LINES_PER_REQUEST) {
+          // Process in chunks
+          const header = lines[0];
+          const dataLines = lines.slice(1);
+          
+          for (let chunkStart = 0; chunkStart < dataLines.length; chunkStart += MAX_LINES_PER_REQUEST) {
+            const chunkLines = dataLines.slice(chunkStart, chunkStart + MAX_LINES_PER_REQUEST);
+            const chunkCsv = [header, ...chunkLines].join('\n');
+            
+            const { data, error } = await supabase.functions.invoke('import-csv', {
+              body: { tableName: mapping.tableName, csvContent: chunkCsv, batchSize: 50 }
+            });
 
-        const { data, error } = await supabase.functions.invoke('import-csv', {
-          body: { 
-            tableName: mapping.tableName, 
-            csvContent,
-            batchSize: 100
+            if (error) throw new Error(error.message);
+            if (data.success) {
+              totalInserted += data.rowsInserted || 0;
+              if (data.errors) allErrors.push(...data.errors);
+            }
           }
-        });
+          
+          setFileMappings(prev => prev.map((m, idx) => 
+            idx === i ? { 
+              ...m, 
+              status: 'success',
+              rowsInserted: totalInserted,
+              totalRows: totalLines
+            } : m
+          ));
+        } else {
+          // Small file - single request
+          const { data, error } = await supabase.functions.invoke('import-csv', {
+            body: { tableName: mapping.tableName, csvContent, batchSize: 50 }
+          });
 
-        if (error) throw new Error(error.message);
-        if (!data.success) throw new Error(data.error || 'Erro desconhecido');
+          if (error) throw new Error(error.message);
+          if (!data.success) throw new Error(data.error || 'Erro desconhecido');
 
-        setFileMappings(prev => prev.map((m, idx) => 
-          idx === i ? { 
-            ...m, 
-            status: 'success',
-            rowsInserted: data.rowsInserted,
-            totalRows: data.totalRows || lines
-          } : m
-        ));
+          setFileMappings(prev => prev.map((m, idx) => 
+            idx === i ? { 
+              ...m, 
+              status: 'success',
+              rowsInserted: data.rowsInserted,
+              totalRows: data.totalRows || totalLines
+            } : m
+          ));
+        }
+        
         successCount++;
       } catch (err) {
         const errorMessage = (err as Error).message;
