@@ -42,20 +42,22 @@ export function OperacoesRecentes({ operacoes }: OperacoesRecentesProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
+        <div className="overflow-x-auto max-h-[350px] overflow-y-auto">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="font-semibold">Operação</TableHead>
                 <TableHead className="font-semibold">Data</TableHead>
-                <TableHead className="text-right font-semibold">Valor</TableHead>
+                <TableHead className="text-right font-semibold">Valor Bruto</TableHead>
+                <TableHead className="text-right font-semibold">Valor Líquido</TableHead>
+                <TableHead className="text-right font-semibold">Receita</TableHead>
                 <TableHead className="font-semibold">Etapa</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {operacoes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground py-4">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-4">
                     Nenhuma operação encontrada
                   </TableCell>
                 </TableRow>
@@ -66,8 +68,14 @@ export function OperacoesRecentes({ operacoes }: OperacoesRecentesProps) {
                       {op.operacao || '-'}
                     </TableCell>
                     <TableCell>{formatDate(op.data)}</TableCell>
-                    <TableCell className="text-right font-medium text-primary">
+                    <TableCell className="text-right font-medium">
                       {formatCurrency(op.valor_bruto)}
+                    </TableCell>
+                    <TableCell className="text-right font-medium text-blue-600">
+                      {formatCurrency(op.valor_liquido)}
+                    </TableCell>
+                    <TableCell className="text-right font-medium text-green-600">
+                      {formatCurrency(op.valor_receita)}
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className="text-xs">
