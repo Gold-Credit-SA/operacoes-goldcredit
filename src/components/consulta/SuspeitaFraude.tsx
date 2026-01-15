@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertTriangle, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, ShieldAlert, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface SuspeitaFraudeItem {
   id: number;
@@ -22,6 +24,8 @@ interface SuspeitaFraudeProps {
   suspeitasFraude: SuspeitaFraudeItem[];
 }
 
+const ITEMS_PER_PAGE = 5;
+
 function formatCurrency(value: number | null) {
   if (value === null || value === undefined) return '-';
   return new Intl.NumberFormat('pt-BR', {
@@ -36,6 +40,8 @@ function formatDate(date: string | null) {
 }
 
 export function SuspeitaFraude({ suspeitasFraude }: SuspeitaFraudeProps) {
+  const [currentPage, setCurrentPage] = useState(1);
+
   if (!suspeitasFraude || suspeitasFraude.length === 0) {
     return (
       <Card className="border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/20">
@@ -55,6 +61,9 @@ export function SuspeitaFraude({ suspeitasFraude }: SuspeitaFraudeProps) {
   }
 
   const totalValor = suspeitasFraude.reduce((acc, item) => acc + (item.valor || 0), 0);
+  const totalPages = Math.ceil(suspeitasFraude.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedItems = suspeitasFraude.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   return (
     <Card className="border-red-200 bg-red-50/50 dark:border-red-900 dark:bg-red-950/20">
@@ -69,7 +78,7 @@ export function SuspeitaFraude({ suspeitasFraude }: SuspeitaFraudeProps) {
           </Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
         <div className="rounded-lg border border-red-200 dark:border-red-900 overflow-hidden">
           <Table>
             <TableHeader>
@@ -83,7 +92,7 @@ export function SuspeitaFraude({ suspeitasFraude }: SuspeitaFraudeProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {suspeitasFraude.map((item) => (
+              {paginatedItems.map((item) => (
                 <TableRow key={item.id} className="hover:bg-red-100/30 dark:hover:bg-red-900/20">
                   <TableCell>
                     <div>
@@ -109,6 +118,38 @@ export function SuspeitaFraude({ suspeitasFraude }: SuspeitaFraudeProps) {
             </TableBody>
           </Table>
         </div>
+
+        {/* Paginação */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">
+              Mostrando {startIndex + 1}-{Math.min(startIndex + ITEMS_PER_PAGE, suspeitasFraude.length)} de {suspeitasFraude.length}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="h-8"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-muted-foreground px-2">
+                {currentPage} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="h-8"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
