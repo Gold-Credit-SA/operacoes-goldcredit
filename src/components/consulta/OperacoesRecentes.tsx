@@ -10,7 +10,7 @@ interface OperacoesRecentesProps {
     data: string | null;
     valor_bruto: number | null;
     valor_liquido: number | null;
-    valor_receita: number | null;
+    valor_taxa: number | null;
     etapa: string | null;
   }>;
 }
@@ -50,7 +50,7 @@ export function OperacoesRecentes({ operacoes }: OperacoesRecentesProps) {
                 <TableHead className="font-semibold">Data</TableHead>
                 <TableHead className="text-right font-semibold">Valor Bruto</TableHead>
                 <TableHead className="text-right font-semibold">Valor Líquido</TableHead>
-                <TableHead className="text-right font-semibold">Receita</TableHead>
+                <TableHead className="text-right font-semibold">Taxa</TableHead>
                 <TableHead className="font-semibold">Etapa</TableHead>
               </TableRow>
             </TableHeader>
@@ -74,8 +74,8 @@ export function OperacoesRecentes({ operacoes }: OperacoesRecentesProps) {
                     <TableCell className="text-right font-medium text-blue-600">
                       {formatCurrency(op.valor_liquido)}
                     </TableCell>
-                    <TableCell className="text-right font-medium text-green-600">
-                      {formatCurrency(op.valor_receita)}
+                    <TableCell className="text-right font-medium text-amber-600">
+                      {op.valor_taxa ? `${op.valor_taxa.toFixed(2)}%` : '-'}
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className="text-xs">
