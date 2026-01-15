@@ -1,4 +1,10 @@
 project_id = "cwjrkygliokjseprelax"
 
+[functions.import-csv]
+verify_jwt = false
+
+[functions.process-sql]
+verify_jwt = false
+
 [functions.process-sql]
 verify_jwt = false

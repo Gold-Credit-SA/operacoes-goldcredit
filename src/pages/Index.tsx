@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Header } from '@/components/Header';
 import { SqlUpload } from '@/components/SqlUpload';
+import { CsvImport } from '@/components/CsvImport';
 import { SearchInput } from '@/components/SearchInput';
 import { CedentesTable } from '@/components/CedentesTable';
 import { getCedentes } from '@/lib/api';
@@ -8,6 +9,7 @@ import { Cedente } from '@/types/cedente';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function Index() {
   const [cedentes, setCedentes] = useState<Cedente[]>([]);
@@ -58,8 +60,19 @@ export default function Index() {
       <main className="container-app py-8">
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Upload Section */}
-          <div className="lg:col-span-1">
-            <SqlUpload onUploadSuccess={handleUploadSuccess} />
+          <div className="lg:col-span-1 space-y-6">
+            <Tabs defaultValue="csv" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="csv">CSV</TabsTrigger>
+                <TabsTrigger value="sql">SQL</TabsTrigger>
+              </TabsList>
+              <TabsContent value="csv" className="mt-4">
+                <CsvImport onImportSuccess={handleUploadSuccess} />
+              </TabsContent>
+              <TabsContent value="sql" className="mt-4">
+                <SqlUpload onUploadSuccess={handleUploadSuccess} />
+              </TabsContent>
+            </Tabs>
           </div>
 
           {/* List Section */}
