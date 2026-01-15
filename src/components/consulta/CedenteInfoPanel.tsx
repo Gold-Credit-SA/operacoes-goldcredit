@@ -6,6 +6,7 @@ import { LiquidezSection } from './LiquidezSection';
 import { ConcentracaoSacados } from './ConcentracaoSacados';
 import { OperacoesRecentes } from './OperacoesRecentes';
 import { SuspeitaFraude } from './SuspeitaFraude';
+import { PdfReportButton } from './PdfReportButton';
 
 interface CedenteInfoPanelProps {
   data: CedenteDetail;
@@ -17,6 +18,13 @@ export function CedenteInfoPanel({ data }: CedenteInfoPanelProps) {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Header com botão de exportar */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-foreground">
+          Relatório de {data.cedente.nome || 'Cedente'}
+        </h2>
+        <PdfReportButton data={data} />
+      </div>
       {/* Indicador de Suspeita de Fraude no topo */}
       {hasFraude ? (
         <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-red-100 border border-red-300 dark:bg-red-950/40 dark:border-red-800">
