@@ -1,75 +1,35 @@
-# Consulta de Cedentes - MySQL
+# Consulta de Cedentes
 
-Sistema web para consulta de cedentes a partir de banco de dados MySQL, com funcionalidade para importar arquivos .sql.
+Sistema web para consulta de cedentes com importação de arquivos .sql.
 
 ## Funcionalidades
 
-- ✅ Upload de arquivo .sql
-- ✅ Execução de scripts SQL no MySQL
+- ✅ Upload de arquivo .sql (formato MySQL convertido automaticamente)
+- ✅ Armazenamento no Lovable Cloud (PostgreSQL)
 - ✅ Listagem de cedentes em tabela
 - ✅ Busca por nome / CNPJ / CPF
 - ✅ Página de detalhes do cedente
 
-## Estrutura do Projeto
+## Como Usar
 
-```
-├── src/                  # Frontend React
-│   ├── components/       # Componentes reutilizáveis
-│   ├── pages/           # Páginas da aplicação
-│   ├── lib/             # Funções utilitárias e API
-│   └── types/           # TypeScript types
-│
-├── backend/             # Backend Node.js + Express
-│   ├── server.js        # Servidor principal
-│   ├── package.json     # Dependências do backend
-│   └── README.md        # Documentação do backend
-```
+1. Acesse a aplicação
+2. Faça upload de um arquivo .sql contendo INSERTs na tabela `cedentes`
+3. Os dados serão importados automaticamente
+4. Use a busca para encontrar cedentes específicos
+5. Clique em um cedente para ver os detalhes
 
-## Como Rodar
+## Formato do SQL Esperado
 
-### 1. Backend (MySQL + Express)
+O arquivo .sql deve conter INSERT INTO cedentes:
 
-```bash
-# Entrar na pasta do backend
-cd backend
-
-# Instalar dependências
-npm install
-
-# Configurar variáveis de ambiente (opcional)
-# DB_HOST=localhost
-# DB_USER=root
-# DB_PASSWORD=sua_senha
-# DB_NAME=cedentes_db
-
-# Iniciar servidor
-npm start
+```sql
+INSERT INTO cedentes (nome, razao_social, cnpj, email, cidade, estado, status) VALUES
+('João Silva', 'JS Comércio LTDA', '12.345.678/0001-90', 'joao@empresa.com', 'São Paulo', 'SP', 'Ativo'),
+('Maria Santos', 'MS Serviços ME', '98.765.432/0001-10', 'maria@servicos.com', 'Rio de Janeiro', 'RJ', 'Ativo');
 ```
 
-O backend irá rodar em `http://localhost:3001`
+## Tecnologias
 
-### 2. Frontend (React)
-
-```bash
-# Na raiz do projeto
-npm install
-npm run dev
-```
-
-O frontend irá rodar em `http://localhost:5173`
-
-## Uso
-
-1. Certifique-se que o MySQL está rodando
-2. Inicie o backend (`cd backend && npm start`)
-3. Inicie o frontend (`npm run dev`)
-4. Acesse `http://localhost:5173`
-5. Faça upload de um arquivo .sql para importar dados
-6. Consulte os cedentes na tabela
-
-## Observações
-
-- O sistema não usa dados mockados
-- Todos os dados vêm do banco MySQL via arquivo .sql importado
-- A tabela principal deve se chamar `cedentes`
-- O sistema exibe dinamicamente todos os campos da tabela
+- React + TypeScript + Vite
+- Tailwind CSS + shadcn/ui
+- Lovable Cloud (PostgreSQL + Edge Functions)

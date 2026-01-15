@@ -60,7 +60,7 @@ export function SqlUpload({ onUploadSuccess }: SqlUploadProps) {
       }
     } catch (error) {
       setUploadStatus('error');
-      toast.error('Erro de conexão com o servidor. Verifique se o backend está rodando.');
+      toast.error('Erro ao processar arquivo SQL.');
     } finally {
       setIsUploading(false);
     }
