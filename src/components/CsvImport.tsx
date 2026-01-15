@@ -2,8 +2,7 @@ import { useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Upload, FileText, CheckCircle, AlertCircle, Loader2, Database } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, Loader2, Database, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -11,63 +10,150 @@ interface CsvImportProps {
   onImportSuccess?: () => void;
 }
 
-const TABLE_OPTIONS = [
-  { value: 'grupos_analise_vadu', label: 'Grupos Análise VADU' },
-  { value: 'operadores', label: 'Operadores' },
-  { value: 'regimes_tributarios', label: 'Regimes Tributários' },
-  { value: 'estados_civis', label: 'Estados Civis' },
-  { value: 'fontes_captacao', label: 'Fontes de Captação' },
-  { value: 'gerentes', label: 'Gerentes' },
-  { value: 'controladores', label: 'Controladores' },
-  { value: 'contas_bancarias', label: 'Contas Bancárias' },
-  { value: 'paginations', label: 'Paginações' },
-  { value: 'cedentes_completo', label: 'Cedentes Completo' },
-  { value: 'operacoes_individualizadas', label: 'Operações Individualizadas' },
-  { value: 'receita_por_cedente', label: 'Receita por Cedente' },
-  { value: 'titulos_em_aberto', label: 'Títulos em Aberto' },
-  { value: 'titulos_prorrogados', label: 'Títulos Prorrogados' },
-  { value: 'titulos_quitados', label: 'Títulos Quitados' },
-  { value: 'titulos_quitados_suspeita_fraude', label: 'Títulos Quitados Suspeita Fraude' },
-  { value: 'titulos_recomprados', label: 'Títulos Recomprados' },
-];
+interface FileMapping {
+  file: File;
+  tableName: string;
+  status: 'pending' | 'importing' | 'success' | 'error';
+  rowsInserted?: number;
+  totalRows?: number;
+  error?: string;
+}
 
-type ImportStatus = 'idle' | 'reading' | 'importing' | 'success' | 'error';
+const TABLE_MAPPINGS: Record<string, string> = {
+  'grupos_analise_vadu': 'grupos_analise_vadu',
+  'gruposanalisevadu': 'grupos_analise_vadu',
+  'operadores': 'operadores',
+  'regimes_tributarios': 'regimes_tributarios',
+  'regimestributarios': 'regimes_tributarios',
+  'estados_civis': 'estados_civis',
+  'estadoscivis': 'estados_civis',
+  'fontes_captacao': 'fontes_captacao',
+  'fontescaptacao': 'fontes_captacao',
+  'gerentes': 'gerentes',
+  'controladores': 'controladores',
+  'contas_bancarias': 'contas_bancarias',
+  'contasbancarias': 'contas_bancarias',
+  'paginations': 'paginations',
+  'cedentes_completo': 'cedentes_completo',
+  'cedentescompleto': 'cedentes_completo',
+  'cedentes': 'cedentes_completo',
+  'smartsecurities_cedentes': 'cedentes_completo',
+  'operacoes_individualizadas': 'operacoes_individualizadas',
+  'operacoesindividualizadas': 'operacoes_individualizadas',
+  'receita_por_cedente': 'receita_por_cedente',
+  'receitaporcedente': 'receita_por_cedente',
+  'titulos_em_aberto': 'titulos_em_aberto',
+  'titulosemaberto': 'titulos_em_aberto',
+  'titulos_prorrogados': 'titulos_prorrogados',
+  'titulosprorrogados': 'titulos_prorrogados',
+  'titulos_quitados': 'titulos_quitados',
+  'titulosquitados': 'titulos_quitados',
+  'titulos_quitados_suspeita_fraude': 'titulos_quitados_suspeita_fraude',
+  'titulosquitadossuspeitafraude': 'titulos_quitados_suspeita_fraude',
+  'titulos_recomprados': 'titulos_recomprados',
+  'titulosrecomprados': 'titulos_recomprados',
+  // SmartSecurities prefixed tables
+  'smartsecurities_contas_bancarias': 'contas_bancarias',
+  'smartsecurities_controladores': 'controladores',
+  'smartsecurities_estados_civis': 'estados_civis',
+  'smartsecurities_fontes_captacao': 'fontes_captacao',
+  'smartsecurities_gerentes': 'gerentes',
+  'smartsecurities_grupos_analise_vadu': 'grupos_analise_vadu',
+  'smartsecurities_operadores': 'operadores',
+  'smartsecurities_operacoes_individualizadas': 'operacoes_individualizadas',
+  'smartsecurities_receita_por_cedente': 'receita_por_cedente',
+  'smartsecurities_regimes_tributarios': 'regimes_tributarios',
+  'smartsecurities_titulos_em_aberto': 'titulos_em_aberto',
+  'smartsecurities_titulos_prorrogados': 'titulos_prorrogados',
+  'smartsecurities_titulos_quitados': 'titulos_quitados',
+  'smartsecurities_titulos_quitados_suspeita_fraude': 'titulos_quitados_suspeita_fraude',
+  'smartsecurities_titulos_recomprados': 'titulos_recomprados',
+};
+
+const TABLE_LABELS: Record<string, string> = {
+  'grupos_analise_vadu': 'Grupos Análise VADU',
+  'operadores': 'Operadores',
+  'regimes_tributarios': 'Regimes Tributários',
+  'estados_civis': 'Estados Civis',
+  'fontes_captacao': 'Fontes de Captação',
+  'gerentes': 'Gerentes',
+  'controladores': 'Controladores',
+  'contas_bancarias': 'Contas Bancárias',
+  'paginations': 'Paginações',
+  'cedentes_completo': 'Cedentes Completo',
+  'operacoes_individualizadas': 'Operações Individualizadas',
+  'receita_por_cedente': 'Receita por Cedente',
+  'titulos_em_aberto': 'Títulos em Aberto',
+  'titulos_prorrogados': 'Títulos Prorrogados',
+  'titulos_quitados': 'Títulos Quitados',
+  'titulos_quitados_suspeita_fraude': 'Títulos Suspeita Fraude',
+  'titulos_recomprados': 'Títulos Recomprados',
+};
+
+function detectTableFromFilename(filename: string): string | null {
+  const cleanName = filename
+    .toLowerCase()
+    .replace(/\.csv$/, '')
+    .replace(/_\d{12}$/, '') // Remove timestamp like _202601151003
+    .replace(/[-\s]/g, '_');
+  
+  // Direct match
+  if (TABLE_MAPPINGS[cleanName]) {
+    return TABLE_MAPPINGS[cleanName];
+  }
+  
+  // Partial match
+  for (const [pattern, tableName] of Object.entries(TABLE_MAPPINGS)) {
+    if (cleanName.includes(pattern) || pattern.includes(cleanName)) {
+      return tableName;
+    }
+  }
+  
+  return null;
+}
+
+type ImportStatus = 'idle' | 'importing' | 'complete';
 
 export function CsvImport({ onImportSuccess }: CsvImportProps) {
-  const [selectedTable, setSelectedTable] = useState<string>('');
-  const [file, setFile] = useState<File | null>(null);
+  const [fileMappings, setFileMappings] = useState<FileMapping[]>([]);
   const [status, setStatus] = useState<ImportStatus>('idle');
-  const [progress, setProgress] = useState(0);
-  const [statusMessage, setStatusMessage] = useState('');
+  const [overallProgress, setOverallProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [result, setResult] = useState<{ rowsInserted: number; totalRows: number; errors?: string[] } | null>(null);
+  const [currentFile, setCurrentFile] = useState<string>('');
 
-  const handleFileSelect = useCallback((selectedFile: File) => {
-    if (!selectedFile.name.endsWith('.csv')) {
-      toast.error('Formato inválido', { description: 'Por favor, selecione um arquivo .csv' });
+  const handleFilesSelect = useCallback((files: FileList | File[]) => {
+    const fileArray = Array.from(files);
+    const csvFiles = fileArray.filter(f => f.name.endsWith('.csv'));
+    
+    if (csvFiles.length === 0) {
+      toast.error('Nenhum arquivo CSV selecionado');
       return;
     }
-    setFile(selectedFile);
-    setStatus('idle');
-    setProgress(0);
-    setResult(null);
-    
-    // Try to auto-detect table from filename
-    const fileName = selectedFile.name.toLowerCase();
-    for (const table of TABLE_OPTIONS) {
-      if (fileName.includes(table.value.replace('_', ''))) {
-        setSelectedTable(table.value);
-        break;
-      }
+
+    const mappings: FileMapping[] = csvFiles.map(file => {
+      const tableName = detectTableFromFilename(file.name);
+      return {
+        file,
+        tableName: tableName || '',
+        status: 'pending'
+      };
+    });
+
+    const unmapped = mappings.filter(m => !m.tableName);
+    if (unmapped.length > 0) {
+      toast.warning(`${unmapped.length} arquivo(s) não reconhecido(s)`, {
+        description: unmapped.map(m => m.file.name).join(', ')
+      });
     }
+
+    setFileMappings(prev => [...prev, ...mappings.filter(m => m.tableName)]);
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile) handleFileSelect(droppedFile);
-  }, [handleFileSelect]);
+    handleFilesSelect(e.dataTransfer.files);
+  }, [handleFilesSelect]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -78,72 +164,86 @@ export function CsvImport({ onImportSuccess }: CsvImportProps) {
     setIsDragging(false);
   }, []);
 
-  const handleImport = async () => {
-    if (!file || !selectedTable) {
-      toast.error('Erro', { description: 'Selecione um arquivo e uma tabela de destino' });
+  const removeFile = (index: number) => {
+    setFileMappings(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleImportAll = async () => {
+    if (fileMappings.length === 0) {
+      toast.error('Nenhum arquivo para importar');
       return;
     }
 
-    setStatus('reading');
-    setProgress(10);
-    setStatusMessage('Lendo arquivo CSV...');
+    setStatus('importing');
+    setOverallProgress(0);
 
-    try {
-      const csvContent = await file.text();
-      const lines = csvContent.trim().split('\n').length - 1; // Subtract header
+    const total = fileMappings.length;
+    let completed = 0;
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (let i = 0; i < fileMappings.length; i++) {
+      const mapping = fileMappings[i];
+      setCurrentFile(mapping.file.name);
       
-      setStatus('importing');
-      setProgress(30);
-      setStatusMessage(`Importando ${lines} registros para ${selectedTable}...`);
+      // Update status to importing
+      setFileMappings(prev => prev.map((m, idx) => 
+        idx === i ? { ...m, status: 'importing' } : m
+      ));
 
-      const { data, error } = await supabase.functions.invoke('import-csv', {
-        body: { 
-          tableName: selectedTable, 
-          csvContent,
-          batchSize: 100
-        }
-      });
+      try {
+        const csvContent = await mapping.file.text();
+        const lines = csvContent.trim().split('\n').length - 1;
 
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (!data.success) {
-        throw new Error(data.error || 'Erro ao importar dados');
-      }
-
-      setProgress(100);
-      setStatus('success');
-      setResult(data);
-      setStatusMessage(`${data.rowsInserted} de ${data.totalRows} registros importados com sucesso!`);
-      
-      toast.success('Importação concluída!', {
-        description: `${data.rowsInserted} registros importados para ${selectedTable}`
-      });
-
-      if (data.errors && data.errors.length > 0) {
-        toast.warning('Alguns erros ocorreram', {
-          description: data.errors.slice(0, 3).join('; ')
+        const { data, error } = await supabase.functions.invoke('import-csv', {
+          body: { 
+            tableName: mapping.tableName, 
+            csvContent,
+            batchSize: 100
+          }
         });
+
+        if (error) throw new Error(error.message);
+        if (!data.success) throw new Error(data.error || 'Erro desconhecido');
+
+        setFileMappings(prev => prev.map((m, idx) => 
+          idx === i ? { 
+            ...m, 
+            status: 'success',
+            rowsInserted: data.rowsInserted,
+            totalRows: data.totalRows || lines
+          } : m
+        ));
+        successCount++;
+      } catch (err) {
+        const errorMessage = (err as Error).message;
+        setFileMappings(prev => prev.map((m, idx) => 
+          idx === i ? { ...m, status: 'error', error: errorMessage } : m
+        ));
+        errorCount++;
       }
 
+      completed++;
+      setOverallProgress(Math.round((completed / total) * 100));
+    }
+
+    setStatus('complete');
+    setCurrentFile('');
+
+    if (successCount > 0) {
+      toast.success(`${successCount} arquivo(s) importado(s) com sucesso!`);
       onImportSuccess?.();
-    } catch (err) {
-      setStatus('error');
-      setProgress(0);
-      const errorMessage = (err as Error).message;
-      setStatusMessage(errorMessage);
-      toast.error('Erro na importação', { description: errorMessage });
+    }
+    if (errorCount > 0) {
+      toast.error(`${errorCount} arquivo(s) com erro`);
     }
   };
 
   const resetForm = () => {
-    setFile(null);
-    setSelectedTable('');
+    setFileMappings([]);
     setStatus('idle');
-    setProgress(0);
-    setStatusMessage('');
-    setResult(null);
+    setOverallProgress(0);
+    setCurrentFile('');
   };
 
   const formatFileSize = (bytes: number) => {
@@ -152,118 +252,156 @@ export function CsvImport({ onImportSuccess }: CsvImportProps) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const pendingCount = fileMappings.filter(m => m.status === 'pending').length;
+  const successCount = fileMappings.filter(m => m.status === 'success').length;
+  const errorCount = fileMappings.filter(m => m.status === 'error').length;
+
   return (
     <Card className="animate-fade-in">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Database className="h-5 w-5 text-primary" />
-          Importar CSV
+          Importar CSVs
         </CardTitle>
         <CardDescription>
-          Importe dados de arquivos CSV para as tabelas do sistema
+          Arraste múltiplos arquivos CSV para importar de uma vez
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Table Selection */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Tabela de Destino</label>
-          <Select value={selectedTable} onValueChange={setSelectedTable}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione a tabela..." />
-            </SelectTrigger>
-            <SelectContent>
-              {TABLE_OPTIONS.map((table) => (
-                <SelectItem key={table.value} value={table.value}>
-                  {table.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
         {/* File Drop Zone */}
         <div
           className={`
             relative rounded-lg border-2 border-dashed p-6 transition-all duration-200 cursor-pointer
             ${isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'}
-            ${file ? 'bg-muted/30' : ''}
           `}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          onClick={() => document.getElementById('csv-file-input')?.click()}
+          onClick={() => document.getElementById('csv-files-input')?.click()}
         >
           <input
-            id="csv-file-input"
+            id="csv-files-input"
             type="file"
             accept=".csv"
+            multiple
             className="hidden"
             onChange={(e) => {
-              const selectedFile = e.target.files?.[0];
-              if (selectedFile) handleFileSelect(selectedFile);
+              if (e.target.files) handleFilesSelect(e.target.files);
+              e.target.value = '';
             }}
           />
           
           <div className="flex flex-col items-center gap-2 text-center">
-            {file ? (
-              <>
-                <FileText className="h-10 w-10 text-primary" />
-                <div>
-                  <p className="font-medium text-foreground">{file.name}</p>
-                  <p className="text-sm text-muted-foreground">{formatFileSize(file.size)}</p>
-                </div>
-              </>
-            ) : (
-              <>
-                <Upload className="h-10 w-10 text-muted-foreground" />
-                <div>
-                  <p className="font-medium text-foreground">Arraste um arquivo CSV aqui</p>
-                  <p className="text-sm text-muted-foreground">ou clique para selecionar</p>
-                </div>
-              </>
-            )}
+            <Upload className="h-10 w-10 text-muted-foreground" />
+            <div>
+              <p className="font-medium text-foreground">Arraste arquivos CSV aqui</p>
+              <p className="text-sm text-muted-foreground">ou clique para selecionar múltiplos</p>
+            </div>
           </div>
         </div>
 
-        {/* Progress and Status */}
-        {status !== 'idle' && (
+        {/* File List */}
+        {fileMappings.length > 0 && (
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>{fileMappings.length} arquivo(s) selecionado(s)</span>
+              {status === 'idle' && (
+                <Button variant="ghost" size="sm" onClick={resetForm}>
+                  Limpar todos
+                </Button>
+              )}
+            </div>
+            
+            {fileMappings.map((mapping, index) => (
+              <div 
+                key={`${mapping.file.name}-${index}`}
+                className={`
+                  flex items-center gap-3 p-3 rounded-lg border
+                  ${mapping.status === 'success' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : ''}
+                  ${mapping.status === 'error' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : ''}
+                  ${mapping.status === 'importing' ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : ''}
+                  ${mapping.status === 'pending' ? 'bg-muted/30' : ''}
+                `}
+              >
+                {mapping.status === 'pending' && <FileText className="h-5 w-5 text-muted-foreground" />}
+                {mapping.status === 'importing' && <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />}
+                {mapping.status === 'success' && <CheckCircle className="h-5 w-5 text-green-500" />}
+                {mapping.status === 'error' && <AlertCircle className="h-5 w-5 text-red-500" />}
+                
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{mapping.file.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {TABLE_LABELS[mapping.tableName] || mapping.tableName} • {formatFileSize(mapping.file.size)}
+                    {mapping.rowsInserted !== undefined && (
+                      <span className="text-green-600 dark:text-green-400">
+                        {' '}• {mapping.rowsInserted} registros
+                      </span>
+                    )}
+                    {mapping.error && (
+                      <span className="text-red-600 dark:text-red-400">
+                        {' '}• {mapping.error}
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                {status === 'idle' && (
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeFile(index);
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Progress */}
+        {status === 'importing' && (
           <div className="space-y-2">
-            <Progress value={progress} className="h-2" />
+            <Progress value={overallProgress} className="h-2" />
             <div className="flex items-center gap-2 text-sm">
-              {status === 'reading' && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
-              {status === 'importing' && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
-              {status === 'success' && <CheckCircle className="h-4 w-4 text-green-500" />}
-              {status === 'error' && <AlertCircle className="h-4 w-4 text-destructive" />}
-              <span className={status === 'error' ? 'text-destructive' : 'text-muted-foreground'}>
-                {statusMessage}
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              <span className="text-muted-foreground">
+                Importando {currentFile}... ({overallProgress}%)
               </span>
             </div>
           </div>
         )}
 
-        {/* Result Details */}
-        {result && result.errors && result.errors.length > 0 && (
-          <div className="rounded-md bg-yellow-50 dark:bg-yellow-900/20 p-3 text-sm">
-            <p className="font-medium text-yellow-800 dark:text-yellow-200 mb-1">Avisos:</p>
-            <ul className="list-disc list-inside text-yellow-700 dark:text-yellow-300 space-y-1">
-              {result.errors.slice(0, 5).map((error, i) => (
-                <li key={i}>{error}</li>
-              ))}
-              {result.errors.length > 5 && (
-                <li>...e mais {result.errors.length - 5} erros</li>
-              )}
-            </ul>
+        {/* Summary */}
+        {status === 'complete' && (
+          <div className="flex items-center gap-4 text-sm">
+            {successCount > 0 && (
+              <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                <CheckCircle className="h-4 w-4" />
+                {successCount} sucesso
+              </span>
+            )}
+            {errorCount > 0 && (
+              <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
+                <AlertCircle className="h-4 w-4" />
+                {errorCount} erro(s)
+              </span>
+            )}
           </div>
         )}
 
         {/* Action Buttons */}
         <div className="flex gap-2">
           <Button
-            onClick={handleImport}
-            disabled={!file || !selectedTable || status === 'reading' || status === 'importing'}
+            onClick={handleImportAll}
+            disabled={fileMappings.length === 0 || status === 'importing' || pendingCount === 0}
             className="flex-1"
           >
-            {status === 'reading' || status === 'importing' ? (
+            {status === 'importing' ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Importando...
@@ -271,12 +409,12 @@ export function CsvImport({ onImportSuccess }: CsvImportProps) {
             ) : (
               <>
                 <Upload className="mr-2 h-4 w-4" />
-                Importar CSV
+                Importar {pendingCount > 0 ? `${pendingCount} Arquivo(s)` : 'Todos'}
               </>
             )}
           </Button>
           
-          {(status === 'success' || status === 'error') && (
+          {status === 'complete' && (
             <Button variant="outline" onClick={resetForm}>
               Nova Importação
             </Button>
