@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Header } from '@/components/Header';
+import { MainLayout } from '@/components/layout/MainLayout';
 import { DashboardStats } from '@/components/dashboard/DashboardStats';
 import { DashboardFilters } from '@/components/dashboard/DashboardFilters';
 import { OperacoesTable } from '@/components/dashboard/OperacoesTable';
@@ -86,101 +86,93 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      
-      <main className="container-app py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
-            Visão geral dos dados importados com filtros avançados
-          </p>
-        </div>
-
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    <MainLayout title="Dashboard" subtitle="Visão geral dos dados importados">
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <span className="text-muted-foreground font-medium">Carregando...</span>
           </div>
-        ) : stats ? (
-          <>
-            <DashboardStats stats={stats} />
-            
-            <div className="mt-8">
-              <DashboardFilters 
-                filters={filters} 
-                onFilterChange={handleFilterChange}
-                onClearFilters={handleClearFilters}
-              />
-            </div>
+        </div>
+      ) : stats ? (
+        <>
+          <DashboardStats stats={stats} />
+          
+          <div className="mt-8">
+            <DashboardFilters 
+              filters={filters} 
+              onFilterChange={handleFilterChange}
+              onClearFilters={handleClearFilters}
+            />
+          </div>
 
-            <div className="mt-8">
-              <Tabs defaultValue="operacoes" className="w-full">
-                <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
-                  <TabsTrigger value="operacoes">Operações</TabsTrigger>
-                  <TabsTrigger value="receitas">Receitas</TabsTrigger>
-                  <TabsTrigger value="titulos">Títulos Aberto</TabsTrigger>
-                  <TabsTrigger value="cedentes">Cedentes</TabsTrigger>
-                  <TabsTrigger value="resumo">Resumo Mensal</TabsTrigger>
-                </TabsList>
+          <div className="mt-8">
+            <Tabs defaultValue="operacoes" className="w-full">
+              <TabsList className="bg-card border border-border">
+                <TabsTrigger value="operacoes" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Operações</TabsTrigger>
+                <TabsTrigger value="receitas" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Receitas</TabsTrigger>
+                <TabsTrigger value="titulos" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Títulos</TabsTrigger>
+                <TabsTrigger value="cedentes" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Cedentes</TabsTrigger>
+                <TabsTrigger value="resumo" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Resumo</TabsTrigger>
+              </TabsList>
 
-                <TabsContent value="operacoes" className="mt-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Operações Individualizadas</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <OperacoesTable filters={filters} />
-                    </CardContent>
-                  </Card>
-                </TabsContent>
+              <TabsContent value="operacoes" className="mt-6">
+                <Card className="shadow-sm">
+                  <CardHeader className="border-b border-border">
+                    <CardTitle className="text-base font-semibold">Operações Individualizadas</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <OperacoesTable filters={filters} />
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-                <TabsContent value="receitas" className="mt-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Receita por Cedente</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <ReceitasTable filters={filters} />
-                    </CardContent>
-                  </Card>
-                </TabsContent>
+              <TabsContent value="receitas" className="mt-6">
+                <Card className="shadow-sm">
+                  <CardHeader className="border-b border-border">
+                    <CardTitle className="text-base font-semibold">Receita por Cedente</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <ReceitasTable filters={filters} />
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-                <TabsContent value="titulos" className="mt-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Títulos em Aberto</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <TitulosAbertoTable filters={filters} />
-                    </CardContent>
-                  </Card>
-                </TabsContent>
+              <TabsContent value="titulos" className="mt-6">
+                <Card className="shadow-sm">
+                  <CardHeader className="border-b border-border">
+                    <CardTitle className="text-base font-semibold">Títulos em Aberto</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <TitulosAbertoTable filters={filters} />
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-                <TabsContent value="cedentes" className="mt-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Cedentes Completo</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <CedentesCompletoTable filters={filters} />
-                    </CardContent>
-                  </Card>
-                </TabsContent>
+              <TabsContent value="cedentes" className="mt-6">
+                <Card className="shadow-sm">
+                  <CardHeader className="border-b border-border">
+                    <CardTitle className="text-base font-semibold">Cedentes Completo</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <CedentesCompletoTable filters={filters} />
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-                <TabsContent value="resumo" className="mt-6">
-                  <ResumoPeriodo />
-                </TabsContent>
-              </Tabs>
-            </div>
-          </>
-        ) : (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">Nenhum dado disponível</p>
-            </CardContent>
-          </Card>
-        )}
-      </main>
-    </div>
+              <TabsContent value="resumo" className="mt-6">
+                <ResumoPeriodo />
+              </TabsContent>
+            </Tabs>
+          </div>
+        </>
+      ) : (
+        <Card className="shadow-sm">
+          <CardContent className="py-16 text-center">
+            <p className="text-muted-foreground">Nenhum dado disponível</p>
+          </CardContent>
+        </Card>
+      )}
+    </MainLayout>
   );
 }
