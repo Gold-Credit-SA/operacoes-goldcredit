@@ -13,14 +13,20 @@ export function Header() {
   ];
 
   return (
-    <header className="border-b border-border bg-card shadow-sm">
-      <div className="container-app py-4">
+    <header className="bg-secondary shadow-lg">
+      <div className="container-app py-3">
         <div className="flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <img src={logo} alt="Gold Credit" className="h-10 w-10" />
+          <Link to="/" className="flex items-center gap-3 group">
+            <div className="bg-primary p-2 rounded-lg shadow-md group-hover:shadow-lg transition-shadow">
+              <img src={logo} alt="Gold Credit" className="h-8 w-8" />
+            </div>
             <div>
-              <h1 className="text-xl font-semibold text-foreground">Consulta Cedentes</h1>
-              <p className="text-sm text-muted-foreground">Gold Credit</p>
+              <h1 className="text-lg font-bold text-secondary-foreground tracking-tight">
+                GOLD CREDIT
+              </h1>
+              <p className="text-xs text-secondary-foreground/70 font-medium">
+                Sistema de Gestão
+              </p>
             </div>
           </Link>
 
@@ -30,10 +36,10 @@ export function Header() {
                 key={item.path}
                 to={item.path}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
                   location.pathname === item.path
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "text-secondary-foreground/80 hover:text-secondary-foreground hover:bg-secondary-foreground/10"
                 )}
               >
                 <item.icon className="h-4 w-4" />

@@ -27,16 +27,26 @@ export function CedenteInfoPanel({ data }: CedenteInfoPanelProps) {
       </div>
       {/* Indicador de Suspeita de Fraude no topo */}
       {hasFraude ? (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-red-100 border border-red-300 dark:bg-red-950/40 dark:border-red-800">
-          <span className="text-red-600 dark:text-red-400 text-sm font-medium">
-            ⚠️ {qtdSuspeitasFraude} {qtdSuspeitasFraude === 1 ? 'título com suspeita de fraude' : 'títulos com suspeita de fraude'}
-          </span>
+        <div className="flex items-center gap-3 px-5 py-4 rounded-xl bg-destructive/10 border border-destructive/30">
+          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-destructive/20">
+            <span className="text-lg">⚠️</span>
+          </div>
+          <div>
+            <p className="text-destructive text-sm font-semibold">
+              {qtdSuspeitasFraude} {qtdSuspeitasFraude === 1 ? 'título com suspeita de fraude' : 'títulos com suspeita de fraude'}
+            </p>
+            <p className="text-destructive/70 text-xs">Verifique a seção de fraudes abaixo</p>
+          </div>
         </div>
       ) : (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-green-100 border border-green-300 dark:bg-green-950/40 dark:border-green-800">
-          <span className="text-green-600 dark:text-green-400 text-sm font-medium">
-            ✓ Nenhuma suspeita de fraude
-          </span>
+        <div className="flex items-center gap-3 px-5 py-4 rounded-xl bg-success/10 border border-success/30">
+          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-success/20">
+            <span className="text-lg">✓</span>
+          </div>
+          <div>
+            <p className="text-success text-sm font-semibold">Nenhuma suspeita de fraude</p>
+            <p className="text-success/70 text-xs">Cedente sem alertas de fraude</p>
+          </div>
         </div>
       )}
 
