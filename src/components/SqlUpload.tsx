@@ -2,7 +2,9 @@ import { useState, useRef } from 'react';
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { uploadSqlFile } from '@/lib/api';
+import { Progress } from '@/components/ui/progress';
+import { supabase } from '@/integrations/supabase/client';
+import { createChunks, estimateChunks } from '@/lib/sql-chunker';
 import { toast } from 'sonner';
 
 interface SqlUploadProps {
@@ -13,6 +15,8 @@ export function SqlUpload({ onUploadSuccess }: SqlUploadProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -24,6 +28,8 @@ export function SqlUpload({ onUploadSuccess }: SqlUploadProps) {
       }
       setFile(selectedFile);
       setUploadStatus('idle');
+      setProgress(0);
+      setProgressMessage('');
     }
   };
 
@@ -37,6 +43,8 @@ export function SqlUpload({ onUploadSuccess }: SqlUploadProps) {
       }
       setFile(droppedFile);
       setUploadStatus('idle');
+      setProgress(0);
+      setProgressMessage('');
     }
   };
 
@@ -45,26 +53,114 @@ export function SqlUpload({ onUploadSuccess }: SqlUploadProps) {
 
     setIsUploading(true);
     setUploadStatus('idle');
+    setProgress(0);
 
     try {
-      const result = await uploadSqlFile(file);
+      const sql = await file.text();
+      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
       
-      if (result.success) {
+      // For large files, process in chunks
+      if (sql.length > 500 * 1024) { // > 500KB
+        const chunks = createChunks(sql);
+        const totalChunks = chunks.length;
+        
+        setProgressMessage(`Preparando ${totalChunks} partes (${fileSizeMB}MB)`);
+        
+        let totalRowsAffected = 0;
+        let totalStatementsExecuted = 0;
+        const allTablesCreated: string[] = [];
+        const allErrors: string[] = [];
+        
+        for (let i = 0; i < chunks.length; i++) {
+          const chunk = chunks[i];
+          setProgress(Math.round(((i) / totalChunks) * 100));
+          setProgressMessage(`Processando parte ${i + 1} de ${totalChunks}...`);
+          
+          const { data, error } = await supabase.functions.invoke('process-sql', {
+            body: { 
+              action: 'import', 
+              sql: chunk.content,
+              chunkInfo: {
+                index: chunk.index,
+                total: chunk.total,
+                isLast: chunk.isLast
+              }
+            }
+          });
+
+          if (error) {
+            console.error(`Chunk ${i + 1} error:`, error);
+            allErrors.push(`Parte ${i + 1}: ${error.message}`);
+            continue;
+          }
+
+          if (data?.data) {
+            totalRowsAffected += data.data.rowsAffected || 0;
+            totalStatementsExecuted += data.data.statementsExecuted || 0;
+            if (data.data.tablesCreated) {
+              allTablesCreated.push(...data.data.tablesCreated);
+            }
+            if (data.data.errors) {
+              allErrors.push(...data.data.errors.slice(0, 5));
+            }
+          }
+        }
+        
+        setProgress(100);
         setUploadStatus('success');
-        toast.success(`Arquivo importado com sucesso! ${result.data?.rowsAffected || 0} registros afetados.`);
+        
+        const uniqueTables = [...new Set(allTablesCreated)];
+        let message = `Importação concluída! ${totalStatementsExecuted} comandos, ${totalRowsAffected} registros`;
+        if (uniqueTables.length > 0) {
+          message += `. Tabelas: ${uniqueTables.join(', ')}`;
+        }
+        
+        toast.success(message);
+        
+        if (allErrors.length > 0) {
+          console.warn('Import errors:', allErrors);
+          toast.warning(`${allErrors.length} erros durante importação`);
+        }
+        
         onUploadSuccess();
         setFile(null);
+        
       } else {
-        setUploadStatus('error');
-        toast.error(result.error || 'Erro ao importar arquivo');
+        // Small file - process in one request
+        setProgressMessage('Processando...');
+        
+        const { data, error } = await supabase.functions.invoke('process-sql', {
+          body: { action: 'import', sql }
+        });
+
+        if (error) {
+          setUploadStatus('error');
+          toast.error(error.message || 'Erro ao importar arquivo');
+          return;
+        }
+        
+        if (data?.success) {
+          setUploadStatus('success');
+          setProgress(100);
+          toast.success(data.message || `Arquivo importado! ${data.data?.rowsAffected || 0} registros.`);
+          onUploadSuccess();
+          setFile(null);
+        } else {
+          setUploadStatus('error');
+          toast.error(data?.error || 'Erro ao importar arquivo');
+        }
       }
     } catch (error) {
       setUploadStatus('error');
       toast.error('Erro ao processar arquivo SQL.');
+      console.error('Upload error:', error);
     } finally {
       setIsUploading(false);
+      setProgressMessage('');
     }
   };
+
+  const estimatedChunks = file ? estimateChunks(file.size) : 0;
 
   return (
     <Card className="animate-fade-in">
@@ -74,7 +170,7 @@ export function SqlUpload({ onUploadSuccess }: SqlUploadProps) {
           Importar Arquivo SQL
         </CardTitle>
         <CardDescription>
-          Faça upload de um arquivo .sql para executar no banco de dados MySQL
+          Faça upload de um arquivo .sql para executar no banco de dados (suporta arquivos grandes)
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -98,11 +194,12 @@ export function SqlUpload({ onUploadSuccess }: SqlUploadProps) {
               <div>
                 <p className="font-medium text-foreground">{file.name}</p>
                 <p className="text-sm text-muted-foreground">
-                  {(file.size / 1024).toFixed(2)} KB
+                  {(file.size / 1024 / 1024).toFixed(2)} MB
+                  {estimatedChunks > 1 && ` • ~${estimatedChunks} partes`}
                 </p>
               </div>
               {uploadStatus === 'success' && (
-                <CheckCircle className="h-5 w-5 text-success" />
+                <CheckCircle className="h-5 w-5 text-green-500" />
               )}
               {uploadStatus === 'error' && (
                 <AlertCircle className="h-5 w-5 text-destructive" />
@@ -118,23 +215,23 @@ export function SqlUpload({ onUploadSuccess }: SqlUploadProps) {
           )}
         </div>
 
-        {file && (
+        {isUploading && (
+          <div className="mt-4 space-y-2">
+            <Progress value={progress} className="w-full" />
+            <p className="text-sm text-muted-foreground text-center">
+              {progressMessage || `${progress}%`}
+            </p>
+          </div>
+        )}
+
+        {file && !isUploading && (
           <Button
             onClick={handleUpload}
             disabled={isUploading}
             className="mt-4 w-full"
           >
-            {isUploading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Executando SQL...
-              </>
-            ) : (
-              <>
-                <Upload className="mr-2 h-4 w-4" />
-                Executar Script SQL
-              </>
-            )}
+            <Upload className="mr-2 h-4 w-4" />
+            Executar Script SQL
           </Button>
         )}
       </CardContent>
