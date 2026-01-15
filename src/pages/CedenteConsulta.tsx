@@ -93,7 +93,7 @@ export interface CedenteDetail {
     data: string | null;
     valor_bruto: number | null;
     valor_liquido: number | null;
-    valor_receita: number | null;
+    valor_taxa: number | null;
     etapa: string | null;
   }>;
 }
