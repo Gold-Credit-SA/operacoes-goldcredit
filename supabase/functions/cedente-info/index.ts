@@ -95,6 +95,12 @@ Deno.serve(async (req) => {
         const valorLiquidoTotal = operacoes?.reduce((acc, op) => acc + (op.valor_liquido || 0), 0) || 0;
         const receitaTotal = operacoes?.reduce((acc, op) => acc + (op.valor_receita || 0), 0) || 0;
 
+        // Calcular limites
+        const limiteGlobal = cedente.limite_global || 0;
+        const riscoAtual = cedente.risco_atual || 0;
+        const limiteDisponivel = Math.max(0, limiteGlobal - riscoAtual);
+        const saldo = cedente.saldo || 0;
+
         // Calcular carteira (títulos em aberto)
         const carteiraTotal = titulosAberto?.reduce((acc, t) => acc + (t.valor || 0), 0) || 0;
         const carteiraVencidos = titulosAberto?.filter(t => {
@@ -102,25 +108,62 @@ Deno.serve(async (req) => {
           return new Date(t.vencimento) < new Date();
         }).reduce((acc, t) => acc + (t.valor || 0), 0) || 0;
 
-        // Agrupar por tipo de título
-        const carteiraPorTipo: Record<string, { risco: number; vencimento: number; vencidos: number }> = {};
+        // Calcular taxa de confirmação
+        const confirmacaoStats = {
+          confirmado: { qtd: 0, valor: 0 },     // conf = 'C'
+          parcial: { qtd: 0, valor: 0 },        // conf = 'CI'
+          pendente: { qtd: 0, valor: 0 },       // conf = 'P'
+          semConfirmacao: { qtd: 0, valor: 0 }  // conf = null ou vazio
+        };
+
         titulosAberto?.forEach(t => {
-          const tipo = t.tipo || 'OUTROS';
-          if (!carteiraPorTipo[tipo]) {
-            carteiraPorTipo[tipo] = { risco: 0, vencimento: 0, vencidos: 0 };
-          }
-          carteiraPorTipo[tipo].risco += t.valor || 0;
+          const valor = t.valor || 0;
+          const conf = t.conf?.toUpperCase();
           
-          if (t.vencimento) {
-            const venc = new Date(t.vencimento);
-            const hoje = new Date();
-            if (venc < hoje) {
-              carteiraPorTipo[tipo].vencidos += t.valor || 0;
-            } else {
-              carteiraPorTipo[tipo].vencimento += t.valor || 0;
-            }
+          if (conf === 'C') {
+            confirmacaoStats.confirmado.qtd++;
+            confirmacaoStats.confirmado.valor += valor;
+          } else if (conf === 'CI') {
+            confirmacaoStats.parcial.qtd++;
+            confirmacaoStats.parcial.valor += valor;
+          } else if (conf === 'P') {
+            confirmacaoStats.pendente.qtd++;
+            confirmacaoStats.pendente.valor += valor;
+          } else {
+            confirmacaoStats.semConfirmacao.qtd++;
+            confirmacaoStats.semConfirmacao.valor += valor;
           }
         });
+
+        const totalTitulosAberto = titulosAberto?.length || 0;
+        const totalValorAberto = carteiraTotal;
+
+        const confirmacao = {
+          confirmado: {
+            qtd: confirmacaoStats.confirmado.qtd,
+            valor: confirmacaoStats.confirmado.valor,
+            percentual: totalTitulosAberto > 0 ? (confirmacaoStats.confirmado.qtd / totalTitulosAberto) * 100 : 0
+          },
+          parcial: {
+            qtd: confirmacaoStats.parcial.qtd,
+            valor: confirmacaoStats.parcial.valor,
+            percentual: totalTitulosAberto > 0 ? (confirmacaoStats.parcial.qtd / totalTitulosAberto) * 100 : 0
+          },
+          pendente: {
+            qtd: confirmacaoStats.pendente.qtd,
+            valor: confirmacaoStats.pendente.valor,
+            percentual: totalTitulosAberto > 0 ? (confirmacaoStats.pendente.qtd / totalTitulosAberto) * 100 : 0
+          },
+          semConfirmacao: {
+            qtd: confirmacaoStats.semConfirmacao.qtd,
+            valor: confirmacaoStats.semConfirmacao.valor,
+            percentual: totalTitulosAberto > 0 ? (confirmacaoStats.semConfirmacao.qtd / totalTitulosAberto) * 100 : 0
+          },
+          total: {
+            qtd: totalTitulosAberto,
+            valor: totalValorAberto
+          }
+        };
 
         // Calcular concentração de sacados
         const sacadosConcentracao: Record<string, { nome: string; risco: number }> = {};
@@ -181,6 +224,8 @@ Deno.serve(async (req) => {
           .sort((a, b) => b.mes.localeCompare(a.mes))
           .slice(0, 12);
 
+        console.log('Cedente detail fetched successfully:', cpf_cnpj);
+
         return new Response(JSON.stringify({
           success: true,
           data: {
@@ -193,15 +238,17 @@ Deno.serve(async (req) => {
               valorLiquidoTotal,
               receitaTotal,
             },
+            limites: {
+              global: limiteGlobal,
+              disponivel: limiteDisponivel,
+              risco: riscoAtual,
+              saldo: saldo,
+            },
+            confirmacao,
             carteira: {
               total: carteiraTotal,
               vencidos: carteiraVencidos,
               percentualVencido: carteiraTotal > 0 ? (carteiraVencidos / carteiraTotal) * 100 : 0,
-              porTipo: Object.entries(carteiraPorTipo).map(([tipo, dados]) => ({
-                tipo,
-                ...dados,
-                percentualRisco: carteiraTotal > 0 ? (dados.risco / carteiraTotal) * 100 : 0
-              }))
             },
             concentracaoSacados: topSacados,
             liquidez: {
@@ -216,7 +263,6 @@ Deno.serve(async (req) => {
             },
             receitaMensal,
             ultimasOperacoes: operacoes?.slice(0, 10) || [],
-            ultimaReceitas: receitas?.slice(0, 10) || [],
           }
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }

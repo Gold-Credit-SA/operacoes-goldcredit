@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Building2, Calendar, TrendingUp, Wallet } from 'lucide-react';
+import { Building2, Mail, Phone, MapPin, User, Calendar } from 'lucide-react';
 
 interface DadosEmpresaProps {
   cedente: {
@@ -13,30 +13,15 @@ interface DadosEmpresaProps {
     telefone: string | null;
     gerente: string | null;
     operador: string | null;
-    limite_global: number | null;
-    risco_atual: number | null;
-    saldo: number | null;
     bloqueado: string | null;
     setor: string | null;
-    grupo_economico: string | null;
   };
   resumo: {
     primeiraOperacao: string | null;
     ultimaOperacao: string | null;
     totalOperacoes: number;
-    valorBrutoTotal: number;
-    valorLiquidoTotal: number;
-    receitaTotal: number;
   };
 }
-
-const formatCurrency = (value: number | null | undefined) => {
-  if (!value) return 'R$ 0,00';
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(value);
-};
 
 const formatDate = (date: string | null) => {
   if (!date) return '-';
@@ -48,113 +33,114 @@ const formatDate = (date: string | null) => {
 };
 
 export function DadosEmpresa({ cedente, resumo }: DadosEmpresaProps) {
+  const isBlocked = cedente.bloqueado === 'S';
+
   return (
-    <Card className="border-t-4 border-t-green-600">
+    <Card className="border-t-4 border-t-primary">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Building2 className="h-5 w-5 text-green-600" />
-            Dados da Empresa
+            <Building2 className="h-5 w-5 text-primary" />
+            Informações da Empresa
           </CardTitle>
-          <Badge variant={cedente.bloqueado === 'S' ? 'destructive' : 'default'}>
-            {cedente.bloqueado === 'S' ? 'Bloqueado' : 'Ativo'}
+          <Badge variant={isBlocked ? 'destructive' : 'default'} className="text-xs">
+            {isBlocked ? 'BLOQUEADO' : 'ATIVO'}
           </Badge>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/50">
-                <th className="px-4 py-2 text-left font-semibold">Razão Social</th>
-                <th className="px-4 py-2 text-left font-semibold">CNPJ</th>
-                <th className="px-4 py-2 text-left font-semibold">Cliente desde</th>
-                <th className="px-4 py-2 text-left font-semibold">Última Operação</th>
-                <th className="px-4 py-2 text-right font-semibold">Risco</th>
-                <th className="px-4 py-2 text-right font-semibold">Limite</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-border">
-                <td className="px-4 py-3 font-medium">{cedente.nome || '-'}</td>
-                <td className="px-4 py-3 font-mono text-xs">{cedente.cpf_cnpj || '-'}</td>
-                <td className="px-4 py-3">{formatDate(resumo.primeiraOperacao)}</td>
-                <td className="px-4 py-3">{formatDate(resumo.ultimaOperacao)}</td>
-                <td className="px-4 py-3 text-right text-amber-600 font-semibold">
-                  {formatCurrency(cedente.risco_atual)}
-                </td>
-                <td className="px-4 py-3 text-right text-green-600 font-semibold">
-                  {formatCurrency(cedente.limite_global)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div className="mt-4 grid gap-4 md:grid-cols-4">
-          <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
-            <div className="rounded-lg bg-primary/10 p-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-            </div>
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Dados Básicos */}
+          <div className="lg:col-span-2 space-y-4">
             <div>
-              <p className="text-xs text-muted-foreground">Total Operações</p>
-              <p className="text-lg font-bold">{resumo.totalOperacoes}</p>
+              <h3 className="text-xl font-bold text-foreground">
+                {cedente.nome || 'Nome não informado'}
+              </h3>
+              <p className="text-sm font-mono text-muted-foreground">
+                {cedente.cpf_cnpj || 'CPF/CNPJ não informado'}
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {cedente.endereco && (
+                <div className="flex items-start gap-2">
+                  <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm">{cedente.endereco}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {[cedente.cidade, cedente.uf].filter(Boolean).join(' - ')}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {cedente.email && (
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">{cedente.email}</span>
+                </div>
+              )}
+
+              {cedente.telefone && (
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">{cedente.telefone}</span>
+                </div>
+              )}
+
+              {cedente.setor && (
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">{cedente.setor}</span>
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
-            <div className="rounded-lg bg-blue-100 p-2">
-              <Wallet className="h-5 w-5 text-blue-600" />
+          {/* Informações de Relacionamento */}
+          <div className="space-y-3 border-l border-border pl-4">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <p className="text-xs text-muted-foreground">Cliente desde</p>
+                <p className="text-sm font-semibold">{formatDate(resumo.primeiraOperacao)}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Valor Bruto Total</p>
-              <p className="text-lg font-bold text-blue-600">{formatCurrency(resumo.valorBrutoTotal)}</p>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
-            <div className="rounded-lg bg-green-100 p-2">
-              <Wallet className="h-5 w-5 text-green-600" />
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <p className="text-xs text-muted-foreground">Última operação</p>
+                <p className="text-sm font-semibold">{formatDate(resumo.ultimaOperacao)}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Valor Líquido Total</p>
-              <p className="text-lg font-bold text-green-600">{formatCurrency(resumo.valorLiquidoTotal)}</p>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
-            <div className="rounded-lg bg-amber-100 p-2">
-              <Calendar className="h-5 w-5 text-amber-600" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Receita Total</p>
-              <p className="text-lg font-bold text-amber-600">{formatCurrency(resumo.receitaTotal)}</p>
-            </div>
-          </div>
-        </div>
-
-        {(cedente.gerente || cedente.operador || cedente.setor) && (
-          <div className="mt-4 grid gap-4 md:grid-cols-3 border-t border-border pt-4">
             {cedente.gerente && (
-              <div>
-                <p className="text-xs text-muted-foreground">Gerente</p>
-                <p className="font-medium">{cedente.gerente}</p>
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Gerente</p>
+                  <p className="text-sm font-semibold">{cedente.gerente}</p>
+                </div>
               </div>
             )}
+
             {cedente.operador && (
-              <div>
-                <p className="text-xs text-muted-foreground">Operador</p>
-                <p className="font-medium">{cedente.operador}</p>
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Operador</p>
+                  <p className="text-sm font-semibold">{cedente.operador}</p>
+                </div>
               </div>
             )}
-            {cedente.setor && (
-              <div>
-                <p className="text-xs text-muted-foreground">Setor</p>
-                <p className="font-medium">{cedente.setor}</p>
-              </div>
-            )}
+
+            <div className="pt-2 border-t border-border">
+              <p className="text-xs text-muted-foreground">Total de operações</p>
+              <p className="text-lg font-bold text-primary">{resumo.totalOperacoes}</p>
+            </div>
           </div>
-        )}
+        </div>
       </CardContent>
     </Card>
   );

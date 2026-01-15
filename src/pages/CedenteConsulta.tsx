@@ -49,17 +49,23 @@ export interface CedenteDetail {
     valorLiquidoTotal: number;
     receitaTotal: number;
   };
+  limites: {
+    global: number;
+    disponivel: number;
+    risco: number;
+    saldo: number;
+  };
+  confirmacao: {
+    confirmado: { qtd: number; valor: number; percentual: number };
+    parcial: { qtd: number; valor: number; percentual: number };
+    pendente: { qtd: number; valor: number; percentual: number };
+    semConfirmacao: { qtd: number; valor: number; percentual: number };
+    total: { qtd: number; valor: number };
+  };
   carteira: {
     total: number;
     vencidos: number;
     percentualVencido: number;
-    porTipo: Array<{
-      tipo: string;
-      risco: number;
-      vencimento: number;
-      vencidos: number;
-      percentualRisco: number;
-    }>;
   };
   concentracaoSacados: Array<{
     cpf_cnpj: string;
@@ -89,12 +95,6 @@ export interface CedenteDetail {
     valor_liquido: number | null;
     valor_receita: number | null;
     etapa: string | null;
-  }>;
-  ultimaReceitas: Array<{
-    id: number;
-    data_pagamento: string | null;
-    modalidade: string | null;
-    total: number | null;
   }>;
 }
 
