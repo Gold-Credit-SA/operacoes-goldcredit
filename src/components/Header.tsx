@@ -1,4 +1,4 @@
-import { Database, LayoutDashboard, Upload } from 'lucide-react';
+import { Database, LayoutDashboard, Upload, Search } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
@@ -8,6 +8,7 @@ export function Header() {
   const navItems = [
     { path: '/', label: 'Importação', icon: Upload },
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/consulta', label: 'Consulta', icon: Search },
   ];
 
   return (
