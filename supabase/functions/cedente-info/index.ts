@@ -95,9 +95,14 @@ Deno.serve(async (req) => {
         const valorLiquidoTotal = operacoes?.reduce((acc, op) => acc + (op.valor_liquido || 0), 0) || 0;
         const receitaTotal = operacoes?.reduce((acc, op) => acc + (op.valor_receita || 0), 0) || 0;
 
-        // Calcular taxa média (média das taxas de cada operação)
-        const taxasOperacoes = operacoes?.filter(op => op.valor_bruto && op.valor_bruto > 0)
-          .map(op => ((op.valor_bruto - (op.valor_liquido || 0)) / op.valor_bruto) * 100) || [];
+        // Calcular taxa média: (desagio / valor_bruto / prazo_medio) * 30 * 100
+        // Onde desagio = valor_bruto - valor_liquido
+        const taxasOperacoes = operacoes?.filter(op => 
+          op.valor_bruto && op.valor_bruto > 0 && op.prazo_medio && op.prazo_medio > 0
+        ).map(op => {
+          const desagio = op.valor_bruto - (op.valor_liquido || 0);
+          return (desagio / op.valor_bruto / op.prazo_medio) * 30 * 100;
+        }) || [];
         const taxaMedia = taxasOperacoes.length > 0 
           ? taxasOperacoes.reduce((acc, taxa) => acc + taxa, 0) / taxasOperacoes.length 
           : 0;
@@ -270,17 +275,23 @@ Deno.serve(async (req) => {
               percentualLiquidado: 100 - percentualRecompra,
             },
             receitaMensal,
-            ultimasOperacoes: operacoes?.slice(0, 10).map(op => ({
-              id: op.id,
-              operacao: op.operacao,
-              data: op.data,
-              valor_bruto: op.valor_bruto,
-              valor_liquido: op.valor_liquido,
-              valor_taxa: op.valor_bruto && op.valor_liquido && op.valor_bruto > 0
-                ? ((op.valor_bruto - op.valor_liquido) / op.valor_bruto) * 100
-                : 0,
-              etapa: op.etapa
-            })) || [],
+            ultimasOperacoes: operacoes?.slice(0, 10).map(op => {
+              // Fórmula: (desagio / valor_bruto / prazo_medio) * 30 * 100
+              const desagio = (op.valor_bruto || 0) - (op.valor_liquido || 0);
+              const taxa = op.valor_bruto && op.valor_bruto > 0 && op.prazo_medio && op.prazo_medio > 0
+                ? (desagio / op.valor_bruto / op.prazo_medio) * 30 * 100
+                : 0;
+              return {
+                id: op.id,
+                operacao: op.operacao,
+                data: op.data,
+                valor_bruto: op.valor_bruto,
+                valor_liquido: op.valor_liquido,
+                prazo_medio: op.prazo_medio,
+                valor_taxa: taxa,
+                etapa: op.etapa
+              };
+            }) || [],
           }
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
