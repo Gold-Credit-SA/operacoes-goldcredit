@@ -87,6 +87,12 @@ Deno.serve(async (req) => {
           .select('*')
           .eq('cpf_cnpj_cedente', cpf_cnpj);
 
+        // Buscar títulos prorrogados
+        const { data: titulosProrrogados } = await supabase
+          .from('titulos_prorrogados')
+          .select('*')
+          .eq('cpf_cnpj_cedente', cpf_cnpj);
+
         // Buscar títulos com suspeita de fraude
         const { data: suspeitasFraude } = await supabase
           .from('titulos_quitados_suspeita_fraude')
@@ -114,6 +120,12 @@ Deno.serve(async (req) => {
         }) || [];
         const taxaMedia = taxasOperacoes.length > 0 
           ? taxasOperacoes.reduce((acc, taxa) => acc + taxa, 0) / taxasOperacoes.length 
+          : 0;
+
+        // Calcular prazo médio geral das operações
+        const prazosMedios = operacoes?.filter(op => op.prazo_medio && op.prazo_medio > 0).map(op => op.prazo_medio) || [];
+        const prazoMedioOperacoes = prazosMedios.length > 0 
+          ? prazosMedios.reduce((acc, p) => acc + p, 0) / prazosMedios.length 
           : 0;
 
         // Calcular limites
@@ -245,6 +257,236 @@ Deno.serve(async (req) => {
           .sort((a, b) => b.mes.localeCompare(a.mes))
           .slice(0, 12);
 
+        // ============ NOVAS MÉTRICAS ============
+
+        // Calcular receita total gerada (soma de todas as receitas)
+        const receitaGerada = receitas?.reduce((acc, r) => acc + (r.total || 0), 0) || 0;
+
+        // Calcular valor médio dos borderôs (operações)
+        const valorMedioBorderos = totalOperacoes > 0 ? valorBrutoTotal / totalOperacoes : 0;
+
+        // Calcular valor médio dos títulos em aberto
+        const valorMedioTitulos = totalTitulosAberto > 0 ? carteiraTotal / totalTitulosAberto : 0;
+
+        // Calcular percentual de prorrogação
+        const totalProrrogados = titulosProrrogados?.length || 0;
+        const percentualProrrogacao = totalTitulosHistorico > 0 ? (totalProrrogados / totalTitulosHistorico) * 100 : 0;
+
+        // Calcular média de dias de atraso nos títulos quitados em atraso
+        const diasAtrasoList = titulosQuitados?.filter(t => {
+          if (!t.quitacao || !t.vencimento) return false;
+          return new Date(t.quitacao) > new Date(t.vencimento);
+        }).map(t => {
+          const quitacao = new Date(t.quitacao!);
+          const vencimento = new Date(t.vencimento!);
+          return Math.ceil((quitacao.getTime() - vencimento.getTime()) / (1000 * 60 * 60 * 24));
+        }) || [];
+        const mediaPagoEmAtraso = diasAtrasoList.length > 0 
+          ? diasAtrasoList.reduce((acc, d) => acc + d, 0) / diasAtrasoList.length 
+          : 0;
+
+        // Cheques devolvidos (tipo contém 'CHQ' ou 'CHEQUE')
+        const chqDevolvidosAberto = titulosAberto?.filter(t => {
+          const tipo = (t.tipo || '').toUpperCase();
+          const motivo = (t.motivo || '').toUpperCase();
+          return (tipo.includes('CHQ') || tipo.includes('CHEQUE')) && 
+                 (motivo.includes('DEV') || motivo.includes('DEVOLV'));
+        }).length || 0;
+
+        const chqDevolvidosQuitado = titulosQuitados?.filter(t => {
+          const tipo = (t.tipo || '').toUpperCase();
+          const motivoDev = (t.motivo_devolucao || '').toUpperCase();
+          return (tipo.includes('CHQ') || tipo.includes('CHEQUE')) && motivoDev.length > 0;
+        }).length || 0;
+
+        // ============ COMPORTAMENTO 90 DIAS ============
+        const hoje = new Date();
+        const data90DiasAtras = new Date();
+        data90DiasAtras.setDate(hoje.getDate() - 90);
+
+        // Filtrar títulos quitados nos últimos 90 dias
+        const quitados90Dias = titulosQuitados?.filter(t => {
+          if (!t.quitacao) return false;
+          const dataQuit = new Date(t.quitacao);
+          return dataQuit >= data90DiasAtras && dataQuit <= hoje;
+        }) || [];
+
+        // Filtrar recompras nos últimos 90 dias
+        const recompras90Dias = titulosRecomprados?.filter(t => {
+          if (!t.recompra) return false;
+          const dataRecompra = new Date(t.recompra);
+          return dataRecompra >= data90DiasAtras && dataRecompra <= hoje;
+        }) || [];
+
+        // Calcular comportamento de pagamento
+        const comportamento = {
+          pontual: { valor: 0, qtd: 0 },
+          atraso5: { valor: 0, qtd: 0 },
+          atraso15: { valor: 0, qtd: 0 },
+          atraso30: { valor: 0, qtd: 0 },
+          atrasoMais30: { valor: 0, qtd: 0 },
+          recompra: { valor: 0, qtd: 0 },
+          repasse: { valor: 0, qtd: 0 },
+          cartorio: { valor: 0, qtd: 0 },
+        };
+
+        quitados90Dias.forEach(t => {
+          const valor = t.valor_liquidado || t.valor_face || 0;
+          const tipoQuit = (t.tipo_quitacao || '').toUpperCase();
+          
+          // Verificar se é cartório
+          if (tipoQuit.includes('CART') || tipoQuit.includes('PROTESTO')) {
+            comportamento.cartorio.valor += valor;
+            comportamento.cartorio.qtd++;
+            return;
+          }
+
+          // Verificar se é repasse/pendência
+          if (tipoQuit.includes('REPASSE') || tipoQuit.includes('PEND')) {
+            comportamento.repasse.valor += valor;
+            comportamento.repasse.qtd++;
+            return;
+          }
+
+          // Calcular dias de atraso
+          if (t.quitacao && t.vencimento) {
+            const quitacao = new Date(t.quitacao);
+            const vencimento = new Date(t.vencimento);
+            const diasAtraso = Math.ceil((quitacao.getTime() - vencimento.getTime()) / (1000 * 60 * 60 * 24));
+
+            if (diasAtraso <= 0) {
+              comportamento.pontual.valor += valor;
+              comportamento.pontual.qtd++;
+            } else if (diasAtraso <= 5) {
+              comportamento.atraso5.valor += valor;
+              comportamento.atraso5.qtd++;
+            } else if (diasAtraso <= 15) {
+              comportamento.atraso15.valor += valor;
+              comportamento.atraso15.qtd++;
+            } else if (diasAtraso <= 30) {
+              comportamento.atraso30.valor += valor;
+              comportamento.atraso30.qtd++;
+            } else {
+              comportamento.atrasoMais30.valor += valor;
+              comportamento.atrasoMais30.qtd++;
+            }
+          } else {
+            // Se não tem data de vencimento, considerar pontual
+            comportamento.pontual.valor += valor;
+            comportamento.pontual.qtd++;
+          }
+        });
+
+        // Adicionar recompras
+        recompras90Dias.forEach(t => {
+          const valor = t.valor_face || 0;
+          comportamento.recompra.valor += valor;
+          comportamento.recompra.qtd++;
+        });
+
+        // Calcular totais e percentuais
+        const totalPago90Dias = Object.values(comportamento).reduce((acc, c) => acc + c.valor, 0);
+        const totalQtd90Dias = Object.values(comportamento).reduce((acc, c) => acc + c.qtd, 0);
+
+        // Títulos em atraso (abertos vencidos)
+        const titulosEmAtraso = titulosAberto?.filter(t => {
+          if (!t.vencimento) return false;
+          return new Date(t.vencimento) < hoje;
+        }) || [];
+        const valorEmAtraso = titulosEmAtraso.reduce((acc, t) => acc + (t.valor || 0), 0);
+        const qtdEmAtraso = titulosEmAtraso.length;
+
+        const comportamento90Dias = {
+          pontual: { 
+            valor: comportamento.pontual.valor, 
+            qtd: comportamento.pontual.qtd,
+            percentualValor: totalPago90Dias > 0 ? (comportamento.pontual.valor / totalPago90Dias) * 100 : 0,
+            percentualQtd: totalQtd90Dias > 0 ? (comportamento.pontual.qtd / totalQtd90Dias) * 100 : 0,
+          },
+          atraso5: { 
+            valor: comportamento.atraso5.valor, 
+            qtd: comportamento.atraso5.qtd,
+            percentualValor: totalPago90Dias > 0 ? (comportamento.atraso5.valor / totalPago90Dias) * 100 : 0,
+            percentualQtd: totalQtd90Dias > 0 ? (comportamento.atraso5.qtd / totalQtd90Dias) * 100 : 0,
+          },
+          atraso15: { 
+            valor: comportamento.atraso15.valor, 
+            qtd: comportamento.atraso15.qtd,
+            percentualValor: totalPago90Dias > 0 ? (comportamento.atraso15.valor / totalPago90Dias) * 100 : 0,
+            percentualQtd: totalQtd90Dias > 0 ? (comportamento.atraso15.qtd / totalQtd90Dias) * 100 : 0,
+          },
+          atraso30: { 
+            valor: comportamento.atraso30.valor, 
+            qtd: comportamento.atraso30.qtd,
+            percentualValor: totalPago90Dias > 0 ? (comportamento.atraso30.valor / totalPago90Dias) * 100 : 0,
+            percentualQtd: totalQtd90Dias > 0 ? (comportamento.atraso30.qtd / totalQtd90Dias) * 100 : 0,
+          },
+          atrasoMais30: { 
+            valor: comportamento.atrasoMais30.valor, 
+            qtd: comportamento.atrasoMais30.qtd,
+            percentualValor: totalPago90Dias > 0 ? (comportamento.atrasoMais30.valor / totalPago90Dias) * 100 : 0,
+            percentualQtd: totalQtd90Dias > 0 ? (comportamento.atrasoMais30.qtd / totalQtd90Dias) * 100 : 0,
+          },
+          recompra: { 
+            valor: comportamento.recompra.valor, 
+            qtd: comportamento.recompra.qtd,
+            percentualValor: totalPago90Dias > 0 ? (comportamento.recompra.valor / totalPago90Dias) * 100 : 0,
+            percentualQtd: totalQtd90Dias > 0 ? (comportamento.recompra.qtd / totalQtd90Dias) * 100 : 0,
+          },
+          repasse: { 
+            valor: comportamento.repasse.valor, 
+            qtd: comportamento.repasse.qtd,
+            percentualValor: totalPago90Dias > 0 ? (comportamento.repasse.valor / totalPago90Dias) * 100 : 0,
+            percentualQtd: totalQtd90Dias > 0 ? (comportamento.repasse.qtd / totalQtd90Dias) * 100 : 0,
+          },
+          cartorio: { 
+            valor: comportamento.cartorio.valor, 
+            qtd: comportamento.cartorio.qtd,
+            percentualValor: totalPago90Dias > 0 ? (comportamento.cartorio.valor / totalPago90Dias) * 100 : 0,
+            percentualQtd: totalQtd90Dias > 0 ? (comportamento.cartorio.qtd / totalQtd90Dias) * 100 : 0,
+          },
+          totalPago: { 
+            valor: totalPago90Dias, 
+            qtd: totalQtd90Dias 
+          },
+          emAtraso: { 
+            valor: valorEmAtraso, 
+            qtd: qtdEmAtraso,
+            percentualValor: carteiraTotal > 0 ? (valorEmAtraso / carteiraTotal) * 100 : 0,
+            percentualQtd: totalTitulosAberto > 0 ? (qtdEmAtraso / totalTitulosAberto) * 100 : 0,
+          },
+        };
+
+        // Prazo médio dos títulos vencidos nos últimos 90 dias
+        const titulosVencidos90Dias = titulosAberto?.filter(t => {
+          if (!t.vencimento) return false;
+          const venc = new Date(t.vencimento);
+          return venc >= data90DiasAtras && venc <= hoje;
+        }) || [];
+        
+        // Calcular prazo médio como dias até vencimento a partir da emissão
+        const prazosTitulos90Dias = titulosVencidos90Dias.filter(t => t.data_emissao && t.vencimento).map(t => {
+          const emissao = new Date(t.data_emissao!);
+          const vencimento = new Date(t.vencimento!);
+          return Math.ceil((vencimento.getTime() - emissao.getTime()) / (1000 * 60 * 60 * 24));
+        });
+        const prazoMedioTitulos90Dias = prazosTitulos90Dias.length > 0 
+          ? prazosTitulos90Dias.reduce((acc, p) => acc + p, 0) / prazosTitulos90Dias.length 
+          : 0;
+
+        const resumoExpandido = {
+          volumeOperado: valorBrutoTotal,
+          prazoMedioOperacoes: prazoMedioOperacoes,
+          prazoMedioTitulos90Dias: prazoMedioTitulos90Dias,
+          mediaPagoEmAtraso: mediaPagoEmAtraso,
+          valorMedioBorderos: valorMedioBorderos,
+          valorMedioTitulos: valorMedioTitulos,
+          receitaGerada: receitaGerada,
+          percentualProrrogacao: percentualProrrogacao,
+          chqDevolvidosAberto: chqDevolvidosAberto,
+          chqDevolvidosQuitado: chqDevolvidosQuitado,
+        };
+
         console.log('Cedente detail fetched successfully:', cpf_cnpj);
 
         return new Response(JSON.stringify({
@@ -260,6 +502,7 @@ Deno.serve(async (req) => {
               receitaTotal,
               taxaMedia,
             },
+            resumoExpandido,
             limites: {
               global: limiteGlobal,
               disponivel: limiteDisponivel,
@@ -283,6 +526,7 @@ Deno.serve(async (req) => {
               percentualRecompra,
               percentualLiquidado: 100 - percentualRecompra,
             },
+            comportamento90Dias,
             receitaMensal,
             // Títulos em aberto (todos)
             titulosAberto: titulosAberto?.map(t => ({
