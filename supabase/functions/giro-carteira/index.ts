@@ -19,8 +19,11 @@ serve(async (req) => {
     const { action, dataLimite, cedentes } = await req.json();
 
     if (action === 'list-inativos') {
-      // Buscar cedentes que não operaram desde a data limite
+      // Buscar cedentes que pararam de operar DEPOIS da data limite
+      // (última operação >= dataLimite, mas antes de hoje)
       console.log("Buscando cedentes inativos desde:", dataLimite);
+
+      const hoje = new Date().toISOString().split('T')[0];
 
       // Primeiro, buscar última operação de cada cedente da tabela operacoes_individualizadas
       const { data: operacoes, error: opError } = await supabase
@@ -41,9 +44,10 @@ serve(async (req) => {
         }
       }
 
-      // Filtrar cedentes cuja última operação foi antes da data limite
+      // Filtrar cedentes cuja última operação foi DEPOIS da data limite (inclusive)
+      // e ANTES de hoje (para garantir que estão inativos agora)
       const cedentesInativos = Object.entries(ultimaOperacaoPorCedente)
-        .filter(([_, ultimaOp]) => ultimaOp < dataLimite)
+        .filter(([_, ultimaOp]) => ultimaOp >= dataLimite && ultimaOp < hoje)
         .map(([cpfCnpj, ultimaOp]) => ({ cpf_cnpj: cpfCnpj, ultima_operacao: ultimaOp }));
 
       // Buscar detalhes dos cedentes inativos
@@ -86,14 +90,14 @@ serve(async (req) => {
         };
       });
 
-      // Ordenar por última operação (mais antigo primeiro)
+      // Ordenar por última operação (mais recente primeiro)
       resultado.sort((a, b) => {
         const dateA = a.ultima_operacao ? new Date(a.ultima_operacao).getTime() : 0;
         const dateB = b.ultima_operacao ? new Date(b.ultima_operacao).getTime() : 0;
-        return dateA - dateB;
+        return dateB - dateA;
       });
 
-      console.log(`Encontrados ${resultado.length} cedentes inativos`);
+      console.log(`Encontrados ${resultado.length} cedentes inativos desde ${dataLimite}`);
 
       return new Response(JSON.stringify({ success: true, cedentes: resultado }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
