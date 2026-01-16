@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AppSidebar } from "@/components/layout/AppSidebar";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import CedenteConsulta from "./pages/CedenteConsulta";
@@ -17,13 +18,18 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/consulta" element={<CedenteConsulta />} />
-          <Route path="/cedente/:id" element={<CedenteDetailPage />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <div className="min-h-screen bg-background flex">
+          <AppSidebar />
+          <div className="flex-1 ml-64">
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/consulta" element={<CedenteConsulta />} />
+              <Route path="/cedente/:id" element={<CedenteDetailPage />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </div>
+        </div>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
