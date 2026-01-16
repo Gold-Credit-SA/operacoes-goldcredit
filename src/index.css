@@ -43,14 +43,14 @@
 
     --radius: 0.5rem;
 
-    /* Sidebar - White with gold accent */
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 0 0% 15%;
+    /* Sidebar - Black with gold accent */
+    --sidebar-background: 0 0% 0%;
+    --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 38 67% 67%;
     --sidebar-primary-foreground: 0 0% 0%;
-    --sidebar-accent: 0 0% 96%;
-    --sidebar-accent-foreground: 0 0% 0%;
-    --sidebar-border: 0 0% 92%;
+    --sidebar-accent: 0 0% 12%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 15%;
     --sidebar-ring: 38 67% 67%;
   }
 
