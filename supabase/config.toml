@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.analyze-cedente]
 verify_jwt = false
+
+[functions.giro-carteira]
+verify_jwt = false
