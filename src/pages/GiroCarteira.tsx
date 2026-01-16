@@ -2,10 +2,9 @@ import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
@@ -15,11 +14,11 @@ import {
   CheckCircle2, 
   XCircle, 
   ArrowRight, 
-  Calendar,
   Building2,
   TrendingUp,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  Clock
 } from 'lucide-react';
 
 interface CedenteInativo {
@@ -34,6 +33,7 @@ interface CedenteInativo {
   setor?: string;
   uf?: string;
   cidade?: string;
+  categoria?: '7dias' | '15dias' | '30dias';
 }
 
 interface AnaliseIA {
@@ -43,12 +43,14 @@ interface AnaliseIA {
   score: number;
 }
 
+type FiltroCategoria = 'todos' | '7dias' | '15dias' | '30dias';
+
 export default function GiroCarteira() {
-  const [dataLimite, setDataLimite] = useState('');
   const [cedentes, setCedentes] = useState<CedenteInativo[]>([]);
   const [analises, setAnalises] = useState<Record<string, AnaliseIA>>({});
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [filtroAtivo, setFiltroAtivo] = useState<FiltroCategoria>('todos');
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -75,30 +77,26 @@ export default function GiroCarteira() {
   };
 
   const buscarCedentesInativos = async () => {
-    if (!dataLimite) {
-      toast({
-        title: "Selecione uma data",
-        description: "Informe a data limite para buscar cedentes inativos.",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setIsLoadingList(true);
     setAnalises({});
     
     try {
       const { data, error } = await supabase.functions.invoke('giro-carteira', {
-        body: { action: 'list-inativos', dataLimite }
+        body: { action: 'list-inativos' }
       });
 
       if (error) throw error;
 
       if (data.success) {
         setCedentes(data.cedentes);
+        
+        const count7 = data.cedentes.filter((c: CedenteInativo) => c.categoria === '7dias').length;
+        const count15 = data.cedentes.filter((c: CedenteInativo) => c.categoria === '15dias').length;
+        const count30 = data.cedentes.filter((c: CedenteInativo) => c.categoria === '30dias').length;
+        
         toast({
           title: "Cedentes encontrados",
-          description: `${data.cedentes.length} cedentes inativos desde ${new Date(dataLimite).toLocaleDateString('pt-BR')}`
+          description: `${data.cedentes.length} cedentes inativos: ${count7} (7d), ${count15} (15d), ${count30} (30d+)`
         });
       }
     } catch (error) {
@@ -114,7 +112,11 @@ export default function GiroCarteira() {
   };
 
   const analisarComIA = async () => {
-    if (cedentes.length === 0) {
+    const cedentesFiltrados = filtroAtivo === 'todos' 
+      ? cedentes 
+      : cedentes.filter(c => c.categoria === filtroAtivo);
+
+    if (cedentesFiltrados.length === 0) {
       toast({
         title: "Nenhum cedente",
         description: "Busque cedentes inativos primeiro.",
@@ -127,7 +129,7 @@ export default function GiroCarteira() {
     
     try {
       const { data, error } = await supabase.functions.invoke('giro-carteira', {
-        body: { action: 'analyze-batch', cedentes }
+        body: { action: 'analyze-batch', cedentes: cedentesFiltrados }
       });
 
       if (error) throw error;
@@ -137,7 +139,7 @@ export default function GiroCarteira() {
         for (const analise of data.analises) {
           analisesMap[analise.cpf_cnpj] = analise;
         }
-        setAnalises(analisesMap);
+        setAnalises(prev => ({ ...prev, ...analisesMap }));
         
         const saudaveis = data.analises.filter((a: AnaliseIA) => a.saudavel).length;
         toast({
@@ -161,15 +163,27 @@ export default function GiroCarteira() {
     navigate(`/consulta?cpf_cnpj=${cpfCnpj}`);
   };
 
-  const cedentesOrdenados = [...cedentes].sort((a, b) => {
+  // Contadores por categoria
+  const contadores = {
+    todos: cedentes.length,
+    '7dias': cedentes.filter(c => c.categoria === '7dias').length,
+    '15dias': cedentes.filter(c => c.categoria === '15dias').length,
+    '30dias': cedentes.filter(c => c.categoria === '30dias').length,
+  };
+
+  // Filtrar cedentes pela categoria selecionada
+  const cedentesFiltrados = filtroAtivo === 'todos' 
+    ? cedentes 
+    : cedentes.filter(c => c.categoria === filtroAtivo);
+
+  // Ordenar: saudáveis primeiro, depois por score
+  const cedentesOrdenados = [...cedentesFiltrados].sort((a, b) => {
     const analiseA = analises[a.cpf_cnpj];
     const analiseB = analises[b.cpf_cnpj];
     
-    // Saudáveis primeiro
     if (analiseA?.saudavel && !analiseB?.saudavel) return -1;
     if (!analiseA?.saudavel && analiseB?.saudavel) return 1;
     
-    // Por score
     if (analiseA && analiseB) {
       return (analiseB.score || 0) - (analiseA.score || 0);
     }
@@ -188,69 +202,81 @@ export default function GiroCarteira() {
           </p>
         </div>
 
-        {/* Filtro de Data */}
+        {/* Ações */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Calendar className="h-5 w-5 text-primary" />
+              <Clock className="h-5 w-5 text-primary" />
               Buscar Cedentes Inativos
             </CardTitle>
             <CardDescription>
-              Selecione uma data para encontrar cedentes que não operaram desde então
+              Encontre cedentes que não operam há 7, 15 ou 30+ dias
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 max-w-xs">
-                <Label htmlFor="dataLimite">Data limite da última operação</Label>
-                <Input
-                  id="dataLimite"
-                  type="date"
-                  value={dataLimite}
-                  onChange={(e) => setDataLimite(e.target.value)}
-                  className="mt-1.5"
-                />
-              </div>
-              <div className="flex items-end gap-2">
-                <Button onClick={buscarCedentesInativos} disabled={isLoadingList}>
-                  {isLoadingList ? (
+            <div className="flex flex-wrap gap-3">
+              <Button onClick={buscarCedentesInativos} disabled={isLoadingList}>
+                {isLoadingList ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Buscando...
+                  </>
+                ) : (
+                  <>
+                    <Search className="h-4 w-4 mr-2" />
+                    Buscar Inativos
+                  </>
+                )}
+              </Button>
+              {cedentes.length > 0 && (
+                <Button 
+                  onClick={analisarComIA} 
+                  disabled={isAnalyzing}
+                  variant="secondary"
+                  className="bg-primary/10 hover:bg-primary/20 text-primary"
+                >
+                  {isAnalyzing ? (
                     <>
                       <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      Buscando...
+                      Analisando...
                     </>
                   ) : (
                     <>
-                      <Search className="h-4 w-4 mr-2" />
-                      Buscar Inativos
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Analisar com IA ({cedentesFiltrados.length})
                     </>
                   )}
                 </Button>
-                {cedentes.length > 0 && (
-                  <Button 
-                    onClick={analisarComIA} 
-                    disabled={isAnalyzing}
-                    variant="secondary"
-                    className="bg-primary/10 hover:bg-primary/20 text-primary"
-                  >
-                    {isAnalyzing ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        Analisando...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        Analisar com IA
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Resumo */}
+        {/* Tabs de Período */}
+        {cedentes.length > 0 && (
+          <Tabs value={filtroAtivo} onValueChange={(v) => setFiltroAtivo(v as FiltroCategoria)}>
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="todos" className="flex items-center gap-2">
+                Todos
+                <Badge variant="secondary" className="ml-1">{contadores.todos}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="7dias" className="flex items-center gap-2">
+                7 dias
+                <Badge variant="secondary" className="ml-1">{contadores['7dias']}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="15dias" className="flex items-center gap-2">
+                15 dias
+                <Badge variant="secondary" className="ml-1">{contadores['15dias']}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="30dias" className="flex items-center gap-2">
+                30+ dias
+                <Badge variant="secondary" className="ml-1">{contadores['30dias']}</Badge>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
+
+        {/* Resumo da Análise */}
         {Object.keys(analises).length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Card className="bg-emerald-500/10 border-emerald-500/20">
@@ -280,7 +306,7 @@ export default function GiroCarteira() {
                 <TrendingUp className="h-8 w-8 text-primary" />
                 <div>
                   <p className="text-2xl font-bold text-primary">
-                    {cedentes.length}
+                    {Object.keys(analises).length}
                   </p>
                   <p className="text-sm text-primary/80">Total analisados</p>
                 </div>
@@ -305,7 +331,7 @@ export default function GiroCarteira() {
         )}
 
         {/* Lista de Cedentes */}
-        {!isLoadingList && cedentes.length > 0 && (
+        {!isLoadingList && cedentesFiltrados.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {cedentesOrdenados.map((cedente) => {
               const analise = analises[cedente.cpf_cnpj];
@@ -334,21 +360,28 @@ export default function GiroCarteira() {
                           {formatCpfCnpj(cedente.cpf_cnpj)}
                         </span>
                       </div>
-                      {analise && (
-                        <Badge 
-                          variant={analise.saudavel ? "default" : "destructive"}
-                          className={analise.saudavel 
-                            ? "bg-emerald-500 hover:bg-emerald-600" 
-                            : ""
-                          }
-                        >
-                          {analise.saudavel ? (
-                            <><CheckCircle2 className="h-3 w-3 mr-1" /> Saudável</>
-                          ) : (
-                            <><XCircle className="h-3 w-3 mr-1" /> Não Recomendado</>
-                          )}
+                      <div className="flex items-center gap-1">
+                        <Badge variant="outline" className="text-xs">
+                          {cedente.categoria === '7dias' && '7d'}
+                          {cedente.categoria === '15dias' && '15d'}
+                          {cedente.categoria === '30dias' && '30d+'}
                         </Badge>
-                      )}
+                        {analise && (
+                          <Badge 
+                            variant={analise.saudavel ? "default" : "destructive"}
+                            className={analise.saudavel 
+                              ? "bg-emerald-500 hover:bg-emerald-600" 
+                              : ""
+                            }
+                          >
+                            {analise.saudavel ? (
+                              <><CheckCircle2 className="h-3 w-3 mr-1" /> Saudável</>
+                            ) : (
+                              <><XCircle className="h-3 w-3 mr-1" /> Risco</>
+                            )}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
 
                     {/* Nome */}
@@ -429,13 +462,26 @@ export default function GiroCarteira() {
         )}
 
         {/* Empty State */}
-        {!isLoadingList && cedentes.length === 0 && dataLimite && (
+        {!isLoadingList && cedentes.length === 0 && (
           <Card>
             <CardContent className="p-8 text-center">
               <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Nenhum cedente inativo encontrado</h3>
+              <h3 className="text-lg font-semibold mb-2">Buscar cedentes inativos</h3>
               <p className="text-muted-foreground">
-                Todos os cedentes possuem operações após {new Date(dataLimite).toLocaleDateString('pt-BR')}
+                Clique em "Buscar Inativos" para encontrar cedentes que não operam há 7, 15 ou 30+ dias
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Empty State para filtro */}
+        {!isLoadingList && cedentes.length > 0 && cedentesFiltrados.length === 0 && (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Nenhum cedente neste período</h3>
+              <p className="text-muted-foreground">
+                Não há cedentes inativos no período de {filtroAtivo === '7dias' ? '7 dias' : filtroAtivo === '15dias' ? '15 dias' : '30+ dias'}
               </p>
             </CardContent>
           </Card>
