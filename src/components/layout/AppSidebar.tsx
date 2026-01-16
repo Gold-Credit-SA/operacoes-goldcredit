@@ -20,7 +20,7 @@ export function AppSidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-3 space-y-0.5">
+      <nav className="flex-1 px-3 py-3 space-y-2">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
