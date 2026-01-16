@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import CedenteConsulta from "./pages/CedenteConsulta";
 import CedenteDetailPage from "./pages/CedenteDetailPage";
+import GiroCarteira from "./pages/GiroCarteira";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/consulta" element={<CedenteConsulta />} />
               <Route path="/cedente/:id" element={<CedenteDetailPage />} />
+              <Route path="/giro-carteira" element={<GiroCarteira />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </div>
