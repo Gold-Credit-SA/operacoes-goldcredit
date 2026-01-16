@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { CedenteSearch } from '@/components/consulta/CedenteSearch';
 import { CedenteInfoPanel } from '@/components/consulta/CedenteInfoPanel';
@@ -169,12 +170,14 @@ export interface CedenteDetail {
 }
 
 export default function CedenteConsulta() {
+  const [searchParams] = useSearchParams();
   const [cedentes, setCedentes] = useState<CedenteListItem[]>([]);
   const [selectedCedente, setSelectedCedente] = useState<CedenteListItem | null>(null);
   const [cedenteDetail, setCedenteDetail] = useState<CedenteDetail | null>(null);
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [search, setSearch] = useState('');
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   const fetchCedentes = useCallback(async (searchTerm?: string) => {
     setIsLoadingList(true);
@@ -186,10 +189,13 @@ export default function CedenteConsulta() {
       if (error) throw error;
       if (data?.success) {
         setCedentes(data.data || []);
+        return data.data || [];
       }
+      return [];
     } catch (err) {
       console.error('Error fetching cedentes:', err);
       setCedentes([]);
+      return [];
     } finally {
       setIsLoadingList(false);
     }
@@ -214,16 +220,41 @@ export default function CedenteConsulta() {
     }
   }, []);
 
+  // Carrega cedente da URL se existir parâmetro cpf_cnpj
   useEffect(() => {
-    fetchCedentes();
-  }, [fetchCedentes]);
+    const cpfCnpjParam = searchParams.get('cpf_cnpj');
+    
+    const loadInitialData = async () => {
+      const cedentesData = await fetchCedentes();
+      
+      if (cpfCnpjParam && cedentesData.length > 0) {
+        // Busca o cedente na lista pelo cpf_cnpj
+        const cedenteFromUrl = cedentesData.find(
+          (c: CedenteListItem) => c.cpf_cnpj?.replace(/\D/g, '') === cpfCnpjParam.replace(/\D/g, '')
+        );
+        
+        if (cedenteFromUrl) {
+          setSelectedCedente(cedenteFromUrl);
+          fetchCedenteDetail(cedenteFromUrl.cpf_cnpj!);
+        } else {
+          // Se não encontrou na lista, busca direto pelo detalhe
+          fetchCedenteDetail(cpfCnpjParam);
+        }
+      }
+      setInitialLoadDone(true);
+    };
+
+    loadInitialData();
+  }, [searchParams, fetchCedentes, fetchCedenteDetail]);
 
   useEffect(() => {
+    if (!initialLoadDone) return;
+    
     const debounce = setTimeout(() => {
       fetchCedentes(search);
     }, 300);
     return () => clearTimeout(debounce);
-  }, [search, fetchCedentes]);
+  }, [search, fetchCedentes, initialLoadDone]);
 
   const handleSelectCedente = (cedente: CedenteListItem) => {
     setSelectedCedente(cedente);
