@@ -15,8 +15,8 @@ export function AppSidebar() {
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar flex flex-col border-r border-sidebar-border">
       {/* Logo Header */}
-      <div className="flex items-center justify-center px-4 py-6 border-b border-sidebar-border">
-        <img src={logoGoldCredit} alt="Gold Credit" className="h-10 w-auto" />
+      <div className="flex items-center justify-center px-6 py-8 border-b border-sidebar-border">
+        <img src={logoGoldCredit} alt="Gold Credit" className="w-48 h-auto" />
       </div>
 
       {/* Navigation */}
