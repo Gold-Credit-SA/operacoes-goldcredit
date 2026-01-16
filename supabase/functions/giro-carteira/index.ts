@@ -113,8 +113,79 @@ serve(async (req) => {
 
       console.log(`Analisando ${cedentes.length} cedentes em lote`);
 
-      // Preparar resumo de cada cedente para análise
-      const cedentesResumo = cedentes.map((ced: any) => {
+      // Buscar dados completos de cada cedente para análise mais rica
+      const cedentesCompletos = [];
+      
+      for (const ced of cedentes) {
+        // Buscar títulos em aberto
+        const { data: titulosAbertos } = await supabase
+          .from('titulos_aberto')
+          .select('*')
+          .eq('cpf_cnpj_cedente', ced.cpf_cnpj);
+
+        // Buscar títulos quitados (últimos 90 dias)
+        const data90diasAtras = new Date();
+        data90diasAtras.setDate(data90diasAtras.getDate() - 90);
+        
+        const { data: titulosQuitados } = await supabase
+          .from('titulos_quitado')
+          .select('*')
+          .eq('cpf_cnpj_cedente', ced.cpf_cnpj)
+          .gte('data_quitacao', data90diasAtras.toISOString().split('T')[0]);
+
+        // Buscar recompras
+        const { data: recompras } = await supabase
+          .from('titulos_recomprado')
+          .select('*')
+          .eq('cpf_cnpj_cedente', ced.cpf_cnpj);
+
+        // Calcular métricas
+        const totalAberto = titulosAbertos?.reduce((sum, t) => sum + (t.valor_face || 0), 0) || 0;
+        const totalVencido = titulosAbertos?.filter(t => new Date(t.vencimento) < new Date())
+          .reduce((sum, t) => sum + (t.valor_face || 0), 0) || 0;
+        const percentualVencido = totalAberto > 0 ? (totalVencido / totalAberto) * 100 : 0;
+
+        // Calcular concentração de sacados
+        const sacadosMap: Record<string, number> = {};
+        titulosAbertos?.forEach(t => {
+          const sacado = t.cpf_cnpj_sacado || 'Desconhecido';
+          sacadosMap[sacado] = (sacadosMap[sacado] || 0) + (t.valor_face || 0);
+        });
+        
+        const concentracaoTop3 = Object.entries(sacadosMap)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([_, valor]) => totalAberto > 0 ? (valor / totalAberto) * 100 : 0);
+
+        // Calcular taxa de recompra
+        const totalRecomprado = recompras?.reduce((sum, t) => sum + (t.valor_face || 0), 0) || 0;
+        const totalOperado = (ced.valor_bruto_operado || 0);
+        const taxaRecompra = totalOperado > 0 ? (totalRecomprado / totalOperado) * 100 : 0;
+
+        // Calcular liquidez (pagamentos nos últimos 90 dias)
+        const pagamentosPontuais = titulosQuitados?.filter(t => {
+          const venc = new Date(t.vencimento);
+          const quit = new Date(t.data_quitacao);
+          return quit <= venc;
+        }).reduce((sum, t) => sum + (t.valor_face || 0), 0) || 0;
+
+        const totalQuitado = titulosQuitados?.reduce((sum, t) => sum + (t.valor_face || 0), 0) || 0;
+        const taxaPontualidade = totalQuitado > 0 ? (pagamentosPontuais / totalQuitado) * 100 : 0;
+
+        // Calcular dias de atraso médio
+        const titulosAtrasados = titulosQuitados?.filter(t => {
+          const venc = new Date(t.vencimento);
+          const quit = new Date(t.data_quitacao);
+          return quit > venc;
+        }) || [];
+        
+        const diasAtrasoTotal = titulosAtrasados.reduce((sum, t) => {
+          const venc = new Date(t.vencimento);
+          const quit = new Date(t.data_quitacao);
+          return sum + Math.floor((quit.getTime() - venc.getTime()) / (1000 * 60 * 60 * 24));
+        }, 0);
+        const mediaAtraso = titulosAtrasados.length > 0 ? diasAtrasoTotal / titulosAtrasados.length : 0;
+
         const utilizacaoLimite = ced.limite_global > 0 
           ? ((ced.risco_atual || 0) / ced.limite_global) * 100 
           : 0;
@@ -123,54 +194,103 @@ serve(async (req) => {
           ? Math.floor((new Date().getTime() - new Date(ced.ultima_operacao).getTime()) / (1000 * 60 * 60 * 24))
           : 999;
 
-        return {
+        cedentesCompletos.push({
           cpf_cnpj: ced.cpf_cnpj,
           nome: ced.nome || ced.razao_social,
+          setor: ced.setor,
+          uf: ced.uf,
+          bloqueado: ced.bloqueado === 'S',
+          ultima_operacao: ced.ultima_operacao,
+          dias_inativo: diasInativo,
+          // Limites
           limite_global: ced.limite_global || 0,
           limite_disponivel: ced.limite_disponivel || 0,
           risco_atual: ced.risco_atual || 0,
           utilizacao_limite: utilizacaoLimite,
-          bloqueado: ced.bloqueado === 'S',
-          ultima_operacao: ced.ultima_operacao,
-          dias_inativo: diasInativo,
-          setor: ced.setor,
-          uf: ced.uf,
-        };
-      });
+          // Inadimplência
+          total_aberto: totalAberto,
+          total_vencido: totalVencido,
+          percentual_vencido: percentualVencido,
+          // Concentração de sacados
+          concentracao_top1: concentracaoTop3[0] || 0,
+          concentracao_top3_soma: concentracaoTop3.reduce((a, b) => a + b, 0),
+          qtd_sacados: Object.keys(sacadosMap).length,
+          // Recompras
+          total_recomprado: totalRecomprado,
+          taxa_recompra: taxaRecompra,
+          // Liquidez e pontualidade
+          taxa_pontualidade: taxaPontualidade,
+          media_dias_atraso: mediaAtraso,
+          total_quitado_90dias: totalQuitado,
+        });
+      }
 
-      const systemPrompt = `Você é um analista de crédito de factoring especializado. Analise a lista de cedentes inativos e classifique cada um.
+      const systemPrompt = `Você é um analista de crédito especializado em factoring e FIDC. Analise a lista de cedentes inativos considerando TODOS os indicadores fornecidos.
 
-## REGRAS DE CLASSIFICAÇÃO:
+## CRITÉRIOS DE ANÁLISE (por ordem de importância):
 
-### SAUDÁVEL (pode operar):
-- Utilização do limite < 80%
+### 1. INADIMPLÊNCIA (peso alto)
+- percentual_vencido > 30%: CRÍTICO
+- percentual_vencido > 15%: ALERTA
+- percentual_vencido < 5%: BOM
+
+### 2. CONCENTRAÇÃO DE SACADOS (peso alto)
+- concentracao_top1 > 50%: CRÍTICO (muito dependente de um sacado)
+- concentracao_top3_soma > 80%: ALERTA
+- qtd_sacados < 3: RISCO (pouca diversificação)
+
+### 3. TAXA DE RECOMPRA (peso alto)
+- taxa_recompra > 20%: CRÍTICO
+- taxa_recompra > 10%: ALERTA
+- taxa_recompra < 5%: BOM
+
+### 4. LIQUIDEZ/PONTUALIDADE (peso médio)
+- taxa_pontualidade < 50%: CRÍTICO
+- taxa_pontualidade < 70%: ALERTA
+- media_dias_atraso > 15: ALERTA
+- media_dias_atraso > 30: CRÍTICO
+
+### 5. UTILIZAÇÃO DE LIMITE (peso médio)
+- utilizacao_limite > 100%: CRÍTICO
+- utilizacao_limite > 90%: ALERTA
+- limite_disponivel <= 0: NÃO PODE OPERAR
+
+### 6. STATUS
+- bloqueado = true: NÃO SAUDÁVEL automaticamente
+
+## CLASSIFICAÇÃO FINAL:
+
+### SAUDÁVEL (recomendado para giro):
+- Não bloqueado
 - Limite disponível > 0
-- Não está bloqueado
-- Mesmo inativos, estes cedentes podem voltar a operar
+- Sem indicadores CRÍTICOS
+- Máximo 1 indicador em ALERTA
 
-### NÃO SAUDÁVEL (não deve operar):
-- Utilização do limite > 100% (excede limite)
-- Limite disponível <= 0
-- Cedente bloqueado
-- Risco muito alto para operar
+### NÃO SAUDÁVEL (não recomendado):
+- Qualquer indicador CRÍTICO
+- 2+ indicadores em ALERTA
+- Bloqueado
+- Sem limite disponível
 
-Para cada cedente, retorne um JSON array com:
+Retorne um JSON array:
 {
   "analises": [
     {
       "cpf_cnpj": "string",
       "saudavel": true/false,
-      "motivo": "explicação curta de 1-2 linhas do porquê",
-      "score": 0-100 (0=crítico, 100=excelente)
+      "motivo": "explicação de 2-3 linhas citando os principais indicadores que levaram à decisão",
+      "score": 0-100,
+      "alertas": ["lista de problemas identificados"],
+      "indicadores_positivos": ["lista de pontos positivos"]
     }
   ]
 }
 
 Responda APENAS com o JSON válido, sem markdown.`;
 
-      const userContent = `Analise estes ${cedentesResumo.length} cedentes inativos:
+      const userContent = `Analise estes ${cedentesCompletos.length} cedentes inativos com base em todos os indicadores:
 
-${JSON.stringify(cedentesResumo, null, 2)}`;
+${JSON.stringify(cedentesCompletos, null, 2)}`;
 
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",

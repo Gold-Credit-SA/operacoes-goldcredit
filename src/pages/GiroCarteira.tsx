@@ -42,6 +42,8 @@ interface AnaliseIA {
   saudavel: boolean;
   motivo: string;
   score: number;
+  alertas?: string[];
+  indicadores_positivos?: string[];
 }
 
 export default function GiroCarteira() {
@@ -393,7 +395,7 @@ export default function GiroCarteira() {
                           ? 'bg-emerald-500/10 border border-emerald-500/20' 
                           : 'bg-red-500/10 border border-red-500/20'
                       }`}>
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-2">
                           {analise.saudavel ? (
                             <Sparkles className="h-4 w-4 text-emerald-500" />
                           ) : (
@@ -405,11 +407,35 @@ export default function GiroCarteira() {
                             Score: {analise.score}/100
                           </span>
                         </div>
-                        <p className={`text-xs ${
+                        <p className={`text-xs mb-2 ${
                           analise.saudavel ? 'text-emerald-600/90' : 'text-red-600/90'
                         }`}>
                           {analise.motivo}
                         </p>
+                        
+                        {/* Alertas */}
+                        {analise.alertas && analise.alertas.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-red-500/20">
+                            <p className="text-xs font-semibold text-red-600 mb-1">⚠️ Alertas:</p>
+                            <ul className="text-xs text-red-600/80 space-y-0.5">
+                              {analise.alertas.slice(0, 3).map((alerta, i) => (
+                                <li key={i} className="truncate">• {alerta}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {/* Pontos Positivos */}
+                        {analise.indicadores_positivos && analise.indicadores_positivos.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-emerald-500/20">
+                            <p className="text-xs font-semibold text-emerald-600 mb-1">✓ Pontos Positivos:</p>
+                            <ul className="text-xs text-emerald-600/80 space-y-0.5">
+                              {analise.indicadores_positivos.slice(0, 3).map((ponto, i) => (
+                                <li key={i} className="truncate">• {ponto}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
                     )}
 
