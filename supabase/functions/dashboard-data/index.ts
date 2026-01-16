@@ -249,6 +249,34 @@ Deno.serve(async (req) => {
         });
       }
 
+      case 'top-cedentes': {
+        // Get top cedentes by volume
+        const { data: operacoes } = await supabase
+          .from('operacoes_individualizadas')
+          .select('cedente, valor_bruto');
+
+        const porCedente: Record<string, { valor: number; operacoes: number }> = {};
+        
+        operacoes?.forEach(op => {
+          if (op.cedente) {
+            if (!porCedente[op.cedente]) {
+              porCedente[op.cedente] = { valor: 0, operacoes: 0 };
+            }
+            porCedente[op.cedente].valor += op.valor_bruto || 0;
+            porCedente[op.cedente].operacoes += 1;
+          }
+        });
+
+        const topCedentes = Object.entries(porCedente)
+          .map(([nome, dados]) => ({ nome, ...dados }))
+          .sort((a, b) => b.valor - a.valor)
+          .slice(0, 20);
+
+        return new Response(JSON.stringify({ success: true, data: topCedentes }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
       default:
         return new Response(JSON.stringify({ success: false, error: 'Ação inválida' }), {
           status: 400,
