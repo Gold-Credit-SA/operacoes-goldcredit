@@ -87,6 +87,29 @@ export interface CedenteDetail {
     mes: string;
     valor: number;
   }>;
+  titulosAberto: Array<{
+    id: number;
+    documento: string | null;
+    sacado: string | null;
+    cpf_cnpj_sacado: string | null;
+    valor: number | null;
+    vencimento: string | null;
+    situacao: string | null;
+    conf: string | null;
+    etapa: string | null;
+  }>;
+  titulosQuitados: Array<{
+    id: number;
+    numero: string | null;
+    sacado: string | null;
+    cpf_cnpj_sacado: string | null;
+    valor_face: number | null;
+    valor_liquidado: number | null;
+    vencimento: string | null;
+    quitacao: string | null;
+    status: string | null;
+    tipo_quitacao: string | null;
+  }>;
   ultimasOperacoes: Array<{
     id: number;
     operacao: string | null;

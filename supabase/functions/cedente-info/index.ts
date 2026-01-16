@@ -67,17 +67,19 @@ Deno.serve(async (req) => {
           .eq('cpf_cnpj', cpf_cnpj)
           .order('data_pagamento', { ascending: false });
 
-        // Buscar títulos em aberto
+        // Buscar títulos em aberto (ordenar por vencimento)
         const { data: titulosAberto } = await supabase
           .from('titulos_em_aberto')
           .select('*')
-          .eq('cpf_cnpj_cedente', cpf_cnpj);
+          .eq('cpf_cnpj_cedente', cpf_cnpj)
+          .order('vencimento', { ascending: true });
 
-        // Buscar títulos quitados
+        // Buscar títulos quitados (ordenar por data de quitação, mais recentes primeiro)
         const { data: titulosQuitados } = await supabase
           .from('titulos_quitados')
           .select('*')
-          .eq('cpf_cnpj_cedente', cpf_cnpj);
+          .eq('cpf_cnpj_cedente', cpf_cnpj)
+          .order('quitacao', { ascending: false });
 
         // Buscar títulos recomprados
         const { data: titulosRecomprados } = await supabase
@@ -282,6 +284,31 @@ Deno.serve(async (req) => {
               percentualLiquidado: 100 - percentualRecompra,
             },
             receitaMensal,
+            // Títulos em aberto (todos)
+            titulosAberto: titulosAberto?.map(t => ({
+              id: t.id,
+              documento: t.documento,
+              sacado: t.sacado,
+              cpf_cnpj_sacado: t.cpf_cnpj_sacado,
+              valor: t.valor,
+              vencimento: t.vencimento,
+              situacao: t.situacao,
+              conf: t.conf,
+              etapa: t.etapa,
+            })) || [],
+            // Títulos quitados (todos)
+            titulosQuitados: titulosQuitados?.map(t => ({
+              id: t.id,
+              numero: t.numero,
+              sacado: t.sacado,
+              cpf_cnpj_sacado: t.cpf_cnpj_sacado,
+              valor_face: t.valor_face,
+              valor_liquidado: t.valor_liquidado,
+              vencimento: t.vencimento,
+              quitacao: t.quitacao,
+              status: t.status,
+              tipo_quitacao: t.tipo_quitacao,
+            })) || [],
             ultimasOperacoes: operacoes?.slice(0, 10).map(op => {
               // Fórmula: (desagio / valor_bruto / prazo_medio) * 30 * 100
               const desagio = (op.valor_bruto || 0) - (op.valor_liquido || 0);
