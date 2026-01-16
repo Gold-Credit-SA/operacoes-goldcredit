@@ -65,12 +65,24 @@ serve(async (req) => {
         throw cedError;
       }
 
-      // Combinar dados
+      // Combinar dados com cálculos
       const resultado = (cedentesData || []).map(ced => {
         const inativo = cedentesInativos.find(i => i.cpf_cnpj === ced.cpf_cnpj);
+        const ultimaOp = inativo?.ultima_operacao;
+        
+        // Calcular dias inativo
+        const diasInativo = ultimaOp 
+          ? Math.floor((new Date().getTime() - new Date(ultimaOp).getTime()) / (1000 * 60 * 60 * 24))
+          : null;
+        
+        // Calcular limite disponível (saldo - risco_atual)
+        const limiteDisponivel = (ced.saldo || 0) - (ced.risco_atual || 0);
+        
         return {
           ...ced,
-          ultima_operacao: inativo?.ultima_operacao,
+          ultima_operacao: ultimaOp,
+          dias_inativo: diasInativo,
+          limite_disponivel: limiteDisponivel,
         };
       });
 
