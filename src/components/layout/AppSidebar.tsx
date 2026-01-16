@@ -20,7 +20,7 @@ export function AppSidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-3 space-y-2">
+      <nav className="flex-1 px-3 py-4 space-y-3">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
@@ -28,14 +28,14 @@ export function AppSidebar() {
               key={item.path}
               to={item.path}
               className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-150",
+                "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-150",
                 isActive
                   ? "text-sidebar-foreground bg-sidebar-accent"
                   : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
               )}
             >
               <item.icon className={cn(
-                "h-4 w-4",
+                "h-5 w-5",
                 isActive ? "text-primary" : "text-sidebar-foreground/50"
               )} />
               {item.label}
