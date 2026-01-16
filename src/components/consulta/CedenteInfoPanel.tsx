@@ -7,6 +7,7 @@ import { ConcentracaoSacados } from './ConcentracaoSacados';
 import { OperacoesRecentes } from './OperacoesRecentes';
 import { SuspeitaFraude } from './SuspeitaFraude';
 import { PdfReportButton } from './PdfReportButton';
+import { TitulosHistorico } from './TitulosHistorico';
 
 interface CedenteInfoPanelProps {
   data: CedenteDetail;
@@ -68,10 +69,16 @@ export function CedenteInfoPanel({ data }: CedenteInfoPanelProps) {
         <ConcentracaoSacados sacados={data.concentracaoSacados} total={data.carteira.total} />
       </div>
 
-      {/* Seção 6: Últimas Operações */}
+      {/* Seção 6: Histórico de Títulos (Abertos e Quitados) */}
+      <TitulosHistorico 
+        titulosAberto={data.titulosAberto} 
+        titulosQuitados={data.titulosQuitados} 
+      />
+
+      {/* Seção 7: Últimas Operações */}
       <OperacoesRecentes operacoes={data.ultimasOperacoes} />
 
-      {/* Seção 7: Suspeita de Fraude (detalhado) */}
+      {/* Seção 8: Suspeita de Fraude (detalhado) */}
       <SuspeitaFraude suspeitasFraude={data.suspeitasFraude} />
     </div>
   );
