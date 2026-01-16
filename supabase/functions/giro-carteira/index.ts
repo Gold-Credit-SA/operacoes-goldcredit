@@ -22,11 +22,11 @@ serve(async (req) => {
       // Buscar cedentes que não operaram desde a data limite
       console.log("Buscando cedentes inativos desde:", dataLimite);
 
-      // Primeiro, buscar última operação de cada cedente
+      // Primeiro, buscar última operação de cada cedente da tabela operacoes_individualizadas
       const { data: operacoes, error: opError } = await supabase
-        .from('operacoes')
-        .select('cpf_cnpj_cedente, data_operacao')
-        .order('data_operacao', { ascending: false });
+        .from('operacoes_individualizadas')
+        .select('cpf_cnpj_cedente, data')
+        .order('data', { ascending: false });
 
       if (opError) {
         console.error("Erro ao buscar operações:", opError);
@@ -37,7 +37,7 @@ serve(async (req) => {
       const ultimaOperacaoPorCedente: Record<string, string> = {};
       for (const op of operacoes || []) {
         if (!ultimaOperacaoPorCedente[op.cpf_cnpj_cedente]) {
-          ultimaOperacaoPorCedente[op.cpf_cnpj_cedente] = op.data_operacao;
+          ultimaOperacaoPorCedente[op.cpf_cnpj_cedente] = op.data;
         }
       }
 
