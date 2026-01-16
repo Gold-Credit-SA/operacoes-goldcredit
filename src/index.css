@@ -4,29 +4,29 @@
 
 @layer base {
   :root {
-    /* Gold Credit - Clean Light Theme */
-    --background: 0 0% 97%;
-    --foreground: 0 0% 15%;
+    /* Gold Credit - Clean Minimalist Theme */
+    /* Base: #fff (white), #000 (black), #e5b970 (gold) */
+    --background: 0 0% 98%;
+    --foreground: 0 0% 0%;
 
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 15%;
+    --card-foreground: 0 0% 0%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 15%;
+    --popover-foreground: 0 0% 0%;
 
-    /* Rich Gold/Amber as primary */
-    --primary: 35 90% 55%;
-    --primary-foreground: 0 0% 100%;
+    /* Gold #e5b970 = HSL(38, 67%, 67%) */
+    --primary: 38 67% 67%;
+    --primary-foreground: 0 0% 0%;
 
-    /* Light secondary */
     --secondary: 0 0% 96%;
-    --secondary-foreground: 0 0% 15%;
+    --secondary-foreground: 0 0% 0%;
 
     --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 45%;
+    --muted-foreground: 0 0% 40%;
 
-    --accent: 35 90% 95%;
-    --accent-foreground: 35 80% 35%;
+    --accent: 38 67% 92%;
+    --accent-foreground: 38 67% 35%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
@@ -34,47 +34,48 @@
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 35 92% 55%;
-    --warning-foreground: 0 0% 100%;
+    --warning: 38 67% 67%;
+    --warning-foreground: 0 0% 0%;
 
     --border: 0 0% 90%;
     --input: 0 0% 90%;
-    --ring: 35 90% 55%;
+    --ring: 38 67% 67%;
 
     --radius: 0.5rem;
 
-    /* Sidebar - Light/White */
+    /* Sidebar - White with gold accent */
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 0 0% 25%;
-    --sidebar-primary: 35 90% 55%;
-    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-foreground: 0 0% 15%;
+    --sidebar-primary: 38 67% 67%;
+    --sidebar-primary-foreground: 0 0% 0%;
     --sidebar-accent: 0 0% 96%;
-    --sidebar-accent-foreground: 0 0% 15%;
+    --sidebar-accent-foreground: 0 0% 0%;
     --sidebar-border: 0 0% 92%;
-    --sidebar-ring: 35 90% 55%;
+    --sidebar-ring: 38 67% 67%;
   }
 
   .dark {
-    --background: 0 0% 8%;
-    --foreground: 0 0% 96%;
+    /* Dark mode: black background */
+    --background: 0 0% 5%;
+    --foreground: 0 0% 100%;
 
-    --card: 0 0% 12%;
-    --card-foreground: 0 0% 96%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 100%;
 
-    --popover: 0 0% 12%;
-    --popover-foreground: 0 0% 96%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 100%;
 
-    --primary: 35 90% 55%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 38 67% 67%;
+    --primary-foreground: 0 0% 0%;
 
-    --secondary: 0 0% 18%;
-    --secondary-foreground: 0 0% 96%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 0 0% 15%;
+    --muted: 0 0% 12%;
     --muted-foreground: 0 0% 60%;
 
-    --accent: 35 50% 18%;
-    --accent-foreground: 35 90% 70%;
+    --accent: 38 40% 15%;
+    --accent-foreground: 38 67% 75%;
 
     --destructive: 0 63% 45%;
     --destructive-foreground: 0 0% 100%;
@@ -82,21 +83,21 @@
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 35 92% 55%;
-    --warning-foreground: 0 0% 100%;
+    --warning: 38 67% 67%;
+    --warning-foreground: 0 0% 0%;
 
-    --border: 0 0% 20%;
-    --input: 0 0% 20%;
-    --ring: 35 90% 55%;
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 38 67% 67%;
 
-    --sidebar-background: 0 0% 10%;
-    --sidebar-foreground: 0 0% 80%;
-    --sidebar-primary: 35 90% 55%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 15%;
-    --sidebar-accent-foreground: 0 0% 96%;
-    --sidebar-border: 0 0% 18%;
-    --sidebar-ring: 35 90% 55%;
+    --sidebar-background: 0 0% 3%;
+    --sidebar-foreground: 0 0% 85%;
+    --sidebar-primary: 38 67% 67%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 0 0% 10%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 12%;
+    --sidebar-ring: 38 67% 67%;
   }
 }
 
