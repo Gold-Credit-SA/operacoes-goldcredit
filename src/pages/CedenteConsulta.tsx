@@ -19,6 +19,13 @@ interface CedenteListItem {
   bloqueado: string | null;
 }
 
+interface ComportamentoItem {
+  valor: number;
+  qtd: number;
+  percentualValor: number;
+  percentualQtd: number;
+}
+
 export interface CedenteDetail {
   cedente: {
     id: number;
@@ -48,6 +55,19 @@ export interface CedenteDetail {
     valorBrutoTotal: number;
     valorLiquidoTotal: number;
     receitaTotal: number;
+    taxaMedia?: number;
+  };
+  resumoExpandido: {
+    volumeOperado: number;
+    prazoMedioOperacoes: number;
+    prazoMedioTitulos90Dias: number;
+    mediaPagoEmAtraso: number;
+    valorMedioBorderos: number;
+    valorMedioTitulos: number;
+    receitaGerada: number;
+    percentualProrrogacao: number;
+    chqDevolvidosAberto: number;
+    chqDevolvidosQuitado: number;
   };
   limites: {
     global: number;
@@ -83,6 +103,18 @@ export interface CedenteDetail {
     percentualRecompra: number;
     percentualLiquidado: number;
   };
+  comportamento90Dias: {
+    pontual: ComportamentoItem;
+    atraso5: ComportamentoItem;
+    atraso15: ComportamentoItem;
+    atraso30: ComportamentoItem;
+    atrasoMais30: ComportamentoItem;
+    recompra: ComportamentoItem;
+    repasse: ComportamentoItem;
+    cartorio: ComportamentoItem;
+    totalPago: { valor: number; qtd: number };
+    emAtraso: ComportamentoItem;
+  };
   receitaMensal: Array<{
     mes: string;
     valor: number;
@@ -117,6 +149,7 @@ export interface CedenteDetail {
     valor_bruto: number | null;
     valor_liquido: number | null;
     valor_taxa: number | null;
+    prazo_medio?: number | null;
     etapa: string | null;
   }>;
   suspeitasFraude: Array<{

@@ -1,9 +1,11 @@
 import { CedenteDetail } from '@/pages/CedenteConsulta';
 import { DadosEmpresa } from './DadosEmpresa';
+import { ResumoExpandido } from './ResumoExpandido';
 import { LimitesCard } from './LimitesCard';
 import { TaxaConfirmacao } from './TaxaConfirmacao';
 import { LiquidezSection } from './LiquidezSection';
 import { ConcentracaoSacados } from './ConcentracaoSacados';
+import { ComportamentoPagamento90Dias } from './ComportamentoPagamento90Dias';
 import { OperacoesRecentes } from './OperacoesRecentes';
 import { SuspeitaFraude } from './SuspeitaFraude';
 import { PdfReportButton } from './PdfReportButton';
@@ -57,28 +59,41 @@ export function CedenteInfoPanel({ data }: CedenteInfoPanelProps) {
         resumo={data.resumo} 
       />
 
-      {/* Seção 2: Limites e Disponibilidade */}
+      {/* Seção 2: Resumo Financeiro Expandido */}
+      {data.resumoExpandido && (
+        <ResumoExpandido 
+          resumoExpandido={data.resumoExpandido} 
+          limites={data.limites}
+        />
+      )}
+
+      {/* Seção 3: Limites e Disponibilidade */}
       <LimitesCard limites={data.limites} />
 
-      {/* Seção 3: Taxa de Confirmação */}
+      {/* Seção 4: Taxa de Confirmação */}
       <TaxaConfirmacao confirmacao={data.confirmacao} />
 
-      {/* Seção 4 e 5: Liquidez e Concentração (lado a lado) */}
+      {/* Seção 5 e 6: Liquidez e Concentração (lado a lado) */}
       <div className="grid gap-6 lg:grid-cols-2">
         <LiquidezSection liquidez={data.liquidez} />
         <ConcentracaoSacados sacados={data.concentracaoSacados} total={data.carteira.total} />
       </div>
 
-      {/* Seção 6: Histórico de Títulos (Abertos e Quitados) */}
+      {/* Seção 7: Comportamento de Pagamentos nos Últimos 90 Dias */}
+      {data.comportamento90Dias && (
+        <ComportamentoPagamento90Dias comportamento={data.comportamento90Dias} />
+      )}
+
+      {/* Seção 8: Histórico de Títulos (Abertos e Quitados) */}
       <TitulosHistorico 
         titulosAberto={data.titulosAberto} 
         titulosQuitados={data.titulosQuitados} 
       />
 
-      {/* Seção 7: Últimas Operações */}
+      {/* Seção 9: Últimas Operações */}
       <OperacoesRecentes operacoes={data.ultimasOperacoes} />
 
-      {/* Seção 8: Suspeita de Fraude (detalhado) */}
+      {/* Seção 10: Suspeita de Fraude (detalhado) */}
       <SuspeitaFraude suspeitasFraude={data.suspeitasFraude} />
     </div>
   );
