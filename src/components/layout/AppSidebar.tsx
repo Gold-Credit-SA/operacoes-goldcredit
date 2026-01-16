@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Upload, LayoutDashboard, Search, LogOut, FileText, Sparkles, RefreshCw, Building2 } from 'lucide-react';
+import { Upload, LayoutDashboard, Search, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import bannerLogo from '@/assets/banner-gold-credit.png';
+import logoGoldCredit from '@/assets/logo-gold-credit.png';
 
 const navItems = [
   { path: '/', label: 'Importação', icon: Upload },
@@ -15,13 +15,8 @@ export function AppSidebar() {
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar flex flex-col border-r border-sidebar-border">
       {/* Logo Header */}
-      <div className="flex items-center gap-3 px-5 py-5 border-b border-sidebar-border">
-        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary">
-          <span className="text-primary-foreground font-bold text-lg">G</span>
-        </div>
-        <span className="text-lg font-semibold text-sidebar-foreground tracking-tight">
-          Gold Credit
-        </span>
+      <div className="flex items-center justify-center px-4 py-6 border-b border-sidebar-border">
+        <img src={logoGoldCredit} alt="Gold Credit" className="h-10 w-auto" />
       </div>
 
       {/* Navigation */}
@@ -41,7 +36,7 @@ export function AppSidebar() {
             >
               <item.icon className={cn(
                 "h-5 w-5",
-                isActive ? "text-primary" : "text-sidebar-foreground/60"
+                isActive ? "text-primary" : "text-sidebar-foreground/50"
               )} />
               {item.label}
             </Link>
@@ -52,18 +47,18 @@ export function AppSidebar() {
       {/* User section */}
       <div className="border-t border-sidebar-border p-4">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-9 h-9 rounded-full bg-muted text-muted-foreground text-sm font-semibold">
+          <div className="flex items-center justify-center w-9 h-9 rounded-full bg-primary text-primary-foreground text-sm font-semibold">
             R
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-sidebar-foreground truncate">
               Renan Ramos
             </p>
-            <p className="text-xs text-sidebar-foreground/60 truncate">
+            <p className="text-xs text-sidebar-foreground/50 truncate">
               renan@goldcreditsa.com.br
             </p>
           </div>
-          <button className="p-2 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors">
+          <button className="p-2 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors">
             <LogOut className="h-4 w-4" />
           </button>
         </div>
