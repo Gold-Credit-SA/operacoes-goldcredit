@@ -10,6 +10,7 @@ import { OperacoesRecentes } from './OperacoesRecentes';
 import { SuspeitaFraude } from './SuspeitaFraude';
 import { PdfReportButton } from './PdfReportButton';
 import { TitulosHistorico } from './TitulosHistorico';
+import { AnaliseIA } from './AnaliseIA';
 
 interface CedenteInfoPanelProps {
   data: CedenteDetail;
@@ -52,6 +53,9 @@ export function CedenteInfoPanel({ data }: CedenteInfoPanelProps) {
           </div>
         </div>
       )}
+
+      {/* Seção 0: Análise de IA */}
+      <AnaliseIA data={data} />
 
       {/* Seção 1: Dados da Empresa */}
       <DadosEmpresa 
