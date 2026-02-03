@@ -74,6 +74,7 @@ export default function GiroCarteira() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'saudavel' | 'nao_recomendado' | 'nao_analisado'>('all');
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -132,18 +133,36 @@ export default function GiroCarteira() {
   }, []);
 
   useEffect(() => {
-    if (!searchTerm.trim()) {
-      setFilteredCedentes(cedentes);
-    } else {
+    let result = cedentes;
+    
+    // Apply search filter
+    if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
-      setFilteredCedentes(cedentes.filter(c => 
+      result = result.filter(c => 
         c.nome?.toLowerCase().includes(term) ||
         c.razao_social?.toLowerCase().includes(term) ||
         c.cpf_cnpj?.includes(term)
-      ));
+      );
     }
-    setCurrentPage(1); // Reset to first page when search changes
-  }, [searchTerm, cedentes]);
+    
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      result = result.filter(c => {
+        const analise = analises[c.cpf_cnpj];
+        if (statusFilter === 'saudavel') {
+          return analise?.saudavel === true;
+        } else if (statusFilter === 'nao_recomendado') {
+          return analise?.saudavel === false;
+        } else if (statusFilter === 'nao_analisado') {
+          return !analise;
+        }
+        return true;
+      });
+    }
+    
+    setFilteredCedentes(result);
+    setCurrentPage(1); // Reset to first page when filters change
+  }, [searchTerm, cedentes, statusFilter, analises]);
 
   const toggleSelectCedente = (cpfCnpj: string) => {
     const newSelected = new Set(selectedCedentes);
@@ -292,36 +311,76 @@ export default function GiroCarteira() {
           </Card>
         </div>
 
-        {/* Search and Actions */}
+        {/* Search, Filters and Actions */}
         <Card>
           <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por nome ou CPF/CNPJ..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por nome ou CPF/CNPJ..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Button 
+                  onClick={analisarComIA} 
+                  disabled={isAnalyzing || selectedCedentes.size === 0}
+                  className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Analisando...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Analisar Selecionados ({selectedCedentes.size})
+                    </>
+                  )}
+                </Button>
               </div>
-              <Button 
-                onClick={analisarComIA} 
-                disabled={isAnalyzing || selectedCedentes.size === 0}
-                className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20"
-              >
-                {isAnalyzing ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Analisando...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Analisar Selecionados ({selectedCedentes.size})
-                  </>
-                )}
-              </Button>
+              
+              {/* Status Filters */}
+              {Object.keys(analises).length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant={statusFilter === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setStatusFilter('all')}
+                  >
+                    Todos ({cedentes.length})
+                  </Button>
+                  <Button
+                    variant={statusFilter === 'saudavel' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setStatusFilter('saudavel')}
+                    className={statusFilter === 'saudavel' ? 'bg-emerald-500 hover:bg-emerald-600' : 'text-emerald-600 border-emerald-300 hover:bg-emerald-50'}
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-1" />
+                    Saudáveis ({Object.values(analises).filter(a => a.saudavel).length})
+                  </Button>
+                  <Button
+                    variant={statusFilter === 'nao_recomendado' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setStatusFilter('nao_recomendado')}
+                    className={statusFilter === 'nao_recomendado' ? 'bg-red-500 hover:bg-red-600' : 'text-red-600 border-red-300 hover:bg-red-50'}
+                  >
+                    <XCircle className="h-4 w-4 mr-1" />
+                    Não Recomendados ({Object.values(analises).filter(a => !a.saudavel).length})
+                  </Button>
+                  <Button
+                    variant={statusFilter === 'nao_analisado' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setStatusFilter('nao_analisado')}
+                  >
+                    Não Analisados ({cedentes.length - Object.keys(analises).length})
+                  </Button>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
