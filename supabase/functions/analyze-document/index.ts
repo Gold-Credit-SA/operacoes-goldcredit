@@ -78,18 +78,15 @@ serve(async (req) => {
   try {
     const body = await req.json();
     console.log('Received body keys:', Object.keys(body || {}));
-    console.log('Body type:', typeof body);
     
-    const pdfBase64 = body?.pdfBase64;
+    const pdfText = body?.pdfText;
     const fileName = body?.fileName || 'document.pdf';
-    const mimeType = body?.mimeType;
     
-    console.log('pdfBase64 exists:', !!pdfBase64);
-    console.log('pdfBase64 type:', typeof pdfBase64);
-    console.log('pdfBase64 length:', pdfBase64?.length || 0);
+    console.log('pdfText exists:', !!pdfText);
+    console.log('pdfText length:', pdfText?.length || 0);
     
-    if (!pdfBase64) {
-      console.error('Body received:', JSON.stringify(body).substring(0, 200));
+    if (!pdfText || pdfText.trim().length === 0) {
+      console.error('No text content received');
       throw new Error("Conteúdo do PDF não fornecido");
     }
 
@@ -99,9 +96,9 @@ serve(async (req) => {
     }
 
     console.log(`Analyzing document: ${fileName}`);
-    console.log(`PDF base64 length: ${pdfBase64.length} characters`);
+    console.log(`Text length: ${pdfText.length} characters`);
 
-    // Use Gemini with multimodal support for PDF analysis
+    // Send extracted text to AI for analysis
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -109,23 +106,12 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { 
             role: "user", 
-            content: [
-              {
-                type: "text",
-                text: "Analise este documento de consulta de crédito brasileiro e extraia todos os dados estruturados conforme o formato JSON especificado."
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mimeType || 'application/pdf'};base64,${pdfBase64}`
-                }
-              }
-            ]
+            content: `Analise o seguinte texto extraído de um documento de consulta de crédito brasileiro e extraia todos os dados estruturados conforme o formato JSON especificado.\n\n--- TEXTO DO DOCUMENTO ---\n\n${pdfText}`
           },
         ],
       }),
