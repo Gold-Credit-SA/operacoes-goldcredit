@@ -33,7 +33,6 @@ serve(async (req) => {
         const cedentesResult = await connection.queryObject<{
           cpf_cnpj: string;
           nome: string;
-          razao_social: string;
           limite_global: number;
           risco_atual: number;
           bloqueado: string;
@@ -44,15 +43,14 @@ serve(async (req) => {
           SELECT 
             cpf_cnpj,
             nome,
-            razao_social,
             limite_global,
             risco_atual,
             bloqueado,
             setor,
             uf,
             cidade
-          FROM smartsecurities_cedentes_completo
-          ORDER BY razao_social ASC
+          FROM smartsecurities_cedentes
+          ORDER BY nome ASC
         `);
 
         // Buscar última operação de cada cedente
@@ -85,7 +83,6 @@ serve(async (req) => {
           return {
             cpf_cnpj: ced.cpf_cnpj,
             nome: ced.nome,
-            razao_social: ced.razao_social,
             limite_global: ced.limite_global,
             limite_disponivel: limiteDisponivel,
             risco_atual: ced.risco_atual,
