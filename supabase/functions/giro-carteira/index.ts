@@ -103,16 +103,10 @@ serve(async (req) => {
       }
 
       if (action === 'analyze-batch') {
-        const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-        
-        if (!LOVABLE_API_KEY) {
-          throw new Error("LOVABLE_API_KEY is not configured");
-        }
-
-        console.log(`Analisando ${cedentes.length} cedentes em lote`);
+        console.log(`Analisando ${cedentes.length} cedentes em lote (análise determinística)`);
 
         // Buscar dados completos de cada cedente para análise
-        const cedentesCompletos = [];
+        const analises = [];
         
         for (const ced of cedentes) {
           // Buscar títulos em aberto (usa coluna 'valor', não 'valor_face')
@@ -154,7 +148,7 @@ serve(async (req) => {
           const titulosQuitados = titulosQuitadosResult.rows;
           const recompras = recomprasResult.rows;
 
-          // Calcular métricas (titulos_em_aberto usa 'valor', não 'valor_face')
+          // Calcular métricas
           const totalAberto = titulosAbertos.reduce((sum, t) => sum + (t.valor || 0), 0);
           const totalVencido = titulosAbertos
             .filter(t => new Date(t.vencimento) < new Date())
@@ -168,10 +162,13 @@ serve(async (req) => {
             sacadosMap[sacado] = (sacadosMap[sacado] || 0) + (t.valor || 0);
           });
           
-          const concentracaoTop3 = Object.entries(sacadosMap)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 3)
-            .map(([_, valor]) => totalAberto > 0 ? (valor / totalAberto) * 100 : 0);
+          const sacadosOrdenados = Object.entries(sacadosMap)
+            .sort((a, b) => b[1] - a[1]);
+          const concentracaoTop1 = sacadosOrdenados.length > 0 && totalAberto > 0
+            ? (sacadosOrdenados[0][1] / totalAberto) * 100 : 0;
+          const concentracaoTop3Soma = sacadosOrdenados.slice(0, 3)
+            .reduce((sum, [_, valor]) => sum + (totalAberto > 0 ? (valor / totalAberto) * 100 : 0), 0);
+          const qtdSacados = Object.keys(sacadosMap).length;
 
           // Calcular taxa de recompra
           const totalRecomprado = recompras.reduce((sum, t) => sum + (t.valor_face || 0), 0);
@@ -201,155 +198,153 @@ serve(async (req) => {
           const utilizacaoLimite = ced.limite_global > 0 
             ? ((ced.risco_atual || 0) / ced.limite_global) * 100 
             : 0;
+          const limiteDisponivel = (ced.limite_global || 0) - (ced.risco_atual || 0);
+          const bloqueado = ced.bloqueado === 'S';
 
-          cedentesCompletos.push({
+          // ANÁLISE DETERMINÍSTICA
+          const alertas: string[] = [];
+          const indicadoresPositivos: string[] = [];
+          let indicadoresCriticos = 0;
+          let indicadoresAlerta = 0;
+          let score = 100;
+
+          // 1. INADIMPLÊNCIA (peso alto)
+          if (percentualVencido > 30) {
+            alertas.push(`Inadimplência crítica: ${percentualVencido.toFixed(1)}% dos títulos vencidos`);
+            indicadoresCriticos++;
+            score -= 25;
+          } else if (percentualVencido > 15) {
+            alertas.push(`Inadimplência elevada: ${percentualVencido.toFixed(1)}% dos títulos vencidos`);
+            indicadoresAlerta++;
+            score -= 15;
+          } else if (percentualVencido < 5) {
+            indicadoresPositivos.push(`Baixa inadimplência (${percentualVencido.toFixed(1)}%)`);
+          }
+
+          // 2. CONCENTRAÇÃO DE SACADOS (peso alto)
+          if (concentracaoTop1 > 50) {
+            alertas.push(`Concentração crítica: ${concentracaoTop1.toFixed(1)}% em um único sacado`);
+            indicadoresCriticos++;
+            score -= 20;
+          } else if (concentracaoTop3Soma > 80) {
+            alertas.push(`Alta concentração: ${concentracaoTop3Soma.toFixed(1)}% nos 3 maiores sacados`);
+            indicadoresAlerta++;
+            score -= 10;
+          }
+          if (qtdSacados < 3 && qtdSacados > 0) {
+            alertas.push(`Baixa diversificação: apenas ${qtdSacados} sacado(s)`);
+            indicadoresAlerta++;
+            score -= 10;
+          } else if (qtdSacados >= 5) {
+            indicadoresPositivos.push(`Boa diversificação (${qtdSacados} sacados)`);
+          }
+
+          // 3. TAXA DE RECOMPRA (peso alto)
+          if (taxaRecompra > 20) {
+            alertas.push(`Taxa de recompra crítica: ${taxaRecompra.toFixed(1)}%`);
+            indicadoresCriticos++;
+            score -= 20;
+          } else if (taxaRecompra > 10) {
+            alertas.push(`Taxa de recompra elevada: ${taxaRecompra.toFixed(1)}%`);
+            indicadoresAlerta++;
+            score -= 10;
+          } else if (taxaRecompra < 5) {
+            indicadoresPositivos.push(`Baixa taxa de recompra (${taxaRecompra.toFixed(1)}%)`);
+          }
+
+          // 4. LIQUIDEZ/PONTUALIDADE (peso médio)
+          if (taxaPontualidade < 50) {
+            alertas.push(`Pontualidade crítica: apenas ${taxaPontualidade.toFixed(1)}% pagos em dia`);
+            indicadoresCriticos++;
+            score -= 15;
+          } else if (taxaPontualidade < 70) {
+            alertas.push(`Pontualidade baixa: ${taxaPontualidade.toFixed(1)}% pagos em dia`);
+            indicadoresAlerta++;
+            score -= 8;
+          } else if (taxaPontualidade >= 90) {
+            indicadoresPositivos.push(`Excelente pontualidade (${taxaPontualidade.toFixed(1)}%)`);
+          }
+
+          if (mediaAtraso > 30) {
+            alertas.push(`Atraso médio crítico: ${mediaAtraso.toFixed(0)} dias`);
+            indicadoresCriticos++;
+            score -= 15;
+          } else if (mediaAtraso > 15) {
+            alertas.push(`Atraso médio elevado: ${mediaAtraso.toFixed(0)} dias`);
+            indicadoresAlerta++;
+            score -= 8;
+          }
+
+          // 5. UTILIZAÇÃO DE LIMITE (peso médio)
+          if (utilizacaoLimite > 100) {
+            alertas.push(`Limite excedido: ${utilizacaoLimite.toFixed(1)}% utilizado`);
+            indicadoresCriticos++;
+            score -= 20;
+          } else if (utilizacaoLimite > 90) {
+            alertas.push(`Limite quase esgotado: ${utilizacaoLimite.toFixed(1)}% utilizado`);
+            indicadoresAlerta++;
+            score -= 10;
+          } else if (utilizacaoLimite < 50) {
+            indicadoresPositivos.push(`Boa margem de limite (${(100 - utilizacaoLimite).toFixed(1)}% disponível)`);
+          }
+
+          if (limiteDisponivel <= 0) {
+            alertas.push('Sem limite disponível para novas operações');
+            indicadoresCriticos++;
+            score -= 15;
+          }
+
+          // 6. STATUS
+          if (bloqueado) {
+            alertas.push('Cedente bloqueado no sistema');
+            indicadoresCriticos++;
+            score -= 30;
+          }
+
+          // Garantir score entre 0 e 100
+          score = Math.max(0, Math.min(100, score));
+
+          // CLASSIFICAÇÃO FINAL
+          // SAUDÁVEL: Não bloqueado, limite disponível > 0, sem indicadores CRÍTICOS, máx 1 ALERTA
+          // NÃO SAUDÁVEL: Qualquer CRÍTICO, 2+ ALERTAS, bloqueado, sem limite disponível
+          const saudavel = !bloqueado && 
+                          limiteDisponivel > 0 && 
+                          indicadoresCriticos === 0 && 
+                          indicadoresAlerta <= 1;
+
+          // Gerar motivo
+          let motivo: string;
+          if (saudavel) {
+            if (indicadoresPositivos.length > 0) {
+              motivo = `Cedente apresenta bons indicadores: ${indicadoresPositivos.slice(0, 2).join(', ')}. ` +
+                      (indicadoresAlerta === 1 ? `Atenção: ${alertas[0]}.` : 'Sem alertas significativos.');
+            } else {
+              motivo = 'Cedente dentro dos parâmetros aceitáveis para operação, sem indicadores críticos identificados.';
+            }
+          } else {
+            if (bloqueado) {
+              motivo = 'Cedente está bloqueado no sistema e não pode operar. ';
+            } else if (limiteDisponivel <= 0) {
+              motivo = 'Cedente sem limite disponível para novas operações. ';
+            } else if (indicadoresCriticos > 0) {
+              motivo = `Cedente apresenta ${indicadoresCriticos} indicador(es) crítico(s): ${alertas.slice(0, 2).join('; ')}. `;
+            } else {
+              motivo = `Cedente apresenta ${indicadoresAlerta} indicadores em alerta: ${alertas.slice(0, 2).join('; ')}. `;
+            }
+            motivo += 'Não recomendado para giro de carteira no momento.';
+          }
+
+          analises.push({
             cpf_cnpj: ced.cpf_cnpj,
-            nome: ced.nome || ced.razao_social,
-            setor: ced.setor,
-            uf: ced.uf,
-            bloqueado: ced.bloqueado === 'S',
-            ultima_operacao: ced.ultima_operacao,
-            dias_inativo: ced.dias_inativo || 999,
-            limite_global: ced.limite_global || 0,
-            limite_disponivel: ced.limite_disponivel || 0,
-            risco_atual: ced.risco_atual || 0,
-            utilizacao_limite: utilizacaoLimite,
-            total_aberto: totalAberto,
-            total_vencido: totalVencido,
-            percentual_vencido: percentualVencido,
-            concentracao_top1: concentracaoTop3[0] || 0,
-            concentracao_top3_soma: concentracaoTop3.reduce((a, b) => a + b, 0),
-            qtd_sacados: Object.keys(sacadosMap).length,
-            total_recomprado: totalRecomprado,
-            taxa_recompra: taxaRecompra,
-            taxa_pontualidade: taxaPontualidade,
-            media_dias_atraso: mediaAtraso,
-            total_quitado_90dias: totalQuitado,
+            saudavel,
+            motivo,
+            score,
+            alertas,
+            indicadores_positivos: indicadoresPositivos,
           });
         }
 
-        const systemPrompt = `Você é um analista de crédito especializado em factoring e FIDC. Analise a lista de cedentes considerando TODOS os indicadores fornecidos.
-
-## CRITÉRIOS DE ANÁLISE (por ordem de importância):
-
-### 1. INADIMPLÊNCIA (peso alto)
-- percentual_vencido > 30%: CRÍTICO
-- percentual_vencido > 15%: ALERTA
-- percentual_vencido < 5%: BOM
-
-### 2. CONCENTRAÇÃO DE SACADOS (peso alto)
-- concentracao_top1 > 50%: CRÍTICO (muito dependente de um sacado)
-- concentracao_top3_soma > 80%: ALERTA
-- qtd_sacados < 3: RISCO (pouca diversificação)
-
-### 3. TAXA DE RECOMPRA (peso alto)
-- taxa_recompra > 20%: CRÍTICO
-- taxa_recompra > 10%: ALERTA
-- taxa_recompra < 5%: BOM
-
-### 4. LIQUIDEZ/PONTUALIDADE (peso médio)
-- taxa_pontualidade < 50%: CRÍTICO
-- taxa_pontualidade < 70%: ALERTA
-- media_dias_atraso > 15: ALERTA
-- media_dias_atraso > 30: CRÍTICO
-
-### 5. UTILIZAÇÃO DE LIMITE (peso médio)
-- utilizacao_limite > 100%: CRÍTICO
-- utilizacao_limite > 90%: ALERTA
-- limite_disponivel <= 0: NÃO PODE OPERAR
-
-### 6. STATUS
-- bloqueado = true: NÃO SAUDÁVEL automaticamente
-
-## CLASSIFICAÇÃO FINAL:
-
-### SAUDÁVEL (recomendado para operar):
-- Não bloqueado
-- Limite disponível > 0
-- Sem indicadores CRÍTICOS
-- Máximo 1 indicador em ALERTA
-
-### NÃO SAUDÁVEL (não recomendado):
-- Qualquer indicador CRÍTICO
-- 2+ indicadores em ALERTA
-- Bloqueado
-- Sem limite disponível
-
-Retorne um JSON array:
-{
-  "analises": [
-    {
-      "cpf_cnpj": "string",
-      "saudavel": true/false,
-      "motivo": "explicação de 2-3 linhas citando os principais indicadores que levaram à decisão",
-      "score": 0-100,
-      "alertas": ["lista de problemas identificados"],
-      "indicadores_positivos": ["lista de pontos positivos"]
-    }
-  ]
-}
-
-Responda APENAS com o JSON válido, sem markdown.`;
-
-        const userContent = `Analise estes ${cedentesCompletos.length} cedentes com base em todos os indicadores:
-
-${JSON.stringify(cedentesCompletos, null, 2)}`;
-
-        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userContent },
-            ],
-          }),
-        });
-
-        if (!response.ok) {
-          if (response.status === 429) {
-            return new Response(JSON.stringify({ 
-              error: "Limite de requisições excedido. Tente novamente em alguns instantes." 
-            }), {
-              status: 429,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
-          if (response.status === 402) {
-            return new Response(JSON.stringify({ 
-              error: "Créditos insuficientes para análise de IA." 
-            }), {
-              status: 402,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
-          const errorText = await response.text();
-          console.error("AI gateway error:", response.status, errorText);
-          throw new Error(`AI gateway error: ${response.status}`);
-        }
-
-        const aiResponse = await response.json();
-        const content = aiResponse.choices?.[0]?.message?.content;
-
-        if (!content) {
-          throw new Error("Empty response from AI");
-        }
-
-        let analises;
-        try {
-          const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-          const parsed = JSON.parse(cleanContent);
-          analises = parsed.analises || parsed;
-        } catch (parseError) {
-          console.error("Failed to parse AI response:", content);
-          throw new Error("Invalid AI response format");
-        }
-
-        console.log("Análise em lote concluída com sucesso");
+        console.log(`Análise determinística concluída: ${analises.length} cedentes processados`);
 
         return new Response(JSON.stringify({ success: true, analises }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
