@@ -5,45 +5,8 @@ import { DocumentList } from '@/components/analise/DocumentList';
 import { ExtractedReport } from '@/components/analise/ExtractedReport';
 import { LoadingAnalysis } from '@/components/analise/LoadingAnalysis';
 import { useToast } from '@/hooks/use-toast';
+import { extractTextFromPdf } from '@/lib/pdf-extractor';
 import type { DocumentoAnalisado, DadosExtraidos } from '@/types/analise';
-
-// Convert file to base64 for sending to AI
-async function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    if (!file || !(file instanceof File)) {
-      reject(new Error('Arquivo inválido'));
-      return;
-    }
-    
-    const reader = new FileReader();
-    
-    reader.onload = () => {
-      try {
-        const result = reader.result as string;
-        if (!result) {
-          reject(new Error('Falha ao ler arquivo'));
-          return;
-        }
-        // Remove data URL prefix to get pure base64
-        const base64 = result.split(',')[1];
-        if (!base64) {
-          reject(new Error('Falha ao converter para base64'));
-          return;
-        }
-        console.log('File converted to base64, length:', base64.length);
-        resolve(base64);
-      } catch (err) {
-        reject(err);
-      }
-    };
-    
-    reader.onerror = () => {
-      reject(new Error('Erro ao ler arquivo: ' + reader.error?.message));
-    };
-    
-    reader.readAsDataURL(file);
-  });
-}
 
 export default function AnaliseConsulta() {
   const [documentos, setDocumentos] = useState<DocumentoAnalisado[]>([]);
@@ -60,16 +23,17 @@ export default function AnaliseConsulta() {
         throw new Error('Arquivo vazio ou inválido');
       }
 
-      // Convert PDF to base64 for multimodal AI processing
-      const pdfBase64 = await fileToBase64(file);
+      // Extract text from PDF using pdfjs-dist
+      console.log('Extracting text from PDF...');
+      const pdfText = await extractTextFromPdf(file);
       
-      if (!pdfBase64 || pdfBase64.length === 0) {
-        throw new Error('Falha ao converter PDF para base64');
+      if (!pdfText || pdfText.trim().length === 0) {
+        throw new Error('PDF não contém texto extraível');
       }
 
-      console.log('Sending to edge function, base64 length:', pdfBase64.length);
+      console.log('Text extracted, length:', pdfText.length);
 
-      // Call edge function with base64 PDF
+      // Call edge function with extracted text
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-document`,
         {
@@ -79,9 +43,8 @@ export default function AnaliseConsulta() {
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({
-            pdfBase64,
+            pdfText,
             fileName: file.name,
-            mimeType: file.type || 'application/pdf',
           }),
         }
       );
