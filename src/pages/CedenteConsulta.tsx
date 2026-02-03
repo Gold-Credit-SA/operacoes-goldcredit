@@ -220,24 +220,60 @@ export default function CedenteConsulta() {
         const recomprados = externalData.recomprados || [];
         const suspeitaFraude = externalData.suspeitaFraude || [];
 
-        // Calcular totais
+        // Calcular totais de operações
         const totalOperacoes = operacoes.length;
         const valorBrutoTotal = operacoes.reduce((acc: number, op: any) => acc + (parseFloat(op.valor_bruto) || 0), 0);
         const valorLiquidoTotal = operacoes.reduce((acc: number, op: any) => acc + (parseFloat(op.valor_liquido) || 0), 0);
         const receitaTotal = operacoes.reduce((acc: number, op: any) => acc + (parseFloat(op.valor_receita) || 0), 0);
         const prazoMedioTotal = operacoes.reduce((acc: number, op: any) => acc + (parseFloat(op.prazo_medio) || 0), 0);
 
-        // Calcular carteira
+        // Calcular carteira em aberto
         const carteiraTotal = titulosAberto.reduce((acc: number, t: any) => acc + (parseFloat(t.valor) || 0), 0);
         const hoje = new Date();
         const titulosVencidos = titulosAberto.filter((t: any) => t.vencimento && new Date(t.vencimento) < hoje);
         const carteiraVencida = titulosVencidos.reduce((acc: number, t: any) => acc + (parseFloat(t.valor) || 0), 0);
 
-        // Calcular liquidez
-        const valorQuitado = titulosQuitados.reduce((acc: number, t: any) => acc + (parseFloat(t.valor_liquidado) || 0), 0);
-        const valorRecomprado = recomprados.reduce((acc: number, t: any) => acc + (parseFloat(t.total) || 0), 0);
+        // Calcular liquidez com base nos títulos quitados e recomprados
+        const valorQuitadoTotal = titulosQuitados.reduce((acc: number, t: any) => acc + (parseFloat(t.valor_face) || 0), 0);
+        const valorRecompradoTotal = recomprados.reduce((acc: number, t: any) => acc + (parseFloat(t.valor_face) || 0), 0);
+        
+        // Total de títulos para cálculo de percentuais = quitados + recomprados
+        const totalTitulosHistorico = titulosQuitados.length + recomprados.length;
+        const valorTotalHistorico = valorQuitadoTotal + valorRecompradoTotal;
 
-        // Concentração de sacados
+        // Calcular comportamento de pagamento dos títulos quitados
+        let pontualQtd = 0, pontualValor = 0;
+        let atrasoQtd = 0, atrasoValor = 0;
+        
+        titulosQuitados.forEach((t: any) => {
+          const vencimento = t.vencimento ? new Date(t.vencimento) : null;
+          const quitacao = t.quitacao ? new Date(t.quitacao) : null;
+          const valorFace = parseFloat(t.valor_face) || 0;
+          
+          if (vencimento && quitacao) {
+            const diffDays = Math.floor((quitacao.getTime() - vencimento.getTime()) / (1000 * 60 * 60 * 24));
+            if (diffDays <= 1) {
+              // Considera pontual se pagou até 1 dia após vencimento
+              pontualQtd++;
+              pontualValor += valorFace;
+            } else {
+              atrasoQtd++;
+              atrasoValor += valorFace;
+            }
+          } else {
+            // Se não tem datas, considera como pontual (status P geralmente indica pago)
+            pontualQtd++;
+            pontualValor += valorFace;
+          }
+        });
+
+        // Percentuais de liquidez
+        const percentualPontual = totalTitulosHistorico > 0 ? (pontualQtd / totalTitulosHistorico) * 100 : 0;
+        const percentualAtraso = totalTitulosHistorico > 0 ? (atrasoQtd / totalTitulosHistorico) * 100 : 0;
+        const percentualRecompra = totalTitulosHistorico > 0 ? (recomprados.length / totalTitulosHistorico) * 100 : 0;
+        const percentualLiquidado = totalTitulosHistorico > 0 ? (titulosQuitados.length / totalTitulosHistorico) * 100 : 100;
+
+        // Concentração de sacados (baseado em títulos em aberto)
         const sacadoMap = new Map<string, { nome: string; cpf_cnpj: string; valor: number }>();
         titulosAberto.forEach((t: any) => {
           if (t.cpf_cnpj_sacado) {
@@ -276,6 +312,60 @@ export default function CedenteConsulta() {
           .sort((a, b) => b.mes.localeCompare(a.mes))
           .slice(0, 12);
 
+        // Comportamento 90 dias - analisar títulos quitados nos últimos 90 dias
+        const hoje90Dias = new Date();
+        hoje90Dias.setDate(hoje90Dias.getDate() - 90);
+        
+        let comp90Pontual = { valor: 0, qtd: 0 };
+        let comp90Atraso5 = { valor: 0, qtd: 0 };
+        let comp90Atraso15 = { valor: 0, qtd: 0 };
+        let comp90Atraso30 = { valor: 0, qtd: 0 };
+        let comp90AtrasoMais30 = { valor: 0, qtd: 0 };
+        let comp90Total = { valor: 0, qtd: 0 };
+
+        titulosQuitados.forEach((t: any) => {
+          const quitacao = t.quitacao ? new Date(t.quitacao) : null;
+          if (!quitacao || quitacao < hoje90Dias) return;
+          
+          const vencimento = t.vencimento ? new Date(t.vencimento) : null;
+          const valorFace = parseFloat(t.valor_face) || 0;
+          
+          comp90Total.valor += valorFace;
+          comp90Total.qtd++;
+          
+          if (vencimento) {
+            const diffDays = Math.floor((quitacao.getTime() - vencimento.getTime()) / (1000 * 60 * 60 * 24));
+            if (diffDays <= 0) {
+              comp90Pontual.valor += valorFace;
+              comp90Pontual.qtd++;
+            } else if (diffDays <= 5) {
+              comp90Atraso5.valor += valorFace;
+              comp90Atraso5.qtd++;
+            } else if (diffDays <= 15) {
+              comp90Atraso15.valor += valorFace;
+              comp90Atraso15.qtd++;
+            } else if (diffDays <= 30) {
+              comp90Atraso30.valor += valorFace;
+              comp90Atraso30.qtd++;
+            } else {
+              comp90AtrasoMais30.valor += valorFace;
+              comp90AtrasoMais30.qtd++;
+            }
+          } else {
+            comp90Pontual.valor += valorFace;
+            comp90Pontual.qtd++;
+          }
+        });
+
+        // Calcular recompras nos últimos 90 dias
+        let comp90Recompra = { valor: 0, qtd: 0 };
+        recomprados.forEach((t: any) => {
+          const recompraDate = t.recompra ? new Date(t.recompra) : null;
+          if (!recompraDate || recompraDate < hoje90Dias) return;
+          comp90Recompra.valor += parseFloat(t.valor_face) || 0;
+          comp90Recompra.qtd++;
+        });
+
         const cedenteDetail: CedenteDetail = {
           cedente: {
             id: cedente.id_cedente || 0,
@@ -311,13 +401,13 @@ export default function CedenteConsulta() {
             volumeOperado: valorBrutoTotal,
             prazoMedioOperacoes: totalOperacoes > 0 ? prazoMedioTotal / totalOperacoes : 0,
             prazoMedioTitulos90Dias: 0,
-            mediaPagoEmAtraso: 0,
+            mediaPagoEmAtraso: comp90Total.qtd > 0 ? (comp90Atraso5.qtd + comp90Atraso15.qtd + comp90Atraso30.qtd + comp90AtrasoMais30.qtd) / comp90Total.qtd * 100 : 0,
             valorMedioBorderos: totalOperacoes > 0 ? valorBrutoTotal / totalOperacoes : 0,
             valorMedioTitulos: titulosAberto.length > 0 ? carteiraTotal / titulosAberto.length : 0,
             receitaGerada: receitaTotal,
             percentualProrrogacao: 0,
-            chqDevolvidosAberto: 0,
-            chqDevolvidosQuitado: 0,
+            chqDevolvidosAberto: titulosAberto.filter((t: any) => t.tipo === 'CHQ' && t.situacao === 'Devolvido').length,
+            chqDevolvidosQuitado: titulosQuitados.filter((t: any) => t.tipo === 'CHQ' && t.motivo_devolucao).length,
           },
           limites: {
             global: parseFloat(cedente.limite_global) || 0,
@@ -326,10 +416,10 @@ export default function CedenteConsulta() {
             saldo: parseFloat(cedente.saldo) || 0,
           },
           confirmacao: {
-            confirmado: { qtd: 0, valor: 0, percentual: 0 },
-            parcial: { qtd: 0, valor: 0, percentual: 0 },
-            pendente: { qtd: 0, valor: 0, percentual: 0 },
-            semConfirmacao: { qtd: 0, valor: 0, percentual: 0 },
+            confirmado: { qtd: titulosAberto.filter((t: any) => t.conf === 'Confirmado' || t.conf === 'C').length, valor: titulosAberto.filter((t: any) => t.conf === 'Confirmado' || t.conf === 'C').reduce((a: number, t: any) => a + (parseFloat(t.valor) || 0), 0), percentual: 0 },
+            parcial: { qtd: titulosAberto.filter((t: any) => t.conf === 'Parcial' || t.conf === 'P').length, valor: titulosAberto.filter((t: any) => t.conf === 'Parcial' || t.conf === 'P').reduce((a: number, t: any) => a + (parseFloat(t.valor) || 0), 0), percentual: 0 },
+            pendente: { qtd: titulosAberto.filter((t: any) => t.conf === 'Pendente' || t.conf === 'N').length, valor: titulosAberto.filter((t: any) => t.conf === 'Pendente' || t.conf === 'N').reduce((a: number, t: any) => a + (parseFloat(t.valor) || 0), 0), percentual: 0 },
+            semConfirmacao: { qtd: titulosAberto.filter((t: any) => !t.conf || t.conf === '').length, valor: titulosAberto.filter((t: any) => !t.conf || t.conf === '').reduce((a: number, t: any) => a + (parseFloat(t.valor) || 0), 0), percentual: 0 },
             total: { qtd: titulosAberto.length, valor: carteiraTotal },
           },
           carteira: {
@@ -340,29 +430,59 @@ export default function CedenteConsulta() {
           concentracaoSacados,
           liquidez: {
             totalQuitados: titulosQuitados.length,
-            valorQuitado,
+            valorQuitado: valorQuitadoTotal,
             totalRecomprados: recomprados.length,
-            valorRecomprado,
-            percentualPontual: 0,
-            percentualAtraso: 0,
-            percentualRecompra: valorQuitado > 0 ? (valorRecomprado / valorQuitado) * 100 : 0,
-            percentualLiquidado: 100,
+            valorRecomprado: valorRecompradoTotal,
+            percentualPontual,
+            percentualAtraso,
+            percentualRecompra,
+            percentualLiquidado,
           },
           comportamento90Dias: {
-            pontual: { valor: 0, qtd: 0, percentualValor: 0, percentualQtd: 0 },
-            atraso5: { valor: 0, qtd: 0, percentualValor: 0, percentualQtd: 0 },
-            atraso15: { valor: 0, qtd: 0, percentualValor: 0, percentualQtd: 0 },
-            atraso30: { valor: 0, qtd: 0, percentualValor: 0, percentualQtd: 0 },
-            atrasoMais30: { valor: 0, qtd: 0, percentualValor: 0, percentualQtd: 0 },
-            recompra: { valor: 0, qtd: 0, percentualValor: 0, percentualQtd: 0 },
+            pontual: { 
+              valor: comp90Pontual.valor, 
+              qtd: comp90Pontual.qtd, 
+              percentualValor: comp90Total.valor > 0 ? (comp90Pontual.valor / comp90Total.valor) * 100 : 0,
+              percentualQtd: comp90Total.qtd > 0 ? (comp90Pontual.qtd / comp90Total.qtd) * 100 : 0 
+            },
+            atraso5: { 
+              valor: comp90Atraso5.valor, 
+              qtd: comp90Atraso5.qtd, 
+              percentualValor: comp90Total.valor > 0 ? (comp90Atraso5.valor / comp90Total.valor) * 100 : 0,
+              percentualQtd: comp90Total.qtd > 0 ? (comp90Atraso5.qtd / comp90Total.qtd) * 100 : 0 
+            },
+            atraso15: { 
+              valor: comp90Atraso15.valor, 
+              qtd: comp90Atraso15.qtd, 
+              percentualValor: comp90Total.valor > 0 ? (comp90Atraso15.valor / comp90Total.valor) * 100 : 0,
+              percentualQtd: comp90Total.qtd > 0 ? (comp90Atraso15.qtd / comp90Total.qtd) * 100 : 0 
+            },
+            atraso30: { 
+              valor: comp90Atraso30.valor, 
+              qtd: comp90Atraso30.qtd, 
+              percentualValor: comp90Total.valor > 0 ? (comp90Atraso30.valor / comp90Total.valor) * 100 : 0,
+              percentualQtd: comp90Total.qtd > 0 ? (comp90Atraso30.qtd / comp90Total.qtd) * 100 : 0 
+            },
+            atrasoMais30: { 
+              valor: comp90AtrasoMais30.valor, 
+              qtd: comp90AtrasoMais30.qtd, 
+              percentualValor: comp90Total.valor > 0 ? (comp90AtrasoMais30.valor / comp90Total.valor) * 100 : 0,
+              percentualQtd: comp90Total.qtd > 0 ? (comp90AtrasoMais30.qtd / comp90Total.qtd) * 100 : 0 
+            },
+            recompra: { 
+              valor: comp90Recompra.valor, 
+              qtd: comp90Recompra.qtd, 
+              percentualValor: comp90Total.valor > 0 ? (comp90Recompra.valor / comp90Total.valor) * 100 : 0,
+              percentualQtd: comp90Total.qtd > 0 ? (comp90Recompra.qtd / comp90Total.qtd) * 100 : 0 
+            },
             repasse: { valor: 0, qtd: 0, percentualValor: 0, percentualQtd: 0 },
             cartorio: { valor: 0, qtd: 0, percentualValor: 0, percentualQtd: 0 },
-            totalPago: { valor: valorQuitado, qtd: titulosQuitados.length },
-            emAtraso: { valor: carteiraVencida, qtd: titulosVencidos.length, percentualValor: 0, percentualQtd: 0 },
+            totalPago: comp90Total,
+            emAtraso: { valor: carteiraVencida, qtd: titulosVencidos.length, percentualValor: carteiraTotal > 0 ? (carteiraVencida / carteiraTotal) * 100 : 0, percentualQtd: titulosAberto.length > 0 ? (titulosVencidos.length / titulosAberto.length) * 100 : 0 },
           },
           receitaMensal,
           titulosAberto: titulosAberto.slice(0, 50).map((t: any) => ({
-            id: t.id || 0,
+            id: t.dev_id || 0,
             documento: t.documento || t.id_titulo,
             sacado: t.sacado,
             cpf_cnpj_sacado: t.cpf_cnpj_sacado,
@@ -373,7 +493,7 @@ export default function CedenteConsulta() {
             etapa: t.etapa,
           })),
           titulosQuitados: titulosQuitados.slice(0, 50).map((t: any) => ({
-            id: t.id || 0,
+            id: t.dev_id || 0,
             numero: t.numero,
             sacado: t.sacado,
             cpf_cnpj_sacado: t.cpf_cnpj_sacado,
@@ -385,7 +505,7 @@ export default function CedenteConsulta() {
             tipo_quitacao: t.tipo_quitacao,
           })),
           ultimasOperacoes: operacoes.slice(0, 20).map((op: any) => ({
-            id: op.id || 0,
+            id: op.dev_id || 0,
             operacao: op.operacao,
             data: op.data,
             valor_bruto: parseFloat(op.valor_bruto) || 0,
@@ -395,7 +515,7 @@ export default function CedenteConsulta() {
             etapa: op.etapa,
           })),
           suspeitasFraude: suspeitaFraude.map((f: any) => ({
-            id: f.id || 0,
+            id: f.dev_id || 0,
             sacado: f.sacado,
             cpf_cnpj_sacado: f.cpf_cnpj_sacado,
             numero_documento: f.numero_documento,
