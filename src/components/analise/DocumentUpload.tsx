@@ -48,8 +48,10 @@ export function DocumentUpload({ onFilesSelected, isProcessing }: DocumentUpload
 
   const handleAnalyze = useCallback(() => {
     if (selectedFiles.length > 0) {
-      onFilesSelected(selectedFiles);
+      // Create a copy of the files before clearing the state
+      const filesToProcess = [...selectedFiles];
       setSelectedFiles([]);
+      onFilesSelected(filesToProcess);
     }
   }, [selectedFiles, onFilesSelected]);
 

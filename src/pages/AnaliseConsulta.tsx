@@ -10,14 +10,37 @@ import type { DocumentoAnalisado, DadosExtraidos } from '@/types/analise';
 // Convert file to base64 for sending to AI
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
+    if (!file || !(file instanceof File)) {
+      reject(new Error('Arquivo inválido'));
+      return;
+    }
+    
     const reader = new FileReader();
+    
     reader.onload = () => {
-      const result = reader.result as string;
-      // Remove data URL prefix to get pure base64
-      const base64 = result.split(',')[1];
-      resolve(base64);
+      try {
+        const result = reader.result as string;
+        if (!result) {
+          reject(new Error('Falha ao ler arquivo'));
+          return;
+        }
+        // Remove data URL prefix to get pure base64
+        const base64 = result.split(',')[1];
+        if (!base64) {
+          reject(new Error('Falha ao converter para base64'));
+          return;
+        }
+        console.log('File converted to base64, length:', base64.length);
+        resolve(base64);
+      } catch (err) {
+        reject(err);
+      }
     };
-    reader.onerror = reject;
+    
+    reader.onerror = () => {
+      reject(new Error('Erro ao ler arquivo: ' + reader.error?.message));
+    };
+    
     reader.readAsDataURL(file);
   });
 }
@@ -31,8 +54,20 @@ export default function AnaliseConsulta() {
 
   const processarDocumento = useCallback(async (file: File, docId: string) => {
     try {
+      console.log('Processing file:', file.name, 'Size:', file.size, 'Type:', file.type);
+      
+      if (!file || file.size === 0) {
+        throw new Error('Arquivo vazio ou inválido');
+      }
+
       // Convert PDF to base64 for multimodal AI processing
       const pdfBase64 = await fileToBase64(file);
+      
+      if (!pdfBase64 || pdfBase64.length === 0) {
+        throw new Error('Falha ao converter PDF para base64');
+      }
+
+      console.log('Sending to edge function, base64 length:', pdfBase64.length);
 
       // Call edge function with base64 PDF
       const response = await fetch(
@@ -44,7 +79,7 @@ export default function AnaliseConsulta() {
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({
-            pdfBase64: pdfBase64,
+            pdfBase64,
             fileName: file.name,
             mimeType: file.type || 'application/pdf',
           }),
