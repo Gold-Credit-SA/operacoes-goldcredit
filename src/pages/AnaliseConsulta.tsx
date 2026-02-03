@@ -7,56 +7,18 @@ import { LoadingAnalysis } from '@/components/analise/LoadingAnalysis';
 import { useToast } from '@/hooks/use-toast';
 import type { DocumentoAnalisado, DadosExtraidos } from '@/types/analise';
 
-// PDF.js text extraction (simplified - extracts text from PDF)
-async function extractTextFromPDF(file: File): Promise<string> {
+// Convert file to base64 for sending to AI
+async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const arrayBuffer = e.target?.result as ArrayBuffer;
-        const bytes = new Uint8Array(arrayBuffer);
-        
-        // Convert to string and extract readable text
-        let text = '';
-        const decoder = new TextDecoder('utf-8', { fatal: false });
-        const rawText = decoder.decode(bytes);
-        
-        // Extract text between stream markers and clean up
-        const streamRegex = /stream\s*([\s\S]*?)\s*endstream/g;
-        let match;
-        while ((match = streamRegex.exec(rawText)) !== null) {
-          text += match[1] + '\n';
-        }
-        
-        // Also try to extract text objects
-        const textRegex = /\((.*?)\)/g;
-        while ((match = textRegex.exec(rawText)) !== null) {
-          const extracted = match[1].replace(/\\(\d{3})/g, (_, oct) => 
-            String.fromCharCode(parseInt(oct, 8))
-          );
-          if (extracted.length > 2 && /[a-zA-Z0-9]/.test(extracted)) {
-            text += extracted + ' ';
-          }
-        }
-        
-        // Clean up the text
-        text = text
-          .replace(/[^\x20-\x7E\xA0-\xFF\n]/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
-        
-        if (text.length < 100) {
-          // If extraction failed, send raw content
-          resolve(rawText.slice(0, 50000));
-        } else {
-          resolve(text.slice(0, 50000)); // Limit to 50k chars
-        }
-      } catch (err) {
-        reject(err);
-      }
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove data URL prefix to get pure base64
+      const base64 = result.split(',')[1];
+      resolve(base64);
     };
     reader.onerror = reject;
-    reader.readAsArrayBuffer(file);
+    reader.readAsDataURL(file);
   });
 }
 
@@ -69,14 +31,10 @@ export default function AnaliseConsulta() {
 
   const processarDocumento = useCallback(async (file: File, docId: string) => {
     try {
-      // Extract text from PDF
-      const pdfText = await extractTextFromPDF(file);
-      
-      if (!pdfText || pdfText.length < 50) {
-        throw new Error('Não foi possível extrair texto do PDF. O documento pode ser uma imagem.');
-      }
+      // Convert PDF to base64 for multimodal AI processing
+      const pdfBase64 = await fileToBase64(file);
 
-      // Call edge function
+      // Call edge function with base64 PDF
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-document`,
         {
@@ -86,8 +44,9 @@ export default function AnaliseConsulta() {
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({
-            pdfContent: pdfText,
+            pdfBase64: pdfBase64,
             fileName: file.name,
+            mimeType: file.type || 'application/pdf',
           }),
         }
       );
