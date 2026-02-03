@@ -7,6 +7,7 @@ import { AppSidebar } from "@/components/layout/AppSidebar";
 import CedenteConsulta from "./pages/CedenteConsulta";
 import CedenteDetailPage from "./pages/CedenteDetailPage";
 import GiroCarteira from "./pages/GiroCarteira";
+import AnaliseConsulta from "./pages/AnaliseConsulta";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
               <Route path="/consulta" element={<CedenteConsulta />} />
               <Route path="/cedente/:id" element={<CedenteDetailPage />} />
               <Route path="/giro-carteira" element={<GiroCarteira />} />
+              <Route path="/analise-consulta" element={<AnaliseConsulta />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </div>
