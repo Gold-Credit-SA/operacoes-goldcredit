@@ -67,11 +67,12 @@ Deno.serve(async (req) => {
           .eq('cpf_cnpj', cpf_cnpj)
           .order('data_pagamento', { ascending: false });
 
-        // Buscar títulos em aberto (ordenar por vencimento)
+        // Buscar títulos em aberto (apenas convencionais, nunca trustee)
         const { data: titulosAberto } = await supabase
           .from('titulos_em_aberto')
           .select('*')
           .eq('cpf_cnpj_cedente', cpf_cnpj)
+          .eq('tipo', 'C') // Apenas títulos convencionais
           .order('vencimento', { ascending: true });
 
         // Buscar títulos quitados (ordenar por data de quitação, mais recentes primeiro)

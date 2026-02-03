@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
           supabase.from('cedentes_completo').select('id', { count: 'exact', head: true }),
           supabase.from('operacoes_individualizadas').select('id', { count: 'exact', head: true }),
           supabase.from('receita_por_cedente').select('id', { count: 'exact', head: true }),
-          supabase.from('titulos_em_aberto').select('id', { count: 'exact', head: true }),
+          supabase.from('titulos_em_aberto').select('id', { count: 'exact', head: true }).eq('tipo', 'C'),
           supabase.from('titulos_quitados').select('id', { count: 'exact', head: true }),
           supabase.from('titulos_prorrogados').select('id', { count: 'exact', head: true }),
           supabase.from('titulos_recomprados').select('id', { count: 'exact', head: true }),
@@ -142,6 +142,7 @@ Deno.serve(async (req) => {
         let query = supabase
           .from('titulos_em_aberto')
           .select('*')
+          .eq('tipo', 'C') // Apenas títulos convencionais, nunca trustee
           .order('vencimento', { ascending: true });
 
         if (filters?.cedente) {
