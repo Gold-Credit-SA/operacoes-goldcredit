@@ -1,11 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Upload, LayoutDashboard, Search, LogOut, RefreshCw } from 'lucide-react';
+import { Search, LogOut, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import logoGoldCredit from '@/assets/logo-gold-credit.png';
 
 const navItems = [
-  { path: '/', label: 'Importação', icon: Upload },
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/consulta', label: 'Consulta', icon: Search },
   { path: '/giro-carteira', label: 'Giro de Carteira', icon: RefreshCw },
 ];
