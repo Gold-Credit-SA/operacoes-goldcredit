@@ -14,7 +14,15 @@ import AnaliseConsulta from "./pages/AnaliseConsulta";
 import AdminSettings from "./pages/AdminSettings";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -25,79 +33,81 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Navigate to="/consulta" replace />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/consulta"
-              element={
-                <ProtectedRoute>
-                  <AppLayout>
-                    <CedenteConsulta />
-                  </AppLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/cedente/:id"
-              element={
-                <ProtectedRoute>
-                  <AppLayout>
-                    <CedenteDetailPage />
-                  </AppLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/giro-carteira"
-              element={
-                <ProtectedRoute>
-                  <AppLayout>
-                    <GiroCarteira />
-                  </AppLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/analise-consulta"
-              element={
-                <ProtectedRoute>
-                  <AppLayout>
-                    <AnaliseConsulta />
-                  </AppLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute requireAdmin>
-                  <AppLayout>
-                    <AdminSettings />
-                  </AppLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <Navigate to="/consulta" replace />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/consulta"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <CedenteConsulta />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/cedente/:id"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <CedenteDetailPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/giro-carteira"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <GiroCarteira />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/analise-consulta"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <AnaliseConsulta />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <AppLayout>
+                      <AdminSettings />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
 
 export default App;
