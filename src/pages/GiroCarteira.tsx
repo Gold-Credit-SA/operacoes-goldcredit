@@ -26,8 +26,19 @@ import {
   TrendingUp,
   AlertTriangle,
   RefreshCw,
-  Users
+  Users,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface CedenteGiro {
   cpf_cnpj: string;
@@ -61,6 +72,8 @@ export default function GiroCarteira() {
   const [selectedCedentes, setSelectedCedentes] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -129,6 +142,7 @@ export default function GiroCarteira() {
         c.cpf_cnpj?.includes(term)
       ));
     }
+    setCurrentPage(1); // Reset to first page when search changes
   }, [searchTerm, cedentes]);
 
   const toggleSelectCedente = (cpfCnpj: string) => {
@@ -204,6 +218,16 @@ export default function GiroCarteira() {
     const dateB = b.ultima_operacao ? new Date(b.ultima_operacao).getTime() : 0;
     return dateB - dateA;
   });
+
+  // Pagination
+  const totalPages = Math.ceil(cedentesOrdenados.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedCedentes = cedentesOrdenados.slice(startIndex, endIndex);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
 
   return (
     <MainLayout>
@@ -341,14 +365,14 @@ export default function GiroCarteira() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {cedentesOrdenados.length === 0 ? (
+                    {paginatedCedentes.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                           Nenhum cedente encontrado
                         </TableCell>
                       </TableRow>
                     ) : (
-                      cedentesOrdenados.map((cedente) => {
+                      paginatedCedentes.map((cedente) => {
                         const analise = analises[cedente.cpf_cnpj];
                         const isSelected = selectedCedentes.has(cedente.cpf_cnpj);
                         
@@ -427,6 +451,86 @@ export default function GiroCarteira() {
                     )}
                   </TableBody>
                 </Table>
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {!isLoading && cedentesOrdenados.length > 0 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>Exibindo</span>
+                  <Select
+                    value={itemsPerPage.toString()}
+                    onValueChange={(value) => {
+                      setItemsPerPage(Number(value));
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-[70px] h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <span>de {filteredCedentes.length} cedentes</span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => goToPage(1)}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronsLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  
+                  <div className="flex items-center gap-1 mx-2">
+                    <span className="text-sm">Página</span>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={totalPages}
+                      value={currentPage}
+                      onChange={(e) => goToPage(Number(e.target.value))}
+                      className="w-14 h-8 text-center"
+                    />
+                    <span className="text-sm">de {totalPages}</span>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => goToPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronsRight className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
