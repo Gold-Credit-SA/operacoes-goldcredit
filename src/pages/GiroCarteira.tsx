@@ -1,28 +1,35 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { 
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { 
   Search, 
   Sparkles, 
   CheckCircle2, 
   XCircle, 
   ArrowRight, 
-  Calendar,
   Building2,
   TrendingUp,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  Users
 } from 'lucide-react';
 
-interface CedenteInativo {
+interface CedenteGiro {
   cpf_cnpj: string;
   nome?: string;
   razao_social?: string;
@@ -47,10 +54,12 @@ interface AnaliseIA {
 }
 
 export default function GiroCarteira() {
-  const [dataLimite, setDataLimite] = useState('');
-  const [cedentes, setCedentes] = useState<CedenteInativo[]>([]);
+  const [cedentes, setCedentes] = useState<CedenteGiro[]>([]);
+  const [filteredCedentes, setFilteredCedentes] = useState<CedenteGiro[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [analises, setAnalises] = useState<Record<string, AnaliseIA>>({});
-  const [isLoadingList, setIsLoadingList] = useState(false);
+  const [selectedCedentes, setSelectedCedentes] = useState<Set<string>>(new Set());
+  const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -76,60 +85,86 @@ export default function GiroCarteira() {
     return new Date(date).toLocaleDateString('pt-BR');
   };
 
-  const buscarCedentesInativos = async () => {
-    if (!dataLimite) {
-      toast({
-        title: "Selecione uma data",
-        description: "Informe a data limite para buscar cedentes inativos.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsLoadingList(true);
-    setAnalises({});
-    
+  const fetchCedentes = async () => {
+    setIsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('giro-carteira', {
-        body: { action: 'list-inativos', dataLimite }
+        body: { action: 'list-all' }
       });
 
       if (error) throw error;
 
       if (data.success) {
         setCedentes(data.cedentes);
+        setFilteredCedentes(data.cedentes);
         toast({
-          title: "Cedentes encontrados",
-          description: `${data.cedentes.length} cedentes não operam desde ${formatDate(dataLimite)}`
+          title: "Cedentes carregados",
+          description: `${data.cedentes.length} cedentes encontrados`
         });
       }
     } catch (error) {
       console.error("Erro ao buscar cedentes:", error);
       toast({
-        title: "Erro ao buscar cedentes",
-        description: "Não foi possível carregar a lista de cedentes inativos.",
+        title: "Erro ao carregar cedentes",
+        description: "Não foi possível carregar a lista de cedentes.",
         variant: "destructive"
       });
     } finally {
-      setIsLoadingList(false);
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCedentes();
+  }, []);
+
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setFilteredCedentes(cedentes);
+    } else {
+      const term = searchTerm.toLowerCase();
+      setFilteredCedentes(cedentes.filter(c => 
+        c.nome?.toLowerCase().includes(term) ||
+        c.razao_social?.toLowerCase().includes(term) ||
+        c.cpf_cnpj?.includes(term)
+      ));
+    }
+  }, [searchTerm, cedentes]);
+
+  const toggleSelectCedente = (cpfCnpj: string) => {
+    const newSelected = new Set(selectedCedentes);
+    if (newSelected.has(cpfCnpj)) {
+      newSelected.delete(cpfCnpj);
+    } else {
+      newSelected.add(cpfCnpj);
+    }
+    setSelectedCedentes(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedCedentes.size === filteredCedentes.length) {
+      setSelectedCedentes(new Set());
+    } else {
+      setSelectedCedentes(new Set(filteredCedentes.map(c => c.cpf_cnpj)));
     }
   };
 
   const analisarComIA = async () => {
-    if (cedentes.length === 0) {
+    if (selectedCedentes.size === 0) {
       toast({
-        title: "Nenhum cedente",
-        description: "Busque cedentes inativos primeiro.",
+        title: "Nenhum cedente selecionado",
+        description: "Selecione cedentes para analisar com IA.",
         variant: "destructive"
       });
       return;
     }
 
+    const cedentesToAnalyze = cedentes.filter(c => selectedCedentes.has(c.cpf_cnpj));
     setIsAnalyzing(true);
     
     try {
       const { data, error } = await supabase.functions.invoke('giro-carteira', {
-        body: { action: 'analyze-batch', cedentes }
+        body: { action: 'analyze-batch', cedentes: cedentesToAnalyze }
       });
 
       if (error) throw error;
@@ -139,7 +174,7 @@ export default function GiroCarteira() {
         for (const analise of data.analises) {
           analisesMap[analise.cpf_cnpj] = analise;
         }
-        setAnalises(analisesMap);
+        setAnalises(prev => ({ ...prev, ...analisesMap }));
         
         const saudaveis = data.analises.filter((a: AnaliseIA) => a.saudavel).length;
         toast({
@@ -163,324 +198,239 @@ export default function GiroCarteira() {
     navigate(`/consulta?cpf_cnpj=${cpfCnpj}`);
   };
 
-  // Ordenar: saudáveis primeiro, depois por score
-  const cedentesOrdenados = [...cedentes].sort((a, b) => {
-    const analiseA = analises[a.cpf_cnpj];
-    const analiseB = analises[b.cpf_cnpj];
-    
-    if (analiseA?.saudavel && !analiseB?.saudavel) return -1;
-    if (!analiseA?.saudavel && analiseB?.saudavel) return 1;
-    
-    if (analiseA && analiseB) {
-      return (analiseB.score || 0) - (analiseA.score || 0);
-    }
-    
-    return 0;
+  // Ordenar: mais recentes primeiro
+  const cedentesOrdenados = [...filteredCedentes].sort((a, b) => {
+    const dateA = a.ultima_operacao ? new Date(a.ultima_operacao).getTime() : 0;
+    const dateB = b.ultima_operacao ? new Date(b.ultima_operacao).getTime() : 0;
+    return dateB - dateA;
   });
 
   return (
     <MainLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Giro de Carteira</h1>
-          <p className="text-muted-foreground">
-            Identifique cedentes inativos e analise quais estão prontos para operar novamente
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Giro de Carteira</h1>
+            <p className="text-muted-foreground">
+              Visualize todos os cedentes e analise quais estão prontos para operar
+            </p>
+          </div>
+          <Button onClick={fetchCedentes} variant="outline" disabled={isLoading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Atualizar
+          </Button>
         </div>
 
-        {/* Filtro de Data */}
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <Users className="h-8 w-8 text-primary" />
+              <div>
+                <p className="text-2xl font-bold">{cedentes.length}</p>
+                <p className="text-sm text-muted-foreground">Total Cedentes</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+              <div>
+                <p className="text-2xl font-bold text-emerald-600">
+                  {Object.values(analises).filter(a => a.saudavel).length}
+                </p>
+                <p className="text-sm text-muted-foreground">Saudáveis</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <XCircle className="h-8 w-8 text-red-500" />
+              <div>
+                <p className="text-2xl font-bold text-red-600">
+                  {Object.values(analises).filter(a => !a.saudavel).length}
+                </p>
+                <p className="text-sm text-muted-foreground">Não Recomendados</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <TrendingUp className="h-8 w-8 text-amber-500" />
+              <div>
+                <p className="text-2xl font-bold text-amber-600">
+                  {selectedCedentes.size}
+                </p>
+                <p className="text-sm text-muted-foreground">Selecionados</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Search and Actions */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Calendar className="h-5 w-5 text-primary" />
-              Buscar Cedentes Inativos
-            </CardTitle>
-            <CardDescription>
-              Informe uma data para encontrar cedentes que não operam desde então
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="p-4">
             <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 max-w-xs">
-                <Label htmlFor="dataLimite">Cedentes inativos desde</Label>
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  id="dataLimite"
-                  type="date"
-                  value={dataLimite}
-                  onChange={(e) => setDataLimite(e.target.value)}
-                  className="mt-1.5"
+                  placeholder="Buscar por nome ou CPF/CNPJ..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
                 />
               </div>
-              <div className="flex items-end gap-2">
-                <Button onClick={buscarCedentesInativos} disabled={isLoadingList}>
-                  {isLoadingList ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      Buscando...
-                    </>
-                  ) : (
-                    <>
-                      <Search className="h-4 w-4 mr-2" />
-                      Buscar Inativos
-                    </>
-                  )}
-                </Button>
-                {cedentes.length > 0 && (
-                  <Button 
-                    onClick={analisarComIA} 
-                    disabled={isAnalyzing}
-                    variant="secondary"
-                    className="bg-primary/10 hover:bg-primary/20 text-primary"
-                  >
-                    {isAnalyzing ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        Analisando...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        Analisar com IA
-                      </>
-                    )}
-                  </Button>
+              <Button 
+                onClick={analisarComIA} 
+                disabled={isAnalyzing || selectedCedentes.size === 0}
+                className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Analisando...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Analisar Selecionados ({selectedCedentes.size})
+                  </>
                 )}
-              </div>
+              </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Resumo da Análise */}
-        {Object.keys(analises).length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card className="bg-emerald-500/10 border-emerald-500/20">
-              <CardContent className="p-4 flex items-center gap-3">
-                <CheckCircle2 className="h-8 w-8 text-emerald-500" />
-                <div>
-                  <p className="text-2xl font-bold text-emerald-600">
-                    {Object.values(analises).filter(a => a.saudavel).length}
-                  </p>
-                  <p className="text-sm text-emerald-600/80">Saudáveis para operar</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="bg-red-500/10 border-red-500/20">
-              <CardContent className="p-4 flex items-center gap-3">
-                <XCircle className="h-8 w-8 text-red-500" />
-                <div>
-                  <p className="text-2xl font-bold text-red-600">
-                    {Object.values(analises).filter(a => !a.saudavel).length}
-                  </p>
-                  <p className="text-sm text-red-600/80">Não recomendados</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="bg-primary/10 border-primary/20">
-              <CardContent className="p-4 flex items-center gap-3">
-                <TrendingUp className="h-8 w-8 text-primary" />
-                <div>
-                  <p className="text-2xl font-bold text-primary">
-                    {cedentes.length}
-                  </p>
-                  <p className="text-sm text-primary/80">Total analisados</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Loading State */}
-        {isLoadingList && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Card key={i}>
-                <CardContent className="p-4">
-                  <Skeleton className="h-4 w-3/4 mb-2" />
-                  <Skeleton className="h-3 w-1/2 mb-4" />
-                  <Skeleton className="h-16 w-full" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {/* Lista de Cedentes */}
-        {!isLoadingList && cedentes.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {cedentesOrdenados.map((cedente) => {
-              const analise = analises[cedente.cpf_cnpj];
-              const utilizacao = cedente.limite_global && cedente.limite_global > 0
-                ? ((cedente.risco_atual || 0) / cedente.limite_global) * 100
-                : 0;
-              
-              return (
-                <Card 
-                  key={cedente.cpf_cnpj}
-                  className={`transition-all duration-300 ${
-                    analise 
-                      ? analise.saudavel 
-                        ? 'border-emerald-500/50 bg-emerald-500/5' 
-                        : 'border-red-500/50 bg-red-500/5'
-                      : ''
-                  }`}
-                >
-                  <CardContent className="p-4">
-                    {/* Header do Card */}
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">
-                          {formatCpfCnpj(cedente.cpf_cnpj)}
-                        </span>
-                      </div>
-                      {analise && (
-                        <Badge 
-                          variant={analise.saudavel ? "default" : "destructive"}
-                          className={analise.saudavel 
-                            ? "bg-emerald-500 hover:bg-emerald-600" 
-                            : ""
-                          }
-                        >
-                          {analise.saudavel ? (
-                            <><CheckCircle2 className="h-3 w-3 mr-1" /> Saudável</>
-                          ) : (
-                            <><XCircle className="h-3 w-3 mr-1" /> Risco</>
-                          )}
-                        </Badge>
-                      )}
-                    </div>
-
-                    {/* Nome */}
-                    <h3 className="font-semibold text-foreground mb-2 line-clamp-2">
-                      {cedente.nome || cedente.razao_social || 'Nome não informado'}
-                    </h3>
-
-                    {/* Métricas */}
-                    <div className="space-y-2 mb-3">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Limite Global:</span>
-                        <span className="font-medium">{formatCurrency(cedente.limite_global)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Disponível:</span>
-                        <span className={`font-medium ${
-                          (cedente.limite_disponivel || 0) <= 0 ? 'text-red-500' : 'text-emerald-500'
-                        }`}>
-                          {formatCurrency(cedente.limite_disponivel)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Utilização:</span>
-                        <span className={`font-medium ${
-                          utilizacao > 100 ? 'text-red-500' : utilizacao > 80 ? 'text-amber-500' : 'text-emerald-500'
-                        }`}>
-                          {utilizacao.toFixed(1)}%
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Última operação:</span>
-                        <span className="font-medium">{formatDate(cedente.ultima_operacao)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Dias inativo:</span>
-                        <span className="font-medium text-amber-500">{cedente.dias_inativo} dias</span>
-                      </div>
-                    </div>
-
-                    {/* Análise IA */}
-                    {analise && (
-                      <div className={`p-3 rounded-lg mb-3 ${
-                        analise.saudavel 
-                          ? 'bg-emerald-500/10 border border-emerald-500/20' 
-                          : 'bg-red-500/10 border border-red-500/20'
-                      }`}>
-                        <div className="flex items-center gap-2 mb-2">
-                          {analise.saudavel ? (
-                            <Sparkles className="h-4 w-4 text-emerald-500" />
-                          ) : (
-                            <AlertTriangle className="h-4 w-4 text-red-500" />
-                          )}
-                          <span className={`text-xs font-semibold ${
-                            analise.saudavel ? 'text-emerald-600' : 'text-red-600'
-                          }`}>
-                            Score: {analise.score}/100
-                          </span>
-                        </div>
-                        <p className={`text-xs mb-2 ${
-                          analise.saudavel ? 'text-emerald-600/90' : 'text-red-600/90'
-                        }`}>
-                          {analise.motivo}
-                        </p>
+        {/* Table */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Cedentes ({filteredCedentes.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-md border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">
+                        <input
+                          type="checkbox"
+                          checked={selectedCedentes.size === filteredCedentes.length && filteredCedentes.length > 0}
+                          onChange={toggleSelectAll}
+                          className="h-4 w-4 rounded border-gray-300"
+                        />
+                      </TableHead>
+                      <TableHead>CPF/CNPJ</TableHead>
+                      <TableHead>Nome</TableHead>
+                      <TableHead className="text-right">Limite Global</TableHead>
+                      <TableHead className="text-right">Disponível</TableHead>
+                      <TableHead className="text-center">Última Operação</TableHead>
+                      <TableHead className="text-center">Dias Inativo</TableHead>
+                      <TableHead className="text-center">Status IA</TableHead>
+                      <TableHead className="w-12"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {cedentesOrdenados.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                          Nenhum cedente encontrado
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      cedentesOrdenados.map((cedente) => {
+                        const analise = analises[cedente.cpf_cnpj];
+                        const isSelected = selectedCedentes.has(cedente.cpf_cnpj);
                         
-                        {/* Alertas */}
-                        {analise.alertas && analise.alertas.length > 0 && (
-                          <div className="mt-2 pt-2 border-t border-red-500/20">
-                            <p className="text-xs font-semibold text-red-600 mb-1">⚠️ Alertas:</p>
-                            <ul className="text-xs text-red-600/80 space-y-0.5">
-                              {analise.alertas.slice(0, 3).map((alerta, i) => (
-                                <li key={i} className="truncate">• {alerta}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        
-                        {/* Pontos Positivos */}
-                        {analise.indicadores_positivos && analise.indicadores_positivos.length > 0 && (
-                          <div className="mt-2 pt-2 border-t border-emerald-500/20">
-                            <p className="text-xs font-semibold text-emerald-600 mb-1">✓ Pontos Positivos:</p>
-                            <ul className="text-xs text-emerald-600/80 space-y-0.5">
-                              {analise.indicadores_positivos.slice(0, 3).map((ponto, i) => (
-                                <li key={i} className="truncate">• {ponto}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
+                        return (
+                          <TableRow 
+                            key={cedente.cpf_cnpj}
+                            className={`${isSelected ? 'bg-primary/5' : ''} ${
+                              analise 
+                                ? analise.saudavel 
+                                  ? 'bg-emerald-500/5' 
+                                  : 'bg-red-500/5'
+                                : ''
+                            }`}
+                          >
+                            <TableCell>
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleSelectCedente(cedente.cpf_cnpj)}
+                                className="h-4 w-4 rounded border-gray-300"
+                              />
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">
+                              {formatCpfCnpj(cedente.cpf_cnpj)}
+                            </TableCell>
+                            <TableCell className="max-w-[200px] truncate">
+                              {cedente.nome || cedente.razao_social || '-'}
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              {formatCurrency(cedente.limite_global)}
+                            </TableCell>
+                            <TableCell className={`text-right font-medium ${
+                              (cedente.limite_disponivel || 0) <= 0 ? 'text-red-500' : 'text-emerald-500'
+                            }`}>
+                              {formatCurrency(cedente.limite_disponivel)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {formatDate(cedente.ultima_operacao)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {cedente.dias_inativo !== undefined && cedente.dias_inativo !== null ? (
+                                <Badge variant={cedente.dias_inativo > 30 ? "destructive" : "secondary"}>
+                                  {cedente.dias_inativo} dias
+                                </Badge>
+                              ) : '-'}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {analise ? (
+                                <Badge 
+                                  variant={analise.saudavel ? "default" : "destructive"}
+                                  className={`${analise.saudavel ? 'bg-emerald-500' : ''} cursor-pointer`}
+                                  title={analise.motivo}
+                                >
+                                  {analise.saudavel ? (
+                                    <><CheckCircle2 className="h-3 w-3 mr-1" /> {analise.score}</>
+                                  ) : (
+                                    <><AlertTriangle className="h-3 w-3 mr-1" /> {analise.score}</>
+                                  )}
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => irParaConsulta(cedente.cpf_cnpj)}
+                              >
+                                <ArrowRight className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
                     )}
-
-                    {/* Botão Consultar */}
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full"
-                      onClick={() => irParaConsulta(cedente.cpf_cnpj)}
-                    >
-                      Ver Consulta Completa
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!isLoadingList && cedentes.length === 0 && dataLimite && (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Nenhum cedente inativo encontrado</h3>
-              <p className="text-muted-foreground">
-                Todos os cedentes possuem operações após {formatDate(dataLimite)}
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Empty State inicial */}
-        {!isLoadingList && cedentes.length === 0 && !dataLimite && (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Selecione uma data</h3>
-              <p className="text-muted-foreground">
-                Informe a data limite para buscar cedentes que não operam desde então
-              </p>
-            </CardContent>
-          </Card>
-        )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </MainLayout>
   );
