@@ -1,16 +1,27 @@
-import { Link, useLocation } from 'react-router-dom';
-import { Search, LogOut, RefreshCw, FileSearch } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Search, LogOut, RefreshCw, FileSearch, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 import logoGoldCredit from '@/assets/logo-gold-credit.png';
-
-const navItems = [
-  { path: '/consulta', label: 'Consulta', icon: Search },
-  { path: '/giro-carteira', label: 'Giro de Carteira', icon: RefreshCw },
-  { path: '/analise-consulta', label: 'Análise de Consulta', icon: FileSearch },
-];
 
 export function AppSidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { profile, isMaster, signOut } = useAuth();
+
+  const navItems = [
+    { path: '/consulta', label: 'Consulta', icon: Search },
+    { path: '/giro-carteira', label: 'Giro de Carteira', icon: RefreshCw },
+    { path: '/analise-consulta', label: 'Análise de Consulta', icon: FileSearch },
+    ...(isMaster ? [{ path: '/admin', label: 'Configurações', icon: Settings }] : []),
+  ];
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login');
+  };
+
+  const userInitial = profile?.name?.charAt(0).toUpperCase() || 'U';
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar flex flex-col border-r border-sidebar-border">
@@ -48,17 +59,21 @@ export function AppSidebar() {
       <div className="border-t border-sidebar-border p-3">
         <div className="flex items-center gap-2.5">
           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
-            R
+            {userInitial}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-sidebar-foreground truncate">
-              Renan Ramos
+              {profile?.name || 'Usuário'}
             </p>
             <p className="text-[10px] text-sidebar-foreground/50 truncate">
-              renan@goldcreditsa.com.br
+              {profile?.email || ''}
             </p>
           </div>
-          <button className="p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors">
+          <button 
+            onClick={handleLogout}
+            className="p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors"
+            title="Sair"
+          >
             <LogOut className="h-3.5 w-3.5" />
           </button>
         </div>
