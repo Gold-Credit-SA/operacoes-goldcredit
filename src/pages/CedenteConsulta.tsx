@@ -3,8 +3,9 @@ import { useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { CedenteSearch } from '@/components/consulta/CedenteSearch';
 import { CedenteInfoPanel } from '@/components/consulta/CedenteInfoPanel';
+import { LoadingPlaceholder } from '@/components/consulta/LoadingPlaceholder';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 
 interface CedenteListItem {
   id: number;
@@ -595,12 +596,7 @@ export default function CedenteConsulta() {
       />
 
       {isLoadingDetail ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <span className="text-muted-foreground font-medium">Carregando dados...</span>
-          </div>
-        </div>
+        <LoadingPlaceholder />
       ) : cedenteDetail ? (
         <CedenteInfoPanel data={cedenteDetail} />
       ) : selectedCedente ? (
