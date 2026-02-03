@@ -39,6 +39,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface CedenteGiro {
   cpf_cnpj: string;
@@ -75,6 +83,7 @@ export default function GiroCarteira() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [statusFilter, setStatusFilter] = useState<'all' | 'saudavel' | 'nao_recomendado' | 'nao_analisado'>('all');
+  const [selectedAnalise, setSelectedAnalise] = useState<{ analise: AnaliseIA; cedente: CedenteGiro } | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -482,8 +491,8 @@ export default function GiroCarteira() {
                               {analise ? (
                                 <Badge 
                                   variant={analise.saudavel ? "default" : "destructive"}
-                                  className={`${analise.saudavel ? 'bg-emerald-500' : ''} cursor-pointer`}
-                                  title={analise.motivo}
+                                  className={`${analise.saudavel ? 'bg-emerald-500' : ''} cursor-pointer hover:opacity-80 transition-opacity`}
+                                  onClick={() => setSelectedAnalise({ analise, cedente })}
                                 >
                                   {analise.saudavel ? (
                                     <><CheckCircle2 className="h-3 w-3 mr-1" /> {analise.score}</>
@@ -594,6 +603,101 @@ export default function GiroCarteira() {
             )}
           </CardContent>
         </Card>
+
+        {/* Modal de Explicação da IA */}
+        <Dialog open={!!selectedAnalise} onOpenChange={() => setSelectedAnalise(null)}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {selectedAnalise?.analise.saudavel ? (
+                  <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                ) : (
+                  <XCircle className="h-5 w-5 text-red-500" />
+                )}
+                {selectedAnalise?.analise.saudavel ? 'Saudável para Operar' : 'Não Recomendado'}
+              </DialogTitle>
+              <DialogDescription>
+                {selectedAnalise?.cedente.nome || selectedAnalise?.cedente.razao_social}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              {/* Score */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <span className="text-sm font-medium">Score de Saúde</span>
+                <Badge 
+                  variant={selectedAnalise?.analise.saudavel ? "default" : "destructive"}
+                  className={selectedAnalise?.analise.saudavel ? 'bg-emerald-500' : ''}
+                >
+                  {selectedAnalise?.analise.score}/100
+                </Badge>
+              </div>
+
+              {/* Motivo Principal */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Motivo da Análise</h4>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {selectedAnalise?.analise.motivo}
+                </p>
+              </div>
+
+              {/* Alertas */}
+              {selectedAnalise?.analise.alertas && selectedAnalise.analise.alertas.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium flex items-center gap-2 text-red-600">
+                    <AlertTriangle className="h-4 w-4" />
+                    Alertas Identificados
+                  </h4>
+                  <ScrollArea className="max-h-[120px]">
+                    <ul className="space-y-1">
+                      {selectedAnalise.analise.alertas.map((alerta, idx) => (
+                        <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <XCircle className="h-3 w-3 mt-1 flex-shrink-0 text-red-400" />
+                          {alerta}
+                        </li>
+                      ))}
+                    </ul>
+                  </ScrollArea>
+                </div>
+              )}
+
+              {/* Indicadores Positivos */}
+              {selectedAnalise?.analise.indicadores_positivos && selectedAnalise.analise.indicadores_positivos.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium flex items-center gap-2 text-emerald-600">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Pontos Positivos
+                  </h4>
+                  <ScrollArea className="max-h-[120px]">
+                    <ul className="space-y-1">
+                      {selectedAnalise.analise.indicadores_positivos.map((indicador, idx) => (
+                        <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <CheckCircle2 className="h-3 w-3 mt-1 flex-shrink-0 text-emerald-400" />
+                          {indicador}
+                        </li>
+                      ))}
+                    </ul>
+                  </ScrollArea>
+                </div>
+              )}
+
+              {/* Ação */}
+              <div className="flex justify-end pt-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    if (selectedAnalise) {
+                      irParaConsulta(selectedAnalise.cedente.cpf_cnpj);
+                    }
+                  }}
+                >
+                  Ver Detalhes Completos
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   );
