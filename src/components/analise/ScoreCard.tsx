@@ -64,7 +64,7 @@ export function ScoreCard({ valor, faixa, descricao, probabilidadePagamento, fon
           </div>
         )}
 
-        {probabilidadePagamento !== undefined && (
+        {probabilidadePagamento != null && typeof probabilidadePagamento === 'number' && (
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Prob. Pagamento</span>
             <span className="text-sm font-medium text-foreground">
