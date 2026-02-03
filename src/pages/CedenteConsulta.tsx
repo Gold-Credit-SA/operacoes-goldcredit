@@ -182,8 +182,8 @@ export default function CedenteConsulta() {
   const fetchCedentes = useCallback(async (searchTerm?: string) => {
     setIsLoadingList(true);
     try {
-      const { data, error } = await supabase.functions.invoke('cedente-info', {
-        body: { action: 'list', search: searchTerm }
+      const { data, error } = await supabase.functions.invoke('external-db', {
+        body: { action: 'cedentes-list', filters: { search: searchTerm } }
       });
 
       if (error) throw error;
@@ -204,13 +204,213 @@ export default function CedenteConsulta() {
   const fetchCedenteDetail = useCallback(async (cpf_cnpj: string) => {
     setIsLoadingDetail(true);
     try {
-      const { data, error } = await supabase.functions.invoke('cedente-info', {
-        body: { action: 'detail', cpf_cnpj }
+      const { data, error } = await supabase.functions.invoke('external-db', {
+        body: { action: 'cedente-info', filters: { cpf_cnpj } }
       });
 
       if (error) throw error;
       if (data?.success) {
-        setCedenteDetail(data.data);
+        // Transformar dados do banco externo para o formato esperado
+        const externalData = data.data;
+        const cedente = externalData.cedente;
+        const operacoes = externalData.operacoes || [];
+        const titulosAberto = externalData.titulosAberto || [];
+        const titulosQuitados = externalData.titulosQuitados || [];
+        const receitas = externalData.receitas || [];
+        const recomprados = externalData.recomprados || [];
+        const suspeitaFraude = externalData.suspeitaFraude || [];
+
+        // Calcular totais
+        const totalOperacoes = operacoes.length;
+        const valorBrutoTotal = operacoes.reduce((acc: number, op: any) => acc + (parseFloat(op.valor_bruto) || 0), 0);
+        const valorLiquidoTotal = operacoes.reduce((acc: number, op: any) => acc + (parseFloat(op.valor_liquido) || 0), 0);
+        const receitaTotal = operacoes.reduce((acc: number, op: any) => acc + (parseFloat(op.valor_receita) || 0), 0);
+        const prazoMedioTotal = operacoes.reduce((acc: number, op: any) => acc + (parseFloat(op.prazo_medio) || 0), 0);
+
+        // Calcular carteira
+        const carteiraTotal = titulosAberto.reduce((acc: number, t: any) => acc + (parseFloat(t.valor) || 0), 0);
+        const hoje = new Date();
+        const titulosVencidos = titulosAberto.filter((t: any) => t.vencimento && new Date(t.vencimento) < hoje);
+        const carteiraVencida = titulosVencidos.reduce((acc: number, t: any) => acc + (parseFloat(t.valor) || 0), 0);
+
+        // Calcular liquidez
+        const valorQuitado = titulosQuitados.reduce((acc: number, t: any) => acc + (parseFloat(t.valor_liquidado) || 0), 0);
+        const valorRecomprado = recomprados.reduce((acc: number, t: any) => acc + (parseFloat(t.total) || 0), 0);
+
+        // Concentração de sacados
+        const sacadoMap = new Map<string, { nome: string; cpf_cnpj: string; valor: number }>();
+        titulosAberto.forEach((t: any) => {
+          if (t.cpf_cnpj_sacado) {
+            const existing = sacadoMap.get(t.cpf_cnpj_sacado);
+            if (existing) {
+              existing.valor += parseFloat(t.valor) || 0;
+            } else {
+              sacadoMap.set(t.cpf_cnpj_sacado, {
+                nome: t.sacado || '',
+                cpf_cnpj: t.cpf_cnpj_sacado,
+                valor: parseFloat(t.valor) || 0
+              });
+            }
+          }
+        });
+        const concentracaoSacados = Array.from(sacadoMap.values())
+          .map(s => ({
+            cpf_cnpj: s.cpf_cnpj,
+            nome: s.nome,
+            risco: s.valor,
+            concentracao: carteiraTotal > 0 ? (s.valor / carteiraTotal) * 100 : 0
+          }))
+          .sort((a, b) => b.risco - a.risco)
+          .slice(0, 10);
+
+        // Receita mensal
+        const receitaMensalMap = new Map<string, number>();
+        receitas.forEach((r: any) => {
+          if (r.data_pagamento) {
+            const mes = r.data_pagamento.substring(0, 7);
+            receitaMensalMap.set(mes, (receitaMensalMap.get(mes) || 0) + (parseFloat(r.total) || 0));
+          }
+        });
+        const receitaMensal = Array.from(receitaMensalMap.entries())
+          .map(([mes, valor]) => ({ mes, valor }))
+          .sort((a, b) => b.mes.localeCompare(a.mes))
+          .slice(0, 12);
+
+        const cedenteDetail: CedenteDetail = {
+          cedente: {
+            id: cedente.id_cedente || 0,
+            nome: cedente.nome,
+            cpf_cnpj: cedente.cpf_cnpj,
+            endereco: cedente.endereco,
+            cep: cedente.cep,
+            cidade: cedente.cidade,
+            uf: cedente.uf,
+            email: cedente.email,
+            telefone: cedente.telefone,
+            gerente: cedente.gerente,
+            operador: cedente.operador,
+            captador: cedente.captador,
+            limite_global: parseFloat(cedente.limite_global) || 0,
+            risco_atual: parseFloat(cedente.risco_atual) || 0,
+            saldo: parseFloat(cedente.saldo) || 0,
+            bloqueado: cedente.bloqueado,
+            data_cadastro: cedente.data_cadastro,
+            setor: cedente.setor,
+            grupo_economico: cedente.grupo_economico,
+          },
+          resumo: {
+            primeiraOperacao: cedente.primeira_operacao,
+            ultimaOperacao: operacoes[0]?.data || null,
+            totalOperacoes,
+            valorBrutoTotal,
+            valorLiquidoTotal,
+            receitaTotal,
+            taxaMedia: totalOperacoes > 0 ? prazoMedioTotal / totalOperacoes : 0,
+          },
+          resumoExpandido: {
+            volumeOperado: valorBrutoTotal,
+            prazoMedioOperacoes: totalOperacoes > 0 ? prazoMedioTotal / totalOperacoes : 0,
+            prazoMedioTitulos90Dias: 0,
+            mediaPagoEmAtraso: 0,
+            valorMedioBorderos: totalOperacoes > 0 ? valorBrutoTotal / totalOperacoes : 0,
+            valorMedioTitulos: titulosAberto.length > 0 ? carteiraTotal / titulosAberto.length : 0,
+            receitaGerada: receitaTotal,
+            percentualProrrogacao: 0,
+            chqDevolvidosAberto: 0,
+            chqDevolvidosQuitado: 0,
+          },
+          limites: {
+            global: parseFloat(cedente.limite_global) || 0,
+            disponivel: parseFloat(cedente.saldo) || 0,
+            risco: parseFloat(cedente.risco_atual) || 0,
+            saldo: parseFloat(cedente.saldo) || 0,
+          },
+          confirmacao: {
+            confirmado: { qtd: 0, valor: 0, percentual: 0 },
+            parcial: { qtd: 0, valor: 0, percentual: 0 },
+            pendente: { qtd: 0, valor: 0, percentual: 0 },
+            semConfirmacao: { qtd: 0, valor: 0, percentual: 0 },
+            total: { qtd: titulosAberto.length, valor: carteiraTotal },
+          },
+          carteira: {
+            total: carteiraTotal,
+            vencidos: carteiraVencida,
+            percentualVencido: carteiraTotal > 0 ? (carteiraVencida / carteiraTotal) * 100 : 0,
+          },
+          concentracaoSacados,
+          liquidez: {
+            totalQuitados: titulosQuitados.length,
+            valorQuitado,
+            totalRecomprados: recomprados.length,
+            valorRecomprado,
+            percentualPontual: 0,
+            percentualAtraso: 0,
+            percentualRecompra: valorQuitado > 0 ? (valorRecomprado / valorQuitado) * 100 : 0,
+            percentualLiquidado: 100,
+          },
+          comportamento90Dias: {
+            pontual: { valor: 0, qtd: 0, percentualValor: 0, percentualQtd: 0 },
+            atraso5: { valor: 0, qtd: 0, percentualValor: 0, percentualQtd: 0 },
+            atraso15: { valor: 0, qtd: 0, percentualValor: 0, percentualQtd: 0 },
+            atraso30: { valor: 0, qtd: 0, percentualValor: 0, percentualQtd: 0 },
+            atrasoMais30: { valor: 0, qtd: 0, percentualValor: 0, percentualQtd: 0 },
+            recompra: { valor: 0, qtd: 0, percentualValor: 0, percentualQtd: 0 },
+            repasse: { valor: 0, qtd: 0, percentualValor: 0, percentualQtd: 0 },
+            cartorio: { valor: 0, qtd: 0, percentualValor: 0, percentualQtd: 0 },
+            totalPago: { valor: valorQuitado, qtd: titulosQuitados.length },
+            emAtraso: { valor: carteiraVencida, qtd: titulosVencidos.length, percentualValor: 0, percentualQtd: 0 },
+          },
+          receitaMensal,
+          titulosAberto: titulosAberto.slice(0, 50).map((t: any) => ({
+            id: t.id || 0,
+            documento: t.documento || t.id_titulo,
+            sacado: t.sacado,
+            cpf_cnpj_sacado: t.cpf_cnpj_sacado,
+            valor: parseFloat(t.valor) || 0,
+            vencimento: t.vencimento,
+            situacao: t.situacao,
+            conf: t.conf,
+            etapa: t.etapa,
+          })),
+          titulosQuitados: titulosQuitados.slice(0, 50).map((t: any) => ({
+            id: t.id || 0,
+            numero: t.numero,
+            sacado: t.sacado,
+            cpf_cnpj_sacado: t.cpf_cnpj_sacado,
+            valor_face: parseFloat(t.valor_face) || 0,
+            valor_liquidado: parseFloat(t.valor_liquidado) || 0,
+            vencimento: t.vencimento,
+            quitacao: t.quitacao,
+            status: t.status,
+            tipo_quitacao: t.tipo_quitacao,
+          })),
+          ultimasOperacoes: operacoes.slice(0, 20).map((op: any) => ({
+            id: op.id || 0,
+            operacao: op.operacao,
+            data: op.data,
+            valor_bruto: parseFloat(op.valor_bruto) || 0,
+            valor_liquido: parseFloat(op.valor_liquido) || 0,
+            valor_taxa: parseFloat(op.valor_taxa) || 0,
+            prazo_medio: parseFloat(op.prazo_medio) || 0,
+            etapa: op.etapa,
+          })),
+          suspeitasFraude: suspeitaFraude.map((f: any) => ({
+            id: f.id || 0,
+            sacado: f.sacado,
+            cpf_cnpj_sacado: f.cpf_cnpj_sacado,
+            numero_documento: f.numero_documento,
+            valor: parseFloat(f.valor) || 0,
+            vencimento: f.vencimento,
+            data_quitacao: f.data_quitacao,
+            criticas: f.criticas,
+            banco_cobrador: f.banco_cobrador,
+            agencia_cobradora: f.agencia_cobradora,
+            praca_pagamento: f.praca_pagamento,
+            localidade_sacado: f.localidade_sacado,
+          })),
+        };
+
+        setCedenteDetail(cedenteDetail);
       }
     } catch (err) {
       console.error('Error fetching cedente detail:', err);
