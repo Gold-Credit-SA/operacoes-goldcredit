@@ -115,13 +115,13 @@ serve(async (req) => {
         const cedentesCompletos = [];
         
         for (const ced of cedentes) {
-          // Buscar títulos em aberto
+          // Buscar títulos em aberto (usa coluna 'valor', não 'valor_face')
           const titulosAbertosResult = await connection.queryObject<{
-            valor_face: number;
+            valor: number;
             vencimento: Date;
             cpf_cnpj_sacado: string;
           }>(`
-            SELECT valor_face, vencimento, cpf_cnpj_sacado
+            SELECT valor, vencimento, cpf_cnpj_sacado
             FROM smartsecurities_titulos_em_aberto
             WHERE cpf_cnpj_cedente = $1
           `, [ced.cpf_cnpj]);
@@ -154,18 +154,18 @@ serve(async (req) => {
           const titulosQuitados = titulosQuitadosResult.rows;
           const recompras = recomprasResult.rows;
 
-          // Calcular métricas
-          const totalAberto = titulosAbertos.reduce((sum, t) => sum + (t.valor_face || 0), 0);
+          // Calcular métricas (titulos_em_aberto usa 'valor', não 'valor_face')
+          const totalAberto = titulosAbertos.reduce((sum, t) => sum + (t.valor || 0), 0);
           const totalVencido = titulosAbertos
             .filter(t => new Date(t.vencimento) < new Date())
-            .reduce((sum, t) => sum + (t.valor_face || 0), 0);
+            .reduce((sum, t) => sum + (t.valor || 0), 0);
           const percentualVencido = totalAberto > 0 ? (totalVencido / totalAberto) * 100 : 0;
 
           // Calcular concentração de sacados
           const sacadosMap: Record<string, number> = {};
           titulosAbertos.forEach(t => {
             const sacado = t.cpf_cnpj_sacado || 'Desconhecido';
-            sacadosMap[sacado] = (sacadosMap[sacado] || 0) + (t.valor_face || 0);
+            sacadosMap[sacado] = (sacadosMap[sacado] || 0) + (t.valor || 0);
           });
           
           const concentracaoTop3 = Object.entries(sacadosMap)
