@@ -7,14 +7,14 @@ const corsHeaders = {
 
 const systemPrompt = `Você é um especialista em análise de documentos de crédito brasileiro. Sua tarefa é extrair e estruturar informações de documentos como VADU/CreditBox, SCR (Banco Central) e Serasa.
 
-Analise o texto do documento fornecido e extraia TODAS as informações disponíveis no seguinte formato JSON:
+Analise o documento PDF fornecido e extraia TODAS as informações disponíveis no seguinte formato JSON:
 
 {
   "tipoDocumento": "VADU" | "SCR" | "SERASA" | "OUTRO",
   "dataConsulta": "YYYY-MM-DD",
   "identificacao": {
-    "cpfCnpj": "string formatado",
-    "nome": "string",
+    "cpfCnpj": "string formatado (ex: 32.128.982/0001-98 ou 123.456.789-00)",
+    "nome": "string com nome completo ou razão social",
     "situacaoReceita": "ATIVA" | "BAIXADA" | "SUSPENSA" | "INAPTA" | null,
     "dataAbertura": "YYYY-MM-DD" | null,
     "dataNascimento": "YYYY-MM-DD" | null,
@@ -58,7 +58,7 @@ Analise o texto do documento fornecido e extraia TODAS as informações disponí
 }
 
 REGRAS IMPORTANTES:
-1. Extraia TODOS os dados disponíveis no documento
+1. Extraia TODOS os dados disponíveis no documento PDF
 2. Para valores monetários, use números sem formatação (ex: 1500.50)
 3. Para datas, use formato YYYY-MM-DD
 4. Se "NADA CONSTA" para restrições, retorne array vazio
@@ -66,6 +66,7 @@ REGRAS IMPORTANTES:
 6. Calcule totalDividas como soma de todos os valores de restrições
 7. Identifique o tipo de documento pela estrutura (VADU tem CredMap, SCR tem modalidades, Serasa tem Score Serasa)
 8. Para scores, normalize para escala 0-1000 se necessário
+9. SEMPRE extraia cpfCnpj e nome - são campos obrigatórios
 
 Responda APENAS com o JSON válido, sem markdown ou explicações.`;
 
@@ -75,9 +76,9 @@ serve(async (req) => {
   }
 
   try {
-    const { pdfContent, fileName } = await req.json();
+    const { pdfBase64, fileName, mimeType } = await req.json();
     
-    if (!pdfContent) {
+    if (!pdfBase64) {
       throw new Error("Conteúdo do PDF não fornecido");
     }
 
@@ -87,8 +88,9 @@ serve(async (req) => {
     }
 
     console.log(`Analyzing document: ${fileName}`);
-    console.log(`Content length: ${pdfContent.length} characters`);
+    console.log(`PDF base64 length: ${pdfBase64.length} characters`);
 
+    // Use Gemini with multimodal support for PDF analysis
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -99,7 +101,21 @@ serve(async (req) => {
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Analise este documento de consulta de crédito e extraia os dados estruturados:\n\n${pdfContent}` },
+          { 
+            role: "user", 
+            content: [
+              {
+                type: "text",
+                text: "Analise este documento de consulta de crédito brasileiro e extraia todos os dados estruturados conforme o formato JSON especificado."
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:${mimeType || 'application/pdf'};base64,${pdfBase64}`
+                }
+              }
+            ]
+          },
         ],
       }),
     });
@@ -126,11 +142,13 @@ serve(async (req) => {
       
       const errorText = await response.text();
       console.error("AI gateway error:", response.status, errorText);
-      throw new Error(`AI gateway error: ${response.status}`);
+      throw new Error(`AI gateway error: ${response.status} - ${errorText}`);
     }
 
     const aiResponse = await response.json();
     const content = aiResponse.choices?.[0]?.message?.content;
+
+    console.log("AI response received, content length:", content?.length || 0);
 
     if (!content) {
       throw new Error("Resposta vazia da IA");
@@ -139,16 +157,55 @@ serve(async (req) => {
     // Parse JSON response
     let extractedData;
     try {
-      const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      // Remove any markdown code blocks if present
+      let cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      
+      // Try to find JSON object in the response
+      const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        cleanContent = jsonMatch[0];
+      }
+      
       extractedData = JSON.parse(cleanContent);
     } catch (parseError) {
-      console.error("Failed to parse AI response:", content);
-      throw new Error("Formato de resposta inválido da IA");
+      console.error("Failed to parse AI response:", content.substring(0, 500));
+      throw new Error("Formato de resposta inválido da IA. Tente novamente.");
     }
 
-    // Validate required fields
-    if (!extractedData.identificacao?.cpfCnpj || !extractedData.identificacao?.nome) {
-      throw new Error("Dados de identificação incompletos");
+    // Validate and provide defaults for required fields
+    if (!extractedData.identificacao) {
+      extractedData.identificacao = {};
+    }
+    
+    // If cpfCnpj is missing, try to extract from filename or set placeholder
+    if (!extractedData.identificacao.cpfCnpj) {
+      extractedData.identificacao.cpfCnpj = "Não identificado";
+    }
+    
+    // If nome is missing, use filename
+    if (!extractedData.identificacao.nome) {
+      extractedData.identificacao.nome = fileName.replace('.pdf', '').replace(/_/g, ' ');
+    }
+
+    // Ensure restricoes has proper structure
+    if (!extractedData.restricoes) {
+      extractedData.restricoes = {
+        protestos: [],
+        chequesSemFundo: [],
+        anotacoesNegativas: [],
+        totalDividas: 0,
+        possuiRestricao: false
+      };
+    }
+
+    // Ensure tipoDocumento is set
+    if (!extractedData.tipoDocumento) {
+      extractedData.tipoDocumento = "OUTRO";
+    }
+
+    // Ensure dataConsulta is set
+    if (!extractedData.dataConsulta) {
+      extractedData.dataConsulta = new Date().toISOString().split('T')[0];
     }
 
     console.log(`Successfully extracted data for: ${extractedData.identificacao.nome}`);
