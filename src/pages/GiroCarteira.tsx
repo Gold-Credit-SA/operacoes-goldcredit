@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -18,13 +18,8 @@ import {
 } from '@/components/ui/table';
 import { 
   Search, 
-  Sparkles, 
-  CheckCircle2, 
-  XCircle, 
   ArrowRight, 
   Building2,
-  TrendingUp,
-  AlertTriangle,
   RefreshCw,
   Users,
   ChevronLeft,
@@ -39,14 +34,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface CedenteGiro {
   cpf_cnpj: string;
@@ -63,27 +50,13 @@ interface CedenteGiro {
   cidade?: string;
 }
 
-interface AnaliseIA {
-  cpf_cnpj: string;
-  saudavel: boolean;
-  motivo: string;
-  score: number;
-  alertas?: string[];
-  indicadores_positivos?: string[];
-}
-
 export default function GiroCarteira() {
   const [cedentes, setCedentes] = useState<CedenteGiro[]>([]);
   const [filteredCedentes, setFilteredCedentes] = useState<CedenteGiro[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [analises, setAnalises] = useState<Record<string, AnaliseIA>>({});
-  const [selectedCedentes, setSelectedCedentes] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'saudavel' | 'nao_recomendado' | 'nao_analisado'>('all');
-  const [selectedAnalise, setSelectedAnalise] = useState<{ analise: AnaliseIA; cedente: CedenteGiro } | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -144,7 +117,6 @@ export default function GiroCarteira() {
   useEffect(() => {
     let result = cedentes;
     
-    // Apply search filter
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       result = result.filter(c => 
@@ -154,87 +126,9 @@ export default function GiroCarteira() {
       );
     }
     
-    // Apply status filter
-    if (statusFilter !== 'all') {
-      result = result.filter(c => {
-        const analise = analises[c.cpf_cnpj];
-        if (statusFilter === 'saudavel') {
-          return analise?.saudavel === true;
-        } else if (statusFilter === 'nao_recomendado') {
-          return analise?.saudavel === false;
-        } else if (statusFilter === 'nao_analisado') {
-          return !analise;
-        }
-        return true;
-      });
-    }
-    
     setFilteredCedentes(result);
-    setCurrentPage(1); // Reset to first page when filters change
-  }, [searchTerm, cedentes, statusFilter, analises]);
-
-  const toggleSelectCedente = (cpfCnpj: string) => {
-    const newSelected = new Set(selectedCedentes);
-    if (newSelected.has(cpfCnpj)) {
-      newSelected.delete(cpfCnpj);
-    } else {
-      newSelected.add(cpfCnpj);
-    }
-    setSelectedCedentes(newSelected);
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedCedentes.size === filteredCedentes.length) {
-      setSelectedCedentes(new Set());
-    } else {
-      setSelectedCedentes(new Set(filteredCedentes.map(c => c.cpf_cnpj)));
-    }
-  };
-
-  const analisarComIA = async () => {
-    if (selectedCedentes.size === 0) {
-      toast({
-        title: "Nenhum cedente selecionado",
-        description: "Selecione cedentes para analisar com IA.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const cedentesToAnalyze = cedentes.filter(c => selectedCedentes.has(c.cpf_cnpj));
-    setIsAnalyzing(true);
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('giro-carteira', {
-        body: { action: 'analyze-batch', cedentes: cedentesToAnalyze }
-      });
-
-      if (error) throw error;
-
-      if (data.success && data.analises) {
-        const analisesMap: Record<string, AnaliseIA> = {};
-        for (const analise of data.analises) {
-          analisesMap[analise.cpf_cnpj] = analise;
-        }
-        setAnalises(prev => ({ ...prev, ...analisesMap }));
-        
-        const saudaveis = data.analises.filter((a: AnaliseIA) => a.saudavel).length;
-        toast({
-          title: "Análise concluída",
-          description: `${saudaveis} de ${data.analises.length} cedentes estão saudáveis para operar.`
-        });
-      }
-    } catch (error: any) {
-      console.error("Erro na análise:", error);
-      toast({
-        title: "Erro na análise",
-        description: error.message || "Não foi possível analisar os cedentes.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
+    setCurrentPage(1);
+  }, [searchTerm, cedentes]);
 
   const irParaConsulta = (cpfCnpj: string) => {
     navigate(`/consulta?cpf_cnpj=${cpfCnpj}`);
@@ -265,7 +159,7 @@ export default function GiroCarteira() {
           <div>
             <h1 className="text-2xl font-bold text-foreground">Giro de Carteira</h1>
             <p className="text-muted-foreground">
-              Visualize todos os cedentes e analise quais estão prontos para operar
+              Visualize todos os cedentes cadastrados
             </p>
           </div>
           <Button onClick={fetchCedentes} variant="outline" disabled={isLoading}>
@@ -274,122 +168,28 @@ export default function GiroCarteira() {
           </Button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <Users className="h-8 w-8 text-primary" />
-              <div>
-                <p className="text-2xl font-bold">{cedentes.length}</p>
-                <p className="text-sm text-muted-foreground">Total Cedentes</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <CheckCircle2 className="h-8 w-8 text-emerald-500" />
-              <div>
-                <p className="text-2xl font-bold text-emerald-600">
-                  {Object.values(analises).filter(a => a.saudavel).length}
-                </p>
-                <p className="text-sm text-muted-foreground">Saudáveis</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <XCircle className="h-8 w-8 text-red-500" />
-              <div>
-                <p className="text-2xl font-bold text-red-600">
-                  {Object.values(analises).filter(a => !a.saudavel).length}
-                </p>
-                <p className="text-sm text-muted-foreground">Não Recomendados</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <TrendingUp className="h-8 w-8 text-amber-500" />
-              <div>
-                <p className="text-2xl font-bold text-amber-600">
-                  {selectedCedentes.size}
-                </p>
-                <p className="text-sm text-muted-foreground">Selecionados</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Stats Card */}
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <Users className="h-8 w-8 text-primary" />
+            <div>
+              <p className="text-2xl font-bold">{cedentes.length}</p>
+              <p className="text-sm text-muted-foreground">Total Cedentes</p>
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Search, Filters and Actions */}
+        {/* Search */}
         <Card>
           <CardContent className="p-4">
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar por nome ou CPF/CNPJ..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <Button 
-                  onClick={analisarComIA} 
-                  disabled={isAnalyzing || selectedCedentes.size === 0}
-                  className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20"
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      Analisando...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      Analisar Selecionados ({selectedCedentes.size})
-                    </>
-                  )}
-                </Button>
-              </div>
-              
-              {/* Status Filters */}
-              {Object.keys(analises).length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant={statusFilter === 'all' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setStatusFilter('all')}
-                  >
-                    Todos ({cedentes.length})
-                  </Button>
-                  <Button
-                    variant={statusFilter === 'saudavel' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setStatusFilter('saudavel')}
-                    className={statusFilter === 'saudavel' ? 'bg-emerald-500 hover:bg-emerald-600' : 'text-emerald-600 border-emerald-300 hover:bg-emerald-50'}
-                  >
-                    <CheckCircle2 className="h-4 w-4 mr-1" />
-                    Saudáveis ({Object.values(analises).filter(a => a.saudavel).length})
-                  </Button>
-                  <Button
-                    variant={statusFilter === 'nao_recomendado' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setStatusFilter('nao_recomendado')}
-                    className={statusFilter === 'nao_recomendado' ? 'bg-red-500 hover:bg-red-600' : 'text-red-600 border-red-300 hover:bg-red-50'}
-                  >
-                    <XCircle className="h-4 w-4 mr-1" />
-                    Não Recomendados ({Object.values(analises).filter(a => !a.saudavel).length})
-                  </Button>
-                  <Button
-                    variant={statusFilter === 'nao_analisado' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setStatusFilter('nao_analisado')}
-                  >
-                    Não Analisados ({cedentes.length - Object.keys(analises).length})
-                  </Button>
-                </div>
-              )}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome ou CPF/CNPJ..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
             </div>
           </CardContent>
         </Card>
@@ -414,108 +214,60 @@ export default function GiroCarteira() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-12">
-                        <input
-                          type="checkbox"
-                          checked={selectedCedentes.size === filteredCedentes.length && filteredCedentes.length > 0}
-                          onChange={toggleSelectAll}
-                          className="h-4 w-4 rounded border-gray-300"
-                        />
-                      </TableHead>
                       <TableHead>CPF/CNPJ</TableHead>
                       <TableHead>Nome</TableHead>
                       <TableHead className="text-right">Limite Global</TableHead>
                       <TableHead className="text-right">Disponível</TableHead>
                       <TableHead className="text-center">Última Operação</TableHead>
                       <TableHead className="text-center">Dias Inativo</TableHead>
-                      <TableHead className="text-center">Status IA</TableHead>
                       <TableHead className="w-12"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {paginatedCedentes.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                           Nenhum cedente encontrado
                         </TableCell>
                       </TableRow>
                     ) : (
-                      paginatedCedentes.map((cedente) => {
-                        const analise = analises[cedente.cpf_cnpj];
-                        const isSelected = selectedCedentes.has(cedente.cpf_cnpj);
-                        
-                        return (
-                          <TableRow 
-                            key={cedente.cpf_cnpj}
-                            className={`${isSelected ? 'bg-primary/5' : ''} ${
-                              analise 
-                                ? analise.saudavel 
-                                  ? 'bg-emerald-500/5' 
-                                  : 'bg-red-500/5'
-                                : ''
-                            }`}
-                          >
-                            <TableCell>
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => toggleSelectCedente(cedente.cpf_cnpj)}
-                                className="h-4 w-4 rounded border-gray-300"
-                              />
-                            </TableCell>
-                            <TableCell className="font-mono text-sm">
-                              {formatCpfCnpj(cedente.cpf_cnpj)}
-                            </TableCell>
-                            <TableCell className="max-w-[200px] truncate">
-                              {cedente.nome || cedente.razao_social || '-'}
-                            </TableCell>
-                            <TableCell className="text-right font-medium">
-                              {formatCurrency(cedente.limite_global)}
-                            </TableCell>
-                            <TableCell className={`text-right font-medium ${
-                              (cedente.limite_disponivel || 0) <= 0 ? 'text-red-500' : 'text-emerald-500'
-                            }`}>
-                              {formatCurrency(cedente.limite_disponivel)}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {formatDate(cedente.ultima_operacao)}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {cedente.dias_inativo !== undefined && cedente.dias_inativo !== null ? (
-                                <Badge variant={cedente.dias_inativo > 30 ? "destructive" : "secondary"}>
-                                  {cedente.dias_inativo} dias
-                                </Badge>
-                              ) : '-'}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {analise ? (
-                                <Badge 
-                                  variant={analise.saudavel ? "default" : "destructive"}
-                                  className={`${analise.saudavel ? 'bg-emerald-500' : ''} cursor-pointer hover:opacity-80 transition-opacity`}
-                                  onClick={() => setSelectedAnalise({ analise, cedente })}
-                                >
-                                  {analise.saudavel ? (
-                                    <><CheckCircle2 className="h-3 w-3 mr-1" /> {analise.score}</>
-                                  ) : (
-                                    <><AlertTriangle className="h-3 w-3 mr-1" /> {analise.score}</>
-                                  )}
-                                </Badge>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                onClick={() => irParaConsulta(cedente.cpf_cnpj)}
-                              >
-                                <ArrowRight className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
+                      paginatedCedentes.map((cedente) => (
+                        <TableRow key={cedente.cpf_cnpj}>
+                          <TableCell className="font-mono text-sm">
+                            {formatCpfCnpj(cedente.cpf_cnpj)}
+                          </TableCell>
+                          <TableCell className="max-w-[200px] truncate">
+                            {cedente.nome || cedente.razao_social || '-'}
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {formatCurrency(cedente.limite_global)}
+                          </TableCell>
+                          <TableCell className={`text-right font-medium ${
+                            (cedente.limite_disponivel || 0) <= 0 ? 'text-red-500' : 'text-emerald-500'
+                          }`}>
+                            {formatCurrency(cedente.limite_disponivel)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {formatDate(cedente.ultima_operacao)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {cedente.dias_inativo !== undefined && cedente.dias_inativo !== null ? (
+                              <Badge variant={cedente.dias_inativo > 30 ? "destructive" : "secondary"}>
+                                {cedente.dias_inativo} dias
+                              </Badge>
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => irParaConsulta(cedente.cpf_cnpj)}
+                            >
+                              <ArrowRight className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
                     )}
                   </TableBody>
                 </Table>
@@ -603,101 +355,6 @@ export default function GiroCarteira() {
             )}
           </CardContent>
         </Card>
-
-        {/* Modal de Explicação da IA */}
-        <Dialog open={!!selectedAnalise} onOpenChange={() => setSelectedAnalise(null)}>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                {selectedAnalise?.analise.saudavel ? (
-                  <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                ) : (
-                  <XCircle className="h-5 w-5 text-red-500" />
-                )}
-                {selectedAnalise?.analise.saudavel ? 'Saudável para Operar' : 'Não Recomendado'}
-              </DialogTitle>
-              <DialogDescription>
-                {selectedAnalise?.cedente.nome || selectedAnalise?.cedente.razao_social}
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4">
-              {/* Score */}
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <span className="text-sm font-medium">Score de Saúde</span>
-                <Badge 
-                  variant={selectedAnalise?.analise.saudavel ? "default" : "destructive"}
-                  className={selectedAnalise?.analise.saudavel ? 'bg-emerald-500' : ''}
-                >
-                  {selectedAnalise?.analise.score}/100
-                </Badge>
-              </div>
-
-              {/* Motivo Principal */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">Motivo da Análise</h4>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {selectedAnalise?.analise.motivo}
-                </p>
-              </div>
-
-              {/* Alertas */}
-              {selectedAnalise?.analise.alertas && selectedAnalise.analise.alertas.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium flex items-center gap-2 text-red-600">
-                    <AlertTriangle className="h-4 w-4" />
-                    Alertas Identificados
-                  </h4>
-                  <ScrollArea className="max-h-[120px]">
-                    <ul className="space-y-1">
-                      {selectedAnalise.analise.alertas.map((alerta, idx) => (
-                        <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                          <XCircle className="h-3 w-3 mt-1 flex-shrink-0 text-red-400" />
-                          {alerta}
-                        </li>
-                      ))}
-                    </ul>
-                  </ScrollArea>
-                </div>
-              )}
-
-              {/* Indicadores Positivos */}
-              {selectedAnalise?.analise.indicadores_positivos && selectedAnalise.analise.indicadores_positivos.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium flex items-center gap-2 text-emerald-600">
-                    <CheckCircle2 className="h-4 w-4" />
-                    Pontos Positivos
-                  </h4>
-                  <ScrollArea className="max-h-[120px]">
-                    <ul className="space-y-1">
-                      {selectedAnalise.analise.indicadores_positivos.map((indicador, idx) => (
-                        <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                          <CheckCircle2 className="h-3 w-3 mt-1 flex-shrink-0 text-emerald-400" />
-                          {indicador}
-                        </li>
-                      ))}
-                    </ul>
-                  </ScrollArea>
-                </div>
-              )}
-
-              {/* Ação */}
-              <div className="flex justify-end pt-2">
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    if (selectedAnalise) {
-                      irParaConsulta(selectedAnalise.cedente.cpf_cnpj);
-                    }
-                  }}
-                >
-                  Ver Detalhes Completos
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     </MainLayout>
   );
