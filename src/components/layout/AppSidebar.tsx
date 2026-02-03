@@ -1,11 +1,12 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Search, LogOut, RefreshCw } from 'lucide-react';
+import { Search, LogOut, RefreshCw, FileSearch } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import logoGoldCredit from '@/assets/logo-gold-credit.png';
 
 const navItems = [
   { path: '/consulta', label: 'Consulta', icon: Search },
   { path: '/giro-carteira', label: 'Giro de Carteira', icon: RefreshCw },
+  { path: '/analise-consulta', label: 'Análise de Consulta', icon: FileSearch },
 ];
 
 export function AppSidebar() {
