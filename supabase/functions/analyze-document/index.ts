@@ -76,9 +76,20 @@ serve(async (req) => {
   }
 
   try {
-    const { pdfBase64, fileName, mimeType } = await req.json();
+    const body = await req.json();
+    console.log('Received body keys:', Object.keys(body || {}));
+    console.log('Body type:', typeof body);
+    
+    const pdfBase64 = body?.pdfBase64;
+    const fileName = body?.fileName || 'document.pdf';
+    const mimeType = body?.mimeType;
+    
+    console.log('pdfBase64 exists:', !!pdfBase64);
+    console.log('pdfBase64 type:', typeof pdfBase64);
+    console.log('pdfBase64 length:', pdfBase64?.length || 0);
     
     if (!pdfBase64) {
+      console.error('Body received:', JSON.stringify(body).substring(0, 200));
       throw new Error("Conteúdo do PDF não fornecido");
     }
 
