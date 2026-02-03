@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.giro-carteira]
 verify_jwt = false
+
+[functions.external-db]
+verify_jwt = false
