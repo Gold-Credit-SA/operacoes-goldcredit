@@ -14,7 +14,7 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
+    if (!authHeader?.startsWith('Bearer ')) {
       return new Response(
         JSON.stringify({ error: 'No authorization header' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -25,22 +25,28 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-    // Client with user's token to verify they're admin
+    // Client with user's token to verify claims
     const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Get the current user
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
-    if (userError || !user) {
+    // Validate JWT using getClaims
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
+    
+    if (claimsError || !claimsData?.claims) {
+      console.error('Claims error:', claimsError);
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    const userEmail = claimsData.claims.email as string;
+    const userId = claimsData.claims.sub as string;
+
     // Check if user is master admin
-    if (user.email !== MASTER_EMAIL) {
+    if (userEmail !== MASTER_EMAIL) {
       return new Response(
         JSON.stringify({ error: 'Access denied. Only master admin can manage users.' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
