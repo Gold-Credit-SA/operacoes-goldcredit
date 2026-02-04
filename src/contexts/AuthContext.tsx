@@ -55,14 +55,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Prevent double initialization in StrictMode
-    if (initializedRef.current) return;
-    initializedRef.current = true;
-
     let mounted = true;
 
-    // Get initial session
+    // Get initial session only once
     const initializeAuth = async () => {
+      if (initializedRef.current) return;
+      initializedRef.current = true;
+
       try {
         const { data: { session: initialSession } } = await supabase.auth.getSession();
         
@@ -88,11 +87,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     initializeAuth();
 
-    // Set up auth state listener
+    // Set up auth state listener - ALWAYS set up, not just on first mount
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
         if (!mounted) return;
 
+        // Update session and user state
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
 
@@ -109,10 +109,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfile(null);
         }
 
-        // Only set loading false if it's still true
-        if (loading) {
-          setLoading(false);
-        }
+        // Ensure loading is false after auth state change
+        setLoading(false);
       }
     );
 
@@ -120,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [fetchProfile, loading]);
+  }, [fetchProfile]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
