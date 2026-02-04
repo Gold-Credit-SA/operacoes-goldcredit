@@ -176,17 +176,33 @@ serve(async (req) => {
     let extractedData;
     try {
       // Remove any markdown code blocks if present
-      let cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      let cleanContent = content
+        .replace(/```json\s*/gi, '')
+        .replace(/```\s*/g, '')
+        .trim();
       
-      // Try to find JSON object in the response
-      const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        cleanContent = jsonMatch[0];
+      // Find the first { and last } to extract the JSON object
+      const firstBrace = cleanContent.indexOf('{');
+      const lastBrace = cleanContent.lastIndexOf('}');
+      
+      if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+        console.error("No valid JSON object found in response");
+        console.error("Content preview:", cleanContent.substring(0, 300));
+        throw new Error("JSON não encontrado na resposta");
       }
+      
+      cleanContent = cleanContent.substring(firstBrace, lastBrace + 1);
+      
+      // Remove any control characters that might break JSON parsing
+      cleanContent = cleanContent.replace(/[\x00-\x1F\x7F]/g, (char: string) => {
+        if (char === '\n' || char === '\r' || char === '\t') return char;
+        return '';
+      });
       
       extractedData = JSON.parse(cleanContent);
     } catch (parseError) {
-      console.error("Failed to parse AI response:", content.substring(0, 500));
+      console.error("Failed to parse AI response:", parseError);
+      console.error("Response preview:", content.substring(0, 1000));
       throw new Error("Formato de resposta inválido da IA. Tente novamente.");
     }
 
