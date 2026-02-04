@@ -1,8 +1,9 @@
-import { Building2, User, Calendar, MapPin, Wallet, Users, FileText, Download, AlertCircle } from 'lucide-react';
+import { Building2, User, Calendar, MapPin, Wallet, Users, FileText, Download, AlertCircle, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScoreCard } from './ScoreCard';
 import { RestricaoCard } from './RestricaoCard';
+import { AnaliseDetalhadaCard } from './AnaliseDetalhadaCard';
 import type { DadosExtraidos, ModalidadeCredito, ParticipacaoSocietaria } from '@/types/analise';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -181,6 +182,77 @@ export function ExtractedReport({ dados, nomeArquivo }: ExtractedReportProps) {
       headStyles: { fillColor: [212, 175, 55] },
     });
 
+    // Análise Detalhada
+    if (dados.analise) {
+      doc.addPage();
+      doc.setFontSize(16);
+      doc.setTextColor(33);
+      doc.text('Análise Detalhada do Documento', pageWidth / 2, 20, { align: 'center' });
+
+      doc.setFontSize(12);
+      doc.text(`Qualidade do Documento: ${dados.analise.scoreQualidade}/100`, 14, 35);
+
+      // Resumo
+      doc.setFontSize(14);
+      doc.text('Resumo Executivo', 14, 50);
+      doc.setFontSize(10);
+      const resumoLines = doc.splitTextToSize(dados.analise.resumo, pageWidth - 28);
+      doc.text(resumoLines, 14, 58);
+
+      let currentY = 58 + resumoLines.length * 5 + 10;
+
+      // Alertas
+      if (dados.analise.alertas && dados.analise.alertas.length > 0) {
+        doc.setFontSize(14);
+        doc.setTextColor(180, 0, 0);
+        doc.text('Alertas Críticos', 14, currentY);
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        currentY += 8;
+        dados.analise.alertas.forEach((alerta, idx) => {
+          const alertaLines = doc.splitTextToSize(`• ${alerta}`, pageWidth - 28);
+          doc.text(alertaLines, 14, currentY);
+          currentY += alertaLines.length * 5 + 2;
+        });
+        currentY += 5;
+      }
+
+      // Pontos Fortes
+      if (dados.analise.pontosFortes && dados.analise.pontosFortes.length > 0) {
+        doc.setFontSize(14);
+        doc.setTextColor(0, 128, 0);
+        doc.text('Pontos Fortes', 14, currentY);
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        currentY += 8;
+        dados.analise.pontosFortes.forEach((ponto) => {
+          const pontoLines = doc.splitTextToSize(`✓ ${ponto}`, pageWidth - 28);
+          doc.text(pontoLines, 14, currentY);
+          currentY += pontoLines.length * 5 + 2;
+        });
+        currentY += 5;
+      }
+
+      // Sugestões
+      if (dados.analise.sugestoesMelhoria && dados.analise.sugestoesMelhoria.length > 0) {
+        if (currentY > 250) {
+          doc.addPage();
+          currentY = 20;
+        }
+        doc.setFontSize(14);
+        doc.setTextColor(180, 120, 0);
+        doc.text('Sugestões de Melhoria', 14, currentY);
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        currentY += 8;
+        dados.analise.sugestoesMelhoria.forEach((sugestao) => {
+          const sugestaoLines = doc.splitTextToSize(`→ ${sugestao}`, pageWidth - 28);
+          doc.text(sugestaoLines, 14, currentY);
+          currentY += sugestaoLines.length * 5 + 2;
+        });
+      }
+    }
+
     doc.save(`analise-${dados.identificacao.cpfCnpj.replace(/\D/g, '')}.pdf`);
   };
 
@@ -263,13 +335,32 @@ export function ExtractedReport({ dados, nomeArquivo }: ExtractedReportProps) {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="resumo" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue="analise" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="analise" className="flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5" />
+            Análise IA
+          </TabsTrigger>
           <TabsTrigger value="resumo">Resumo</TabsTrigger>
           <TabsTrigger value="restricoes">Restrições</TabsTrigger>
           <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
           <TabsTrigger value="societario">Societário</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="analise" className="space-y-6">
+          {dados.analise ? (
+            <AnaliseDetalhadaCard analise={dados.analise} />
+          ) : (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Sparkles className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+                <p className="text-muted-foreground">
+                  Análise detalhada não disponível para este documento
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
 
         <TabsContent value="resumo" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

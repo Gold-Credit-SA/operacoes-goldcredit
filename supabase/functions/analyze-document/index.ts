@@ -5,9 +5,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const systemPrompt = `Você é um especialista em análise de documentos de crédito brasileiro. Sua tarefa é extrair e estruturar informações de documentos como VADU/CreditBox, SCR (Banco Central) e Serasa.
+const systemPrompt = `Você é um especialista em análise de documentos de crédito brasileiro. Sua tarefa é extrair, interpretar e ANALISAR CRITICAMENTE informações de documentos como VADU/CreditBox, SCR (Banco Central) e Serasa.
 
-Analise o documento PDF fornecido e extraia TODAS as informações disponíveis no seguinte formato JSON:
+Analise o documento PDF fornecido e extraia TODAS as informações disponíveis, além de produzir uma ANÁLISE DETALHADA E ANALÍTICA no seguinte formato JSON:
 
 {
   "tipoDocumento": "VADU" | "SCR" | "SERASA" | "OUTRO",
@@ -54,19 +54,40 @@ Analise o documento PDF fornecido e extraia TODAS as informações disponíveis 
     "nacionais": boolean,
     "internacionais": boolean,
     "detalhes": "string" | null
-  } | null
+  } | null,
+  "analise": {
+    "resumo": "Síntese clara e objetiva (2-3 parágrafos) do conteúdo principal, destacando situação geral de crédito, principais indicadores e conclusão preliminar",
+    "estruturaOrganizacao": "Avaliação de como os dados estão organizados no documento, completude das informações, presença de todas seções esperadas",
+    "clarezaLinguagem": "Análise da clareza das informações apresentadas, facilidade de interpretação, adequação para tomada de decisão",
+    "argumentacaoConsistencia": "Verificação de consistência entre os dados (score vs restrições, carteira vs classificação de risco), identificação de padrões",
+    "aspectosCriticos": "Pontos que merecem atenção especial: contradições, lacunas de informação, dados inconsistentes ou preocupantes",
+    "relevanciaAplicabilidade": "Avaliação de utilidade para concessão de crédito, qualidade geral do documento para análise",
+    "sugestoesMelhoria": ["array de sugestões práticas para complementar a análise ou dados faltantes"],
+    "scoreQualidade": number (0-100, qualidade geral do documento e dados para análise de crédito),
+    "alertas": ["array de alertas críticos que precisam atenção imediata"],
+    "pontosFortes": ["array de aspectos positivos identificados no perfil"]
+  }
 }
 
-REGRAS IMPORTANTES:
+REGRAS PARA EXTRAÇÃO:
 1. Extraia TODOS os dados disponíveis no documento PDF
 2. Para valores monetários, use números sem formatação (ex: 1500.50)
 3. Para datas, use formato YYYY-MM-DD
 4. Se "NADA CONSTA" para restrições, retorne array vazio
-5. possuiRestricao deve ser true se houver QUALQUER restrição (protesto, CCF, anotação negativa, etc)
+5. possuiRestricao deve ser true se houver QUALQUER restrição
 6. Calcule totalDividas como soma de todos os valores de restrições
-7. Identifique o tipo de documento pela estrutura (VADU tem CredMap, SCR tem modalidades, Serasa tem Score Serasa)
+7. Identifique o tipo de documento pela estrutura
 8. Para scores, normalize para escala 0-1000 se necessário
 9. SEMPRE extraia cpfCnpj e nome - são campos obrigatórios
+
+REGRAS PARA ANÁLISE:
+1. O resumo deve ser objetivo, mencionando score, restrições e recomendação geral
+2. Seja crítico e construtivo, focando em insights para tomada de decisão
+3. Identifique padrões de comportamento financeiro
+4. Alertas devem destacar riscos imediatos (score baixo, dívidas altas, protestos recentes)
+5. Pontos fortes devem destacar aspectos positivos (score alto, sem restrições, boa classificação SCR)
+6. O scoreQualidade avalia a completude e utilidade do documento (não o perfil do cliente)
+7. Sugestões de melhoria devem ser práticas e acionáveis
 
 Responda APENAS com o JSON válido, sem markdown ou explicações.`;
 

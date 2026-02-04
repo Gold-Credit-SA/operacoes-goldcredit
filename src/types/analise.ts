@@ -8,6 +8,19 @@ export interface DocumentoAnalisado {
   erro?: string;
 }
 
+export interface AnaliseDocumento {
+  resumo: string;
+  estruturaOrganizacao: string;
+  clarezaLinguagem: string;
+  argumentacaoConsistencia: string;
+  aspectosCriticos: string;
+  relevanciaAplicabilidade: string;
+  sugestoesMelhoria: string[];
+  scoreQualidade: number; // 0-100
+  alertas: string[];
+  pontosFortes: string[];
+}
+
 export interface DadosExtraidos {
   tipoDocumento: 'VADU' | 'SCR' | 'SERASA' | 'OUTRO';
   dataConsulta: string;
@@ -54,6 +67,7 @@ export interface DadosExtraidos {
     internacionais: boolean;
     detalhes?: string;
   };
+  analise?: AnaliseDocumento;
 }
 
 export interface Restricao {
