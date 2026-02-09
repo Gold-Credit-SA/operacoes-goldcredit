@@ -529,7 +529,16 @@ export default function CedenteConsulta() {
             data: op.data,
             valor_bruto: parseFloat(op.valor_bruto) || 0,
             valor_liquido: parseFloat(op.valor_liquido) || 0,
-            valor_taxa: parseFloat(op.valor_taxa) || 0,
+            valor_taxa: (() => {
+              const bruto = parseFloat(op.valor_bruto) || 0;
+              const liquido = parseFloat(op.valor_liquido) || 0;
+              const prazo = parseFloat(op.prazo_medio) || 0;
+              if (bruto > 0 && prazo > 0) {
+                const desagio = bruto - liquido;
+                return (desagio / bruto / prazo) * 30 * 100;
+              }
+              return 0;
+            })(),
             prazo_medio: parseFloat(op.prazo_medio) || 0,
             etapa: op.etapa,
           })),
