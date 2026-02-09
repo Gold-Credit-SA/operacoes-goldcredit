@@ -228,6 +228,24 @@ export default function CedenteConsulta() {
         const receitaTotal = operacoes.reduce((acc: number, op: any) => acc + (parseFloat(op.valor_receita) || 0), 0);
         const prazoMedioTotal = operacoes.reduce((acc: number, op: any) => acc + (parseFloat(op.prazo_medio) || 0), 0);
 
+        // Calcular taxa média: (desagio / valor_bruto / prazo_medio) * 30 * 100
+        const taxasOperacoes = operacoes
+          .filter((op: any) => {
+            const bruto = parseFloat(op.valor_bruto) || 0;
+            const prazo = parseFloat(op.prazo_medio) || 0;
+            return bruto > 0 && prazo > 0;
+          })
+          .map((op: any) => {
+            const bruto = parseFloat(op.valor_bruto);
+            const liquido = parseFloat(op.valor_liquido) || 0;
+            const desagio = bruto - liquido;
+            const prazo = parseFloat(op.prazo_medio);
+            return (desagio / bruto / prazo) * 30 * 100;
+          });
+        const taxaMediaCalc = taxasOperacoes.length > 0
+          ? taxasOperacoes.reduce((acc: number, t: number) => acc + t, 0) / taxasOperacoes.length
+          : 0;
+
         // Calcular carteira em aberto
         const carteiraTotal = titulosAberto.reduce((acc: number, t: any) => acc + (parseFloat(t.valor) || 0), 0);
         const hoje = new Date();
@@ -396,7 +414,7 @@ export default function CedenteConsulta() {
             valorBrutoTotal,
             valorLiquidoTotal,
             receitaTotal,
-            taxaMedia: totalOperacoes > 0 ? prazoMedioTotal / totalOperacoes : 0,
+            taxaMedia: taxaMediaCalc,
           },
           resumoExpandido: {
             volumeOperado: valorBrutoTotal,
