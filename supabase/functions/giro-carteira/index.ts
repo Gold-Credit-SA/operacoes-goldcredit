@@ -34,7 +34,6 @@ serve(async (req) => {
           cpf_cnpj: string;
           nome: string;
           limite_global: number;
-          risco_atual: number;
           bloqueado: string;
           setor: string;
           uf: string;
@@ -44,7 +43,6 @@ serve(async (req) => {
             cpf_cnpj,
             nome,
             limite_global,
-            risco_atual,
             bloqueado,
             setor,
             uf,
@@ -52,6 +50,21 @@ serve(async (req) => {
           FROM smartsecurities_cedentes
           ORDER BY nome ASC
         `);
+
+        // Calcular risco real a partir dos títulos em aberto
+        const riscoResult = await connection.queryObject<{
+          cpf_cnpj_cedente: string;
+          risco_calculado: number;
+        }>(`
+          SELECT cpf_cnpj_cedente, COALESCE(SUM(valor), 0) as risco_calculado
+          FROM smartsecurities_titulos_em_aberto
+          GROUP BY cpf_cnpj_cedente
+        `);
+
+        const riscoMap: Record<string, number> = {};
+        for (const r of riscoResult.rows) {
+          riscoMap[r.cpf_cnpj_cedente] = parseFloat(String(r.risco_calculado)) || 0;
+        }
 
         // Buscar última operação de cada cedente
         const operacoesResult = await connection.queryObject<{
@@ -78,14 +91,16 @@ serve(async (req) => {
           const diasInativo = ultimaOp 
             ? Math.floor((hoje.getTime() - new Date(ultimaOp).getTime()) / (1000 * 60 * 60 * 24))
             : null;
-          const limiteDisponivel = (ced.limite_global || 0) - (ced.risco_atual || 0);
+          const limiteGlobal = parseFloat(String(ced.limite_global)) || 0;
+          const riscoAtual = riscoMap[ced.cpf_cnpj] || 0;
+          const limiteDisponivel = limiteGlobal - riscoAtual;
 
           return {
             cpf_cnpj: ced.cpf_cnpj,
             nome: ced.nome,
-            limite_global: ced.limite_global,
+            limite_global: limiteGlobal,
             limite_disponivel: limiteDisponivel,
-            risco_atual: ced.risco_atual,
+            risco_atual: riscoAtual,
             bloqueado: ced.bloqueado,
             setor: ced.setor,
             uf: ced.uf,
