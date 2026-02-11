@@ -207,7 +207,7 @@ serve(async (req) => {
         const placeholders = cpfList.map((_, i) => `$${i + 1}`).join(',');
 
         const cedentesResult = await connection.queryObject(`
-          SELECT cpf_cnpj, nome, limite_global, bloqueado, setor, uf, cidade
+          SELECT cpf_cnpj, nome, limite_global, bloqueado, setor, uf, cidade, vencimento_contrato
           FROM smartsecurities_cedentes
           WHERE cpf_cnpj IN (${placeholders})
           ORDER BY nome ASC
@@ -260,6 +260,17 @@ serve(async (req) => {
             ? Math.floor((hoje.getTime() - new Date(ultimaOp).getTime()) / (1000 * 60 * 60 * 24))
             : null;
 
+          // Calcular pendência de aditivo
+          const vencimentoContrato = ced.vencimento_contrato || null;
+          let pendenciaAditivo = 'Sem contrato';
+          if (vencimentoContrato) {
+            const vencDate = new Date(vencimentoContrato);
+            const diffDias = Math.floor((vencDate.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+            if (diffDias < 0) pendenciaAditivo = 'Vencido';
+            else if (diffDias <= 30) pendenciaAditivo = 'Vence em breve';
+            else pendenciaAditivo = 'Regular';
+          }
+
           return {
             cpf_cnpj: ced.cpf_cnpj,
             nome: ced.nome,
@@ -270,6 +281,8 @@ serve(async (req) => {
             setor: ced.setor,
             uf: ced.uf,
             cidade: ced.cidade,
+            vencimento_contrato: vencimentoContrato,
+            pendencia_aditivo: pendenciaAditivo,
             ultima_operacao: ultimaOp || null,
             dias_inativo: diasInativo,
           };
