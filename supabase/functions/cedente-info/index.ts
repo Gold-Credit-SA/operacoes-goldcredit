@@ -129,10 +129,15 @@ Deno.serve(async (req) => {
           ? prazosMedios.reduce((acc, p) => acc + p, 0) / prazosMedios.length 
           : 0;
 
-        // Calcular limites
+        // Calcular risco real a partir de TODOS os títulos em aberto (não apenas tipo C)
+        const { data: todosTitulosAberto } = await supabase
+          .from('titulos_em_aberto')
+          .select('valor')
+          .eq('cpf_cnpj_cedente', cpf_cnpj);
+        
         const limiteGlobal = cedente.limite_global || 0;
-        const riscoAtual = cedente.risco_atual || 0;
-        const limiteDisponivel = Math.max(0, limiteGlobal - riscoAtual);
+        const riscoAtual = todosTitulosAberto?.reduce((acc, t) => acc + (t.valor || 0), 0) || 0;
+        const limiteDisponivel = limiteGlobal - riscoAtual;
         const saldo = cedente.saldo || 0;
 
         // Calcular carteira (títulos em aberto)
