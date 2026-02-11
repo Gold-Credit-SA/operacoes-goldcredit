@@ -1,0 +1,1 @@
+ALTER TABLE public.portfolio_assignments ADD COLUMN rejection_reason text;

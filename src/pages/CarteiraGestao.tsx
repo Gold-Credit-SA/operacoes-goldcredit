@@ -14,7 +14,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
 import {
-  Search, Plus, RefreshCw, Settings2, Users, Trash2,
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  Search, Plus, RefreshCw, Settings2, Users, Clock, CheckCircle2, XCircle, AlertCircle,
 } from 'lucide-react';
 
 interface Assignment {
@@ -22,6 +25,7 @@ interface Assignment {
   cedente_cpf_cnpj: string;
   cedente_nome: string | null;
   status: string;
+  rejection_reason?: string | null;
   created_at: string;
 }
 
@@ -82,7 +86,18 @@ export default function CarteiraGestao() {
     }
   };
 
+  // Check if a cedente already has an active (pending/approved) assignment
+  const isAlreadyLinked = (cpfCnpj: string) => {
+    return assignments.some(
+      a => a.cedente_cpf_cnpj === cpfCnpj && (a.status === 'approved' || a.status === 'pending')
+    );
+  };
+
   const handleAddCedente = async (cpfCnpj: string) => {
+    if (isAlreadyLinked(cpfCnpj)) {
+      toast({ title: 'Cedente já vinculado ou com solicitação pendente', variant: 'destructive' });
+      return;
+    }
     setAdding(true);
     try {
       const { data, error } = await supabase.functions.invoke('portfolio-data', {
@@ -93,65 +108,99 @@ export default function CarteiraGestao() {
         toast({ title: data.error, variant: "destructive" });
         return;
       }
-      const isPending = data.assignment?.status === 'pending';
       toast({
-        title: isPending ? 'Solicitação enviada' : 'Cedente adicionado',
-        description: isPending
-          ? 'Aguardando aprovação do administrador.'
-          : 'Cedente vinculado à sua carteira.',
+        title: 'Solicitação enviada',
+        description: 'Aguardando aprovação do administrador para vincular o cedente à sua carteira.',
       });
       fetchAssignments();
       setAddDialogOpen(false);
       setAddSearchTerm('');
       setSearchResults([]);
     } catch (error: any) {
-      toast({ title: "Erro ao adicionar", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao solicitar", description: error.message, variant: "destructive" });
     } finally {
       setAdding(false);
     }
   };
 
-  const statusLabel = (status: string) => {
-    switch (status) {
-      case 'approved': return <Badge className="bg-emerald-100 text-emerald-700 border-0">Aprovado</Badge>;
-      case 'pending': return <Badge variant="secondary" className="bg-amber-100 text-amber-700 border-0">Pendente</Badge>;
-      case 'rejected': return <Badge variant="destructive">Rejeitado</Badge>;
-      default: return <Badge variant="secondary">{status}</Badge>;
+  const statusBadge = (a: Assignment) => {
+    switch (a.status) {
+      case 'approved':
+        return (
+          <Badge className="bg-emerald-100 text-emerald-700 border-0 gap-1">
+            <CheckCircle2 className="h-3 w-3" /> Aprovado
+          </Badge>
+        );
+      case 'pending':
+        return (
+          <Badge variant="secondary" className="bg-amber-100 text-amber-700 border-0 gap-1">
+            <Clock className="h-3 w-3" /> Aguardando aprovação
+          </Badge>
+        );
+      case 'rejected':
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="destructive" className="gap-1 cursor-help">
+                  <XCircle className="h-3 w-3" /> Recusado
+                </Badge>
+              </TooltipTrigger>
+              {a.rejection_reason && (
+                <TooltipContent className="max-w-xs">
+                  <p className="text-sm"><strong>Motivo:</strong> {a.rejection_reason}</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+        );
+      default:
+        return <Badge variant="secondary">{a.status}</Badge>;
     }
   };
 
   const approved = assignments.filter(a => a.status === 'approved');
   const pending = assignments.filter(a => a.status === 'pending');
+  const rejected = assignments.filter(a => a.status === 'rejected');
 
   return (
-    <MainLayout title="Gestão de Carteira" subtitle="Gerencie os cedentes vinculados à sua carteira">
+    <MainLayout title="Gestão de Carteira" subtitle="Solicite e acompanhe a vinculação de cedentes à sua carteira">
       <div className="space-y-6">
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <Users className="h-6 w-6 text-primary" />
+              <CheckCircle2 className="h-6 w-6 text-emerald-600 shrink-0" />
               <div>
                 <p className="text-lg font-bold">{approved.length}</p>
-                <p className="text-xs text-muted-foreground">Cedentes ativos</p>
+                <p className="text-xs text-muted-foreground">Aprovados</p>
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <Settings2 className="h-6 w-6 text-amber-500" />
+              <Clock className="h-6 w-6 text-amber-500 shrink-0" />
               <div>
                 <p className="text-lg font-bold">{pending.length}</p>
-                <p className="text-xs text-muted-foreground">Aguardando aprovação</p>
+                <p className="text-xs text-muted-foreground">Aguardando</p>
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <Users className="h-6 w-6 text-muted-foreground" />
+              <XCircle className="h-6 w-6 text-destructive shrink-0" />
+              <div>
+                <p className="text-lg font-bold">{rejected.length}</p>
+                <p className="text-xs text-muted-foreground">Recusados</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <Users className="h-6 w-6 text-muted-foreground shrink-0" />
               <div>
                 <p className="text-lg font-bold">{assignments.length}</p>
-                <p className="text-xs text-muted-foreground">Total de vínculos</p>
+                <p className="text-xs text-muted-foreground">Total</p>
               </div>
             </CardContent>
           </Card>
@@ -160,7 +209,7 @@ export default function CarteiraGestao() {
         {/* Actions */}
         <div className="flex items-center gap-3">
           <Button onClick={() => setAddDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" /> Adicionar Cedente
+            <Plus className="h-4 w-4 mr-2" /> Solicitar Cedente
           </Button>
           <Button variant="outline" onClick={fetchAssignments} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
@@ -168,12 +217,29 @@ export default function CarteiraGestao() {
           </Button>
         </div>
 
+        {/* Info banner for pending */}
+        {pending.length > 0 && (
+          <Card className="border-amber-200 bg-amber-50/50">
+            <CardContent className="p-4 flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+              <div className="text-sm">
+                <p className="font-medium text-amber-800">
+                  Você possui {pending.length} solicitação(ões) aguardando aprovação
+                </p>
+                <p className="text-amber-700 mt-1">
+                  Os cedentes pendentes só serão incluídos na sua carteira após aprovação do administrador.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Cedentes table */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <Settings2 className="h-5 w-5" />
-              Cedentes Vinculados
+              Meus Vínculos
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -184,7 +250,7 @@ export default function CarteiraGestao() {
                 <Settings2 className="h-12 w-12 mx-auto text-muted-foreground/30" />
                 <p className="font-medium">Nenhum cedente vinculado</p>
                 <p className="text-sm text-muted-foreground">
-                  Clique em "Adicionar Cedente" para vincular cedentes à sua carteira.
+                  Clique em "Solicitar Cedente" para buscar e solicitar a inclusão de cedentes na sua carteira.
                 </p>
               </div>
             ) : (
@@ -195,17 +261,20 @@ export default function CarteiraGestao() {
                       <TableHead>CPF/CNPJ</TableHead>
                       <TableHead>Nome</TableHead>
                       <TableHead className="text-center">Status</TableHead>
-                      <TableHead className="text-center">Data</TableHead>
+                      <TableHead className="text-center">Data da Solicitação</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {assignments.map(a => (
-                      <TableRow key={a.id}>
+                      <TableRow key={a.id} className={a.status === 'rejected' ? 'opacity-60' : ''}>
                         <TableCell className="font-mono text-sm">{formatCpfCnpj(a.cedente_cpf_cnpj)}</TableCell>
                         <TableCell>{a.cedente_nome || '-'}</TableCell>
-                        <TableCell className="text-center">{statusLabel(a.status)}</TableCell>
+                        <TableCell className="text-center">{statusBadge(a)}</TableCell>
                         <TableCell className="text-center text-sm text-muted-foreground">
-                          {new Date(a.created_at).toLocaleDateString('pt-BR')}
+                          {new Date(a.created_at).toLocaleDateString('pt-BR', {
+                            day: '2-digit', month: '2-digit', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit',
+                          })}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -220,8 +289,10 @@ export default function CarteiraGestao() {
         <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>Adicionar Cedente</DialogTitle>
-              <DialogDescription>Busque pelo nome ou CPF/CNPJ para solicitar o vínculo à sua carteira.</DialogDescription>
+              <DialogTitle>Solicitar Cedente</DialogTitle>
+              <DialogDescription>
+                Busque pelo nome ou CPF/CNPJ. A solicitação será enviada para aprovação do administrador.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="flex gap-2">
@@ -238,17 +309,24 @@ export default function CarteiraGestao() {
               {searching && <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>}
               {!searching && searchResults.length > 0 && (
                 <div className="max-h-[300px] overflow-y-auto border rounded-md divide-y">
-                  {searchResults.map(ced => (
-                    <div key={ced.cpf_cnpj} className="flex items-center justify-between p-3 hover:bg-muted/50">
-                      <div>
-                        <p className="text-sm font-medium">{ced.nome || 'Sem nome'}</p>
-                        <p className="text-xs text-muted-foreground font-mono">{formatCpfCnpj(ced.cpf_cnpj)}</p>
+                  {searchResults.map(ced => {
+                    const linked = isAlreadyLinked(ced.cpf_cnpj);
+                    return (
+                      <div key={ced.cpf_cnpj} className="flex items-center justify-between p-3 hover:bg-muted/50">
+                        <div>
+                          <p className="text-sm font-medium">{ced.nome || 'Sem nome'}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{formatCpfCnpj(ced.cpf_cnpj)}</p>
+                        </div>
+                        {linked ? (
+                          <Badge variant="secondary" className="text-xs">Já vinculado</Badge>
+                        ) : (
+                          <Button size="sm" onClick={() => handleAddCedente(ced.cpf_cnpj)} disabled={adding}>
+                            <Plus className="h-3 w-3 mr-1" /> Solicitar
+                          </Button>
+                        )}
                       </div>
-                      <Button size="sm" onClick={() => handleAddCedente(ced.cpf_cnpj)} disabled={adding}>
-                        <Plus className="h-3 w-3 mr-1" /> Adicionar
-                      </Button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
               {!searching && searchResults.length === 0 && addSearchTerm && (

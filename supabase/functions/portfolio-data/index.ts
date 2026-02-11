@@ -33,7 +33,7 @@ serve(async (req) => {
       });
     }
 
-    const { action, cedente_cpf_cnpj, user_id, assignment_id, status } = await req.json();
+    const { action, cedente_cpf_cnpj, user_id, assignment_id, status, rejection_reason } = await req.json();
 
     // Check if user is admin
     const { data: roleData } = await supabaseAdmin
@@ -63,16 +63,16 @@ serve(async (req) => {
     }
 
     if (action === 'request-assignment') {
-      // Gestor requests a cedente; admin assigns directly as approved
-      const assignStatus = isAdmin ? 'approved' : 'pending';
+      // All requests start as pending, regardless of role
+      const assignStatus = 'pending';
       const { data, error } = await supabaseAdmin.from('portfolio_assignments').insert({
         user_id: user_id || user.id,
         cedente_cpf_cnpj,
         cedente_nome: null, // will be enriched below
         status: assignStatus,
         requested_by: user.id,
-        approved_by: isAdmin ? user.id : null,
-        approved_at: isAdmin ? new Date().toISOString() : null,
+        approved_by: null,
+        approved_at: null,
       }).select().single();
 
       if (error) {
@@ -117,19 +117,28 @@ serve(async (req) => {
       });
     }
 
-    if (action === 'approve-assignment' || action === 'reject-assignment') {
+  if (action === 'approve-assignment' || action === 'reject-assignment') {
       if (!isAdmin) {
         return new Response(JSON.stringify({ error: 'Sem permissão' }), {
           status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
       const newStatus = action === 'approve-assignment' ? 'approved' : 'rejected';
+      if (action === 'reject-assignment' && !rejection_reason) {
+        return new Response(JSON.stringify({ error: 'Motivo da recusa é obrigatório' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const updateData: Record<string, unknown> = {
+        status: newStatus,
+        approved_by: user.id,
+        approved_at: new Date().toISOString(),
+      };
+      if (action === 'reject-assignment') {
+        updateData.rejection_reason = rejection_reason;
+      }
       const { error } = await supabaseAdmin.from('portfolio_assignments')
-        .update({
-          status: newStatus,
-          approved_by: user.id,
-          approved_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', assignment_id);
       if (error) throw error;
 
