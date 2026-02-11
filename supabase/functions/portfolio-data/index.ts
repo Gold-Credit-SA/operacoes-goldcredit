@@ -207,11 +207,24 @@ serve(async (req) => {
         const placeholders = cpfList.map((_, i) => `$${i + 1}`).join(',');
 
         const cedentesResult = await connection.queryObject(`
-          SELECT cpf_cnpj, nome, limite_global, risco_atual, bloqueado, setor, uf, cidade
+          SELECT cpf_cnpj, nome, limite_global, bloqueado, setor, uf, cidade
           FROM smartsecurities_cedentes
           WHERE cpf_cnpj IN (${placeholders})
           ORDER BY nome ASC
         `, cpfList);
+
+        // Calcular risco real a partir dos títulos em aberto
+        const riscoResult = await connection.queryObject(`
+          SELECT cpf_cnpj_cedente, COALESCE(SUM(valor), 0) as risco_calculado
+          FROM smartsecurities_titulos_em_aberto
+          WHERE cpf_cnpj_cedente IN (${placeholders})
+          GROUP BY cpf_cnpj_cedente
+        `, cpfList);
+
+        const riscoMap: Record<string, number> = {};
+        for (const r of riscoResult.rows as any[]) {
+          riscoMap[r.cpf_cnpj_cedente] = parseFloat(String(r.risco_calculado)) || 0;
+        }
 
         // Last operation per cedente
         const opsResult = await connection.queryObject(`
@@ -239,7 +252,7 @@ serve(async (req) => {
 
         const cedentes = (cedentesResult.rows as any[]).map(ced => {
           const limiteGlobal = parseFloat(ced.limite_global) || 0;
-          const riscoAtual = parseFloat(ced.risco_atual) || 0;
+          const riscoAtual = riscoMap[ced.cpf_cnpj] || 0;
           totalLimite += limiteGlobal;
           totalRisco += riscoAtual;
           const ultimaOp = opsMap[ced.cpf_cnpj];
