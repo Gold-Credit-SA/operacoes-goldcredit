@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,6 +12,9 @@ import { UserFormDialog } from '@/components/admin/UserFormDialog';
 import { UserCard } from '@/components/admin/UserCard';
 import { StatsCard } from '@/components/admin/StatsCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog';
 import { 
   Plus, Users, Shield, UserCheck, Info, Briefcase, Check, X, Clock, RefreshCw,
 } from 'lucide-react';
@@ -31,6 +35,7 @@ interface Assignment {
   cedente_nome: string | null;
   status: string;
   created_at: string;
+  rejection_reason?: string | null;
 }
 
 interface GestorOverview {
@@ -53,6 +58,11 @@ export default function AdminSettings() {
   const [pendingAssignments, setPendingAssignments] = useState<Assignment[]>([]);
   const [portfolioLoading, setPortfolioLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
+
+  // Rejection dialog
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectingAssignment, setRejectingAssignment] = useState<Assignment | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
@@ -158,17 +168,46 @@ export default function AdminSettings() {
     }
   };
 
-  const handleAssignmentAction = async (assignmentId: string, action: 'approve-assignment' | 'reject-assignment') => {
+  const handleApprove = async (assignmentId: string) => {
     setProcessing(assignmentId);
     try {
       const { error } = await supabase.functions.invoke('portfolio-data', {
-        body: { action, assignment_id: assignmentId },
+        body: { action: 'approve-assignment', assignment_id: assignmentId },
       });
       if (error) throw error;
-      toast({
-        title: action === 'approve-assignment' ? 'Aprovado' : 'Rejeitado',
-        description: action === 'approve-assignment' ? 'Cedente vinculado.' : 'Solicitação rejeitada.',
+      toast({ title: 'Aprovado', description: 'Cedente vinculado à carteira do gestor.' });
+      fetchPortfolioData();
+    } catch (error: any) {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const openRejectDialog = (assignment: Assignment) => {
+    setRejectingAssignment(assignment);
+    setRejectionReason('');
+    setRejectDialogOpen(true);
+  };
+
+  const handleReject = async () => {
+    if (!rejectingAssignment) return;
+    if (!rejectionReason.trim()) {
+      toast({ title: 'Motivo obrigatório', description: 'Informe o motivo da recusa.', variant: 'destructive' });
+      return;
+    }
+    setProcessing(rejectingAssignment.id);
+    try {
+      const { error } = await supabase.functions.invoke('portfolio-data', {
+        body: {
+          action: 'reject-assignment',
+          assignment_id: rejectingAssignment.id,
+          rejection_reason: rejectionReason.trim(),
+        },
       });
+      if (error) throw error;
+      toast({ title: 'Recusado', description: 'Solicitação rejeitada com motivo registrado.' });
+      setRejectDialogOpen(false);
       fetchPortfolioData();
     } catch (error: any) {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' });
@@ -355,15 +394,18 @@ export default function AdminSettings() {
                             <p className="font-medium">{a.cedente_nome || formatCpfCnpj(a.cedente_cpf_cnpj)}</p>
                             <p className="text-xs text-muted-foreground">
                               Solicitado por <span className="font-medium">{gestor?.name || 'Gestor'}</span>
-                              {' · '}{new Date(a.created_at).toLocaleDateString('pt-BR')}
+                              {' · '}{new Date(a.created_at).toLocaleDateString('pt-BR', {
+                                day: '2-digit', month: '2-digit', year: 'numeric',
+                                hour: '2-digit', minute: '2-digit',
+                              })}
                             </p>
                           </div>
                           <div className="flex gap-2">
-                            <Button size="sm" onClick={() => handleAssignmentAction(a.id, 'approve-assignment')} disabled={processing === a.id}>
+                            <Button size="sm" onClick={() => handleApprove(a.id)} disabled={processing === a.id}>
                               <Check className="h-4 w-4 mr-1" /> Aprovar
                             </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleAssignmentAction(a.id, 'reject-assignment')} disabled={processing === a.id}>
-                              <X className="h-4 w-4 mr-1" /> Rejeitar
+                            <Button size="sm" variant="outline" onClick={() => openRejectDialog(a)} disabled={processing === a.id}>
+                              <X className="h-4 w-4 mr-1" /> Recusar
                             </Button>
                           </div>
                         </div>
@@ -384,6 +426,49 @@ export default function AdminSettings() {
         onSave={handleSave}
         saving={saving}
       />
+
+      {/* Rejection reason dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Recusar Solicitação</DialogTitle>
+            <DialogDescription>
+              Informe o motivo da recusa. O gestor será notificado com esta informação.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {rejectingAssignment && (
+              <div className="p-3 bg-muted rounded-lg text-sm">
+                <p><strong>Cedente:</strong> {rejectingAssignment.cedente_nome || formatCpfCnpj(rejectingAssignment.cedente_cpf_cnpj)}</p>
+                <p className="text-muted-foreground mt-1">
+                  Solicitado em {new Date(rejectingAssignment.created_at).toLocaleDateString('pt-BR', {
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit',
+                  })}
+                </p>
+              </div>
+            )}
+            <Textarea
+              placeholder="Motivo da recusa (obrigatório)..."
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleReject}
+              disabled={!rejectionReason.trim() || processing === rejectingAssignment?.id}
+            >
+              <X className="h-4 w-4 mr-1" /> Confirmar Recusa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }

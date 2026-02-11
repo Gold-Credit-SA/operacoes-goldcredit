@@ -22,6 +22,7 @@ export type Database = {
           cedente_nome: string | null
           created_at: string
           id: string
+          rejection_reason: string | null
           requested_by: string
           status: Database["public"]["Enums"]["assignment_status"]
           updated_at: string
@@ -34,6 +35,7 @@ export type Database = {
           cedente_nome?: string | null
           created_at?: string
           id?: string
+          rejection_reason?: string | null
           requested_by: string
           status?: Database["public"]["Enums"]["assignment_status"]
           updated_at?: string
@@ -46,6 +48,7 @@ export type Database = {
           cedente_nome?: string | null
           created_at?: string
           id?: string
+          rejection_reason?: string | null
           requested_by?: string
           status?: Database["public"]["Enums"]["assignment_status"]
           updated_at?: string
