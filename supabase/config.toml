@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.bootstrap-master]
 verify_jwt = false
+
+[functions.portfolio-data]
+verify_jwt = false

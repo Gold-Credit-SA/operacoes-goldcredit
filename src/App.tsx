@@ -9,7 +9,8 @@ import { AppSidebar } from "@/components/layout/AppSidebar";
 import Login from "./pages/Login";
 import CedenteConsulta from "./pages/CedenteConsulta";
 import CedenteDetailPage from "./pages/CedenteDetailPage";
-import GiroCarteira from "./pages/GiroCarteira";
+import MinhaCarteira from "./pages/MinhaCarteira";
+import CarteiraPendencias from "./pages/CarteiraPendencias";
 import AnaliseConsulta from "./pages/AnaliseConsulta";
 import AdminSettings from "./pages/AdminSettings";
 import NotFound from "./pages/NotFound";
@@ -55,9 +56,7 @@ function App() {
                 path="/consulta"
                 element={
                   <ProtectedRoute>
-                    <AppLayout>
-                      <CedenteConsulta />
-                    </AppLayout>
+                    <AppLayout><CedenteConsulta /></AppLayout>
                   </ProtectedRoute>
                 }
               />
@@ -65,19 +64,31 @@ function App() {
                 path="/cedente/:id"
                 element={
                   <ProtectedRoute>
-                    <AppLayout>
-                      <CedenteDetailPage />
-                    </AppLayout>
+                    <AppLayout><CedenteDetailPage /></AppLayout>
                   </ProtectedRoute>
                 }
               />
               <Route
-                path="/giro-carteira"
+                path="/carteira"
                 element={
                   <ProtectedRoute>
-                    <AppLayout>
-                      <GiroCarteira />
-                    </AppLayout>
+                    <AppLayout><MinhaCarteira /></AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/carteira/metricas"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout><MinhaCarteira /></AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/carteira/gestao"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <AppLayout><CarteiraPendencias /></AppLayout>
                   </ProtectedRoute>
                 }
               />
@@ -85,9 +96,7 @@ function App() {
                 path="/analise-consulta"
                 element={
                   <ProtectedRoute>
-                    <AppLayout>
-                      <AnaliseConsulta />
-                    </AppLayout>
+                    <AppLayout><AnaliseConsulta /></AppLayout>
                   </ProtectedRoute>
                 }
               />
@@ -95,11 +104,14 @@ function App() {
                 path="/admin"
                 element={
                   <ProtectedRoute requireAdmin>
-                    <AppLayout>
-                      <AdminSettings />
-                    </AppLayout>
+                    <AppLayout><AdminSettings /></AppLayout>
                   </ProtectedRoute>
                 }
+              />
+              {/* Legacy redirect */}
+              <Route
+                path="/giro-carteira"
+                element={<Navigate to="/carteira" replace />}
               />
               <Route path="*" element={<NotFound />} />
             </Routes>

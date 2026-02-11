@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      portfolio_assignments: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          cedente_cpf_cnpj: string
+          cedente_nome: string | null
+          created_at: string
+          id: string
+          requested_by: string
+          status: Database["public"]["Enums"]["assignment_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cedente_cpf_cnpj: string
+          cedente_nome?: string | null
+          created_at?: string
+          id?: string
+          requested_by: string
+          status?: Database["public"]["Enums"]["assignment_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cedente_cpf_cnpj?: string
+          cedente_nome?: string | null
+          created_at?: string
+          id?: string
+          requested_by?: string
+          status?: Database["public"]["Enums"]["assignment_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -78,6 +117,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      assignment_status: "pending" | "approved" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -206,6 +246,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      assignment_status: ["pending", "approved", "rejected"],
     },
   },
 } as const
