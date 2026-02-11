@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, LogOut, FileSearch, Settings, Briefcase, ChevronDown, RefreshCw, ClipboardList, BarChart3 } from 'lucide-react';
+import { Search, LogOut, FileSearch, Settings, Briefcase, ChevronDown, RefreshCw, BarChart3, Settings2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import logoGoldCredit from '@/assets/logo-gold-credit.png';
@@ -10,13 +10,13 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const { profile, isMaster, signOut } = useAuth();
   const [carteiraOpen, setCarteiraOpen] = useState(
-    location.pathname.startsWith('/carteira') || location.pathname === '/giro-carteira'
+    location.pathname.startsWith('/carteira')
   );
 
   const carteiraItems = [
-    { path: '/carteira', label: 'Giro de Carteira', icon: RefreshCw },
+    { path: '/carteira/giro', label: 'Giro de Carteira', icon: RefreshCw },
     { path: '/carteira/metricas', label: 'Métricas da Carteira', icon: BarChart3 },
-    ...(isMaster ? [{ path: '/carteira/gestao', label: 'Gestão de Carteiras', icon: ClipboardList }] : []),
+    { path: '/carteira/gestao', label: 'Gestão de Carteira', icon: Settings2 },
   ];
 
   const navItems = [
@@ -35,12 +35,10 @@ export function AppSidebar() {
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar flex flex-col border-r border-sidebar-border">
-      {/* Logo */}
       <div className="flex items-center justify-center px-4 py-5 border-b border-sidebar-border">
         <img src={logoGoldCredit} alt="Gold Credit" className="w-40 h-auto" />
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {/* Carteira dropdown */}
         <button
@@ -56,10 +54,7 @@ export function AppSidebar() {
             <Briefcase className={cn("h-5 w-5", isCarteiraActive ? "text-primary" : "text-sidebar-foreground/50")} />
             Carteira
           </span>
-          <ChevronDown className={cn(
-            "h-4 w-4 transition-transform duration-200",
-            carteiraOpen ? "rotate-180" : ""
-          )} />
+          <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", carteiraOpen ? "rotate-180" : "")} />
         </button>
 
         {carteiraOpen && (
@@ -107,7 +102,6 @@ export function AppSidebar() {
         })}
       </nav>
 
-      {/* User section */}
       <div className="border-t border-sidebar-border p-3">
         <div className="flex items-center gap-2.5">
           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-xs font-semibold">

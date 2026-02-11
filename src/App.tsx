@@ -9,8 +9,9 @@ import { AppSidebar } from "@/components/layout/AppSidebar";
 import Login from "./pages/Login";
 import CedenteConsulta from "./pages/CedenteConsulta";
 import CedenteDetailPage from "./pages/CedenteDetailPage";
-import MinhaCarteira from "./pages/MinhaCarteira";
-import CarteiraPendencias from "./pages/CarteiraPendencias";
+import CarteiraGiro from "./pages/CarteiraGiro";
+import CarteiraMetricas from "./pages/CarteiraMetricas";
+import CarteiraGestao from "./pages/CarteiraGestao";
 import AnaliseConsulta from "./pages/AnaliseConsulta";
 import AdminSettings from "./pages/AdminSettings";
 import NotFound from "./pages/NotFound";
@@ -44,75 +45,17 @@ function App() {
           <AuthProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <Navigate to="/consulta" replace />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/consulta"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout><CedenteConsulta /></AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/cedente/:id"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout><CedenteDetailPage /></AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/carteira"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout><MinhaCarteira /></AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/carteira/metricas"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout><MinhaCarteira /></AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/carteira/gestao"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <AppLayout><CarteiraPendencias /></AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/analise-consulta"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout><AnaliseConsulta /></AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <AppLayout><AdminSettings /></AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              {/* Legacy redirect */}
-              <Route
-                path="/giro-carteira"
-                element={<Navigate to="/carteira" replace />}
-              />
+              <Route path="/" element={<ProtectedRoute><Navigate to="/consulta" replace /></ProtectedRoute>} />
+              <Route path="/consulta" element={<ProtectedRoute><AppLayout><CedenteConsulta /></AppLayout></ProtectedRoute>} />
+              <Route path="/cedente/:id" element={<ProtectedRoute><AppLayout><CedenteDetailPage /></AppLayout></ProtectedRoute>} />
+              <Route path="/carteira/giro" element={<ProtectedRoute><AppLayout><CarteiraGiro /></AppLayout></ProtectedRoute>} />
+              <Route path="/carteira/metricas" element={<ProtectedRoute><AppLayout><CarteiraMetricas /></AppLayout></ProtectedRoute>} />
+              <Route path="/carteira/gestao" element={<ProtectedRoute><AppLayout><CarteiraGestao /></AppLayout></ProtectedRoute>} />
+              <Route path="/analise-consulta" element={<ProtectedRoute><AppLayout><AnaliseConsulta /></AppLayout></ProtectedRoute>} />
+              <Route path="/admin" element={<ProtectedRoute requireAdmin><AppLayout><AdminSettings /></AppLayout></ProtectedRoute>} />
+              {/* Legacy redirects */}
+              <Route path="/giro-carteira" element={<Navigate to="/carteira/giro" replace />} />
+              <Route path="/carteira" element={<Navigate to="/carteira/giro" replace />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>
