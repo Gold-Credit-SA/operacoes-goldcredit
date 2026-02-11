@@ -22,12 +22,17 @@ import {
 interface CedenteCarteira {
   cpf_cnpj: string;
   nome?: string;
+  setor?: string;
+  cidade?: string;
+  uf?: string;
   limite_global?: number;
   limite_disponivel?: number;
   risco_atual?: number;
   bloqueado?: string;
   ultima_operacao?: string;
   dias_inativo?: number;
+  vencimento_contrato?: string;
+  pendencia_aditivo?: string;
 }
 
 export default function CarteiraGiro() {
@@ -141,47 +146,63 @@ export default function CarteiraGiro() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>CPF/CNPJ</TableHead>
-                      <TableHead>Nome</TableHead>
-                      <TableHead className="text-right">Limite Global</TableHead>
-                      <TableHead className="text-right">Risco Atual</TableHead>
-                      <TableHead className="text-right">Disponível</TableHead>
-                      <TableHead className="text-center">Última Operação</TableHead>
-                      <TableHead className="text-center">Dias Inativo</TableHead>
+                      <TableHead>Cedente</TableHead>
+                      <TableHead>Ramo de Atividade</TableHead>
+                      <TableHead>Cidade</TableHead>
+                      <TableHead className="text-right">Limite Total</TableHead>
+                      <TableHead className="text-right">Limite Disponível</TableHead>
+                      <TableHead className="text-center">Pendência de Aditivo</TableHead>
+                      <TableHead className="text-center">Último Contato</TableHead>
+                      <TableHead className="text-center">Situação Cadastral</TableHead>
                       <TableHead className="w-12"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {paginatedCedentes.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                           Nenhum cedente encontrado
                         </TableCell>
                       </TableRow>
-                    ) : paginatedCedentes.map(ced => (
-                      <TableRow key={ced.cpf_cnpj}>
-                        <TableCell className="font-mono text-sm">{formatCpfCnpj(ced.cpf_cnpj)}</TableCell>
-                        <TableCell className="max-w-[200px] truncate">{ced.nome || '-'}</TableCell>
-                        <TableCell className="text-right font-medium">{formatCurrency(ced.limite_global)}</TableCell>
-                        <TableCell className="text-right font-medium text-destructive">{formatCurrency(ced.risco_atual)}</TableCell>
-                        <TableCell className={`text-right font-medium ${(ced.limite_disponivel || 0) <= 0 ? 'text-destructive' : 'text-emerald-600'}`}>
-                          {formatCurrency(ced.limite_disponivel)}
-                        </TableCell>
-                        <TableCell className="text-center">{formatDate(ced.ultima_operacao)}</TableCell>
-                        <TableCell className="text-center">
-                          {ced.dias_inativo != null ? (
-                            <Badge variant={ced.dias_inativo > 30 ? "destructive" : "secondary"}>
-                              {ced.dias_inativo} dias
+                    ) : paginatedCedentes.map(ced => {
+                      const situacao = ced.bloqueado === 'S' ? 'Bloqueado' : 'Ativo';
+                      return (
+                        <TableRow key={ced.cpf_cnpj}>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium truncate max-w-[200px]">{ced.nome || '-'}</p>
+                              <p className="text-xs text-muted-foreground font-mono">{formatCpfCnpj(ced.cpf_cnpj)}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">{ced.setor || '-'}</TableCell>
+                          <TableCell className="text-sm">{ced.cidade ? `${ced.cidade}${ced.uf ? `/${ced.uf}` : ''}` : '-'}</TableCell>
+                          <TableCell className="text-right font-medium">{formatCurrency(ced.limite_global)}</TableCell>
+                          <TableCell className={`text-right font-medium ${(ced.limite_disponivel || 0) <= 0 ? 'text-destructive' : 'text-emerald-600'}`}>
+                            {formatCurrency(ced.limite_disponivel)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={
+                              ced.pendencia_aditivo === 'Vencido' ? 'destructive' :
+                              ced.pendencia_aditivo === 'Vence em breve' ? 'secondary' :
+                              ced.pendencia_aditivo === 'Regular' ? 'outline' : 'secondary'
+                            }>
+                              {ced.pendencia_aditivo || 'Sem contrato'}
                             </Badge>
-                          ) : '-'}
-                        </TableCell>
-                        <TableCell>
-                          <Button variant="ghost" size="icon" onClick={() => navigate(`/consulta?cpf_cnpj=${ced.cpf_cnpj}`)}>
-                            <ArrowRight className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+                          <TableCell className="text-center">{formatDate(ced.ultima_operacao)}</TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={situacao === 'Bloqueado' ? 'destructive' : 'outline'}>
+                              {situacao}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="icon" onClick={() => navigate(`/consulta?cpf_cnpj=${ced.cpf_cnpj}`)}>
+                              <ArrowRight className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
