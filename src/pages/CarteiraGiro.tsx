@@ -12,9 +12,10 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import {
-  Search, ArrowRight, RefreshCw, Briefcase,
+  Search, ArrowRight, RefreshCw, Briefcase, UserPlus, Loader2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -35,12 +36,26 @@ interface CedenteCarteira {
   pendencia_aditivo?: string;
 }
 
+interface SugestaoCedente {
+  cpf_cnpj: string;
+  nome: string;
+  gerente: string;
+  limite_global: number;
+  bloqueado: string;
+  setor: string;
+  uf: string;
+  cidade: string;
+}
+
 export default function CarteiraGiro() {
   const [cedentes, setCedentes] = useState<CedenteCarteira[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [sugestoes, setSugestoes] = useState<SugestaoCedente[]>([]);
+  const [loadingSugestoes, setLoadingSugestoes] = useState(false);
+  const [addingCpf, setAddingCpf] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -78,7 +93,41 @@ export default function CarteiraGiro() {
     }
   };
 
-  useEffect(() => { fetchPortfolio(); }, []);
+  const fetchSugestoes = async () => {
+    setLoadingSugestoes(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('portfolio-data', {
+        body: { action: 'suggest-by-gerente' },
+      });
+      if (!error && data?.success) setSugestoes(data.sugestoes || []);
+    } catch (e) {
+      console.error("Erro ao buscar sugestões:", e);
+    } finally {
+      setLoadingSugestoes(false);
+    }
+  };
+
+  const handleAddSugestao = async (cpf_cnpj: string) => {
+    setAddingCpf(cpf_cnpj);
+    try {
+      const { data, error } = await supabase.functions.invoke('portfolio-data', {
+        body: { action: 'request-assignment', cedente_cpf_cnpj: cpf_cnpj },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast({ title: data.error, variant: 'destructive' });
+      } else {
+        toast({ title: 'Solicitação enviada!', description: 'Aguarde aprovação do administrador.' });
+        setSugestoes(prev => prev.filter(s => s.cpf_cnpj !== cpf_cnpj));
+      }
+    } catch (e) {
+      toast({ title: 'Erro ao solicitar vínculo', variant: 'destructive' });
+    } finally {
+      setAddingCpf(null);
+    }
+  };
+
+  useEffect(() => { fetchPortfolio(); fetchSugestoes(); }, []);
 
   const filteredCedentes = searchTerm.trim()
     ? cedentes.filter(c => {
@@ -119,6 +168,43 @@ export default function CarteiraGiro() {
             Atualizar
           </Button>
         </div>
+
+        {/* Sugestões de cedentes pelo campo gerente */}
+        {sugestoes.length > 0 && (
+          <Alert className="border-primary/30 bg-primary/5">
+            <UserPlus className="h-4 w-4" />
+            <AlertTitle>Cedentes identificados na sua carteira</AlertTitle>
+            <AlertDescription className="mt-2">
+              <p className="text-sm mb-3">
+                Estes cedentes possuem seu nome como gerente no sistema. Deseja adicioná-los à sua carteira?
+              </p>
+              <div className="space-y-2">
+                {sugestoes.map(s => (
+                  <div key={s.cpf_cnpj} className="flex items-center justify-between bg-background rounded-md border p-3">
+                    <div>
+                      <p className="font-medium text-sm">{s.nome}</p>
+                      <p className="text-xs text-muted-foreground font-mono">
+                        {s.cpf_cnpj} · {s.setor || '-'} · {s.cidade || '-'}{s.uf ? `/${s.uf}` : ''}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => handleAddSugestao(s.cpf_cnpj)}
+                      disabled={addingCpf === s.cpf_cnpj}
+                    >
+                      {addingCpf === s.cpf_cnpj ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                      ) : (
+                        <UserPlus className="h-4 w-4 mr-1" />
+                      )}
+                      Solicitar
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Table */}
         <Card>
