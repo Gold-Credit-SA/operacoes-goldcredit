@@ -337,6 +337,57 @@ serve(async (req) => {
       }
     }
 
+    // === SUGGESTIONS: cedentes where gerente matches user name ===
+    if (action === 'suggest-by-gerente') {
+      // Get user profile name
+      const { data: profileData } = await supabaseAdmin
+        .from('profiles')
+        .select('name')
+        .eq('user_id', user.id)
+        .single();
+
+      const userName = profileData?.name?.trim();
+      if (!userName) {
+        return new Response(JSON.stringify({ success: true, sugestoes: [] }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Get already assigned cpf_cnpjs for this user (any status)
+      const { data: existingAssignments } = await supabaseAdmin
+        .from('portfolio_assignments')
+        .select('cedente_cpf_cnpj')
+        .eq('user_id', user.id);
+      const assignedCpfs = new Set((existingAssignments || []).map(a => a.cedente_cpf_cnpj));
+
+      const pool = new Pool({
+        hostname: Deno.env.get("EXTERNAL_DB_HOST")!,
+        port: parseInt(Deno.env.get("EXTERNAL_DB_PORT") || "5432"),
+        database: Deno.env.get("EXTERNAL_DB_NAME")!,
+        user: Deno.env.get("EXTERNAL_DB_USER")!,
+        password: Deno.env.get("EXTERNAL_DB_PASS")!,
+      }, 1);
+      const conn = await pool.connect();
+      try {
+        const result = await conn.queryObject(`
+          SELECT cpf_cnpj, nome, gerente, limite_global, bloqueado, setor, uf, cidade
+          FROM smartsecurities_cedentes
+          WHERE LOWER(TRIM(gerente)) = LOWER($1)
+          ORDER BY nome ASC
+        `, [userName]);
+
+        // Filter out already assigned
+        const sugestoes = (result.rows as any[]).filter(r => !assignedCpfs.has(r.cpf_cnpj));
+
+        return new Response(JSON.stringify({ success: true, sugestoes }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } finally {
+        conn.release();
+        await pool.end();
+      }
+    }
+
     // === ADMIN: Get all gestors with portfolio counts ===
     if (action === 'admin-overview') {
       if (!isAdmin) {
