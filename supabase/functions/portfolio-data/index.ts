@@ -520,7 +520,7 @@ serve(async (req) => {
 
         // 3. Operations per cedente (current period)
         const opsRes = await conn.queryObject(`
-          SELECT cpf_cnpj_cedente, COUNT(*) as qtd, COALESCE(SUM(valor_bruto),0) as volume,
+          SELECT cpf_cnpj_cedente, COUNT(*)::int as qtd, COALESCE(SUM(valor_bruto),0) as volume,
                  MAX(data) as ultima_op, MIN(data) as primeira_op
           FROM smartsecurities_operacoes_individualizadas
           WHERE cpf_cnpj_cedente IN (${ph})
@@ -532,7 +532,7 @@ serve(async (req) => {
 
         // 4. Operations previous period (for comparison)
         const opsPrevRes = await conn.queryObject(`
-          SELECT cpf_cnpj_cedente, COUNT(*) as qtd, COALESCE(SUM(valor_bruto),0) as volume
+          SELECT cpf_cnpj_cedente, COUNT(*)::int as qtd, COALESCE(SUM(valor_bruto),0) as volume
           FROM smartsecurities_operacoes_individualizadas
           WHERE cpf_cnpj_cedente IN (${ph})
             AND data >= CURRENT_DATE - INTERVAL '${periodo_meses * 2} months'
@@ -545,8 +545,8 @@ serve(async (req) => {
         // 5. Monthly operations breakdown
         const monthlyRes = await conn.queryObject(`
           SELECT TO_CHAR(data, 'YYYY-MM') as mes,
-                 COUNT(*) as qtd, COALESCE(SUM(valor_bruto),0) as volume,
-                 COUNT(DISTINCT cpf_cnpj_cedente) as cedentes_ativos
+                 COUNT(*)::int as qtd, COALESCE(SUM(valor_bruto),0) as volume,
+                 COUNT(DISTINCT cpf_cnpj_cedente)::int as cedentes_ativos
           FROM smartsecurities_operacoes_individualizadas
           WHERE cpf_cnpj_cedente IN (${ph})
             AND data >= CURRENT_DATE - INTERVAL '12 months'
