@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, LogOut, FileSearch, Settings, Briefcase, ChevronDown, RefreshCw, BarChart3, Settings2 } from 'lucide-react';
+import { Search, LogOut, FileSearch, Settings, Briefcase, ChevronDown, RefreshCw, BarChart3, Settings2, UserCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import logoGoldCredit from '@/assets/logo-gold-credit.png';
@@ -107,10 +107,10 @@ export function AppSidebar() {
           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
             {userInitial}
           </div>
-          <div className="flex-1 min-w-0">
+          <Link to="/perfil" className="flex-1 min-w-0 hover:opacity-80 transition-opacity">
             <p className="text-xs font-medium text-sidebar-foreground truncate">{profile?.name || 'Usuário'}</p>
             <p className="text-[10px] text-sidebar-foreground/50 truncate">{profile?.email || ''}</p>
-          </div>
+          </Link>
           <button
             onClick={handleLogout}
             className="p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors"

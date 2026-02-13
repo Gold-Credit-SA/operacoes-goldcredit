@@ -16,6 +16,7 @@ import AnaliseConsulta from "./pages/AnaliseConsulta";
 import AdminSettings from "./pages/AdminSettings";
 import NotFound from "./pages/NotFound";
 import ChangePassword from "./pages/ChangePassword";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -54,6 +55,7 @@ function App() {
               <Route path="/carteira/metricas" element={<ProtectedRoute><AppLayout><CarteiraMetricas /></AppLayout></ProtectedRoute>} />
               <Route path="/carteira/gestao" element={<ProtectedRoute><AppLayout><CarteiraGestao /></AppLayout></ProtectedRoute>} />
               <Route path="/analise-consulta" element={<ProtectedRoute><AppLayout><AnaliseConsulta /></AppLayout></ProtectedRoute>} />
+              <Route path="/perfil" element={<ProtectedRoute><AppLayout><Profile /></AppLayout></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute requireAdmin><AppLayout><AdminSettings /></AppLayout></ProtectedRoute>} />
               {/* Legacy redirects */}
               <Route path="/giro-carteira" element={<Navigate to="/carteira/giro" replace />} />
