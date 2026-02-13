@@ -471,6 +471,220 @@ serve(async (req) => {
       }
     }
 
+    // === ADVANCED METRICS for portfolio ===
+    if (action === 'portfolio-advanced-metrics') {
+      const { periodo_meses = 6 } = await req.json().catch(() => ({ periodo_meses: 6 }));
+
+      // Get assigned cedentes
+      let assignQuery = supabaseAdmin.from('portfolio_assignments')
+        .select('cedente_cpf_cnpj, cedente_nome')
+        .eq('status', 'approved');
+      if (!isAdmin) {
+        assignQuery = assignQuery.eq('user_id', user.id);
+      }
+      const { data: assignments } = await assignQuery;
+      const cpfList = assignments?.map(a => a.cedente_cpf_cnpj) || [];
+
+      if (cpfList.length === 0) {
+        return new Response(JSON.stringify({ success: true, data: null }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const pool = new Pool({
+        hostname: Deno.env.get("EXTERNAL_DB_HOST")!,
+        port: parseInt(Deno.env.get("EXTERNAL_DB_PORT") || "5432"),
+        database: Deno.env.get("EXTERNAL_DB_NAME")!,
+        user: Deno.env.get("EXTERNAL_DB_USER")!,
+        password: Deno.env.get("EXTERNAL_DB_PASS")!,
+      }, 3);
+      const conn = await pool.connect();
+      try {
+        const ph = cpfList.map((_, i) => `$${i + 1}`).join(',');
+
+        // 1. Cedentes base data
+        const cedRes = await conn.queryObject(`
+          SELECT cpf_cnpj, nome, limite_global, bloqueado, setor, uf
+          FROM smartsecurities_cedentes WHERE cpf_cnpj IN (${ph}) ORDER BY nome
+        `, cpfList);
+
+        // 2. Risco (títulos em aberto tipo C)
+        const riscoRes = await conn.queryObject(`
+          SELECT cpf_cnpj_cedente, COALESCE(SUM(valor), 0) as risco
+          FROM smartsecurities_titulos_em_aberto
+          WHERE cpf_cnpj_cedente IN (${ph}) AND tipo = 'C'
+          GROUP BY cpf_cnpj_cedente
+        `, cpfList);
+        const riscoMap: Record<string, number> = {};
+        for (const r of riscoRes.rows as any[]) riscoMap[r.cpf_cnpj_cedente] = parseFloat(r.risco) || 0;
+
+        // 3. Operations per cedente (current period)
+        const opsRes = await conn.queryObject(`
+          SELECT cpf_cnpj_cedente, COUNT(*) as qtd, COALESCE(SUM(valor_bruto),0) as volume,
+                 MAX(data) as ultima_op, MIN(data) as primeira_op
+          FROM smartsecurities_operacoes_individualizadas
+          WHERE cpf_cnpj_cedente IN (${ph})
+            AND data >= CURRENT_DATE - INTERVAL '${periodo_meses} months'
+          GROUP BY cpf_cnpj_cedente
+        `, cpfList);
+        const opsMap: Record<string, any> = {};
+        for (const r of opsRes.rows as any[]) opsMap[r.cpf_cnpj_cedente] = r;
+
+        // 4. Operations previous period (for comparison)
+        const opsPrevRes = await conn.queryObject(`
+          SELECT cpf_cnpj_cedente, COUNT(*) as qtd, COALESCE(SUM(valor_bruto),0) as volume
+          FROM smartsecurities_operacoes_individualizadas
+          WHERE cpf_cnpj_cedente IN (${ph})
+            AND data >= CURRENT_DATE - INTERVAL '${periodo_meses * 2} months'
+            AND data < CURRENT_DATE - INTERVAL '${periodo_meses} months'
+          GROUP BY cpf_cnpj_cedente
+        `, cpfList);
+        const opsPrevMap: Record<string, any> = {};
+        for (const r of opsPrevRes.rows as any[]) opsPrevMap[r.cpf_cnpj_cedente] = r;
+
+        // 5. Monthly operations breakdown
+        const monthlyRes = await conn.queryObject(`
+          SELECT TO_CHAR(data, 'YYYY-MM') as mes,
+                 COUNT(*) as qtd, COALESCE(SUM(valor_bruto),0) as volume,
+                 COUNT(DISTINCT cpf_cnpj_cedente) as cedentes_ativos
+          FROM smartsecurities_operacoes_individualizadas
+          WHERE cpf_cnpj_cedente IN (${ph})
+            AND data >= CURRENT_DATE - INTERVAL '12 months'
+          GROUP BY TO_CHAR(data, 'YYYY-MM')
+          ORDER BY mes
+        `, cpfList);
+
+        // Build cedentes enriched
+        const hoje = new Date();
+        let totalVolume = 0, totalOps = 0, totalRisco = 0, totalLimite = 0;
+        const cedentesEnriched = (cedRes.rows as any[]).map(c => {
+          const ops = opsMap[c.cpf_cnpj];
+          const opsPrev = opsPrevMap[c.cpf_cnpj];
+          const risco = riscoMap[c.cpf_cnpj] || 0;
+          const limite = parseFloat(c.limite_global) || 0;
+          const volume = parseFloat(ops?.volume || '0');
+          const qtd = parseInt(ops?.qtd || '0');
+          const volumePrev = parseFloat(opsPrev?.volume || '0');
+          const qtdPrev = parseInt(opsPrev?.qtd || '0');
+          const ultimaOp = ops?.ultima_op ? new Date(ops.ultima_op) : null;
+          const diasInativo = ultimaOp ? Math.floor((hoje.getTime() - ultimaOp.getTime()) / 86400000) : 999;
+
+          totalVolume += volume;
+          totalOps += qtd;
+          totalRisco += risco;
+          totalLimite += limite;
+
+          return {
+            cpf_cnpj: c.cpf_cnpj,
+            nome: c.nome || 'Sem nome',
+            limite, risco, volume, qtd,
+            volumePrev, qtdPrev,
+            variacaoVolume: volumePrev > 0 ? ((volume - volumePrev) / volumePrev) * 100 : (volume > 0 ? 100 : 0),
+            variacaoQtd: qtdPrev > 0 ? ((qtd - qtdPrev) / qtdPrev) * 100 : (qtd > 0 ? 100 : 0),
+            diasInativo,
+            uf: c.uf,
+            setor: c.setor,
+            bloqueado: c.bloqueado,
+          };
+        });
+
+        // Totals previous period
+        let totalVolumePrev = 0, totalOpsPrev = 0;
+        for (const v of Object.values(opsPrevMap) as any[]) {
+          totalVolumePrev += parseFloat(v.volume || '0');
+          totalOpsPrev += parseInt(v.qtd || '0');
+        }
+
+        const cedentesAtivos = cedentesEnriched.filter(c => c.qtd > 0).length;
+        const cedentesInativos = cedentesEnriched.length - cedentesAtivos;
+        const ticketMedio = totalOps > 0 ? totalVolume / totalOps : 0;
+
+        // Concentration index (HHI-like)
+        const hhi = totalVolume > 0
+          ? cedentesEnriched.reduce((sum, c) => sum + Math.pow((c.volume / totalVolume) * 100, 2), 0)
+          : 0;
+
+        const resumo = {
+          totalCedentes: cedentesEnriched.length,
+          cedentesAtivos,
+          cedentesInativos,
+          totalVolume, totalOps, totalRisco, totalLimite,
+          totalDisponivel: totalLimite - totalRisco,
+          ticketMedio,
+          variacaoVolume: totalVolumePrev > 0 ? ((totalVolume - totalVolumePrev) / totalVolumePrev) * 100 : 0,
+          variacaoOps: totalOpsPrev > 0 ? ((totalOps - totalOpsPrev) / totalOpsPrev) * 100 : 0,
+          concentracaoHHI: Math.round(hhi),
+          taxaAtividade: cedentesEnriched.length > 0 ? (cedentesAtivos / cedentesEnriched.length) * 100 : 0,
+        };
+
+        // Rankings
+        const rankingVolume = [...cedentesEnriched].sort((a, b) => b.volume - a.volume).slice(0, 15);
+        const rankingOps = [...cedentesEnriched].sort((a, b) => b.qtd - a.qtd).slice(0, 15);
+        const rankingRisco = [...cedentesEnriched].sort((a, b) => b.risco - a.risco).slice(0, 15);
+        const rankingInativos = [...cedentesEnriched].filter(c => c.diasInativo > 30).sort((a, b) => b.diasInativo - a.diasInativo);
+
+        // Risk concentration
+        const concentracaoRisco = rankingRisco.slice(0, 10).map(c => ({
+          ...c,
+          percentualCarteira: totalRisco > 0 ? (c.risco / totalRisco) * 100 : 0,
+        }));
+
+        // Recommendations
+        const recomendacoes: any[] = [];
+        // Top 3 concentration
+        if (concentracaoRisco.length >= 3) {
+          const top3Pct = concentracaoRisco.slice(0, 3).reduce((s, c) => s + c.percentualCarteira, 0);
+          if (top3Pct > 60) {
+            recomendacoes.push({
+              tipo: 'concentracao',
+              titulo: 'Concentração elevada de risco',
+              descricao: `Os 3 maiores cedentes concentram ${top3Pct.toFixed(1)}% do risco total. Considere redistribuir exposição.`,
+              cedentes: concentracaoRisco.slice(0, 3).map(c => c.nome),
+            });
+          }
+        }
+        // Inactive cedentes
+        const muitoInativos = rankingInativos.filter(c => c.diasInativo > 90);
+        if (muitoInativos.length > 0) {
+          recomendacoes.push({
+            tipo: 'inatividade',
+            titulo: `${muitoInativos.length} cedente(s) inativos há mais de 90 dias`,
+            descricao: 'Avalie retomar operações ou redistribuir esses cedentes para otimizar a carteira.',
+            cedentes: muitoInativos.slice(0, 5).map(c => c.nome),
+          });
+        }
+        // Low utilization
+        const baixaUtilizacao = cedentesEnriched.filter(c => c.limite > 0 && c.risco / c.limite < 0.1 && c.qtd > 0);
+        if (baixaUtilizacao.length >= 3) {
+          recomendacoes.push({
+            tipo: 'utilizacao',
+            titulo: `${baixaUtilizacao.length} cedentes com utilização abaixo de 10%`,
+            descricao: 'Há espaço para aumentar operações com esses cedentes sem aumentar risco relativo.',
+            cedentes: baixaUtilizacao.slice(0, 5).map(c => c.nome),
+          });
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          data: {
+            resumo,
+            rankingVolume,
+            rankingOps,
+            rankingRisco,
+            rankingInativos,
+            concentracaoRisco,
+            evolucaoMensal: monthlyRes.rows,
+            recomendacoes,
+          }
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } finally {
+        conn.release();
+        await pool.end();
+      }
+    }
+
     // === ADMIN: Get all gestors with portfolio counts ===
     if (action === 'admin-overview') {
       if (!isAdmin) {
