@@ -388,6 +388,89 @@ serve(async (req) => {
       }
     }
 
+    // === ADMIN: Auto-assign cedentes by gerente name match ===
+    if (action === 'auto-assign-by-gerente') {
+      if (!isAdmin) {
+        return new Response(JSON.stringify({ error: 'Sem permissão' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Get all profiles
+      const { data: profiles } = await supabaseAdmin.from('profiles').select('user_id, name');
+      if (!profiles || profiles.length === 0) {
+        return new Response(JSON.stringify({ success: true, vinculados: 0, detalhes: [] }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Get existing assignments to avoid duplicates
+      const { data: existingAssignments } = await supabaseAdmin
+        .from('portfolio_assignments')
+        .select('user_id, cedente_cpf_cnpj');
+      const existingSet = new Set(
+        (existingAssignments || []).map(a => `${a.user_id}|${a.cedente_cpf_cnpj}`)
+      );
+
+      // Query external DB for all cedentes with gerente field
+      const pool = new Pool({
+        hostname: Deno.env.get("EXTERNAL_DB_HOST")!,
+        port: parseInt(Deno.env.get("EXTERNAL_DB_PORT") || "5432"),
+        database: Deno.env.get("EXTERNAL_DB_NAME")!,
+        user: Deno.env.get("EXTERNAL_DB_USER")!,
+        password: Deno.env.get("EXTERNAL_DB_PASS")!,
+      }, 1);
+      const conn = await pool.connect();
+      try {
+        const result = await conn.queryObject(`
+          SELECT cpf_cnpj, nome, gerente
+          FROM smartsecurities_cedentes
+          WHERE gerente IS NOT NULL AND TRIM(gerente) != ''
+        `);
+
+        // Build name->user_id map (case-insensitive, trimmed)
+        const nameMap: Record<string, { user_id: string; name: string }> = {};
+        for (const p of profiles) {
+          nameMap[p.name.trim().toLowerCase()] = { user_id: p.user_id, name: p.name };
+        }
+
+        const toInsert: any[] = [];
+        const detalhes: any[] = [];
+
+        for (const ced of result.rows as any[]) {
+          const gerenteNorm = (ced.gerente || '').trim().toLowerCase();
+          const matched = nameMap[gerenteNorm];
+          if (matched && !existingSet.has(`${matched.user_id}|${ced.cpf_cnpj}`)) {
+            toInsert.push({
+              user_id: matched.user_id,
+              cedente_cpf_cnpj: ced.cpf_cnpj,
+              cedente_nome: ced.nome,
+              status: 'approved',
+              requested_by: user.id,
+              approved_by: user.id,
+              approved_at: new Date().toISOString(),
+            });
+            detalhes.push({ gestor: matched.name, cedente: ced.nome, cpf_cnpj: ced.cpf_cnpj });
+          }
+        }
+
+        // Bulk insert
+        if (toInsert.length > 0) {
+          const { error: insertError } = await supabaseAdmin
+            .from('portfolio_assignments')
+            .insert(toInsert);
+          if (insertError) throw insertError;
+        }
+
+        return new Response(JSON.stringify({ success: true, vinculados: toInsert.length, detalhes }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } finally {
+        conn.release();
+        await pool.end();
+      }
+    }
+
     // === ADMIN: Get all gestors with portfolio counts ===
     if (action === 'admin-overview') {
       if (!isAdmin) {
