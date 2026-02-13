@@ -15,6 +15,7 @@ import CarteiraGestao from "./pages/CarteiraGestao";
 import AnaliseConsulta from "./pages/AnaliseConsulta";
 import AdminSettings from "./pages/AdminSettings";
 import NotFound from "./pages/NotFound";
+import ChangePassword from "./pages/ChangePassword";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,6 +46,7 @@ function App() {
           <AuthProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/alterar-senha" element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />
               <Route path="/" element={<ProtectedRoute><Navigate to="/consulta" replace /></ProtectedRoute>} />
               <Route path="/consulta" element={<ProtectedRoute><AppLayout><CedenteConsulta /></AppLayout></ProtectedRoute>} />
               <Route path="/cedente/:id" element={<ProtectedRoute><AppLayout><CedenteDetailPage /></AppLayout></ProtectedRoute>} />

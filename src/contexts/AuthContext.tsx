@@ -9,6 +9,7 @@ interface Profile {
   user_id: string;
   email: string;
   name: string;
+  must_change_password: boolean;
 }
 
 interface AuthContextType {
@@ -17,9 +18,11 @@ interface AuthContextType {
   profile: Profile | null;
   isAdmin: boolean;
   isMaster: boolean;
+  mustChangePassword: boolean;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isMaster = user?.email === MASTER_EMAIL;
   const isAdmin = isMaster;
+  const mustChangePassword = profile?.must_change_password === true;
 
   const fetchProfile = useCallback(async (userId: string) => {
     try {
@@ -132,6 +136,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   }, []);
 
+  const refreshProfile = useCallback(async () => {
+    if (user) {
+      const data = await fetchProfile(user.id);
+      setProfile(data);
+    }
+  }, [user, fetchProfile]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -140,9 +151,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         isAdmin,
         isMaster,
+        mustChangePassword,
         loading,
         signIn,
         signOut,
+        refreshProfile,
       }}
     >
       {children}
