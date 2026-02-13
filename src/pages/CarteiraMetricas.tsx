@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,12 +8,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import {
   RefreshCw, TrendingUp, TrendingDown, Users, DollarSign, AlertTriangle,
   Activity, Target, BarChart3, ShieldAlert, Lightbulb, Award, ArrowUpRight,
-  ArrowDownRight, Minus, ChevronRight,
+  ArrowDownRight, Minus, ChevronRight, CalendarDays,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
@@ -104,6 +105,34 @@ export default function CarteiraMetricas() {
   const [rankingTab, setRankingTab] = useState('volume');
   const { toast } = useToast();
 
+  // Month-based period filter
+  const now = new Date();
+  const defaultMesInicio = `${now.getFullYear()}-${String(now.getMonth() - 5 < 1 ? now.getMonth() + 7 : now.getMonth() - 5).padStart(2, '0')}`;
+  const [mesInicio, setMesInicio] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 5);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [mesFim, setMesFim] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+
+  // Generate month options (last 36 months)
+  const monthOptions = useMemo(() => {
+    const opts: { value: string; label: string }[] = [];
+    const d = new Date();
+    for (let i = 0; i < 36; i++) {
+      const y = d.getFullYear();
+      const m = d.getMonth() + 1;
+      const val = `${y}-${String(m).padStart(2, '0')}`;
+      const label = `${String(m).padStart(2, '0')}/${y}`;
+      opts.push({ value: val, label });
+      d.setMonth(d.getMonth() - 1);
+    }
+    return opts;
+  }, []);
+
   const fmt = (v: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
@@ -115,11 +144,17 @@ export default function CarteiraMetricas() {
 
   const fmtPct = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
+      const data_inicio = `${mesInicio}-01`;
+      // End of mesFim month
+      const [y, m] = mesFim.split('-').map(Number);
+      const lastDay = new Date(y, m, 0).getDate();
+      const data_fim = `${mesFim}-${String(lastDay).padStart(2, '0')}`;
+
       const { data: result, error } = await supabase.functions.invoke('portfolio-data', {
-        body: { action: 'portfolio-advanced-metrics', periodo_meses: parseInt(periodo) },
+        body: { action: 'portfolio-advanced-metrics', periodo_meses: parseInt(periodo), data_inicio, data_fim },
       });
       if (error) throw error;
       if (result.success && result.data) {
@@ -130,9 +165,9 @@ export default function CarteiraMetricas() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [mesInicio, mesFim, periodo, toast]);
 
-  useEffect(() => { fetchData(); }, [periodo]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const r = data?.resumo;
 
@@ -181,17 +216,39 @@ export default function CarteiraMetricas() {
       <div className="space-y-6">
         {/* Header: Filters */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sticky top-0 z-10 bg-background/80 backdrop-blur-sm py-3 -mt-3">
-          <div className="flex items-center gap-3">
-            <Select value={periodo} onValueChange={setPeriodo}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="3">Últimos 3 meses</SelectItem>
-                <SelectItem value="6">Últimos 6 meses</SelectItem>
-                <SelectItem value="12">Últimos 12 meses</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <CalendarDays className="h-4 w-4 text-muted-foreground" />
+              <Label className="text-xs text-muted-foreground">De:</Label>
+              <Select value={mesInicio} onValueChange={setMesInicio}>
+                <SelectTrigger className="w-[130px] h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {monthOptions.map(o => (
+                    <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Label className="text-xs text-muted-foreground">Até:</Label>
+              <Select value={mesFim} onValueChange={setMesFim}>
+                <SelectTrigger className="w-[130px] h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {monthOptions.filter(o => o.value >= mesInicio).map(o => (
+                    <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {mesInicio && mesFim && (
+              <Badge variant="outline" className="text-xs">
+                {monthOptions.find(o => o.value === mesInicio)?.label} → {monthOptions.find(o => o.value === mesFim)?.label}
+              </Badge>
+            )}
           </div>
           <Button variant="outline" size="sm" onClick={fetchData} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
