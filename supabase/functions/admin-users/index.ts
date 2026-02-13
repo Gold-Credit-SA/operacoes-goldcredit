@@ -172,6 +172,14 @@ Deno.serve(async (req) => {
           });
 
           if (authError) throw authError;
+
+          // Force password change on next login
+          const { error: flagError } = await supabaseAdmin
+            .from('profiles')
+            .update({ must_change_password: true })
+            .eq('user_id', userId);
+
+          if (flagError) throw flagError;
         }
 
         // Update role if provided
