@@ -473,7 +473,28 @@ serve(async (req) => {
 
     // === ADVANCED METRICS for portfolio ===
     if (action === 'portfolio-advanced-metrics') {
-      const { periodo_meses = 6 } = await req.json().catch(() => ({ periodo_meses: 6 }));
+      const body2 = await req.json().catch(() => ({}));
+      const periodo_meses = body2.periodo_meses || 6;
+      const data_inicio = body2.data_inicio || null; // YYYY-MM-DD
+      const data_fim = body2.data_fim || null; // YYYY-MM-DD
+
+      // Build date filter clause for operations
+      let dateFilter: string;
+      let dateFilterPrev: string;
+      if (data_inicio) {
+        const endDate = data_fim || new Date().toISOString().split('T')[0];
+        dateFilter = `AND data >= '${data_inicio}' AND data <= '${endDate}'`;
+        // Previous period: same duration before data_inicio
+        const start = new Date(data_inicio);
+        const end = new Date(endDate);
+        const diffMs = end.getTime() - start.getTime();
+        const prevEnd = new Date(start.getTime() - 1); // day before start
+        const prevStart = new Date(prevEnd.getTime() - diffMs);
+        dateFilterPrev = `AND data >= '${prevStart.toISOString().split('T')[0]}' AND data < '${data_inicio}'`;
+      } else {
+        dateFilter = `AND data >= CURRENT_DATE - INTERVAL '${periodo_meses} months'`;
+        dateFilterPrev = `AND data >= CURRENT_DATE - INTERVAL '${periodo_meses * 2} months' AND data < CURRENT_DATE - INTERVAL '${periodo_meses} months'`;
+      }
 
       // Get assigned cedentes
       let assignQuery = supabaseAdmin.from('portfolio_assignments')
@@ -524,7 +545,7 @@ serve(async (req) => {
                  MAX(data) as ultima_op, MIN(data) as primeira_op
           FROM smartsecurities_operacoes_individualizadas
           WHERE cpf_cnpj_cedente IN (${ph})
-            AND data >= CURRENT_DATE - INTERVAL '${periodo_meses} months'
+            ${dateFilter}
           GROUP BY cpf_cnpj_cedente
         `, cpfList);
         const opsMap: Record<string, any> = {};
@@ -535,21 +556,23 @@ serve(async (req) => {
           SELECT cpf_cnpj_cedente, COUNT(*)::int as qtd, COALESCE(SUM(valor_bruto),0) as volume
           FROM smartsecurities_operacoes_individualizadas
           WHERE cpf_cnpj_cedente IN (${ph})
-            AND data >= CURRENT_DATE - INTERVAL '${periodo_meses * 2} months'
-            AND data < CURRENT_DATE - INTERVAL '${periodo_meses} months'
+            ${dateFilterPrev}
           GROUP BY cpf_cnpj_cedente
         `, cpfList);
         const opsPrevMap: Record<string, any> = {};
         for (const r of opsPrevRes.rows as any[]) opsPrevMap[r.cpf_cnpj_cedente] = r;
 
         // 5. Monthly operations breakdown
+        const monthlyDateFilter = data_inicio
+          ? `AND data >= '${data_inicio}'${data_fim ? ` AND data <= '${data_fim}'` : ''}`
+          : `AND data >= CURRENT_DATE - INTERVAL '12 months'`;
         const monthlyRes = await conn.queryObject(`
           SELECT TO_CHAR(data, 'YYYY-MM') as mes,
                  COUNT(*)::int as qtd, COALESCE(SUM(valor_bruto),0) as volume,
                  COUNT(DISTINCT cpf_cnpj_cedente)::int as cedentes_ativos
           FROM smartsecurities_operacoes_individualizadas
           WHERE cpf_cnpj_cedente IN (${ph})
-            AND data >= CURRENT_DATE - INTERVAL '12 months'
+            ${monthlyDateFilter}
           GROUP BY TO_CHAR(data, 'YYYY-MM')
           ORDER BY mes
         `, cpfList);
@@ -599,9 +622,14 @@ serve(async (req) => {
         const cedentesInativos = cedentesEnriched.length - cedentesAtivos;
         const ticketMedio = totalOps > 0 ? totalVolume / totalOps : 0;
 
-        // Concentration index (HHI-like)
-        const hhi = totalVolume > 0
-          ? cedentesEnriched.reduce((sum, c) => sum + Math.pow((c.volume / totalVolume) * 100, 2), 0)
+        // Concentration index (HHI) based on RISCO (exposure), not volume
+        // This ensures HHI is non-zero whenever there are open títulos
+        const hhiBase = totalRisco > 0 ? totalRisco : totalVolume;
+        const hhi = hhiBase > 0
+          ? cedentesEnriched.reduce((sum, c) => {
+              const share = totalRisco > 0 ? c.risco : c.volume;
+              return sum + Math.pow((share / hhiBase) * 100, 2);
+            }, 0)
           : 0;
 
         const resumo = {
