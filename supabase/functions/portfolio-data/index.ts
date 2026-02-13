@@ -33,7 +33,7 @@ serve(async (req) => {
       });
     }
 
-    const { action, cedente_cpf_cnpj, user_id, assignment_id, status, rejection_reason } = await req.json();
+    const { action, cedente_cpf_cnpj, user_id, assignment_id, status, rejection_reason, data_inicio, data_fim, periodo_meses } = await req.json();
 
     // Check if user is admin
     const { data: roleData } = await supabaseAdmin
@@ -473,27 +473,26 @@ serve(async (req) => {
 
     // === ADVANCED METRICS for portfolio ===
     if (action === 'portfolio-advanced-metrics') {
-      const body2 = await req.json().catch(() => ({}));
-      const periodo_meses = body2.periodo_meses || 6;
-      const data_inicio = body2.data_inicio || null; // YYYY-MM-DD
-      const data_fim = body2.data_fim || null; // YYYY-MM-DD
+      const pMeses = periodo_meses || 6;
+      const dInicio = data_inicio || null; // YYYY-MM-DD
+      const dFim = data_fim || null; // YYYY-MM-DD
 
       // Build date filter clause for operations
       let dateFilter: string;
       let dateFilterPrev: string;
-      if (data_inicio) {
-        const endDate = data_fim || new Date().toISOString().split('T')[0];
-        dateFilter = `AND data >= '${data_inicio}' AND data <= '${endDate}'`;
-        // Previous period: same duration before data_inicio
-        const start = new Date(data_inicio);
+      if (dInicio) {
+        const endDate = dFim || new Date().toISOString().split('T')[0];
+        dateFilter = `AND data >= '${dInicio}' AND data <= '${endDate}'`;
+        // Previous period: same duration before dInicio
+        const start = new Date(dInicio);
         const end = new Date(endDate);
         const diffMs = end.getTime() - start.getTime();
         const prevEnd = new Date(start.getTime() - 1); // day before start
         const prevStart = new Date(prevEnd.getTime() - diffMs);
-        dateFilterPrev = `AND data >= '${prevStart.toISOString().split('T')[0]}' AND data < '${data_inicio}'`;
+        dateFilterPrev = `AND data >= '${prevStart.toISOString().split('T')[0]}' AND data < '${dInicio}'`;
       } else {
-        dateFilter = `AND data >= CURRENT_DATE - INTERVAL '${periodo_meses} months'`;
-        dateFilterPrev = `AND data >= CURRENT_DATE - INTERVAL '${periodo_meses * 2} months' AND data < CURRENT_DATE - INTERVAL '${periodo_meses} months'`;
+        dateFilter = `AND data >= CURRENT_DATE - INTERVAL '${pMeses} months'`;
+        dateFilterPrev = `AND data >= CURRENT_DATE - INTERVAL '${pMeses * 2} months' AND data < CURRENT_DATE - INTERVAL '${pMeses} months'`;
       }
 
       // Get assigned cedentes
@@ -529,11 +528,11 @@ serve(async (req) => {
           FROM smartsecurities_cedentes WHERE cpf_cnpj IN (${ph}) ORDER BY nome
         `, cpfList);
 
-        // 2. Risco (títulos em aberto tipo C)
+        // 2. Risco (títulos em aberto - todos os tipos)
         const riscoRes = await conn.queryObject(`
           SELECT cpf_cnpj_cedente, COALESCE(SUM(valor), 0) as risco
           FROM smartsecurities_titulos_em_aberto
-          WHERE cpf_cnpj_cedente IN (${ph}) AND tipo = 'C'
+          WHERE cpf_cnpj_cedente IN (${ph})
           GROUP BY cpf_cnpj_cedente
         `, cpfList);
         const riscoMap: Record<string, number> = {};
