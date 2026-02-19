@@ -752,55 +752,12 @@ serve(async (req) => {
       const { data: assignments } = await assignQuery;
       const cpfList = assignments?.map(a => a.cedente_cpf_cnpj) || [];
 
-      // 2. Aniversariantes - upcoming from local table (next 30 days)
-      const today = new Date();
-      const todayDay = today.getDate();
-      const todayMonth = today.getMonth() + 1;
-      const todayYear = today.getFullYear();
+      // Build set of portfolio cedente names (normalized) for matching
+      const carteiraNomes = new Set(
+        (assignments || []).map(a => (a.cedente_nome || '').trim().toUpperCase())
+      );
 
-      const { data: allBirthdays } = await supabaseAdmin
-        .from('cedente_birthdays')
-        .select('*');
-
-      const proximosAniversariantes = (allBirthdays || []).map(b => {
-        const d = new Date(b.data_nascimento + 'T00:00:00');
-        const bDay = d.getDate();
-        const bMonth = d.getMonth() + 1;
-        
-        // Calculate next birthday
-        let nextBirthday = new Date(todayYear, bMonth - 1, bDay);
-        if (nextBirthday < today) {
-          nextBirthday = new Date(todayYear + 1, bMonth - 1, bDay);
-        }
-        // Handle same day
-        const todayMidnight = new Date(todayYear, todayMonth - 1, todayDay);
-        const diffMs = nextBirthday.getTime() - todayMidnight.getTime();
-        const diasFaltam = Math.round(diffMs / (1000 * 60 * 60 * 24));
-        
-        return {
-          cpf_cnpj: b.cedente_cpf_cnpj,
-          nome: b.cedente_nome,
-          data_nascimento: b.data_nascimento,
-          dias_faltam: diasFaltam,
-          dia: bDay,
-          mes: bMonth,
-        };
-      })
-      .filter(a => a.dias_faltam >= 0 && a.dias_faltam <= 365)
-      .sort((a, b) => a.dias_faltam - b.dias_faltam);
-
-      if (cpfList.length === 0) {
-        return new Response(JSON.stringify({
-          success: true,
-          proximosAniversariantes,
-          saldoTrustee: [],
-          chequesDevolvidos: [],
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      // 3. Connect to external DB for trustee + cheques
+      // 2. Connect to external DB for aniversariantes + trustee + cheques
       const pool = new Pool({
         hostname: Deno.env.get("EXTERNAL_DB_HOST")!,
         port: parseInt(Deno.env.get("EXTERNAL_DB_PORT") || "5432"),
@@ -810,9 +767,63 @@ serve(async (req) => {
       }, 2);
       const conn = await pool.connect();
       try {
+        // 2a. Aniversariantes from external DB table
+        const anivRes = await conn.queryObject<{
+          nome: string; nascimento: string; empresa: string;
+        }>(`
+          SELECT nome, nascimento, empresa
+          FROM smartsecurities_aniversariantes
+          WHERE empresa IS NOT NULL AND TRIM(empresa) != ''
+        `);
+
+        const today = new Date();
+        const todayDay = today.getDate();
+        const todayMonth = today.getMonth() + 1;
+        const todayYear = today.getFullYear();
+        const todayMidnight = new Date(todayYear, todayMonth - 1, todayDay);
+
+        const proximosAniversariantes = (anivRes.rows as any[]).map(row => {
+          const d = new Date(row.nascimento);
+          if (isNaN(d.getTime())) return null;
+          const bDay = d.getDate();
+          const bMonth = d.getMonth() + 1;
+
+          let nextBirthday = new Date(todayYear, bMonth - 1, bDay);
+          if (nextBirthday < todayMidnight) {
+            nextBirthday = new Date(todayYear + 1, bMonth - 1, bDay);
+          }
+          const diasFaltam = Math.round((nextBirthday.getTime() - todayMidnight.getTime()) / (1000 * 60 * 60 * 24));
+
+          const empresaNorm = (row.empresa || '').trim().toUpperCase();
+          const naCarteira = carteiraNomes.has(empresaNorm);
+
+          return {
+            nome: row.nome,
+            empresa: row.empresa,
+            data_nascimento: row.nascimento,
+            dias_faltam: diasFaltam,
+            dia: bDay,
+            mes: bMonth,
+            na_carteira: naCarteira,
+          };
+        })
+        .filter(a => a !== null && a.dias_faltam >= 0 && a.dias_faltam <= 365)
+        .sort((a: any, b: any) => a.dias_faltam - b.dias_faltam);
+
+        if (cpfList.length === 0) {
+          return new Response(JSON.stringify({
+            success: true,
+            proximosAniversariantes,
+            saldoTrustee: [],
+            chequesDevolvidos: [],
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // 2b. Saldo Trustee + Cheques
         const ph = cpfList.map((_, i) => `$${i + 1}`).join(',');
 
-        // Saldo Trustee: títulos em aberto onde tipo != 'C'
         const trusteeRes = await conn.queryObject(`
           SELECT t.cpf_cnpj_cedente, c.nome, COALESCE(SUM(t.valor), 0)::float as saldo_trustee
           FROM smartsecurities_titulos_em_aberto t
@@ -829,7 +840,6 @@ serve(async (req) => {
           saldo_trustee: parseFloat(r.saldo_trustee) || 0,
         }));
 
-        // Cheques Devolvidos: tipo contém 'CHQ' e motivo contém 'DEV'
         const chequesRes = await conn.queryObject(`
           SELECT t.cpf_cnpj_cedente, c.nome, 
                  COUNT(*)::int as qtd_cheques, 
@@ -855,95 +865,6 @@ serve(async (req) => {
           proximosAniversariantes,
           saldoTrustee,
           chequesDevolvidos,
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      } finally {
-        conn.release();
-        await pool.end();
-      }
-    }
-
-    // === IMPORT BIRTHDAYS ===
-    if (action === 'import-birthdays') {
-      if (!registros || !Array.isArray(registros) || registros.length === 0) {
-        return new Response(JSON.stringify({ error: 'Nenhum registro enviado' }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      // Connect to external DB to find CPF/CNPJ by name
-      const pool = new Pool({
-        hostname: Deno.env.get("EXTERNAL_DB_HOST")!,
-        port: parseInt(Deno.env.get("EXTERNAL_DB_PORT") || "5432"),
-        database: Deno.env.get("EXTERNAL_DB_NAME")!,
-        user: Deno.env.get("EXTERNAL_DB_USER")!,
-        password: Deno.env.get("EXTERNAL_DB_PASS")!,
-      }, 1);
-      const conn = await pool.connect();
-      try {
-        // Load all cedentes for name matching
-        const allCedentes = await conn.queryObject<{ cpf_cnpj: string; nome: string }>(`
-          SELECT cpf_cnpj, nome FROM smartsecurities_cedentes
-        `);
-        
-        // Build name->cpf map (normalized)
-        const nameMap: Record<string, { cpf_cnpj: string; nome: string }> = {};
-        for (const c of allCedentes.rows) {
-          nameMap[c.nome.trim().toUpperCase()] = c;
-        }
-
-        const importados: Array<{ cedente_cpf_cnpj: string; cedente_nome: string; data_nascimento: string; created_by: string }> = [];
-        const naoEncontrados: string[] = [];
-
-        for (const reg of registros) {
-          const nomeNorm = (reg.nome || '').trim().toUpperCase();
-          if (!nomeNorm) continue;
-
-          // Convert DD/MM/YYYY to YYYY-MM-DD
-          let dataNasc = reg.nascimento || '';
-          const match = dataNasc.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-          if (match) {
-            dataNasc = `${match[3]}-${match[2]}-${match[1]}`;
-          }
-          if (!dataNasc) continue;
-
-          const found = nameMap[nomeNorm];
-          if (found) {
-            importados.push({
-              cedente_cpf_cnpj: found.cpf_cnpj,
-              cedente_nome: found.nome,
-              data_nascimento: dataNasc,
-              created_by: user.id,
-            });
-          } else {
-            naoEncontrados.push(reg.nome);
-          }
-        }
-
-        // Batch upsert into cedente_birthdays
-        let upsertCount = 0;
-        if (importados.length > 0) {
-          // Process in batches of 50
-          for (let i = 0; i < importados.length; i += 50) {
-            const batch = importados.slice(i, i + 50);
-            const { error: upsertError, data: upsertData } = await supabaseAdmin
-              .from('cedente_birthdays')
-              .upsert(batch, { onConflict: 'cedente_cpf_cnpj' })
-              .select('id');
-            if (upsertError) {
-              console.error('Upsert error:', upsertError);
-            } else {
-              upsertCount += upsertData?.length || 0;
-            }
-          }
-        }
-
-        return new Response(JSON.stringify({
-          success: true,
-          importados: upsertCount,
-          nao_encontrados: naoEncontrados,
-          total_enviados: registros.length,
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
