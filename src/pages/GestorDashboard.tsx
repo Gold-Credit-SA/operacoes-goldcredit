@@ -1,16 +1,13 @@
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { ProximosAniversariantesCard } from '@/components/painel/ProximosAniversariantesCard';
 import { SaldosCard } from '@/components/painel/SaldosCard';
 import { ChequesDevolvidosCard } from '@/components/painel/ChequesDevolvidosCard';
-import { CadastrarAniversarioDialog } from '@/components/painel/CadastrarAniversarioDialog';
 import { LayoutDashboard, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function GestorDashboard() {
-  const [dialogOpen, setDialogOpen] = useState(false);
   const { profile } = useAuth();
 
   const { data, isLoading, refetch, isFetching } = useQuery({
@@ -21,7 +18,7 @@ export default function GestorDashboard() {
       });
       if (error) throw error;
       return result as {
-        proximosAniversariantes: Array<{ cpf_cnpj: string; nome: string; data_nascimento: string; dias_faltam: number; dia: number; mes: number }>;
+        proximosAniversariantes: Array<{ nome: string; empresa: string; data_nascimento: string; dias_faltam: number; dia: number; mes: number; na_carteira: boolean }>;
         saldoTrustee: Array<{ cpf_cnpj: string; nome: string; saldo_trustee: number }>;
         chequesDevolvidos: Array<{ cpf_cnpj: string; nome: string; qtd_cheques: number; valor_total: number }>;
       };
@@ -81,8 +78,6 @@ export default function GestorDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <ProximosAniversariantesCard
           aniversariantes={data?.proximosAniversariantes || []}
-          onAddBirthday={() => setDialogOpen(true)}
-          onImportSuccess={() => refetch()}
           loading={isLoading}
         />
         <SaldosCard
@@ -94,12 +89,6 @@ export default function GestorDashboard() {
           loading={isLoading}
         />
       </div>
-
-      <CadastrarAniversarioDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        onSuccess={() => refetch()}
-      />
     </div>
   );
 }
