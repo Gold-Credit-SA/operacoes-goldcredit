@@ -740,6 +740,111 @@ serve(async (req) => {
       });
     }
 
+    // === GESTOR DASHBOARD ===
+    if (action === 'gestor-dashboard') {
+      // 1. Get approved cedentes for this user
+      let assignQuery = supabaseAdmin.from('portfolio_assignments')
+        .select('cedente_cpf_cnpj, cedente_nome')
+        .eq('status', 'approved');
+      if (!isAdmin) {
+        assignQuery = assignQuery.eq('user_id', user.id);
+      }
+      const { data: assignments } = await assignQuery;
+      const cpfList = assignments?.map(a => a.cedente_cpf_cnpj) || [];
+
+      // 2. Aniversariantes - from local table
+      const today = new Date();
+      const todayDay = today.getDate();
+      const todayMonth = today.getMonth() + 1;
+
+      const { data: allBirthdays } = await supabaseAdmin
+        .from('cedente_birthdays')
+        .select('*');
+
+      const aniversariantes = (allBirthdays || []).filter(b => {
+        const d = new Date(b.data_nascimento + 'T00:00:00');
+        return d.getDate() === todayDay && (d.getMonth() + 1) === todayMonth;
+      }).map(b => ({
+        cpf_cnpj: b.cedente_cpf_cnpj,
+        nome: b.cedente_nome,
+        data_nascimento: b.data_nascimento,
+      }));
+
+      if (cpfList.length === 0) {
+        return new Response(JSON.stringify({
+          success: true,
+          aniversariantes,
+          saldoTrustee: [],
+          chequesDevolvidos: [],
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // 3. Connect to external DB for trustee + cheques
+      const pool = new Pool({
+        hostname: Deno.env.get("EXTERNAL_DB_HOST")!,
+        port: parseInt(Deno.env.get("EXTERNAL_DB_PORT") || "5432"),
+        database: Deno.env.get("EXTERNAL_DB_NAME")!,
+        user: Deno.env.get("EXTERNAL_DB_USER")!,
+        password: Deno.env.get("EXTERNAL_DB_PASS")!,
+      }, 2);
+      const conn = await pool.connect();
+      try {
+        const ph = cpfList.map((_, i) => `$${i + 1}`).join(',');
+
+        // Saldo Trustee: títulos em aberto onde tipo != 'C'
+        const trusteeRes = await conn.queryObject(`
+          SELECT t.cpf_cnpj_cedente, c.nome, COALESCE(SUM(t.valor), 0)::float as saldo_trustee
+          FROM smartsecurities_titulos_em_aberto t
+          JOIN smartsecurities_cedentes c ON c.cpf_cnpj = t.cpf_cnpj_cedente
+          WHERE t.cpf_cnpj_cedente IN (${ph})
+            AND t.tipo != 'C'
+          GROUP BY t.cpf_cnpj_cedente, c.nome
+          ORDER BY saldo_trustee DESC
+        `, cpfList);
+
+        const saldoTrustee = (trusteeRes.rows as any[]).map(r => ({
+          cpf_cnpj: r.cpf_cnpj_cedente,
+          nome: r.nome,
+          saldo_trustee: parseFloat(r.saldo_trustee) || 0,
+        }));
+
+        // Cheques Devolvidos: tipo contém 'CHQ' e motivo contém 'DEV'
+        const chequesRes = await conn.queryObject(`
+          SELECT t.cpf_cnpj_cedente, c.nome, 
+                 COUNT(*)::int as qtd_cheques, 
+                 COALESCE(SUM(t.valor), 0)::float as valor_total
+          FROM smartsecurities_titulos_em_aberto t
+          JOIN smartsecurities_cedentes c ON c.cpf_cnpj = t.cpf_cnpj_cedente
+          WHERE t.cpf_cnpj_cedente IN (${ph})
+            AND (UPPER(t.tipo) LIKE '%CHQ%' OR UPPER(t.tipo) LIKE '%CHEQUE%')
+            AND (UPPER(COALESCE(t.motivo, '')) LIKE '%DEV%' OR UPPER(COALESCE(t.motivo, '')) LIKE '%DEVOLV%')
+          GROUP BY t.cpf_cnpj_cedente, c.nome
+          ORDER BY valor_total DESC
+        `, cpfList);
+
+        const chequesDevolvidos = (chequesRes.rows as any[]).map(r => ({
+          cpf_cnpj: r.cpf_cnpj_cedente,
+          nome: r.nome,
+          qtd_cheques: r.qtd_cheques,
+          valor_total: parseFloat(r.valor_total) || 0,
+        }));
+
+        return new Response(JSON.stringify({
+          success: true,
+          aniversariantes,
+          saldoTrustee,
+          chequesDevolvidos,
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } finally {
+        conn.release();
+        await pool.end();
+      }
+    }
+
     return new Response(JSON.stringify({ error: 'Ação inválida' }), {
       status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
