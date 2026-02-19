@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      cedente_birthdays: {
+        Row: {
+          cedente_cpf_cnpj: string
+          cedente_nome: string
+          created_at: string
+          created_by: string
+          data_nascimento: string
+          id: string
+        }
+        Insert: {
+          cedente_cpf_cnpj: string
+          cedente_nome: string
+          created_at?: string
+          created_by: string
+          data_nascimento: string
+          id?: string
+        }
+        Update: {
+          cedente_cpf_cnpj?: string
+          cedente_nome?: string
+          created_at?: string
+          created_by?: string
+          data_nascimento?: string
+          id?: string
+        }
+        Relationships: []
+      }
       portfolio_assignments: {
         Row: {
           approved_at: string | null

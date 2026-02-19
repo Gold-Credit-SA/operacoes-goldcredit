@@ -17,6 +17,7 @@ import AdminSettings from "./pages/AdminSettings";
 import NotFound from "./pages/NotFound";
 import ChangePassword from "./pages/ChangePassword";
 import Profile from "./pages/Profile";
+import GestorDashboard from "./pages/GestorDashboard";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,7 +49,8 @@ function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/alterar-senha" element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />
-              <Route path="/" element={<ProtectedRoute><Navigate to="/consulta" replace /></ProtectedRoute>} />
+              <Route path="/" element={<ProtectedRoute><Navigate to="/painel" replace /></ProtectedRoute>} />
+              <Route path="/painel" element={<ProtectedRoute><AppLayout><GestorDashboard /></AppLayout></ProtectedRoute>} />
               <Route path="/consulta" element={<ProtectedRoute><AppLayout><CedenteConsulta /></AppLayout></ProtectedRoute>} />
               <Route path="/cedente/:id" element={<ProtectedRoute><AppLayout><CedenteDetailPage /></AppLayout></ProtectedRoute>} />
               <Route path="/carteira/giro" element={<ProtectedRoute><AppLayout><CarteiraGiro /></AppLayout></ProtectedRoute>} />
