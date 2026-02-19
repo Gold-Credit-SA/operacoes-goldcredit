@@ -36,6 +36,7 @@ export default function GestorDashboard() {
         <AniversariantesCard
           aniversariantes={data?.aniversariantes || []}
           onAddBirthday={() => setDialogOpen(true)}
+          onImportSuccess={() => refetch()}
           loading={isLoading}
         />
         <SaldoTrusteeCard

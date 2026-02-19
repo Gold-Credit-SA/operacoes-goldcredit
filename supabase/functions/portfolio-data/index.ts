@@ -33,7 +33,7 @@ serve(async (req) => {
       });
     }
 
-    const { action, cedente_cpf_cnpj, user_id, assignment_id, status, rejection_reason, data_inicio, data_fim, periodo_meses } = await req.json();
+    const { action, cedente_cpf_cnpj, user_id, assignment_id, status, rejection_reason, data_inicio, data_fim, periodo_meses, registros } = await req.json();
 
     // Check if user is admin
     const { data: roleData } = await supabaseAdmin
@@ -836,6 +836,95 @@ serve(async (req) => {
           aniversariantes,
           saldoTrustee,
           chequesDevolvidos,
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } finally {
+        conn.release();
+        await pool.end();
+      }
+    }
+
+    // === IMPORT BIRTHDAYS ===
+    if (action === 'import-birthdays') {
+      if (!registros || !Array.isArray(registros) || registros.length === 0) {
+        return new Response(JSON.stringify({ error: 'Nenhum registro enviado' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Connect to external DB to find CPF/CNPJ by name
+      const pool = new Pool({
+        hostname: Deno.env.get("EXTERNAL_DB_HOST")!,
+        port: parseInt(Deno.env.get("EXTERNAL_DB_PORT") || "5432"),
+        database: Deno.env.get("EXTERNAL_DB_NAME")!,
+        user: Deno.env.get("EXTERNAL_DB_USER")!,
+        password: Deno.env.get("EXTERNAL_DB_PASS")!,
+      }, 1);
+      const conn = await pool.connect();
+      try {
+        // Load all cedentes for name matching
+        const allCedentes = await conn.queryObject<{ cpf_cnpj: string; nome: string }>(`
+          SELECT cpf_cnpj, nome FROM smartsecurities_cedentes
+        `);
+        
+        // Build name->cpf map (normalized)
+        const nameMap: Record<string, { cpf_cnpj: string; nome: string }> = {};
+        for (const c of allCedentes.rows) {
+          nameMap[c.nome.trim().toUpperCase()] = c;
+        }
+
+        const importados: Array<{ cedente_cpf_cnpj: string; cedente_nome: string; data_nascimento: string; created_by: string }> = [];
+        const naoEncontrados: string[] = [];
+
+        for (const reg of registros) {
+          const nomeNorm = (reg.nome || '').trim().toUpperCase();
+          if (!nomeNorm) continue;
+
+          // Convert DD/MM/YYYY to YYYY-MM-DD
+          let dataNasc = reg.nascimento || '';
+          const match = dataNasc.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+          if (match) {
+            dataNasc = `${match[3]}-${match[2]}-${match[1]}`;
+          }
+          if (!dataNasc) continue;
+
+          const found = nameMap[nomeNorm];
+          if (found) {
+            importados.push({
+              cedente_cpf_cnpj: found.cpf_cnpj,
+              cedente_nome: found.nome,
+              data_nascimento: dataNasc,
+              created_by: user.id,
+            });
+          } else {
+            naoEncontrados.push(reg.nome);
+          }
+        }
+
+        // Batch upsert into cedente_birthdays
+        let upsertCount = 0;
+        if (importados.length > 0) {
+          // Process in batches of 50
+          for (let i = 0; i < importados.length; i += 50) {
+            const batch = importados.slice(i, i + 50);
+            const { error: upsertError, data: upsertData } = await supabaseAdmin
+              .from('cedente_birthdays')
+              .upsert(batch, { onConflict: 'cedente_cpf_cnpj' })
+              .select('id');
+            if (upsertError) {
+              console.error('Upsert error:', upsertError);
+            } else {
+              upsertCount += upsertData?.length || 0;
+            }
+          }
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          importados: upsertCount,
+          nao_encontrados: naoEncontrados,
+          total_enviados: registros.length,
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
