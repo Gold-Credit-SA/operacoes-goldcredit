@@ -19,8 +19,7 @@ export function AppSidebar() {
     { path: '/carteira/gestao', label: 'Gestão de Carteira', icon: Settings2 },
   ];
 
-  const navItems = [
-    { path: '/painel', label: 'Painel', icon: LayoutDashboard },
+  const navItemsAfter = [
     { path: '/consulta', label: 'Consulta', icon: Search },
     { path: '/analise-consulta', label: 'Análise de Consulta', icon: FileSearch },
     ...(isMaster ? [{ path: '/admin', label: 'Configurações', icon: Settings }] : []),
@@ -41,6 +40,20 @@ export function AppSidebar() {
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        {/* Painel - always first */}
+        <Link
+          to="/painel"
+          className={cn(
+            "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-150",
+            location.pathname === '/painel'
+              ? "text-sidebar-foreground bg-sidebar-accent"
+              : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+          )}
+        >
+          <LayoutDashboard className={cn("h-5 w-5", location.pathname === '/painel' ? "text-primary" : "text-sidebar-foreground/50")} />
+          Painel
+        </Link>
+
         {/* Carteira dropdown */}
         <button
           onClick={() => setCarteiraOpen(!carteiraOpen)}
@@ -83,7 +96,7 @@ export function AppSidebar() {
 
         <div className="pt-1" />
 
-        {navItems.map((item) => {
+        {navItemsAfter.map((item) => {
           const isActive = location.pathname === item.path;
           return (
             <Link

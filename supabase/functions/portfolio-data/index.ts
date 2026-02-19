@@ -752,28 +752,47 @@ serve(async (req) => {
       const { data: assignments } = await assignQuery;
       const cpfList = assignments?.map(a => a.cedente_cpf_cnpj) || [];
 
-      // 2. Aniversariantes - from local table
+      // 2. Aniversariantes - upcoming from local table (next 30 days)
       const today = new Date();
       const todayDay = today.getDate();
       const todayMonth = today.getMonth() + 1;
+      const todayYear = today.getFullYear();
 
       const { data: allBirthdays } = await supabaseAdmin
         .from('cedente_birthdays')
         .select('*');
 
-      const aniversariantes = (allBirthdays || []).filter(b => {
+      const proximosAniversariantes = (allBirthdays || []).map(b => {
         const d = new Date(b.data_nascimento + 'T00:00:00');
-        return d.getDate() === todayDay && (d.getMonth() + 1) === todayMonth;
-      }).map(b => ({
-        cpf_cnpj: b.cedente_cpf_cnpj,
-        nome: b.cedente_nome,
-        data_nascimento: b.data_nascimento,
-      }));
+        const bDay = d.getDate();
+        const bMonth = d.getMonth() + 1;
+        
+        // Calculate next birthday
+        let nextBirthday = new Date(todayYear, bMonth - 1, bDay);
+        if (nextBirthday < today) {
+          nextBirthday = new Date(todayYear + 1, bMonth - 1, bDay);
+        }
+        // Handle same day
+        const todayMidnight = new Date(todayYear, todayMonth - 1, todayDay);
+        const diffMs = nextBirthday.getTime() - todayMidnight.getTime();
+        const diasFaltam = Math.round(diffMs / (1000 * 60 * 60 * 24));
+        
+        return {
+          cpf_cnpj: b.cedente_cpf_cnpj,
+          nome: b.cedente_nome,
+          data_nascimento: b.data_nascimento,
+          dias_faltam: diasFaltam,
+          dia: bDay,
+          mes: bMonth,
+        };
+      })
+      .filter(a => a.dias_faltam >= 0 && a.dias_faltam <= 365)
+      .sort((a, b) => a.dias_faltam - b.dias_faltam);
 
       if (cpfList.length === 0) {
         return new Response(JSON.stringify({
           success: true,
-          aniversariantes,
+          proximosAniversariantes,
           saldoTrustee: [],
           chequesDevolvidos: [],
         }), {
@@ -833,7 +852,7 @@ serve(async (req) => {
 
         return new Response(JSON.stringify({
           success: true,
-          aniversariantes,
+          proximosAniversariantes,
           saldoTrustee,
           chequesDevolvidos,
         }), {
