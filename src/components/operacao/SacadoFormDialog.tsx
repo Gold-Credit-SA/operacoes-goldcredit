@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,17 +23,28 @@ interface Props {
   loading?: boolean;
 }
 
+const emptyForm: SacadoFormData = {
+  cpf_cnpj: '', nome: '', endereco: '', cidade: '', estado: '', cep: '', email: '', telefone: '',
+};
+
 export function SacadoFormDialog({ open, onClose, onSubmit, initialData, loading }: Props) {
-  const [form, setForm] = useState<SacadoFormData>({
-    cpf_cnpj: initialData?.cpf_cnpj || '',
-    nome: initialData?.nome || '',
-    endereco: initialData?.endereco || '',
-    cidade: initialData?.cidade || '',
-    estado: initialData?.estado || '',
-    cep: initialData?.cep || '',
-    email: initialData?.email || '',
-    telefone: initialData?.telefone || '',
-  });
+  const [form, setForm] = useState<SacadoFormData>(emptyForm);
+
+  // Sync form when dialog opens with new initialData
+  useEffect(() => {
+    if (open) {
+      setForm({
+        cpf_cnpj: initialData?.cpf_cnpj || '',
+        nome: initialData?.nome || '',
+        endereco: initialData?.endereco || '',
+        cidade: initialData?.cidade || '',
+        estado: initialData?.estado || '',
+        cep: initialData?.cep || '',
+        email: initialData?.email || '',
+        telefone: initialData?.telefone || '',
+      });
+    }
+  }, [open, initialData]);
 
   const update = (field: keyof SacadoFormData, value: string) =>
     setForm(prev => ({ ...prev, [field]: value }));
