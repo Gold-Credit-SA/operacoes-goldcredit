@@ -21,10 +21,12 @@ interface Props {
 export function CedenteSelector({ cedentes, loading, selected, onSelect }: Props) {
   const [search, setSearch] = useState('');
 
-  const filtered = cedentes.filter(c => {
-    const q = search.toLowerCase();
-    return c.nome.toLowerCase().includes(q) || c.cpf_cnpj.includes(q);
-  });
+  const q = search.trim().toLowerCase();
+  const filtered = q.length >= 2
+    ? cedentes.filter(c =>
+        c.nome.toLowerCase().includes(q) || c.cpf_cnpj.includes(q)
+      )
+    : cedentes.filter(c => c.na_carteira); // Show only portfolio when no search
 
   if (loading) {
     return (
@@ -48,8 +50,11 @@ export function CedenteSelector({ cedentes, loading, selected, onSelect }: Props
       </div>
 
       <div className="max-h-[340px] overflow-y-auto space-y-1.5 pr-1">
-        {filtered.length === 0 && (
+        {filtered.length === 0 && q.length >= 2 && (
           <p className="text-sm text-muted-foreground text-center py-6">Nenhum cedente encontrado</p>
+        )}
+        {filtered.length === 0 && q.length < 2 && (
+          <p className="text-sm text-muted-foreground text-center py-6">Digite ao menos 2 caracteres para buscar</p>
         )}
         {filtered.map(c => {
           const isSelected = selected?.cpf_cnpj === c.cpf_cnpj;
