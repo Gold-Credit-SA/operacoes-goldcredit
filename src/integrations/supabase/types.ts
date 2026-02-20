@@ -41,6 +41,65 @@ export type Database = {
         }
         Relationships: []
       }
+      operacao_notas: {
+        Row: {
+          cedente_cpf_cnpj: string
+          cedente_nome: string | null
+          chave_acesso: string | null
+          created_at: string
+          created_by: string
+          data_emissao: string | null
+          id: string
+          numero_nota: string | null
+          sacado_cpf_cnpj: string
+          sacado_id: string | null
+          sacado_nome: string | null
+          serie: string | null
+          valor: number | null
+          xml_filename: string | null
+        }
+        Insert: {
+          cedente_cpf_cnpj: string
+          cedente_nome?: string | null
+          chave_acesso?: string | null
+          created_at?: string
+          created_by: string
+          data_emissao?: string | null
+          id?: string
+          numero_nota?: string | null
+          sacado_cpf_cnpj: string
+          sacado_id?: string | null
+          sacado_nome?: string | null
+          serie?: string | null
+          valor?: number | null
+          xml_filename?: string | null
+        }
+        Update: {
+          cedente_cpf_cnpj?: string
+          cedente_nome?: string | null
+          chave_acesso?: string | null
+          created_at?: string
+          created_by?: string
+          data_emissao?: string | null
+          id?: string
+          numero_nota?: string | null
+          sacado_cpf_cnpj?: string
+          sacado_id?: string | null
+          sacado_nome?: string | null
+          serie?: string | null
+          valor?: number | null
+          xml_filename?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operacao_notas_sacado_id_fkey"
+            columns: ["sacado_id"]
+            isOneToOne: false
+            referencedRelation: "sacados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portfolio_assignments: {
         Row: {
           approved_at: string | null
@@ -110,6 +169,51 @@ export type Database = {
           name?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      sacados: {
+        Row: {
+          cep: string | null
+          cidade: string | null
+          cpf_cnpj: string
+          created_at: string
+          created_by: string
+          email: string | null
+          endereco: string | null
+          estado: string | null
+          id: string
+          nome: string
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          cep?: string | null
+          cidade?: string | null
+          cpf_cnpj: string
+          created_at?: string
+          created_by: string
+          email?: string | null
+          endereco?: string | null
+          estado?: string | null
+          id?: string
+          nome: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cep?: string | null
+          cidade?: string | null
+          cpf_cnpj?: string
+          created_at?: string
+          created_by?: string
+          email?: string | null
+          endereco?: string | null
+          estado?: string | null
+          id?: string
+          nome?: string
+          telefone?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

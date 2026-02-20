@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, LogOut, FileSearch, Settings, Briefcase, ChevronDown, RefreshCw, BarChart3, Settings2, UserCircle, LayoutDashboard } from 'lucide-react';
+import { Search, LogOut, ClipboardList, Settings, Briefcase, ChevronDown, RefreshCw, BarChart3, Settings2, UserCircle, LayoutDashboard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import logoGoldCredit from '@/assets/logo-gold-credit.png';
@@ -21,7 +21,7 @@ export function AppSidebar() {
 
   const navItemsAfter = [
     { path: '/consulta', label: 'Consulta', icon: Search },
-    { path: '/analise-consulta', label: 'Análise de Consulta', icon: FileSearch },
+    { path: '/analise-operacao', label: 'Análise de Operação', icon: ClipboardList },
     ...(isMaster ? [{ path: '/admin', label: 'Configurações', icon: Settings }] : []),
   ];
 

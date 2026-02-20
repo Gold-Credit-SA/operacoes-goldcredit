@@ -12,7 +12,7 @@ import CedenteDetailPage from "./pages/CedenteDetailPage";
 import CarteiraGiro from "./pages/CarteiraGiro";
 import CarteiraMetricas from "./pages/CarteiraMetricas";
 import CarteiraGestao from "./pages/CarteiraGestao";
-import AnaliseConsulta from "./pages/AnaliseConsulta";
+import AnaliseOperacao from "./pages/AnaliseOperacao";
 import AdminSettings from "./pages/AdminSettings";
 import NotFound from "./pages/NotFound";
 import ChangePassword from "./pages/ChangePassword";
@@ -56,7 +56,8 @@ function App() {
               <Route path="/carteira/giro" element={<ProtectedRoute><AppLayout><CarteiraGiro /></AppLayout></ProtectedRoute>} />
               <Route path="/carteira/metricas" element={<ProtectedRoute><AppLayout><CarteiraMetricas /></AppLayout></ProtectedRoute>} />
               <Route path="/carteira/gestao" element={<ProtectedRoute><AppLayout><CarteiraGestao /></AppLayout></ProtectedRoute>} />
-              <Route path="/analise-consulta" element={<ProtectedRoute><AppLayout><AnaliseConsulta /></AppLayout></ProtectedRoute>} />
+              <Route path="/analise-operacao" element={<ProtectedRoute><AppLayout><AnaliseOperacao /></AppLayout></ProtectedRoute>} />
+              <Route path="/analise-consulta" element={<Navigate to="/analise-operacao" replace />} />
               <Route path="/perfil" element={<ProtectedRoute><AppLayout><Profile /></AppLayout></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute requireAdmin><AppLayout><AdminSettings /></AppLayout></ProtectedRoute>} />
               {/* Legacy redirects */}
