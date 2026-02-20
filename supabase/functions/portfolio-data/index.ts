@@ -305,6 +305,44 @@ serve(async (req) => {
       }
     }
 
+    if (action === 'list-cedentes-all') {
+      // List all cedentes from external DB, marking which are in user's portfolio
+      const { data: userAssignments } = await supabaseAdmin
+        .from('portfolio_assignments')
+        .select('cedente_cpf_cnpj')
+        .eq('user_id', user.id)
+        .eq('status', 'approved');
+      const carteiraCpfs = new Set((userAssignments || []).map(a => a.cedente_cpf_cnpj));
+
+      const pool = new Pool({
+        hostname: Deno.env.get("EXTERNAL_DB_HOST")!,
+        port: parseInt(Deno.env.get("EXTERNAL_DB_PORT") || "5432"),
+        database: Deno.env.get("EXTERNAL_DB_NAME")!,
+        user: Deno.env.get("EXTERNAL_DB_USER")!,
+        password: Deno.env.get("EXTERNAL_DB_PASS")!,
+      }, 1);
+      const conn = await pool.connect();
+      try {
+        const result = await conn.queryObject(`
+          SELECT cpf_cnpj, nome FROM smartsecurities_cedentes ORDER BY nome ASC LIMIT 500
+        `);
+        const cedentes = (result.rows as any[]).map(r => ({
+          cpf_cnpj: r.cpf_cnpj,
+          nome: r.nome,
+          na_carteira: carteiraCpfs.has(r.cpf_cnpj),
+        }));
+        // Sort: carteira first
+        cedentes.sort((a, b) => (a.na_carteira === b.na_carteira ? 0 : a.na_carteira ? -1 : 1));
+
+        return new Response(JSON.stringify({ success: true, cedentes }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } finally {
+        conn.release();
+        await pool.end();
+      }
+    }
+
     if (action === 'search-cedentes') {
       // Search cedentes from external DB for adding to portfolio
       const { search_term } = await req.json().catch(() => ({}));
