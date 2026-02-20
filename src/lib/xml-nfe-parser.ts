@@ -9,12 +9,18 @@ export interface SacadoXml {
   telefone?: string;
 }
 
+export interface EmitenteXml {
+  cpfCnpj: string;
+  nome: string;
+}
+
 export interface NotaFiscalXml {
   numero: string;
   serie: string;
   chaveAcesso: string;
   valor: number;
   dataEmissao: string;
+  emitente: EmitenteXml;
   sacado: SacadoXml;
 }
 
@@ -47,6 +53,11 @@ export function parseNfeXml(xmlString: string, fileName: string): NotaFiscalXml 
   // chave de acesso from infNFe Id attribute
   const idAttr = infNFe.getAttribute('Id') || '';
   const chaveAcesso = idAttr.replace('NFe', '');
+
+  // emit - emitente (cedente)
+  const emit = infNFe.getElementsByTagName('emit')[0];
+  const emitCnpj = emit ? (getTagText(emit, 'CNPJ') || getTagText(emit, 'CPF')) : '';
+  const emitNome = emit ? getTagText(emit, 'xNome') : '';
 
   // dest - destinatário (sacado)
   const dest = infNFe.getElementsByTagName('dest')[0];
@@ -91,6 +102,7 @@ export function parseNfeXml(xmlString: string, fileName: string): NotaFiscalXml 
     chaveAcesso,
     valor,
     dataEmissao: dataEmissao ? dataEmissao.substring(0, 10) : '',
+    emitente: { cpfCnpj: emitCnpj, nome: emitNome },
     sacado: { cpfCnpj, nome, endereco, cidade, estado, cep, email, telefone },
   };
 }

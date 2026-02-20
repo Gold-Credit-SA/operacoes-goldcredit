@@ -1,35 +1,35 @@
-import { useState, useCallback, useEffect } from 'react';
-import { ClipboardList, ArrowRight, ArrowLeft, RotateCcw } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { ClipboardList, ArrowRight, ArrowLeft, RotateCcw, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { CedenteSelector, type CedenteOption } from '@/components/operacao/CedenteSelector';
 import { XmlUpload } from '@/components/operacao/XmlUpload';
 import { NotasImportadas } from '@/components/operacao/NotasImportadas';
 import { SacadosList, type SacadoComStatus } from '@/components/operacao/SacadosList';
 import { SacadoFormDialog, type SacadoFormData } from '@/components/operacao/SacadoFormDialog';
 import type { NotaFiscalXml } from '@/lib/xml-nfe-parser';
 
-type Step = 'cedente' | 'xml' | 'sacados';
+type Step = 'xml' | 'sacados';
+
+interface CedenteFromXml {
+  cpfCnpj: string;
+  nome: string;
+}
 
 export default function AnaliseOperacao() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Step management
-  const [step, setStep] = useState<Step>('cedente');
+  const [step, setStep] = useState<Step>('xml');
 
-  // Step 1 - Cedente
-  const [cedentes, setCedentes] = useState<CedenteOption[]>([]);
-  const [loadingCedentes, setLoadingCedentes] = useState(true);
-  const [selectedCedente, setSelectedCedente] = useState<CedenteOption | null>(null);
-
-  // Step 2 - XML
+  // Notas & Cedente (extracted from XML)
   const [notas, setNotas] = useState<(NotaFiscalXml & { fileName: string })[]>([]);
+  const [cedente, setCedente] = useState<CedenteFromXml | null>(null);
 
-  // Step 3 - Sacados
+  // Sacados
   const [sacados, setSacados] = useState<SacadoComStatus[]>([]);
   const [loadingSacados, setLoadingSacados] = useState(false);
 
@@ -38,45 +38,8 @@ export default function AnaliseOperacao() {
   const [dialogInitial, setDialogInitial] = useState<Partial<SacadoFormData> | undefined>();
   const [savingSacado, setSavingSacado] = useState(false);
 
-  // Load cedentes from external DB
-  useEffect(() => {
-    async function load() {
-      setLoadingCedentes(true);
-      try {
-        const { data: session } = await supabase.auth.getSession();
-        const token = session?.session?.access_token;
-        if (!token) return;
-
-        // Get all cedentes from external DB
-        const res = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/portfolio-data`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({ action: 'list-cedentes-all' }),
-          }
-        );
-        const result = await res.json();
-        if (result.success) {
-          setCedentes(result.cedentes || []);
-        }
-      } catch (e) {
-        console.error('Error loading cedentes:', e);
-      } finally {
-        setLoadingCedentes(false);
-      }
-    }
-    load();
-  }, []);
-
-  // After XML parsed, check which sacados exist
   const checkSacadosExistentes = useCallback(async (notasList: (NotaFiscalXml & { fileName: string })[]) => {
     setLoadingSacados(true);
-
-    // Deduplicate sacados by cpfCnpj
     const sacadoMap = new Map<string, NotaFiscalXml['sacado']>();
     for (const n of notasList) {
       if (!sacadoMap.has(n.sacado.cpfCnpj)) {
@@ -85,8 +48,6 @@ export default function AnaliseOperacao() {
     }
 
     const cpfCnpjs = Array.from(sacadoMap.keys());
-
-    // Check existing in DB
     const { data: existing } = await supabase
       .from('sacados')
       .select('id, cpf_cnpj')
@@ -108,11 +69,16 @@ export default function AnaliseOperacao() {
   }, []);
 
   const handleNotasParsed = useCallback((parsed: (NotaFiscalXml & { fileName: string })[]) => {
-    setNotas(prev => [...prev, ...parsed]);
-    const all = [...notas, ...parsed];
-    checkSacadosExistentes(all);
-    setStep('sacados');
-  }, [notas, checkSacadosExistentes]);
+    setNotas(prev => {
+      const all = [...prev, ...parsed];
+      // Extract cedente from first nota if not set
+      if (!cedente && parsed.length > 0) {
+        setCedente(parsed[0].emitente);
+      }
+      checkSacadosExistentes(all);
+      return all;
+    });
+  }, [cedente, checkSacadosExistentes]);
 
   const handleCadastrar = useCallback((sacado: NotaFiscalXml['sacado']) => {
     setDialogInitial({
@@ -162,7 +128,6 @@ export default function AnaliseOperacao() {
         return;
       }
 
-      // Update sacados list
       setSacados(prev =>
         prev.map(s =>
           s.cpfCnpj === data.cpf_cnpj
@@ -171,14 +136,13 @@ export default function AnaliseOperacao() {
         )
       );
 
-      // Save notas for this sacado
-      if (selectedCedente && inserted) {
+      if (cedente && inserted) {
         const notasDoSacado = notas.filter(n => n.sacado.cpfCnpj === data.cpf_cnpj);
         if (notasDoSacado.length > 0) {
           await supabase.from('operacao_notas').insert(
             notasDoSacado.map(n => ({
-              cedente_cpf_cnpj: selectedCedente.cpf_cnpj,
-              cedente_nome: selectedCedente.nome,
+              cedente_cpf_cnpj: cedente.cpfCnpj,
+              cedente_nome: cedente.nome,
               sacado_id: inserted.id,
               sacado_cpf_cnpj: data.cpf_cnpj,
               sacado_nome: data.nome,
@@ -202,19 +166,13 @@ export default function AnaliseOperacao() {
     } finally {
       setSavingSacado(false);
     }
-  }, [user, selectedCedente, notas, toast]);
+  }, [user, cedente, notas, toast]);
 
   const handleReset = () => {
-    setStep('cedente');
-    setSelectedCedente(null);
+    setStep('xml');
     setNotas([]);
+    setCedente(null);
     setSacados([]);
-  };
-
-  const stepLabels: Record<Step, string> = {
-    cedente: '1. Selecionar Cedente',
-    xml: '2. Importar NF-e',
-    sacados: '3. Sacados',
   };
 
   return (
@@ -230,11 +188,11 @@ export default function AnaliseOperacao() {
               <div>
                 <h1 className="text-xl font-bold text-foreground">Análise de Operação</h1>
                 <p className="text-sm text-muted-foreground">
-                  Selecione um cedente, importe NF-e e gerencie sacados
+                  Importe NF-e para identificar cedente e sacados automaticamente
                 </p>
               </div>
             </div>
-            {step !== 'cedente' && (
+            {notas.length > 0 && (
               <Button variant="outline" size="sm" onClick={handleReset}>
                 <RotateCcw className="h-4 w-4 mr-1.5" />
                 Recomeçar
@@ -244,17 +202,17 @@ export default function AnaliseOperacao() {
 
           {/* Step indicator */}
           <div className="flex items-center gap-2 mt-4">
-            {(['cedente', 'xml', 'sacados'] as Step[]).map((s, i) => (
+            {(['xml', 'sacados'] as Step[]).map((s, i) => (
               <div key={s} className="flex items-center gap-2">
                 {i > 0 && <ArrowRight className="h-3 w-3 text-muted-foreground" />}
                 <span className={`text-xs font-medium px-2.5 py-1 rounded-full transition-colors ${
                   step === s
                     ? 'bg-primary text-primary-foreground'
-                    : ((['cedente', 'xml', 'sacados'] as Step[]).indexOf(step) > i
+                    : ((['xml', 'sacados'] as Step[]).indexOf(step) > i
                       ? 'bg-primary/20 text-primary'
                       : 'bg-muted text-muted-foreground')
                 }`}>
-                  {stepLabels[s]}
+                  {s === 'xml' ? '1. Importar NF-e' : '2. Sacados'}
                 </span>
               </div>
             ))}
@@ -264,41 +222,21 @@ export default function AnaliseOperacao() {
 
       <div className="p-6">
         <div className="max-w-4xl mx-auto">
-          {/* Step 1: Cedente Selection */}
-          {step === 'cedente' && (
-            <Card>
-              <CardContent className="pt-6">
-                <CedenteSelector
-                  cedentes={cedentes}
-                  loading={loadingCedentes}
-                  selected={selectedCedente}
-                  onSelect={setSelectedCedente}
-                />
-                <div className="flex justify-end mt-4">
-                  <Button
-                    disabled={!selectedCedente}
-                    onClick={() => setStep('xml')}
-                  >
-                    Continuar
-                    <ArrowRight className="h-4 w-4 ml-1.5" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Step 2: XML Upload */}
+          {/* Step 1: XML Upload */}
           {step === 'xml' && (
             <div className="space-y-4">
-              <Card className="p-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                  <span className="font-medium text-foreground">{selectedCedente?.nome}</span>
-                  <span>·</span>
-                  <span className="font-mono">{selectedCedente?.cpf_cnpj}</span>
-                </div>
-              </Card>
-
               <XmlUpload onNotasParsed={handleNotasParsed} />
+
+              {cedente && (
+                <Card className="p-4">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Building2 className="h-4 w-4 text-primary" />
+                    <span className="text-muted-foreground">Cedente identificado:</span>
+                    <span className="font-medium text-foreground">{cedente.nome}</span>
+                    <Badge variant="outline" className="font-mono text-xs">{cedente.cpfCnpj}</Badge>
+                  </div>
+                </Card>
+              )}
 
               {notas.length > 0 && (
                 <Card>
@@ -308,31 +246,30 @@ export default function AnaliseOperacao() {
                 </Card>
               )}
 
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setStep('cedente')}>
-                  <ArrowLeft className="h-4 w-4 mr-1.5" />
-                  Voltar
-                </Button>
-                {notas.length > 0 && (
+              {notas.length > 0 && (
+                <div className="flex justify-end">
                   <Button onClick={() => { checkSacadosExistentes(notas); setStep('sacados'); }}>
                     Ver Sacados
                     <ArrowRight className="h-4 w-4 ml-1.5" />
                   </Button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Step 3: Sacados */}
+          {/* Step 2: Sacados */}
           {step === 'sacados' && (
             <div className="space-y-4">
-              <Card className="p-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                  <span className="font-medium text-foreground">{selectedCedente?.nome}</span>
-                  <span>·</span>
-                  <span>{notas.length} nota{notas.length !== 1 ? 's' : ''}</span>
-                </div>
-              </Card>
+              {cedente && (
+                <Card className="p-4">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Building2 className="h-4 w-4 text-primary" />
+                    <span className="font-medium text-foreground">{cedente.nome}</span>
+                    <span>·</span>
+                    <span>{notas.length} nota{notas.length !== 1 ? 's' : ''}</span>
+                  </div>
+                </Card>
+              )}
 
               {notas.length > 0 && (
                 <Card>
