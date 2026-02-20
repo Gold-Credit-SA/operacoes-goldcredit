@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Cake, ChevronRight, Gift, PartyPopper, Calendar, Building2, Filter } from 'lucide-react';
+import { Cake, ChevronRight, Gift, PartyPopper, Calendar, Building2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,14 +25,11 @@ const MESES = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set'
 
 export function ProximosAniversariantesCard({ aniversariantes, loading }: Props) {
   const [periodo, setPeriodo] = useState<'semana' | 'mes'>('semana');
-  const [filtroCarteira, setFiltroCarteira] = useState<'todos' | 'carteira' | 'fora'>('todos');
   const navigate = useNavigate();
 
   const filtered = aniversariantes.filter(a => {
     if (periodo === 'semana' && a.dias_faltam > 7) return false;
     if (periodo === 'mes' && a.dias_faltam > 30) return false;
-    if (filtroCarteira === 'carteira' && !a.na_carteira) return false;
-    if (filtroCarteira === 'fora' && a.na_carteira) return false;
     return true;
   });
 
@@ -83,16 +80,6 @@ export function ProximosAniversariantesCard({ aniversariantes, loading }: Props)
         >
           {getDiasFaltamLabel(a.dias_faltam)}
         </Badge>
-        <Badge
-          variant="outline"
-          className={`text-[9px] ${
-            a.na_carteira
-              ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800'
-              : 'bg-muted text-muted-foreground border-border'
-          }`}
-        >
-          {a.na_carteira ? 'Na carteira' : 'Fora da carteira'}
-        </Badge>
         <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
     </button>
@@ -120,32 +107,6 @@ export function ProximosAniversariantesCard({ aniversariantes, loading }: Props)
             <TabsTrigger value="mes" className="text-xs flex-1">Próximos 30 dias</TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="flex gap-1 mt-2">
-          <Button
-            variant={filtroCarteira === 'todos' ? 'default' : 'outline'}
-            size="sm"
-            className="text-[10px] h-6 px-2"
-            onClick={() => setFiltroCarteira('todos')}
-          >
-            Todos
-          </Button>
-          <Button
-            variant={filtroCarteira === 'carteira' ? 'default' : 'outline'}
-            size="sm"
-            className="text-[10px] h-6 px-2"
-            onClick={() => setFiltroCarteira('carteira')}
-          >
-            Na carteira
-          </Button>
-          <Button
-            variant={filtroCarteira === 'fora' ? 'default' : 'outline'}
-            size="sm"
-            className="text-[10px] h-6 px-2"
-            onClick={() => setFiltroCarteira('fora')}
-          >
-            Fora da carteira
-          </Button>
-        </div>
       </CardHeader>
       <CardContent>
         {loading ? (
