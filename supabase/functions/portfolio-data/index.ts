@@ -782,6 +782,18 @@ serve(async (req) => {
         const todayYear = today.getFullYear();
         const todayMidnight = new Date(todayYear, todayMonth - 1, todayDay);
 
+        // If no portfolio, return empty for all sections
+        if (cpfList.length === 0) {
+          return new Response(JSON.stringify({
+            success: true,
+            proximosAniversariantes: [],
+            saldoTrustee: [],
+            chequesDevolvidos: [],
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
         const proximosAniversariantes = (anivRes.rows as any[]).map(row => {
           const d = new Date(row.nascimento);
           if (isNaN(d.getTime())) return null;
@@ -797,6 +809,9 @@ serve(async (req) => {
           const empresaNorm = (row.empresa || '').trim().toUpperCase();
           const naCarteira = carteiraNomes.has(empresaNorm);
 
+          // Only include partners from companies in the manager's portfolio
+          if (!naCarteira) return null;
+
           return {
             nome: row.nome,
             empresa: row.empresa,
@@ -804,22 +819,11 @@ serve(async (req) => {
             dias_faltam: diasFaltam,
             dia: bDay,
             mes: bMonth,
-            na_carteira: naCarteira,
+            na_carteira: true,
           };
         })
         .filter(a => a !== null && a.dias_faltam >= 0 && a.dias_faltam <= 365)
         .sort((a: any, b: any) => a.dias_faltam - b.dias_faltam);
-
-        if (cpfList.length === 0) {
-          return new Response(JSON.stringify({
-            success: true,
-            proximosAniversariantes,
-            saldoTrustee: [],
-            chequesDevolvidos: [],
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
 
         // 2b. Saldo Trustee + Cheques
         const ph = cpfList.map((_, i) => `$${i + 1}`).join(',');
