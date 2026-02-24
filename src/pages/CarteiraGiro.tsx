@@ -238,7 +238,7 @@ export default function CarteiraGiro() {
                       <TableHead className="text-right">Limite Total</TableHead>
                       <TableHead className="text-right">Limite Disponível</TableHead>
                       <TableHead className="text-center">Pendência de Aditivo</TableHead>
-                      <TableHead className="text-center">Último Contato</TableHead>
+                      <TableHead className="text-center">Última Operação</TableHead>
                       <TableHead className="text-center">Situação Cadastral</TableHead>
                       <TableHead className="w-12"></TableHead>
                     </TableRow>
