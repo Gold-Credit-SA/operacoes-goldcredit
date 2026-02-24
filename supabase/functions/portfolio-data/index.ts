@@ -7,6 +7,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+// Global connection pool — reused across all requests to avoid exhausting connections
+const externalPool = new Pool({
+  hostname: Deno.env.get("EXTERNAL_DB_HOST")!,
+  port: parseInt(Deno.env.get("EXTERNAL_DB_PORT") || "5432"),
+  database: Deno.env.get("EXTERNAL_DB_NAME")!,
+  user: Deno.env.get("EXTERNAL_DB_USER")!,
+  password: Deno.env.get("EXTERNAL_DB_PASS")!,
+}, 3);
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -86,14 +95,7 @@ serve(async (req) => {
 
       // Enrich with name from external DB
       try {
-        const pool = new Pool({
-          hostname: Deno.env.get("EXTERNAL_DB_HOST")!,
-          port: parseInt(Deno.env.get("EXTERNAL_DB_PORT") || "5432"),
-          database: Deno.env.get("EXTERNAL_DB_NAME")!,
-          user: Deno.env.get("EXTERNAL_DB_USER")!,
-          password: Deno.env.get("EXTERNAL_DB_PASS")!,
-        }, 1);
-        const conn = await pool.connect();
+        const conn = await externalPool.connect();
         try {
           const result = await conn.queryObject<{ nome: string }>(`
             SELECT nome FROM smartsecurities_cedentes WHERE cpf_cnpj = $1 LIMIT 1
@@ -106,7 +108,6 @@ serve(async (req) => {
           }
         } finally {
           conn.release();
-          await pool.end();
         }
       } catch (e) {
         console.error("Error enriching cedente name:", e);
@@ -193,15 +194,7 @@ serve(async (req) => {
       }
 
       // Connect to external DB
-      const pool = new Pool({
-        hostname: Deno.env.get("EXTERNAL_DB_HOST")!,
-        port: parseInt(Deno.env.get("EXTERNAL_DB_PORT") || "5432"),
-        database: Deno.env.get("EXTERNAL_DB_NAME")!,
-        user: Deno.env.get("EXTERNAL_DB_USER")!,
-        password: Deno.env.get("EXTERNAL_DB_PASS")!,
-      }, 3);
-
-      const connection = await pool.connect();
+      const connection = await externalPool.connect();
       try {
         // Build parameterized query for cedentes
         const placeholders = cpfList.map((_, i) => `$${i + 1}`).join(',');
@@ -301,7 +294,6 @@ serve(async (req) => {
         });
       } finally {
         connection.release();
-        await pool.end();
       }
     }
 
@@ -314,14 +306,7 @@ serve(async (req) => {
         .eq('status', 'approved');
       const carteiraCpfs = new Set((userAssignments || []).map(a => a.cedente_cpf_cnpj));
 
-      const pool = new Pool({
-        hostname: Deno.env.get("EXTERNAL_DB_HOST")!,
-        port: parseInt(Deno.env.get("EXTERNAL_DB_PORT") || "5432"),
-        database: Deno.env.get("EXTERNAL_DB_NAME")!,
-        user: Deno.env.get("EXTERNAL_DB_USER")!,
-        password: Deno.env.get("EXTERNAL_DB_PASS")!,
-      }, 1);
-      const conn = await pool.connect();
+      const conn = await externalPool.connect();
       try {
         const result = await conn.queryObject(`
           SELECT cpf_cnpj, nome FROM smartsecurities_cedentes ORDER BY nome ASC LIMIT 500
@@ -339,21 +324,13 @@ serve(async (req) => {
         });
       } finally {
         conn.release();
-        await pool.end();
       }
     }
 
     if (action === 'search-cedentes') {
       // Search cedentes from external DB for adding to portfolio
       const { search_term } = await req.json().catch(() => ({}));
-      const pool = new Pool({
-        hostname: Deno.env.get("EXTERNAL_DB_HOST")!,
-        port: parseInt(Deno.env.get("EXTERNAL_DB_PORT") || "5432"),
-        database: Deno.env.get("EXTERNAL_DB_NAME")!,
-        user: Deno.env.get("EXTERNAL_DB_USER")!,
-        password: Deno.env.get("EXTERNAL_DB_PASS")!,
-      }, 1);
-      const conn = await pool.connect();
+      const conn = await externalPool.connect();
       try {
         // Already parsed above, re-parse body
         const body = { search_term: cedente_cpf_cnpj }; // reuse field
@@ -371,7 +348,6 @@ serve(async (req) => {
         });
       } finally {
         conn.release();
-        await pool.end();
       }
     }
 
@@ -398,14 +374,7 @@ serve(async (req) => {
         .eq('user_id', user.id);
       const assignedCpfs = new Set((existingAssignments || []).map(a => a.cedente_cpf_cnpj));
 
-      const pool = new Pool({
-        hostname: Deno.env.get("EXTERNAL_DB_HOST")!,
-        port: parseInt(Deno.env.get("EXTERNAL_DB_PORT") || "5432"),
-        database: Deno.env.get("EXTERNAL_DB_NAME")!,
-        user: Deno.env.get("EXTERNAL_DB_USER")!,
-        password: Deno.env.get("EXTERNAL_DB_PASS")!,
-      }, 1);
-      const conn = await pool.connect();
+      const conn = await externalPool.connect();
       try {
         const result = await conn.queryObject(`
           SELECT cpf_cnpj, nome, gerente, limite_global, bloqueado, setor, uf, cidade
@@ -422,7 +391,6 @@ serve(async (req) => {
         });
       } finally {
         conn.release();
-        await pool.end();
       }
     }
 
@@ -451,14 +419,7 @@ serve(async (req) => {
       );
 
       // Query external DB for all cedentes with gerente field
-      const pool = new Pool({
-        hostname: Deno.env.get("EXTERNAL_DB_HOST")!,
-        port: parseInt(Deno.env.get("EXTERNAL_DB_PORT") || "5432"),
-        database: Deno.env.get("EXTERNAL_DB_NAME")!,
-        user: Deno.env.get("EXTERNAL_DB_USER")!,
-        password: Deno.env.get("EXTERNAL_DB_PASS")!,
-      }, 1);
-      const conn = await pool.connect();
+      const conn = await externalPool.connect();
       try {
         const result = await conn.queryObject(`
           SELECT cpf_cnpj, nome, gerente
@@ -505,7 +466,6 @@ serve(async (req) => {
         });
       } finally {
         conn.release();
-        await pool.end();
       }
     }
 
@@ -549,14 +509,7 @@ serve(async (req) => {
         });
       }
 
-      const pool = new Pool({
-        hostname: Deno.env.get("EXTERNAL_DB_HOST")!,
-        port: parseInt(Deno.env.get("EXTERNAL_DB_PORT") || "5432"),
-        database: Deno.env.get("EXTERNAL_DB_NAME")!,
-        user: Deno.env.get("EXTERNAL_DB_USER")!,
-        password: Deno.env.get("EXTERNAL_DB_PASS")!,
-      }, 3);
-      const conn = await pool.connect();
+      const conn = await externalPool.connect();
       try {
         const ph = cpfList.map((_, i) => `$${i + 1}`).join(',');
 
@@ -746,7 +699,6 @@ serve(async (req) => {
         });
       } finally {
         conn.release();
-        await pool.end();
       }
     }
 
@@ -803,14 +755,7 @@ serve(async (req) => {
       }
 
       // 2. Connect to external DB for aniversariantes + trustee + cheques
-      const pool = new Pool({
-        hostname: Deno.env.get("EXTERNAL_DB_HOST")!,
-        port: parseInt(Deno.env.get("EXTERNAL_DB_PORT") || "5432"),
-        database: Deno.env.get("EXTERNAL_DB_NAME")!,
-        user: Deno.env.get("EXTERNAL_DB_USER")!,
-        password: Deno.env.get("EXTERNAL_DB_PASS")!,
-      }, 2);
-      const conn = await pool.connect();
+      const conn = await externalPool.connect();
       try {
         const ph = cpfList.map((_, i) => `$${i + 1}`).join(',');
 
@@ -928,7 +873,6 @@ serve(async (req) => {
         });
       } finally {
         conn.release();
-        await pool.end();
       }
     }
 
