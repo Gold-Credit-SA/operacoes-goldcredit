@@ -48,16 +48,9 @@ export function ConsultaSelection({ cnpj, onExecute, onBack }: ConsultaSelection
   }, []);
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 relative">
-      {/* agrisk watermark */}
-      <div className="absolute inset-0 flex items-start justify-center pointer-events-none select-none z-0">
-        <span className="text-5xl font-bold text-muted-foreground/10 mt-2 tracking-widest">
-          agrisk
-        </span>
-      </div>
-
+    <div className="max-w-2xl mx-auto space-y-6">
       {/* CNPJ context */}
-      <div className="flex items-center gap-3 relative z-10">
+      <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0">
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -67,7 +60,7 @@ export function ConsultaSelection({ cnpj, onExecute, onBack }: ConsultaSelection
         </div>
       </div>
 
-      <Card className="relative z-10">
+      <Card>
         <CardContent className="pt-6 space-y-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
