@@ -7,14 +7,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// Global connection pool — reused across all requests to avoid exhausting connections
+// Global connection pool — keep very small + lazy in Edge runtime to avoid exhausting DB clients
 const externalPool = new Pool({
   hostname: Deno.env.get("EXTERNAL_DB_HOST")!,
   port: parseInt(Deno.env.get("EXTERNAL_DB_PORT") || "5432"),
   database: Deno.env.get("EXTERNAL_DB_NAME")!,
   user: Deno.env.get("EXTERNAL_DB_USER")!,
   password: Deno.env.get("EXTERNAL_DB_PASS")!,
-}, 3);
+}, 1, true);
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
