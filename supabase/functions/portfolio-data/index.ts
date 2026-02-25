@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { Pool } from "https://deno.land/x/postgres@v0.17.0/mod.ts";
+import { Client } from "https://deno.land/x/postgres@v0.17.0/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
@@ -7,14 +7,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// Global connection pool — keep very small + lazy in Edge runtime to avoid exhausting DB clients
-const externalPool = new Pool({
+// Per-request client connection (serverless-safe, avoids idle pooled sessions)
+const externalDbConfig = {
   hostname: Deno.env.get("EXTERNAL_DB_HOST")!,
   port: parseInt(Deno.env.get("EXTERNAL_DB_PORT") || "5432"),
   database: Deno.env.get("EXTERNAL_DB_NAME")!,
   user: Deno.env.get("EXTERNAL_DB_USER")!,
   password: Deno.env.get("EXTERNAL_DB_PASS")!,
-}, 1, true);
+};
+
+async function connectExternalClient() {
+  const client = new Client(externalDbConfig);
+  await client.connect();
+  return client;
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -95,7 +101,7 @@ serve(async (req) => {
 
       // Enrich with name from external DB
       try {
-        const conn = await externalPool.connect();
+        const conn = await connectExternalClient();
         try {
           const result = await conn.queryObject<{ nome: string }>(`
             SELECT nome FROM smartsecurities_cedentes WHERE cpf_cnpj = $1 LIMIT 1
@@ -107,7 +113,7 @@ serve(async (req) => {
             data.cedente_nome = result.rows[0].nome;
           }
         } finally {
-          conn.release();
+          await conn.end();
         }
       } catch (e) {
         console.error("Error enriching cedente name:", e);
@@ -194,7 +200,7 @@ serve(async (req) => {
       }
 
       // Connect to external DB
-      const connection = await externalPool.connect();
+      const connection = await connectExternalClient();
       try {
         // Build parameterized query for cedentes
         const placeholders = cpfList.map((_, i) => `$${i + 1}`).join(',');
@@ -293,7 +299,7 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       } finally {
-        connection.release();
+        await connection.end();
       }
     }
 
@@ -306,7 +312,7 @@ serve(async (req) => {
         .eq('status', 'approved');
       const carteiraCpfs = new Set((userAssignments || []).map(a => a.cedente_cpf_cnpj));
 
-      const conn = await externalPool.connect();
+      const conn = await connectExternalClient();
       try {
         const result = await conn.queryObject(`
           SELECT cpf_cnpj, nome FROM smartsecurities_cedentes ORDER BY nome ASC LIMIT 500
@@ -323,14 +329,14 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       } finally {
-        conn.release();
+        await conn.end();
       }
     }
 
     if (action === 'search-cedentes') {
       // Search cedentes from external DB for adding to portfolio
       const { search_term } = await req.json().catch(() => ({}));
-      const conn = await externalPool.connect();
+      const conn = await connectExternalClient();
       try {
         // Already parsed above, re-parse body
         const body = { search_term: cedente_cpf_cnpj }; // reuse field
@@ -347,7 +353,7 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       } finally {
-        conn.release();
+        await conn.end();
       }
     }
 
@@ -374,7 +380,7 @@ serve(async (req) => {
         .eq('user_id', user.id);
       const assignedCpfs = new Set((existingAssignments || []).map(a => a.cedente_cpf_cnpj));
 
-      const conn = await externalPool.connect();
+      const conn = await connectExternalClient();
       try {
         const result = await conn.queryObject(`
           SELECT cpf_cnpj, nome, gerente, limite_global, bloqueado, setor, uf, cidade
@@ -390,7 +396,7 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       } finally {
-        conn.release();
+        await conn.end();
       }
     }
 
@@ -419,7 +425,7 @@ serve(async (req) => {
       );
 
       // Query external DB for all cedentes with gerente field
-      const conn = await externalPool.connect();
+      const conn = await connectExternalClient();
       try {
         const result = await conn.queryObject(`
           SELECT cpf_cnpj, nome, gerente
@@ -465,7 +471,7 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       } finally {
-        conn.release();
+        await conn.end();
       }
     }
 
@@ -509,7 +515,7 @@ serve(async (req) => {
         });
       }
 
-      const conn = await externalPool.connect();
+      const conn = await connectExternalClient();
       try {
         const ph = cpfList.map((_, i) => `$${i + 1}`).join(',');
 
@@ -698,7 +704,7 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       } finally {
-        conn.release();
+        await conn.end();
       }
     }
 
@@ -755,7 +761,7 @@ serve(async (req) => {
       }
 
       // 2. Connect to external DB for aniversariantes + trustee + cheques
-      const conn = await externalPool.connect();
+      const conn = await connectExternalClient();
       try {
         const ph = cpfList.map((_, i) => `$${i + 1}`).join(',');
 
@@ -872,7 +878,7 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       } finally {
-        conn.release();
+        await conn.end();
       }
     }
 
