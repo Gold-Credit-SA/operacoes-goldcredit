@@ -748,34 +748,23 @@ serve(async (req) => {
       const { data: assignments } = await assignQuery;
       const cpfList = assignments?.map(a => a.cedente_cpf_cnpj) || [];
 
-      // If no portfolio, return empty for all sections
-      if (cpfList.length === 0) {
-        return new Response(JSON.stringify({
-          success: true,
-          proximosAniversariantes: [],
-          saldoTrustee: [],
-          chequesDevolvidos: [],
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+      // Build set of portfolio company names for na_carteira flag
+      const carteiraNomes = new Set(
+        (assignments || []).map(a => (a.cedente_nome || '').toUpperCase().trim()).filter(Boolean)
+      );
 
       // 2. Connect to external DB for aniversariantes + trustee + cheques
       const conn = await connectExternalClient();
       try {
-        const ph = cpfList.map((_, i) => `$${i + 1}`).join(',');
-
-        // 2a. Aniversariantes: JOIN with cedentes to match by CPF/CNPJ (robust)
-        // instead of fragile name-based matching
+        // 2a. Aniversariantes: ALL records globally, no portfolio filter
         const anivRes = await conn.queryObject(`
           SELECT a.nome, a.nascimento, a.empresa
           FROM smartsecurities_aniversariantes a
-          INNER JOIN smartsecurities_cedentes c
-            ON UPPER(TRIM(a.empresa)) = UPPER(TRIM(c.nome))
-          WHERE c.cpf_cnpj IN (${ph})
+          WHERE a.nascimento IS NOT NULL
             AND a.empresa IS NOT NULL AND TRIM(a.empresa) != ''
-            AND a.nascimento IS NOT NULL
-        `, cpfList);
+        `);
+
+        const ph = cpfList.length > 0 ? cpfList.map((_, i) => `$${i + 1}`).join(',') : null;
 
         const today = new Date();
         const todayDay = today.getDate();
@@ -805,14 +794,15 @@ serve(async (req) => {
             }
             const diasFaltam = Math.round((nextBirthday.getTime() - todayMidnight.getTime()) / (1000 * 60 * 60 * 24));
 
+            const empresaTrimmed = (row.empresa || '').trim();
             return {
               nome: (row.nome || '').trim(),
-              empresa: (row.empresa || '').trim(),
+              empresa: empresaTrimmed,
               data_nascimento: row.nascimento,
               dias_faltam: diasFaltam,
               dia: bDay,
               mes: bMonth,
-              na_carteira: true,
+              na_carteira: carteiraNomes.has(empresaTrimmed.toUpperCase()),
             };
           } catch {
             return null;
@@ -825,49 +815,53 @@ serve(async (req) => {
         )
         .sort((a: any, b: any) => a.dias_faltam - b.dias_faltam);
 
-        // 2b. Saldo Trustee (tipo != 'C')
-        const trusteeRes = await conn.queryObject(`
-          SELECT t.cpf_cnpj_cedente, c.nome, COALESCE(SUM(t.valor), 0)::float as saldo_trustee
-          FROM smartsecurities_titulos_em_aberto t
-          JOIN smartsecurities_cedentes c ON c.cpf_cnpj = t.cpf_cnpj_cedente
-          WHERE t.cpf_cnpj_cedente IN (${ph})
-            AND t.tipo != 'C'
-          GROUP BY t.cpf_cnpj_cedente, c.nome
-          HAVING COALESCE(SUM(t.valor), 0) > 0
-          ORDER BY saldo_trustee DESC
-        `, cpfList);
+        // 2b & 2c: Only query trustee/cheques if portfolio is not empty
+        let saldoTrustee: any[] = [];
+        let chequesDevolvidos: any[] = [];
 
-        const saldoTrustee = (trusteeRes.rows as any[]).map(r => ({
-          cpf_cnpj: r.cpf_cnpj_cedente,
-          nome: r.nome,
-          saldo_trustee: parseFloat(r.saldo_trustee) || 0,
-        }));
+        if (ph) {
+          // 2b. Saldo Trustee (tipo != 'C')
+          const trusteeRes = await conn.queryObject(`
+            SELECT t.cpf_cnpj_cedente, c.nome, COALESCE(SUM(t.valor), 0)::float as saldo_trustee
+            FROM smartsecurities_titulos_em_aberto t
+            JOIN smartsecurities_cedentes c ON c.cpf_cnpj = t.cpf_cnpj_cedente
+            WHERE t.cpf_cnpj_cedente IN (${ph})
+              AND t.tipo != 'C'
+            GROUP BY t.cpf_cnpj_cedente, c.nome
+            HAVING COALESCE(SUM(t.valor), 0) > 0
+            ORDER BY saldo_trustee DESC
+          `, cpfList);
 
-        // 2c. Cheques devolvidos - broader filter using situacao, motivo, and tipo
-        const chequesRes = await conn.queryObject(`
-          SELECT t.cpf_cnpj_cedente, c.nome, 
-                 COUNT(*)::int as qtd_cheques, 
-                 COALESCE(SUM(t.valor), 0)::float as valor_total
-          FROM smartsecurities_titulos_em_aberto t
-          JOIN smartsecurities_cedentes c ON c.cpf_cnpj = t.cpf_cnpj_cedente
-          WHERE t.cpf_cnpj_cedente IN (${ph})
-            AND (
-              -- Match by situacao (most reliable)
-              UPPER(COALESCE(t.situacao, '')) LIKE '%DEVOLV%'
-              -- OR match by motivo
-              OR UPPER(COALESCE(t.motivo, '')) LIKE '%DEVOLV%'
-              OR UPPER(COALESCE(t.motivo, '')) LIKE '%DEV%'
-            )
-          GROUP BY t.cpf_cnpj_cedente, c.nome
-          ORDER BY valor_total DESC
-        `, cpfList);
+          saldoTrustee = (trusteeRes.rows as any[]).map(r => ({
+            cpf_cnpj: r.cpf_cnpj_cedente,
+            nome: r.nome,
+            saldo_trustee: parseFloat(r.saldo_trustee) || 0,
+          }));
 
-        const chequesDevolvidos = (chequesRes.rows as any[]).map(r => ({
-          cpf_cnpj: r.cpf_cnpj_cedente,
-          nome: r.nome,
-          qtd_cheques: r.qtd_cheques,
-          valor_total: parseFloat(r.valor_total) || 0,
-        }));
+          // 2c. Cheques devolvidos
+          const chequesRes = await conn.queryObject(`
+            SELECT t.cpf_cnpj_cedente, c.nome, 
+                   COUNT(*)::int as qtd_cheques, 
+                   COALESCE(SUM(t.valor), 0)::float as valor_total
+            FROM smartsecurities_titulos_em_aberto t
+            JOIN smartsecurities_cedentes c ON c.cpf_cnpj = t.cpf_cnpj_cedente
+            WHERE t.cpf_cnpj_cedente IN (${ph})
+              AND (
+                UPPER(COALESCE(t.situacao, '')) LIKE '%DEVOLV%'
+                OR UPPER(COALESCE(t.motivo, '')) LIKE '%DEVOLV%'
+                OR UPPER(COALESCE(t.motivo, '')) LIKE '%DEV%'
+              )
+            GROUP BY t.cpf_cnpj_cedente, c.nome
+            ORDER BY valor_total DESC
+          `, cpfList);
+
+          chequesDevolvidos = (chequesRes.rows as any[]).map(r => ({
+            cpf_cnpj: r.cpf_cnpj_cedente,
+            nome: r.nome,
+            qtd_cheques: r.qtd_cheques,
+            valor_total: parseFloat(r.valor_total) || 0,
+          }));
+        }
 
         return new Response(JSON.stringify({
           success: true,
