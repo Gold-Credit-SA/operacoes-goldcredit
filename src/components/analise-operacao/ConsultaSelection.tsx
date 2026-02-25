@@ -5,18 +5,45 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 
-export const CONSULTA_TYPES = [
-  { id: 'restritivos', label: 'Restritivos Nacional' },
-  { id: 'endividamento', label: 'Endividamento Financeiro' },
-  { id: 'cpr', label: 'Consulta CPR' },
-  { id: 'imoveis_simples', label: 'Pesquisa de Imóveis - Simples' },
-  { id: 'imoveis_car', label: 'Pesquisa Imóveis - CAR' },
-  { id: 'patrimonio_veicular', label: 'Patrimônio Veicular' },
-  { id: 'serasa', label: 'serasa' },
-  { id: 'scr', label: 'SCR' },
-] as const;
+interface ConsultaType {
+  id: string;
+  label: string;
+}
 
-export type ConsultaTypeId = typeof CONSULTA_TYPES[number]['id'];
+interface ConsultaGroup {
+  provider: string;
+  items: ConsultaType[];
+}
+
+export const CONSULTA_GROUPS: ConsultaGroup[] = [
+  {
+    provider: 'Agrisk',
+    items: [
+      { id: 'restritivos', label: 'Restritivos Nacional' },
+      { id: 'endividamento', label: 'Endividamento Financeiro' },
+      { id: 'cpr', label: 'Consulta CPR' },
+      { id: 'imoveis_simples', label: 'Pesquisa de Imóveis - Simples' },
+      { id: 'imoveis_car', label: 'Pesquisa Imóveis - CAR' },
+      { id: 'patrimonio_veicular', label: 'Patrimônio Veicular' },
+    ],
+  },
+  {
+    provider: 'Serasa',
+    items: [
+      { id: 'serasa', label: 'Serasa Avançado' },
+    ],
+  },
+  {
+    provider: 'HBI',
+    items: [
+      { id: 'scr', label: 'SCR' },
+    ],
+  },
+];
+
+export const CONSULTA_TYPES = CONSULTA_GROUPS.flatMap(g => g.items);
+
+export type ConsultaTypeId = string;
 
 interface ConsultaSelectionProps {
   cnpj: string;
@@ -72,22 +99,31 @@ export function ConsultaSelection({ cnpj, onExecute, onBack }: ConsultaSelection
             </Button>
           </div>
 
-          <div className="grid gap-2">
-            {CONSULTA_TYPES.map(ct => (
-              <label
-                key={ct.id}
-                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                  selected.has(ct.id)
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-muted-foreground/30'
-                }`}
-              >
-                <Checkbox
-                  checked={selected.has(ct.id)}
-                  onCheckedChange={() => toggle(ct.id)}
-                />
-                <span className="text-sm font-medium text-foreground">{ct.label}</span>
-              </label>
+          <div className="space-y-4">
+            {CONSULTA_GROUPS.map(group => (
+              <div key={group.provider} className="space-y-2">
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground/60">
+                  {group.provider}
+                </span>
+                <div className="grid gap-2">
+                  {group.items.map(ct => (
+                    <label
+                      key={ct.id}
+                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                        selected.has(ct.id)
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-muted-foreground/30'
+                      }`}
+                    >
+                      <Checkbox
+                        checked={selected.has(ct.id)}
+                        onCheckedChange={() => toggle(ct.id)}
+                      />
+                      <span className="text-sm font-medium text-foreground">{ct.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
 
