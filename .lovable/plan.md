@@ -1,60 +1,40 @@
 
 
-# Importacao em Lote de Aniversariantes via Planilha
+# Aniversariantes Globais - Todos os Gestores
 
-## Situacao Atual
-- A tabela `smartsecurities_cedentes` no banco externo **nao possui** campo de data de nascimento
-- O sistema Smart exporta o relatorio "Aniversariantes" com os campos: Nome, Nascimento, Endereco, Telefone, E-mail, Empresa
-- Ja existe a tabela local `cedente_birthdays` para armazenar as datas manualmente
-- O cadastro atual e feito um a um pelo dialog
+## Problema
+A query de aniversariantes no `gestor-dashboard` filtra por `c.cpf_cnpj IN (cpfList)`, mostrando apenas socios de empresas da carteira do gestor logado. O pedido e que **todos** os aniversariantes aparecam para **todos** os gestores.
 
-## Solucao
-Adicionar um botao "Importar Planilha" no card de Aniversariantes que permita o upload do arquivo XLS exportado do Smart. O sistema ira:
-1. Ler o arquivo (XLS/CSV)
-2. Extrair Nome e Data de Nascimento de cada linha
-3. Tentar vincular cada nome a um cedente da carteira do gestor (busca por nome no banco externo)
-4. Fazer upsert na tabela `cedente_birthdays`
+## Alteracoes
 
-## Fluxo do Usuario
-1. Exporta o relatorio "Aniversariantes" do sistema Smart (arquivo XLS)
-2. No Painel do Gestor, clica em "Importar Planilha"
-3. Seleciona o arquivo
-4. O sistema processa e exibe quantos registros foram importados
-5. Os aniversariantes do dia passam a aparecer automaticamente
+### Edge Function `portfolio-data/index.ts` (acao `gestor-dashboard`)
 
-## Alteracoes Tecnicas
+1. **Remover o filtro por carteira na query de aniversariantes** (linhas 770-778): trocar a query com `INNER JOIN ... WHERE c.cpf_cnpj IN (...)` por uma query simples sem filtro:
 
-### 1. Nova action na edge function `portfolio-data`: `import-birthdays`
-
-Recebe um array de registros `{ nome, data_nascimento }` e para cada um:
-- Busca o CPF/CNPJ correspondente na tabela `smartsecurities_cedentes` pelo nome (match exato ou ILIKE)
-- Faz upsert na tabela `cedente_birthdays` com o CPF/CNPJ encontrado
-
-```text
-Request: { action: 'import-birthdays', registros: [{ nome: "JOSE ARAUJO", nascimento: "01/01/1967" }, ...] }
-Response: { success: true, importados: 250, nao_encontrados: ["FULANO X", ...] }
+```sql
+SELECT a.nome, a.nascimento, a.empresa
+FROM smartsecurities_aniversariantes a
+WHERE a.nascimento IS NOT NULL
+  AND a.empresa IS NOT NULL AND TRIM(a.empresa) != ''
 ```
 
-### 2. Frontend - Componente de importacao
+2. **Mover a query de aniversariantes para antes do early-return de carteira vazia** (linhas 752-761): atualmente, se `cpfList` esta vazio, o endpoint retorna arrays vazios para tudo, incluindo aniversariantes. A query de aniversariantes precisa executar independentemente da carteira.
 
-Adicionar no `AniversariantesCard`:
-- Botao "Importar" ao lado do botao "Cadastrar"
-- Ao clicar, abre um file input que aceita `.xls, .xlsx, .csv`
-- Parse do arquivo no frontend (usando leitura de texto para XLS simples ou parse de CSV)
-- Envia os dados extraidos para a edge function
-- Exibe toast com resultado (X importados, Y nao encontrados)
+3. **Calcular `na_carteira`** no mapeamento dos resultados: comparar `UPPER(TRIM(a.empresa))` com os nomes dos cedentes da carteira do usuario para manter a flag visual.
 
-### 3. Parse do arquivo XLS
+### Fluxo revisado
 
-O arquivo exportado pelo Smart tem formato XLS antigo (HTML table disfarçado de XLS). Sera parseado como HTML:
-- Ler o conteudo como texto
-- Extrair as linhas da tabela HTML
-- Mapear colunas Nome (indice 0) e Nascimento (indice 1)
-- Converter data de "DD/MM/YYYY" para "YYYY-MM-DD"
+```text
+Antes:
+  cpfList vazio -> retorna [] para tudo
+  cpfList preenchido -> aniversariantes filtrados por cpfList
 
-### Arquivos modificados
-- `supabase/functions/portfolio-data/index.ts` - Nova action `import-birthdays`
-- `src/components/painel/AniversariantesCard.tsx` - Botao de importacao e logica de parse
+Depois:
+  Sempre busca TODOS os aniversariantes (sem filtro)
+  cpfList vazio -> saldoTrustee=[], chequesDevolvidos=[], mas aniversariantes preenchidos
+  na_carteira = true/false baseado na carteira do usuario
+```
 
-### Arquivos novos
-- Nenhum arquivo novo necessario
+### Arquivo modificado
+- `supabase/functions/portfolio-data/index.ts` - Acao `gestor-dashboard`, linhas 740-882
+
