@@ -29,7 +29,7 @@ export default function AnaliseOperacao() {
 
   const stepIndex = step === 'cnpj' ? 0 : step === 'selection' ? 1 : 2;
   const steps = [
-    { key: 'cnpj', label: '1. CNPJ' },
+    { key: 'cnpj', label: '1. CPF/CNPJ' },
     { key: 'selection', label: '2. Consultas' },
     { key: 'execution', label: '3. Resultados' },
   ];
@@ -46,7 +46,7 @@ export default function AnaliseOperacao() {
             <div>
               <h1 className="text-xl font-bold text-foreground">Análise de Operação</h1>
               <p className="text-sm text-muted-foreground">
-                Consultas integradas por CNPJ
+                Consultas integradas por CPF/CNPJ
               </p>
             </div>
           </div>
