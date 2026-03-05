@@ -6,6 +6,7 @@ const corsHeaders = {
 };
 
 const HBI_USER_ID = 'be3cf5f4-cc5d-45c8-ab1b-b2ddffe635a4';
+const UUID_TYPE_SCR_DETALHADA = '03f01e46-e7d8-11f0-88a2-0a28bdd2a488';
 
 function getPreviousMonth(): string {
   const now = new Date();
@@ -58,7 +59,7 @@ async function querySCR(apiUrl: string, token: string, cnpj: string): Promise<an
   const url = `${apiUrl}/query/scr/v2/new/${cnpj}`;
   const body = {
     baseDateInitial,
-    uuidTypeScr: HBI_USER_ID,
+    uuidTypeScr: UUID_TYPE_SCR_DETALHADA,
   };
   
   console.log(`[hbi-scr] POST ${url}`);
