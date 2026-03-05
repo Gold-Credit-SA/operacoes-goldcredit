@@ -60,7 +60,25 @@ export function separateVencBuckets(resVenc: ResVenc): { vencidos: Record<string
   return { vencidos, aVencer };
 }
 
+/**
+ * Determines if an operation is a credit limit.
+ * Some mod codes (0208, 0214, 0207) can be either regular credits or limits.
+ * The heuristic: if the operation has NO "a vencer" buckets (v110+), it's a limit.
+ * Mods 1909 and 1905 are always limits.
+ */
 export function isLimiteOp(op: Operacao): boolean {
-  const LIMITE_MODS = ['1909', '0208', '0214', '1905'];
-  return LIMITE_MODS.includes(op.mod);
+  const ALWAYS_LIMITE = ['1909', '1905'];
+  if (ALWAYS_LIMITE.includes(op.mod)) return true;
+  
+  const MAYBE_LIMITE = ['0208', '0214', '0207'];
+  if (MAYBE_LIMITE.includes(op.mod)) {
+    // If it has any "a vencer" buckets (v110+), it's a regular credit, not a limit
+    const hasAVencer = Object.keys(op.resVenc).some(k => {
+      const num = parseInt(k.replace('v', ''));
+      return num >= 110;
+    });
+    return !hasAVencer;
+  }
+  
+  return false;
 }

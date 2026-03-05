@@ -32,7 +32,7 @@ export const MODALIDADE_MAP: Record<string, string> = {
   '1909': 'Cheque especial / Cartão de crédito',
 };
 
-// Vencimento labels - short form matching HBI PDF
+// Vencimento labels for CARTEIRA ATIVA table
 export const VENCIMENTO_AVENCER_MAP: Record<string, string> = {
   'v110': '30 Dias',
   'v120': '31 a 60 Dias',
@@ -53,17 +53,31 @@ export const VENCIMENTO_VENCIDO_MAP: Record<string, string> = {
   'v40': 'Vencidos de 31 a 60 dias',
 };
 
-// Labels específicos para operações de LIMITE (buckets têm semântica diferente)
+// Labels for DETALHAMENTO table (with "A vencer" prefix, matching HBI format)
+export const VENCIMENTO_DETALHE_AVENCER_MAP: Record<string, string> = {
+  'v110': 'A vencer até 30 dias',
+  'v120': 'A vencer de 31 a 60 dias',
+  'v130': 'A vencer de 61 a 90 dias',
+  'v140': 'A vencer de 91 a 180 dias',
+  'v150': 'A vencer de 181 a 360 dias',
+  'v160': 'A vencer de 361 a 720 dias',
+  'v170': 'A vencer de 721 a 1080 dias',
+  'v180': 'A vencer de 1081 a 1440 dias',
+  'v190': 'A vencer de 1441 a 1800 dias',
+  'v200': 'A vencer acima de 1800 dias',
+};
+
+// Labels específicos para operações de LIMITE no DETALHAMENTO
 export const VENCIMENTO_LIMITE_MAP: Record<string, string> = {
   'v10': 'Limite com vencimento acima de 360 dias',
   'v20': 'Limite com vencimento até 360 dias',
   'v30': 'Limite com vencimento até 360 dias',
   'v40': 'Limite com vencimento acima de 360 dias',
-  'v110': 'Limite com vencimento até 30 dias',
-  'v120': 'Limite com vencimento de 31 a 60 dias',
-  'v130': 'Limite com vencimento de 61 a 90 dias',
-  'v140': 'Limite com vencimento de 91 a 180 dias',
-  'v150': 'Limite com vencimento de 181 a 360 dias',
+  'v110': 'Limite com vencimento até 360 dias',
+  'v120': 'Limite com vencimento até 360 dias',
+  'v130': 'Limite com vencimento até 360 dias',
+  'v140': 'Limite com vencimento até 360 dias',
+  'v150': 'Limite com vencimento até 360 dias',
   'v160': 'Limite com vencimento acima de 360 dias',
 };
 
@@ -84,15 +98,22 @@ export type CategoryKey = 'emprestimos' | 'titulos_descontados' | 'financiamento
 
 export const CATEGORY_LABELS: Record<CategoryKey, string> = {
   emprestimos: 'Empréstimos',
-  titulos_descontados: 'Títulos Descontados',
+  titulos_descontados: 'Títulos descontado Direitos creditórios descontados',
   financiamentos: 'Financiamentos',
-  outros_creditos: 'Outros Créditos',
+  outros_creditos: 'Outros créditos',
   limite: 'Limite',
 };
 
+// Shorter labels for sub-modalidade display under Limite category
+export const LIMITE_SUB_LABELS: Record<string, string> = {
+  '0208': 'Cheque especial',
+  '0214': 'Cheque especial',
+  '0207': 'Cartão de Crédito',
+  '1909': 'Descontos',
+  '1905': 'Capital de giro rotativo',
+};
+
 export function getModalidadeCategory(mod: string): CategoryKey {
-  const LIMITE_MODS = ['1909', '0208', '0214', '1905'];
-  if (LIMITE_MODS.includes(mod)) return 'limite';
   const code = parseInt(mod);
   if (code >= 200 && code < 300) return 'emprestimos';
   if (code >= 300 && code < 400) return 'titulos_descontados';
@@ -100,6 +121,15 @@ export function getModalidadeCategory(mod: string): CategoryKey {
   if (code >= 1300 && code < 1400) return 'outros_creditos';
   if (code >= 1900 && code < 2000) return 'outros_creditos';
   return 'outros_creditos';
+}
+
+/**
+ * Returns the category for display purposes.
+ * For limite operations, always returns 'limite' regardless of mod code range.
+ */
+export function getDisplayCategory(mod: string, isLimite: boolean): CategoryKey {
+  if (isLimite) return 'limite';
+  return getModalidadeCategory(mod);
 }
 
 export function getModalidadeLabel(mod: string): string {

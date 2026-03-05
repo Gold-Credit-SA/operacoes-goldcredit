@@ -5,8 +5,9 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { SCRResponse, DtbEntry, Operacao } from './scr-types';
 import {
-  MODALIDADE_MAP, VENCIMENTO_AVENCER_MAP, VENCIMENTO_VENCIDO_MAP, VENCIMENTO_LIMITE_MAP,
-  CATEGORY_LABELS, CategoryKey, getModalidadeCategory, getModalidadeLabel,
+  VENCIMENTO_AVENCER_MAP, VENCIMENTO_VENCIDO_MAP,
+  VENCIMENTO_DETALHE_AVENCER_MAP, VENCIMENTO_LIMITE_MAP, LIMITE_SUB_LABELS,
+  CATEGORY_LABELS, CategoryKey, getDisplayCategory, getModalidadeLabel,
 } from './scr-constants';
 import {
   formatCurrency, formatCnpj, getRaizDocumento, formatDate,
@@ -95,7 +96,7 @@ export function SCRPdfExport({ data }: SCRPdfExportProps) {
       });
       y = (doc as any).lastAutoTable.finalY + 10;
 
-      // ===== CRÉDITOS A VENCER =====
+      // ===== CARTEIRA ATIVA =====
       const aVencerBuckets: Record<string, number> = {};
       const vencidoBuckets: Record<string, number> = {};
 
@@ -107,133 +108,113 @@ export function SCRPdfExport({ data }: SCRPdfExportProps) {
 
       const totalAVencer = Object.values(aVencerBuckets).reduce((s, v) => s + v, 0);
       const totalVencido = Object.values(vencidoBuckets).reduce((s, v) => s + v, 0);
+      const totalCarteira = totalAVencer + totalVencido;
 
-      sectionTitle(`Créditos a Vencer - ${formatCurrency(totalAVencer)}`);
+      sectionTitle('CARTEIRA ATIVA');
 
       const sortEntries = (entries: [string, number][]) =>
         entries.sort(([a], [b]) => parseInt(a.replace('v', '')) - parseInt(b.replace('v', '')));
 
-      const aVencerRows = sortEntries(Object.entries(aVencerBuckets)).map(([k, v]) => [
-        VENCIMENTO_AVENCER_MAP[k] || k,
-        formatCurrency(v),
-        totalAVencer > 0 ? `${((v / totalAVencer) * 100).toFixed(2)}%` : '0%',
-      ]);
-      aVencerRows.push(['Total', formatCurrency(totalAVencer), '100%']);
+      const carteiraRows: string[][] = [];
+      carteiraRows.push(['CARTEIRA ATIVA (A)', formatCurrency(totalCarteira), '100%']);
+      carteiraRows.push(['A Vencer', formatCurrency(totalAVencer),
+        totalCarteira > 0 ? `${((totalAVencer / totalCarteira) * 100).toFixed(2)}%` : '0%']);
+      sortEntries(Object.entries(aVencerBuckets)).forEach(([k, v]) => {
+        carteiraRows.push([`  ${VENCIMENTO_AVENCER_MAP[k] || k}`, formatCurrency(v),
+          totalCarteira > 0 ? `${((v / totalCarteira) * 100).toFixed(2)}%` : '0%']);
+      });
+
+      if (totalVencido === 0) {
+        carteiraRows.push(['Vencidos', formatCurrency(0), '0%']);
+        carteiraRows.push(['  Não possui créditos vencidos', '', '']);
+      } else {
+        carteiraRows.push(['Vencidos', formatCurrency(totalVencido),
+          totalCarteira > 0 ? `${((totalVencido / totalCarteira) * 100).toFixed(2)}%` : '0%']);
+        sortEntries(Object.entries(vencidoBuckets)).forEach(([k, v]) => {
+          carteiraRows.push([`  ${VENCIMENTO_VENCIDO_MAP[k] || k}`, formatCurrency(v),
+            totalCarteira > 0 ? `${((v / totalCarteira) * 100).toFixed(2)}%` : '0%']);
+        });
+      }
 
       autoTable(doc, {
         startY: y,
-        head: [['Prazo', 'Valor', '%']],
-        body: aVencerRows,
+        head: [['', 'Valor', '%']],
+        body: carteiraRows,
         theme: 'striped',
         styles: { fontSize: 9, cellPadding: 2 },
         headStyles: { fillColor: [37, 99, 235] },
       });
       y = (doc as any).lastAutoTable.finalY + 10;
 
-      // ===== CRÉDITOS VENCIDOS =====
-      sectionTitle(`Créditos Vencidos - ${formatCurrency(totalVencido)}`);
+      // ===== DETALHAMENTO =====
+      sectionTitle('DETALHAMENTO');
 
-      if (totalVencido === 0) {
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(34, 197, 94);
-        doc.text('✓ Não possui créditos vencidos', 14, y);
-        doc.setTextColor(0, 0, 0);
-        y += 10;
-      } else {
-        const vencidoRows = sortEntries(Object.entries(vencidoBuckets)).map(([k, v]) => [
-          VENCIMENTO_VENCIDO_MAP[k] || k,
-          formatCurrency(v),
-          totalVencido > 0 ? `${((v / totalVencido) * 100).toFixed(2)}%` : '0%',
-        ]);
-        vencidoRows.push(['Total', formatCurrency(totalVencido), '100%']);
-
-        autoTable(doc, {
-          startY: y,
-          head: [['Prazo', 'Valor', '%']],
-          body: vencidoRows,
-          theme: 'striped',
-          styles: { fontSize: 9, cellPadding: 2 },
-          headStyles: { fillColor: [220, 38, 38] },
-        });
-        y = (doc as any).lastAutoTable.finalY + 10;
-      }
-
-      // ===== LIMITES =====
-      const limiteOps = latestDtb.lsOp.filter(isLimiteOp);
-      if (limiteOps.length > 0) {
-        const totalLimite = limiteOps.reduce((s, op) => s + calcTotalVenc(op.resVenc), 0);
-        sectionTitle(`Limites de Crédito - ${formatCurrency(totalLimite)}`);
-
-        const limiteRows = limiteOps.map(op => [
-          getModalidadeLabel(op.mod),
-          formatCurrency(calcTotalVenc(op.resVenc)),
-        ]);
-
-        autoTable(doc, {
-          startY: y,
-          head: [['Modalidade', 'Limite']],
-          body: limiteRows,
-          theme: 'striped',
-          styles: { fontSize: 9, cellPadding: 2 },
-          headStyles: { fillColor: [37, 99, 235] },
-        });
-        y = (doc as any).lastAutoTable.finalY + 10;
-      }
-
-      // ===== DETALHAMENTO POR CATEGORIA =====
-      const opsByCategory: Record<CategoryKey, { ops: Operacao[]; total: number }> = {
-        emprestimos: { ops: [], total: 0 },
-        titulos_descontados: { ops: [], total: 0 },
-        financiamentos: { ops: [], total: 0 },
-        outros_creditos: { ops: [], total: 0 },
-        limite: { ops: [], total: 0 },
+      const categoryOrder: CategoryKey[] = ['emprestimos', 'titulos_descontados', 'financiamentos', 'outros_creditos', 'limite'];
+      const opsByCategory: Record<CategoryKey, Operacao[]> = {
+        emprestimos: [],
+        titulos_descontados: [],
+        financiamentos: [],
+        outros_creditos: [],
+        limite: [],
       };
 
       latestDtb.lsOp.forEach(op => {
-        const cat = getModalidadeCategory(op.mod);
-        opsByCategory[cat].ops.push(op);
-        opsByCategory[cat].total += calcTotalVenc(op.resVenc);
+        const limite = isLimiteOp(op);
+        const cat = getDisplayCategory(op.mod, limite);
+        opsByCategory[cat].push(op);
       });
 
-      const activeCats = (Object.entries(opsByCategory) as [CategoryKey, { ops: Operacao[]; total: number }][])
-        .filter(([, { ops }]) => ops.length > 0);
+      const totalLimite = opsByCategory.limite.reduce((s, op) => s + calcTotalVenc(op.resVenc), 0);
 
-      sectionTitle(`Detalhamento das Operações - ${formatDtb(latestDtb.dtb)}`);
+      const detailRows: (string[])[] = [];
 
-      for (const [catKey, { ops, total }] of activeCats) {
-        checkPage(30);
-
-        // Category sub-header
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`${CATEGORY_LABELS[catKey]} — ${formatCurrency(total)}`, 14, y);
-        y += 6;
+      categoryOrder.forEach(catKey => {
+        const ops = opsByCategory[catKey];
+        if (ops.length === 0) return;
 
         const isLimiteCat = catKey === 'limite';
-        const opRows = ops.map(op => {
-          const vencStr = Object.entries(op.resVenc)
-            .sort(([a], [b]) => parseInt(a.replace('v', '')) - parseInt(b.replace('v', '')))
-            .map(([k, v]) => `${isLimiteCat ? (VENCIMENTO_LIMITE_MAP[k] || k) : (VENCIMENTO_AVENCER_MAP[k] || VENCIMENTO_VENCIDO_MAP[k] || k)}: ${formatCurrency(v)}`)
-            .join(' | ');
-          return [
-            getModalidadeLabel(op.mod),
-            formatCurrency(calcTotalVenc(op.resVenc)),
-            vencStr,
-          ];
-        });
 
-        autoTable(doc, {
-          startY: y,
-          head: [['Modalidade', 'Valor', 'Vencimentos']],
-          body: opRows,
-          theme: 'striped',
-          styles: { fontSize: 8, cellPadding: 2 },
-          headStyles: { fillColor: [100, 116, 139] },
-          columnStyles: { 2: { cellWidth: 80 } },
+        // Add Limite Total header row
+        if (isLimiteCat) {
+          detailRows.push(['Limite Total', formatCurrency(totalLimite), 'Não', '']);
+        }
+
+        ops.forEach(op => {
+          const categoryLabel = isLimiteCat ? 'Limite' : CATEGORY_LABELS[catKey];
+          const subLabel = isLimiteCat
+            ? (LIMITE_SUB_LABELS[op.mod] || getModalidadeLabel(op.mod))
+            : getModalidadeLabel(op.mod);
+
+          const vencStr = Object.entries(op.resVenc)
+            .filter(([, v]) => v > 0)
+            .sort(([a], [b]) => parseInt(a.replace('v', '')) - parseInt(b.replace('v', '')))
+            .map(([k, v]) => {
+              const label = isLimiteCat
+                ? (VENCIMENTO_LIMITE_MAP[k] || k)
+                : (VENCIMENTO_DETALHE_AVENCER_MAP[k] || VENCIMENTO_VENCIDO_MAP[k] || k);
+              return `${label}  ${formatCurrency(v)}`;
+            })
+            .join('\n');
+
+          detailRows.push([
+            `${categoryLabel}\n${subLabel}`,
+            formatCurrency(calcTotalVenc(op.resVenc)),
+            op.varCamb === 'S' ? 'Sim' : 'Não',
+            vencStr,
+          ]);
         });
-        y = (doc as any).lastAutoTable.finalY + 8;
-      }
+      });
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Modalidade', 'Valor', 'Cambial', 'A vencer']],
+        body: detailRows,
+        theme: 'striped',
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [37, 99, 235] },
+        columnStyles: { 0: { cellWidth: 45 }, 3: { cellWidth: 80 } },
+      });
+      y = (doc as any).lastAutoTable.finalY + 10;
 
       // ===== HISTÓRICO MENSAL =====
       if (response.lsDtb.length > 1) {
