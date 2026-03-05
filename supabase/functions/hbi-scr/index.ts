@@ -12,7 +12,7 @@ function getPreviousMonth(): string {
   now.setMonth(now.getMonth() - 1);
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
-  return `${year}-${month}`;
+  return `${month}/${year}`;
 }
 
 async function authenticate(apiUrl: string): Promise<string> {
@@ -45,9 +45,9 @@ async function authenticate(apiUrl: string): Promise<string> {
   }
 
   const data = await res.json();
-  const token = data.access_token || data.token;
+  const token = data?.data?.jwt || data?.access_token || data?.token;
   if (!token) {
-    throw new Error('Token não retornado pela API HBI.');
+    throw new Error(`Token não retornado pela API HBI.`);
   }
   return token;
 }
