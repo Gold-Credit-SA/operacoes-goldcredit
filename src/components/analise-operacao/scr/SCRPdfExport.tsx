@@ -5,7 +5,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { SCRResponse, DtbEntry, Operacao } from './scr-types';
 import {
-  MODALIDADE_MAP, VENCIMENTO_AVENCER_MAP, VENCIMENTO_VENCIDO_MAP,
+  MODALIDADE_MAP, VENCIMENTO_AVENCER_MAP, VENCIMENTO_VENCIDO_MAP, VENCIMENTO_LIMITE_MAP,
   CATEGORY_LABELS, CategoryKey, getModalidadeCategory, getModalidadeLabel,
 } from './scr-constants';
 import {
@@ -210,10 +210,11 @@ export function SCRPdfExport({ data }: SCRPdfExportProps) {
         doc.text(`${CATEGORY_LABELS[catKey]} — ${formatCurrency(total)}`, 14, y);
         y += 6;
 
+        const isLimiteCat = catKey === 'limite';
         const opRows = ops.map(op => {
           const vencStr = Object.entries(op.resVenc)
             .sort(([a], [b]) => parseInt(a.replace('v', '')) - parseInt(b.replace('v', '')))
-            .map(([k, v]) => `${VENCIMENTO_AVENCER_MAP[k] || VENCIMENTO_VENCIDO_MAP[k] || k}: ${formatCurrency(v)}`)
+            .map(([k, v]) => `${isLimiteCat ? (VENCIMENTO_LIMITE_MAP[k] || k) : (VENCIMENTO_AVENCER_MAP[k] || VENCIMENTO_VENCIDO_MAP[k] || k)}: ${formatCurrency(v)}`)
             .join(' | ');
           return [
             getModalidadeLabel(op.mod),

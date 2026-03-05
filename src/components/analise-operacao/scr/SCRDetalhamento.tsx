@@ -1,14 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DtbEntry, Operacao } from './scr-types';
-import { CATEGORY_LABELS, CategoryKey, VENCIMENTO_AVENCER_MAP, VENCIMENTO_VENCIDO_MAP, getModalidadeCategory, getModalidadeLabel } from './scr-constants';
+import { CATEGORY_LABELS, CategoryKey, VENCIMENTO_AVENCER_MAP, VENCIMENTO_VENCIDO_MAP, VENCIMENTO_LIMITE_MAP, getModalidadeCategory, getModalidadeLabel } from './scr-constants';
 import { formatCurrency, calcTotalVenc, formatDtb, isLimiteOp } from './scr-utils';
 
 interface SCRDetalhamentoProps {
   latestDtb: DtbEntry;
 }
 
-function getVencLabel(key: string): string {
+function getVencLabel(key: string, isLimite: boolean): string {
+  if (isLimite) return VENCIMENTO_LIMITE_MAP[key] || key;
   return VENCIMENTO_AVENCER_MAP[key] || VENCIMENTO_VENCIDO_MAP[key] || key;
 }
 
@@ -29,8 +30,11 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
   });
 
   // Filter categories with data
-  const activeCats = (Object.entries(opsByCategory) as [CategoryKey, { ops: Operacao[]; total: number }][])
-    .filter(([, { ops }]) => ops.length > 0);
+  // Order: emprestimos, titulos, financiamentos, outros, limite (last, like HBI)
+  const categoryOrder: CategoryKey[] = ['emprestimos', 'titulos_descontados', 'financiamentos', 'outros_creditos', 'limite'];
+  const activeCats = categoryOrder
+    .filter(key => opsByCategory[key].ops.length > 0)
+    .map(key => [key, opsByCategory[key]] as [CategoryKey, { ops: Operacao[]; total: number }]);
 
   return (
     <Card>
@@ -67,12 +71,12 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
                         {formatCurrency(opTotal)}
                       </TableCell>
                       <TableCell className="text-sm">
-                        <div className="space-y-0.5">
+                      <div className="space-y-0.5">
                           {Object.entries(op.resVenc)
                             .sort(([a], [b]) => parseInt(a.replace('v', '')) - parseInt(b.replace('v', '')))
                             .map(([key, val]) => (
                               <div key={key} className="flex justify-between gap-4 text-xs">
-                                <span className="text-muted-foreground">{getVencLabel(key)}</span>
+                                <span className="text-muted-foreground">{getVencLabel(key, catKey === 'limite')}</span>
                                 <span className="font-mono whitespace-nowrap">{formatCurrency(val)}</span>
                               </div>
                             ))}

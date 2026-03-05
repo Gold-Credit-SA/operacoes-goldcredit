@@ -61,6 +61,6 @@ export function separateVencBuckets(resVenc: ResVenc): { vencidos: Record<string
 }
 
 export function isLimiteOp(op: Operacao): boolean {
-  const LIMITE_MODS = ['1909', '0208', '0214', '0207', '1905'];
+  const LIMITE_MODS = ['1909', '0208', '0214', '1905'];
   return LIMITE_MODS.includes(op.mod);
 }

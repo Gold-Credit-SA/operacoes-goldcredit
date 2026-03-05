@@ -53,6 +53,20 @@ export const VENCIMENTO_VENCIDO_MAP: Record<string, string> = {
   'v40': 'Vencidos de 31 a 60 dias',
 };
 
+// Labels específicos para operações de LIMITE (buckets têm semântica diferente)
+export const VENCIMENTO_LIMITE_MAP: Record<string, string> = {
+  'v10': 'Limite com vencimento acima de 360 dias',
+  'v20': 'Limite com vencimento até 360 dias',
+  'v30': 'Limite com vencimento até 360 dias',
+  'v40': 'Limite com vencimento acima de 360 dias',
+  'v110': 'Limite com vencimento até 30 dias',
+  'v120': 'Limite com vencimento de 31 a 60 dias',
+  'v130': 'Limite com vencimento de 61 a 90 dias',
+  'v140': 'Limite com vencimento de 91 a 180 dias',
+  'v150': 'Limite com vencimento de 181 a 360 dias',
+  'v160': 'Limite com vencimento acima de 360 dias',
+};
+
 export const SEGMENTO_MAP: Record<string, string> = {
   '01': 'PF',
   '02': 'PJ',
@@ -77,7 +91,7 @@ export const CATEGORY_LABELS: Record<CategoryKey, string> = {
 };
 
 export function getModalidadeCategory(mod: string): CategoryKey {
-  const LIMITE_MODS = ['1909', '0208', '0214', '0207', '1905'];
+  const LIMITE_MODS = ['1909', '0208', '0214', '1905'];
   if (LIMITE_MODS.includes(mod)) return 'limite';
   const code = parseInt(mod);
   if (code >= 200 && code < 300) return 'emprestimos';
