@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CONSULTA_TYPES, type ConsultaTypeId } from './ConsultaSelection';
+import { supabase } from '@/integrations/supabase/client';
 
 export type ConsultaStatus = 'pending' | 'running' | 'success' | 'error';
 
@@ -30,10 +31,26 @@ function getLabel(id: ConsultaTypeId): string {
 }
 
 async function executeConsulta(cnpj: string, id: ConsultaTypeId): Promise<Record<string, unknown>> {
-  // Simulate API call - replace with real integration
+  // SCR - real HBI integration
+  if (id === 'scr') {
+    const { data, error } = await supabase.functions.invoke('hbi-scr', {
+      body: { cnpj },
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Erro ao consultar SCR.');
+    }
+
+    if (data?.error) {
+      throw new Error(data.error);
+    }
+
+    return data?.data || data;
+  }
+
+  // Other consultas - still simulated
   await new Promise(r => setTimeout(r, 1500 + Math.random() * 2000));
   
-  // Simulate occasional failures for demo
   if (Math.random() < 0.15) {
     throw new Error('Timeout na conexão com o provedor. Tente novamente.');
   }
