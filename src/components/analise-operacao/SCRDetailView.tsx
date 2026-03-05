@@ -4,7 +4,6 @@ import { SCRResponse } from './scr/scr-types';
 import { SCRHeader } from './scr/SCRHeader';
 import { SCRCarteiraAtiva } from './scr/SCRCarteiraAtiva';
 import { SCRDetalhamento } from './scr/SCRDetalhamento';
-import { SCRLimites } from './scr/SCRLimites';
 import { SCRHistorico } from './scr/SCRHistorico';
 import { SCRPdfExport } from './scr/SCRPdfExport';
 
@@ -54,7 +53,6 @@ export function SCRDetailView({ data }: SCRDetailViewProps) {
         riskClassification={riskClassification}
       />
       <SCRCarteiraAtiva latestDtb={latestDtb} />
-      <SCRLimites latestDtb={latestDtb} />
       <SCRDetalhamento latestDtb={latestDtb} />
       <SCRHistorico lsDtb={response.lsDtb} />
     </div>
