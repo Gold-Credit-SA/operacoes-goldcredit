@@ -12,7 +12,7 @@ function getPreviousMonth(): string {
   now.setMonth(now.getMonth() - 1);
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
-  return `${month}/${year}`;
+  return `${year}-${month}`;
 }
 
 async function authenticate(apiUrl: string): Promise<string> {
@@ -54,19 +54,33 @@ async function authenticate(apiUrl: string): Promise<string> {
 
 async function querySCR(apiUrl: string, token: string, cnpj: string): Promise<any> {
   const baseDateInitial = getPreviousMonth();
+  
+  const url = `${apiUrl}/query/scr/v2/new/${cnpj}`;
+  const body = {
+    baseDateInitial,
+    uuidTypeScr: HBI_USER_ID,
+  };
+  
+  console.log(`[hbi-scr] POST ${url}`);
+  console.log(`[hbi-scr] Body: ${JSON.stringify(body)}`);
 
-  const res = await fetch(`${apiUrl}/query/scr/v2/new/${cnpj}`, {
+  const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
-      'user': HBI_USER_ID,
     },
-    body: JSON.stringify({
-      baseDateInitial,
-      uuidTypeScr: HBI_USER_ID,
-    }),
+    body: JSON.stringify(body),
   });
+
+  const text = await res.text();
+  console.log(`[hbi-scr] Response status: ${res.status}, body: ${text.substring(0, 500)}`);
+  
+  if (!res.ok) {
+    throw new Error(`Erro na consulta SCR (${res.status}): ${text}`);
+  }
+
+  return JSON.parse(text);
 
   if (!res.ok) {
     const text = await res.text();
