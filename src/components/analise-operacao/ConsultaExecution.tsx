@@ -3,6 +3,8 @@ import { Loader2, CheckCircle2, XCircle, RotateCcw, ArrowLeft, FileText } from '
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { CONSULTA_TYPES, type ConsultaTypeId } from './ConsultaSelection';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -69,6 +71,7 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis }: Con
     selected.map(id => ({ id, status: 'pending' as const }))
   );
   const executedRef = useRef(false);
+  const [detailResult, setDetailResult] = useState<ConsultaResult | null>(null);
 
   const runConsulta = useCallback(async (id: ConsultaTypeId) => {
     setResults(prev => prev.map(r => r.id === id ? { ...r, status: 'running' as const, error: undefined } : r));
@@ -160,7 +163,7 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis }: Con
                 </Button>
               )}
               {r.status === 'success' && (
-                <Button variant="ghost" size="sm" className="text-muted-foreground">
+                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setDetailResult(r)}>
                   <FileText className="h-3.5 w-3.5 mr-1" />
                   Ver detalhes
                 </Button>
@@ -169,6 +172,78 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis }: Con
           </Card>
         ))}
       </div>
+
+      {/* Detail Dialog */}
+      <Dialog open={!!detailResult} onOpenChange={(open) => !open && setDetailResult(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              {detailResult ? getLabel(detailResult.id) : ''}
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            {detailResult?.data && (
+              <div className="space-y-3">
+                {renderDetailData(detailResult.data)}
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+}
+
+function renderDetailData(data: Record<string, unknown>, depth = 0): React.ReactNode {
+  return Object.entries(data).map(([key, value]) => {
+    if (value === null || value === undefined) return null;
+    
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      return (
+        <div key={key} className={`${depth > 0 ? 'ml-4' : ''} space-y-1`}>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{formatKey(key)}</p>
+          <div className="border-l-2 border-border pl-3 space-y-2">
+            {renderDetailData(value as Record<string, unknown>, depth + 1)}
+          </div>
+        </div>
+      );
+    }
+    
+    if (Array.isArray(value)) {
+      return (
+        <div key={key} className={`${depth > 0 ? 'ml-4' : ''} space-y-1`}>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{formatKey(key)}</p>
+          {value.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic">Nenhum item</p>
+          ) : (
+            <div className="space-y-2">
+              {value.map((item, i) => (
+                <div key={i} className="border border-border rounded-md p-2">
+                  {typeof item === 'object' ? renderDetailData(item as Record<string, unknown>, depth + 1) : (
+                    <p className="text-sm text-foreground">{String(item)}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div key={key} className={`${depth > 0 ? 'ml-4' : ''} flex items-baseline gap-2 py-0.5`}>
+        <span className="text-xs text-muted-foreground shrink-0">{formatKey(key)}:</span>
+        <span className="text-sm text-foreground break-all">{String(value)}</span>
+      </div>
+    );
+  });
+}
+
+function formatKey(key: string): string {
+  return key
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/[_-]/g, ' ')
+    .trim()
+    .replace(/^\w/, c => c.toUpperCase());
 }
