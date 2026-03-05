@@ -6,6 +6,7 @@ import { SCRCarteiraAtiva } from './scr/SCRCarteiraAtiva';
 import { SCRDetalhamento } from './scr/SCRDetalhamento';
 import { SCRLimites } from './scr/SCRLimites';
 import { SCRHistorico } from './scr/SCRHistorico';
+import { SCRPdfExport } from './scr/SCRPdfExport';
 
 interface SCRDetailViewProps {
   data: Record<string, unknown>;
@@ -41,6 +42,9 @@ export function SCRDetailView({ data }: SCRDetailViewProps) {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <SCRPdfExport data={data} />
+      </div>
       <SCRHeader
         cdCli={response.cdCli}
         dtbConsult={response.dtbConsult}
