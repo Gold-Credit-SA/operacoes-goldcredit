@@ -1,46 +1,57 @@
 
 
-## Integração HBI SCR - Plano de Implementação
+## Análise: Diferenças entre SCRDetailView atual e o relatório real HBI
 
-O valor `be3cf5f4-cc5d-45c8-ab1b-b2ddffe635a4` será usado tanto como `uuidTypeScr` (tipo de consulta detalhada) quanto como `providerID` / header `user` na autenticação.
+Comparei o PDF real do HBI (SCR-2.pdf) com o componente `SCRDetailView.tsx` atual. Existem várias diferenças significativas:
 
-### Visão Geral
+### Campos faltantes no cabeçalho
+O PDF real exibe campos que não estão no componente atual:
+- **Razão social** (nome da empresa, em destaque)
+- **CNPJ formatado** (18.475.469/0002-23)
+- **Raiz do documento** (primeiros 8 dígitos)
+- **Total de operações** (ex: 40)
+- **Op. em discordância** e **Op. sub judice** (ambos 0 no exemplo)
+- **Risco direto** (R$ 0,00)
+- **Classificação de risco** (ex: "A")
 
-Criar uma edge function `hbi-scr` que:
-1. Autentica na API HBI obtendo um JWT
-2. Envia consulta SCR detalhada para um CPF/CNPJ
-3. Busca o resultado via polling no endpoint de listagem
-4. Retorna os dados ao frontend
+### Seções faltantes ou incompletas
+1. **Créditos Vencidos** - O PDF tem uma seção separada para créditos vencidos (v10, v20 para vencidos). Atualmente tudo é misturado em "Carteira Ativa".
+2. **Seção de Limites** - O PDF mostra limites de crédito (Cheque especial, Cartão de Crédito) separados das operações. O componente atual não distingue limites.
+3. **Categorias do detalhamento** - O PDF agrupa por categorias maiores: Empréstimos, Títulos Descontados, Financiamentos, Outros Créditos, Limite. Cada categoria tem subtotal e sub-modalidades indentadas.
 
-Conectar essa edge function ao fluxo existente em `ConsultaExecution`, substituindo a simulação atual por chamada real quando a consulta selecionada for `scr`.
+### Labels de Carteira Ativa
+O PDF usa labels mais curtas: "30 Dias", "31 a 60 Dias", "61 a 90 Dias", etc. O componente usa "A vencer até 30 dias", "A vencer de 31 a 60 dias".
+
+### Modalidades faltantes no mapa
+- Códigos para "Outros créditos" e "Cartão de crédito - compra"
+- Códigos de limite (1909 já existe mas precisa separar como "Limite")
 
 ---
 
-### 1. Edge Function `hbi-scr`
+## Plano de implementação
 
-**Arquivo**: `supabase/functions/hbi-scr/index.ts`
+### 1. Atualizar cabeçalho com todos os campos do relatório real
+- Adicionar Razão social em destaque
+- Formatar CNPJ com máscara
+- Adicionar "Raiz do documento", "Total de operações", "Op. em discordância", "Op. sub judice", "Risco direto", "Classificação de risco"
+- Nota: alguns destes campos podem não vir na API; exibir quando disponíveis, ocultar quando não
 
-**Fluxo**:
-- Recebe `{ cnpj: string }` no body
-- **Auth**: `POST /authentication/login` com secrets já configurados + header `user: be3cf5f4-cc5d-45c8-ab1b-b2ddffe635a4`
-- **Consulta**: `POST /query/scr/v2/new/{cnpj}` com Bearer JWT, body `{ baseDateInitial: "YYYY-MM" (mês anterior), uuidTypeScr: "be3cf5f4-cc5d-45c8-ab1b-b2ddffe635a4" }`
-- **Polling**: Se o POST não retornar dados, faz `GET /query/list/v2?service=SCR&q={cnpj}` a cada 3s (máx 10 tentativas) até encontrar resultado
-- Retorna dados da consulta SCR ao frontend
+### 2. Separar Carteira Ativa em "Créditos a Vencer" e "Créditos Vencidos"
+- Buckets v10-v40 = vencidos; v110-v200 = a vencer
+- Mostrar subtotais separados e mensagem "não possui créditos vencidos" quando aplicável
 
-**Secrets utilizados**: `HBI_API_URL`, `HBI_CLIENT_ID`, `HBI_CLIENT_SECRET`, `HBI_GRANT_TYPE`, `HBI_SCOPE`
+### 3. Reformatar seção de Detalhamento
+- Agrupar operações por categoria principal (Empréstimos, Títulos Descontados, Financiamentos, Outros Créditos, Limite)
+- Mostrar subtotal por categoria como header
+- Sub-modalidade indentada abaixo da categoria
+- Usar labels curtas nos prazos ("30 Dias" em vez de "A vencer até 30 dias")
 
-### 2. Config TOML
+### 4. Adicionar seção de Limites separada
+- Filtrar operações que são limites (mod 1909 e similares)
+- Exibir em seção própria com "Limite Total"
 
-Adicionar entrada `[functions.hbi-scr]` com `verify_jwt = false`.
+### 5. Expandir mapas de modalidades
+- Adicionar códigos faltantes para "Outros créditos", "Cartão de crédito - compra", etc.
 
-### 3. Frontend - `ConsultaExecution`
-
-Atualizar `executeConsulta()` para, quando `id === 'scr'`, chamar `supabase.functions.invoke('hbi-scr', { body: { cnpj } })` em vez da simulação com timeout. As demais consultas continuam simuladas por enquanto.
-
-### 4. Tratamento de Erros
-
-- Timeout na autenticação HBI
-- Falha na consulta SCR (CNPJ inválido, serviço indisponível)
-- Polling sem resultado após tentativas máximas
-- Mensagens de erro em português para o usuário
+**Arquivo editado:** `src/components/analise-operacao/SCRDetailView.tsx`
 
