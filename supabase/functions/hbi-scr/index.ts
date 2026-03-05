@@ -8,9 +8,9 @@ const corsHeaders = {
 const HBI_USER_ID = 'be3cf5f4-cc5d-45c8-ab1b-b2ddffe635a4';
 const UUID_TYPE_SCR_DETALHADA = '03f01e46-e7d8-11f0-88a2-0a28bdd2a488';
 
-function getPreviousMonth(): string {
+function getMonthOffset(offset: number): string {
   const now = new Date();
-  now.setMonth(now.getMonth() - 1);
+  now.setMonth(now.getMonth() - offset);
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   return `${year}-${month}`;
@@ -54,42 +54,44 @@ async function authenticate(apiUrl: string): Promise<string> {
 }
 
 async function querySCR(apiUrl: string, token: string, cnpj: string): Promise<any> {
-  const baseDateInitial = getPreviousMonth();
-  
   const url = `${apiUrl}/query/scr/v2/new/${cnpj}`;
-  const body = {
-    baseDateInitial,
-    uuidTypeScr: UUID_TYPE_SCR_DETALHADA,
-  };
-  
-  console.log(`[hbi-scr] POST ${url}`);
-  console.log(`[hbi-scr] Body: ${JSON.stringify(body)}`);
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify(body),
-  });
+  // Try up to 4 months back (1, 2, 3, 4) to find available data
+  for (let monthsBack = 1; monthsBack <= 4; monthsBack++) {
+    const baseDateInitial = getMonthOffset(monthsBack);
+    const body = { baseDateInitial, uuidTypeScr: UUID_TYPE_SCR_DETALHADA };
 
-  const text = await res.text();
-  console.log(`[hbi-scr] Response status: ${res.status}, body: ${text.substring(0, 500)}`);
-  
-  if (!res.ok) {
-    throw new Error(`Erro na consulta SCR (${res.status}): ${text}`);
-  }
+    console.log(`[hbi-scr] Tentando mês ${baseDateInitial} (${monthsBack} mês(es) atrás)`);
 
-  return JSON.parse(text);
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
 
-  if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Erro na consulta SCR (${res.status}): ${text}`);
+    console.log(`[hbi-scr] Response status: ${res.status}, body: ${text.substring(0, 500)}`);
+
+    if (!res.ok) {
+      throw new Error(`Erro na consulta SCR (${res.status}): ${text}`);
+    }
+
+    const parsed = JSON.parse(text);
+    const code = parsed?.data?.response?.codigo || parsed?.response?.codigo;
+
+    // Code 52 = data-base not available, try older month
+    if (code === '52' || code === 52) {
+      console.log(`[hbi-scr] Data-base ${baseDateInitial} indisponível (código 52), tentando mês anterior...`);
+      continue;
+    }
+
+    return parsed;
   }
 
-  const data = await res.json();
-  return data;
+  throw new Error('Consulta SCR indisponível: nenhuma data-base dos últimos 4 meses possui dados para este CNPJ.');
 }
 
 async function pollResults(apiUrl: string, token: string, cnpj: string): Promise<any> {
