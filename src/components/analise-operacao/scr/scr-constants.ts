@@ -77,11 +77,12 @@ export const CATEGORY_LABELS: Record<CategoryKey, string> = {
 };
 
 export function getModalidadeCategory(mod: string): CategoryKey {
+  const LIMITE_MODS = ['1909', '0208', '0214', '0207', '1905'];
+  if (LIMITE_MODS.includes(mod)) return 'limite';
   const code = parseInt(mod);
   if (code >= 200 && code < 300) return 'emprestimos';
   if (code >= 300 && code < 400) return 'titulos_descontados';
   if (code >= 400 && code < 500) return 'financiamentos';
-  if (code === 1909) return 'limite';
   if (code >= 1300 && code < 1400) return 'outros_creditos';
   if (code >= 1900 && code < 2000) return 'outros_creditos';
   return 'outros_creditos';
