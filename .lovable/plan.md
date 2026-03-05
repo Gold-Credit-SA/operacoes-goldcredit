@@ -1,40 +1,46 @@
 
 
-# Aniversariantes Globais - Todos os Gestores
+## Integração HBI SCR - Plano de Implementação
 
-## Problema
-A query de aniversariantes no `gestor-dashboard` filtra por `c.cpf_cnpj IN (cpfList)`, mostrando apenas socios de empresas da carteira do gestor logado. O pedido e que **todos** os aniversariantes aparecam para **todos** os gestores.
+O valor `be3cf5f4-cc5d-45c8-ab1b-b2ddffe635a4` será usado tanto como `uuidTypeScr` (tipo de consulta detalhada) quanto como `providerID` / header `user` na autenticação.
 
-## Alteracoes
+### Visão Geral
 
-### Edge Function `portfolio-data/index.ts` (acao `gestor-dashboard`)
+Criar uma edge function `hbi-scr` que:
+1. Autentica na API HBI obtendo um JWT
+2. Envia consulta SCR detalhada para um CPF/CNPJ
+3. Busca o resultado via polling no endpoint de listagem
+4. Retorna os dados ao frontend
 
-1. **Remover o filtro por carteira na query de aniversariantes** (linhas 770-778): trocar a query com `INNER JOIN ... WHERE c.cpf_cnpj IN (...)` por uma query simples sem filtro:
+Conectar essa edge function ao fluxo existente em `ConsultaExecution`, substituindo a simulação atual por chamada real quando a consulta selecionada for `scr`.
 
-```sql
-SELECT a.nome, a.nascimento, a.empresa
-FROM smartsecurities_aniversariantes a
-WHERE a.nascimento IS NOT NULL
-  AND a.empresa IS NOT NULL AND TRIM(a.empresa) != ''
-```
+---
 
-2. **Mover a query de aniversariantes para antes do early-return de carteira vazia** (linhas 752-761): atualmente, se `cpfList` esta vazio, o endpoint retorna arrays vazios para tudo, incluindo aniversariantes. A query de aniversariantes precisa executar independentemente da carteira.
+### 1. Edge Function `hbi-scr`
 
-3. **Calcular `na_carteira`** no mapeamento dos resultados: comparar `UPPER(TRIM(a.empresa))` com os nomes dos cedentes da carteira do usuario para manter a flag visual.
+**Arquivo**: `supabase/functions/hbi-scr/index.ts`
 
-### Fluxo revisado
+**Fluxo**:
+- Recebe `{ cnpj: string }` no body
+- **Auth**: `POST /authentication/login` com secrets já configurados + header `user: be3cf5f4-cc5d-45c8-ab1b-b2ddffe635a4`
+- **Consulta**: `POST /query/scr/v2/new/{cnpj}` com Bearer JWT, body `{ baseDateInitial: "YYYY-MM" (mês anterior), uuidTypeScr: "be3cf5f4-cc5d-45c8-ab1b-b2ddffe635a4" }`
+- **Polling**: Se o POST não retornar dados, faz `GET /query/list/v2?service=SCR&q={cnpj}` a cada 3s (máx 10 tentativas) até encontrar resultado
+- Retorna dados da consulta SCR ao frontend
 
-```text
-Antes:
-  cpfList vazio -> retorna [] para tudo
-  cpfList preenchido -> aniversariantes filtrados por cpfList
+**Secrets utilizados**: `HBI_API_URL`, `HBI_CLIENT_ID`, `HBI_CLIENT_SECRET`, `HBI_GRANT_TYPE`, `HBI_SCOPE`
 
-Depois:
-  Sempre busca TODOS os aniversariantes (sem filtro)
-  cpfList vazio -> saldoTrustee=[], chequesDevolvidos=[], mas aniversariantes preenchidos
-  na_carteira = true/false baseado na carteira do usuario
-```
+### 2. Config TOML
 
-### Arquivo modificado
-- `supabase/functions/portfolio-data/index.ts` - Acao `gestor-dashboard`, linhas 740-882
+Adicionar entrada `[functions.hbi-scr]` com `verify_jwt = false`.
+
+### 3. Frontend - `ConsultaExecution`
+
+Atualizar `executeConsulta()` para, quando `id === 'scr'`, chamar `supabase.functions.invoke('hbi-scr', { body: { cnpj } })` em vez da simulação com timeout. As demais consultas continuam simuladas por enquanto.
+
+### 4. Tratamento de Erros
+
+- Timeout na autenticação HBI
+- Falha na consulta SCR (CNPJ inválido, serviço indisponível)
+- Polling sem resultado após tentativas máximas
+- Mensagens de erro em português para o usuário
 
