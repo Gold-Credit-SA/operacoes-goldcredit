@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { CreditCard } from 'lucide-react';
 import { DtbEntry } from './scr-types';
-import { getModalidadeLabel, VENCIMENTO_AVENCER_MAP, VENCIMENTO_VENCIDO_MAP } from './scr-constants';
+import { getModalidadeLabel, VENCIMENTO_LIMITE_MAP } from './scr-constants';
 import { formatCurrency, calcTotalVenc, isLimiteOp } from './scr-utils';
 
 interface SCRLimitesProps {
@@ -43,7 +43,7 @@ export function SCRLimites({ latestDtb }: SCRLimitesProps) {
                 .sort(([a], [b]) => parseInt(a.replace('v', '')) - parseInt(b.replace('v', '')));
 
               const bucketLabels = sortedBuckets.map(([k, v]) => {
-                const label = VENCIMENTO_AVENCER_MAP[k] || VENCIMENTO_VENCIDO_MAP[k] || k;
+                const label = VENCIMENTO_LIMITE_MAP[k] || k;
                 return `${label}: ${formatCurrency(v)}`;
               }).join(', ');
 
