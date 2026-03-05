@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CONSULTA_TYPES, type ConsultaTypeId } from './ConsultaSelection';
+import { SCRDetailView } from './SCRDetailView';
 import { supabase } from '@/integrations/supabase/client';
 
 export type ConsultaStatus = 'pending' | 'running' | 'success' | 'error';
@@ -175,18 +176,22 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis }: Con
 
       {/* Detail Dialog */}
       <Dialog open={!!detailResult} onOpenChange={(open) => !open && setDetailResult(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh]">
+        <DialogContent className="max-w-3xl max-h-[85vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
               {detailResult ? getLabel(detailResult.id) : ''}
             </DialogTitle>
           </DialogHeader>
-          <ScrollArea className="max-h-[60vh]">
+          <ScrollArea className="max-h-[70vh]">
             {detailResult?.data && (
-              <div className="space-y-3">
-                {renderDetailData(detailResult.data)}
-              </div>
+              detailResult.id === 'scr' ? (
+                <SCRDetailView data={detailResult.data} />
+              ) : (
+                <div className="space-y-3">
+                  {renderDetailData(detailResult.data)}
+                </div>
+              )
             )}
           </ScrollArea>
         </DialogContent>
