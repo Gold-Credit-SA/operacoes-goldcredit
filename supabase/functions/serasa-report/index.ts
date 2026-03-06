@@ -33,7 +33,9 @@ serve(async (req) => {
 
     // Step 1: Authenticate - get Bearer token
     const basicAuth = btoa(`${clientId}:${clientSecret}`);
-    console.log('Authenticating with Serasa...');
+    const authUrl = `${baseUrl}/security/iam/v1/client-identities/login`;
+    console.log('Auth URL:', authUrl);
+    console.log('Base URL from env:', baseUrl);
 
     const authRes = await fetch(`${baseUrl}/security/iam/v1/client-identities/login`, {
       method: 'POST',
