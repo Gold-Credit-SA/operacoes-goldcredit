@@ -1,18 +1,15 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
+import { createRoot } from 'react-dom/client';
 import { Button } from '@/components/ui/button';
 import { FileDown, Loader2 } from 'lucide-react';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { SCRResponse, DtbEntry, Operacao } from './scr-types';
-import {
-  VENCIMENTO_AVENCER_MAP, VENCIMENTO_VENCIDO_MAP,
-  VENCIMENTO_DETALHE_MAP, VENCIMENTO_LIMITE_MAP, LIMITE_SUB_LABELS,
-  CATEGORY_LABELS, CategoryKey, getDisplayCategory, getModalidadeLabel, sortOpsByPriority,
-} from './scr-constants';
-import {
-  formatCurrency, formatCnpj, getRaizDocumento, formatDate,
-  formatDtb, calcTotalVenc, calcCarteiraAtiva, separateVencBuckets, isLimiteOp,
-} from './scr-utils';
+import html2canvas from 'html2canvas';
+import { SCRResponse } from './scr-types';
+import { SCRHeader } from './SCRHeader';
+import { SCRCreditosCharts, SCRCarteiraAtivaTable } from './SCRCarteiraAtiva';
+import { SCRLimitesCredito } from './SCRLimitesCredito';
+import { SCRDetalhamento } from './SCRDetalhamento';
+import { SCRHistorico } from './SCRHistorico';
 
 interface SCRPdfExportProps {
   data: Record<string, unknown>;
@@ -25,10 +22,15 @@ function extractResponse(data: Record<string, unknown>): SCRResponse | null {
   return null;
 }
 
+/**
+ * Renders the SCR report sections into a hidden container,
+ * captures them with html2canvas, and generates a multi-page PDF
+ * that looks identical to the on-screen modal.
+ */
 export function SCRPdfExport({ data }: SCRPdfExportProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const generatePdf = async () => {
+  const generatePdf = useCallback(async () => {
     setIsGenerating(true);
     try {
       const response = extractResponse(data);
@@ -36,255 +38,109 @@ export function SCRPdfExport({ data }: SCRPdfExportProps) {
 
       const latestDtb = response.lsDtb[response.lsDtb.length - 1];
       const entityName = (data as any)?.data?.name || (data as any)?.name || response.name || '';
+      const totalOperacoes = latestDtb.lsOp.length;
+      const riskClassification = (data as any)?.data?.riskClassification || (data as any)?.riskClassification;
 
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      let y = 20;
+      // Create an off-screen container with proper styling
+      const container = document.createElement('div');
+      container.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;background:white;padding:32px;z-index:-1;';
+      document.body.appendChild(container);
 
-      const checkPage = (needed: number) => {
-        if (y + needed > 270) { doc.addPage(); y = 20; }
-      };
+      // Copy all stylesheets to the container's context
+      const root = createRoot(container);
 
-      const sectionTitle = (title: string) => {
-        checkPage(20);
-        doc.setFontSize(13);
-        doc.setFont('helvetica', 'bold');
-        doc.text(title, 14, y);
-        y += 8;
-      };
+      // Render the same components used in the modal
+      await new Promise<void>((resolve) => {
+        root.render(
+          <div className="space-y-6 bg-white text-black" style={{ width: '736px', fontFamily: 'system-ui, sans-serif' }}>
+            {/* Title header */}
+            <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+              <p style={{ fontSize: '10px', color: '#888' }}>
+                Gerado em: {new Date().toLocaleString('pt-BR')}
+              </p>
+            </div>
 
-      const sortEntries = (entries: [string, number][]) =>
-        entries.sort(([a], [b]) => parseInt(a.replace('v', '')) - parseInt(b.replace('v', '')));
+            <SCRHeader
+              cdCli={response.cdCli}
+              dtbConsult={response.dtbConsult}
+              entityName={entityName}
+              latestDtb={latestDtb}
+              totalOperacoes={totalOperacoes}
+              riskClassification={riskClassification}
+            />
+            <SCRCreditosCharts latestDtb={latestDtb} />
+            <SCRCarteiraAtivaTable latestDtb={latestDtb} />
+            <SCRLimitesCredito latestDtb={latestDtb} />
+            <SCRDetalhamento latestDtb={latestDtb} />
+            <SCRHistorico lsDtb={response.lsDtb} />
+          </div>
+        );
 
-      // ===== HEADER =====
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text('SCR - Sistema de Informações de Crédito', pageWidth / 2, y, { align: 'center' });
-      y += 8;
+        // Wait for recharts to render (animations + layout)
+        setTimeout(resolve, 1500);
+      });
 
-      if (entityName) {
-        doc.setFontSize(12);
-        doc.text(entityName, pageWidth / 2, y, { align: 'center' });
-        y += 7;
+      // Capture the rendered content
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        width: 800,
+        windowWidth: 800,
+      });
+
+      // Clean up
+      root.unmount();
+      document.body.removeChild(container);
+
+      // Generate multi-page PDF from the canvas
+      const imgData = canvas.toDataURL('image/png');
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+
+      const pdfWidth = 210; // A4 width in mm
+      const pdfHeight = 297; // A4 height in mm
+      const margin = 10;
+      const contentWidth = pdfWidth - margin * 2;
+      const contentHeight = pdfHeight - margin * 2;
+
+      const scaledHeight = (imgHeight * contentWidth) / imgWidth;
+      const totalPages = Math.ceil(scaledHeight / contentHeight);
+
+      const doc = new jsPDF('p', 'mm', 'a4');
+
+      for (let page = 0; page < totalPages; page++) {
+        if (page > 0) doc.addPage();
+
+        // Calculate the source region for this page
+        const srcY = (page * contentHeight * imgWidth) / contentWidth;
+        const srcHeight = Math.min(
+          (contentHeight * imgWidth) / contentWidth,
+          imgHeight - srcY
+        );
+
+        // Create a canvas for this page slice
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = imgWidth;
+        pageCanvas.height = Math.ceil(srcHeight);
+        const ctx = pageCanvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+          ctx.drawImage(
+            canvas,
+            0, Math.floor(srcY), imgWidth, Math.ceil(srcHeight),
+            0, 0, imgWidth, Math.ceil(srcHeight)
+          );
+        }
+
+        const pageImgData = pageCanvas.toDataURL('image/png');
+        const renderedHeight = (srcHeight * contentWidth) / imgWidth;
+
+        doc.addImage(pageImgData, 'PNG', margin, margin, contentWidth, renderedHeight);
       }
 
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, pageWidth / 2, y, { align: 'center' });
-      y += 12;
-
-      // ===== DADOS GERAIS =====
-      sectionTitle('Dados Gerais');
-
-      const headerData = [
-        ['CPF/CNPJ', formatCnpj(response.cdCli)],
-        ['Raiz do documento', getRaizDocumento(response.cdCli)],
-        ['Período consultado', response.dtbConsult],
-        ['Início do relacionamento', formatDate(latestDtb.dtbIniRel)],
-        ['Total de operações', String(latestDtb.lsOp.length)],
-        ['Total de instituições', String(latestDtb.qtdIfs)],
-        ['Op. em discordância', String(latestDtb.coobAss)],
-        ['Op. sub judice', String(latestDtb.coobRec)],
-        ['Doc. processados', `${latestDtb.docProc}%`],
-        ['Vol. processado', `${latestDtb.volProc}%`],
-      ];
-
-      autoTable(doc, {
-        startY: y,
-        head: [],
-        body: headerData,
-        theme: 'plain',
-        styles: { fontSize: 9, cellPadding: 2 },
-        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 } },
-      });
-      y = (doc as any).lastAutoTable.finalY + 10;
-
-      // ===== CRÉDITOS A VENCER =====
-      const aVencerBuckets: Record<string, number> = {};
-      const vencidoBuckets: Record<string, number> = {};
-
-      latestDtb.lsOp.filter(op => !isLimiteOp(op)).forEach(op => {
-        const { vencidos, aVencer } = separateVencBuckets(op.resVenc);
-        Object.entries(aVencer).forEach(([k, v]) => { aVencerBuckets[k] = (aVencerBuckets[k] || 0) + v; });
-        Object.entries(vencidos).forEach(([k, v]) => { vencidoBuckets[k] = (vencidoBuckets[k] || 0) + v; });
-      });
-
-      const totalAVencer = Object.values(aVencerBuckets).reduce((s, v) => s + v, 0);
-      const totalVencido = Object.values(vencidoBuckets).reduce((s, v) => s + v, 0);
-
-      sectionTitle(`Créditos a Vencer — ${formatCurrency(totalAVencer)}`);
-
-      const aVencerRows = sortEntries(Object.entries(aVencerBuckets)).map(([k, v]) => [
-        VENCIMENTO_AVENCER_MAP[k] || k,
-        formatCurrency(v),
-        totalAVencer > 0 ? `${((v / totalAVencer) * 100).toFixed(2)}%` : '0%',
-      ]);
-
-      autoTable(doc, {
-        startY: y,
-        head: [['Prazo', 'Valor', '%']],
-        body: aVencerRows,
-        theme: 'striped',
-        styles: { fontSize: 9, cellPadding: 2 },
-        headStyles: { fillColor: [37, 99, 235] },
-      });
-      y = (doc as any).lastAutoTable.finalY + 10;
-
-      // ===== CRÉDITOS VENCIDOS =====
-      sectionTitle(`Créditos Vencidos — ${formatCurrency(totalVencido)}`);
-
-      if (totalVencido === 0) {
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.text('O documento consultado não possui créditos vencidos.', 14, y);
-        y += 8;
-      } else {
-        const vencidoRows = sortEntries(Object.entries(vencidoBuckets)).map(([k, v]) => [
-          VENCIMENTO_VENCIDO_MAP[k] || k,
-          formatCurrency(v),
-          totalVencido > 0 ? `${((v / totalVencido) * 100).toFixed(2)}%` : '0%',
-        ]);
-
-        autoTable(doc, {
-          startY: y,
-          head: [['Prazo', 'Valor', '%']],
-          body: vencidoRows,
-          theme: 'striped',
-          styles: { fontSize: 9, cellPadding: 2 },
-          headStyles: { fillColor: [37, 99, 235] },
-        });
-        y = (doc as any).lastAutoTable.finalY + 10;
-      }
-
-      // ===== LIMITES DE CRÉDITO =====
-      const limiteOps = latestDtb.lsOp.filter(op => isLimiteOp(op));
-      if (limiteOps.length > 0) {
-        const totalLimite = limiteOps.reduce((s, op) => s + calcTotalVenc(op.resVenc), 0);
-        sectionTitle(`Limites de Crédito — ${formatCurrency(totalLimite)}`);
-
-        const groupedLimits: Record<string, number> = {};
-        limiteOps.forEach(op => {
-          const label = LIMITE_SUB_LABELS[op.mod] || getModalidadeLabel(op.mod);
-          groupedLimits[label] = (groupedLimits[label] || 0) + calcTotalVenc(op.resVenc);
-        });
-        const limiteRows = Object.entries(groupedLimits).map(([label, value]) => [
-          label,
-          formatCurrency(value),
-        ]);
-
-        autoTable(doc, {
-          startY: y,
-          head: [['Modalidade', 'Limite']],
-          body: limiteRows,
-          theme: 'striped',
-          styles: { fontSize: 9, cellPadding: 2 },
-          headStyles: { fillColor: [37, 99, 235] },
-        });
-        y = (doc as any).lastAutoTable.finalY + 10;
-      }
-
-      // ===== DETALHAMENTO =====
-      sectionTitle(`Detalhamento das Operações — ${formatDtb(latestDtb.dtb)}`);
-
-      const categoryOrder: CategoryKey[] = ['emprestimos', 'titulos_descontados', 'financiamentos', 'outros_creditos', 'limite'];
-      const opsByCategory: Record<CategoryKey, Operacao[]> = {
-        emprestimos: [], titulos_descontados: [], financiamentos: [], outros_creditos: [], limite: [],
-      };
-
-      // Group operations by mod within each category
-      const groupByMod = (ops: Operacao[]): Operacao[] => {
-        const grouped: Record<string, Operacao> = {};
-        ops.forEach(op => {
-          if (!grouped[op.mod]) {
-            grouped[op.mod] = { ...op, resVenc: { ...op.resVenc } };
-          } else {
-            Object.entries(op.resVenc).forEach(([k, v]) => {
-              grouped[op.mod].resVenc[k] = (grouped[op.mod].resVenc[k] || 0) + v;
-            });
-            if (op.varCamb === 'S') grouped[op.mod].varCamb = 'S';
-          }
-        });
-        return Object.values(grouped);
-      };
-
-      latestDtb.lsOp.forEach(op => {
-        const limite = isLimiteOp(op);
-        const cat = getDisplayCategory(op.mod, limite);
-        opsByCategory[cat].push(op);
-      });
-
-      (Object.keys(opsByCategory) as CategoryKey[]).forEach(cat => {
-        opsByCategory[cat] = sortOpsByPriority(groupByMod(opsByCategory[cat]));
-      });
-
-      categoryOrder.forEach(catKey => {
-        const ops = opsByCategory[catKey];
-        if (ops.length === 0) return;
-
-        const isLimiteCat = catKey === 'limite';
-        const catTotal = ops.reduce((s, op) => s + calcTotalVenc(op.resVenc), 0);
-
-        checkPage(30);
-
-        // Category header
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`${CATEGORY_LABELS[catKey]} — ${formatCurrency(catTotal)}`, 14, y);
-        y += 6;
-
-        const detailRows = ops.map(op => {
-          const label = isLimiteCat
-            ? (LIMITE_SUB_LABELS[op.mod] || getModalidadeLabel(op.mod))
-            : getModalidadeLabel(op.mod);
-
-          const vencStr = Object.entries(op.resVenc)
-            .filter(([, v]) => v > 0)
-            .sort(([a], [b]) => parseInt(a.replace('v', '')) - parseInt(b.replace('v', '')))
-            .map(([k, v]) => {
-              const vLabel = isLimiteCat
-                ? (VENCIMENTO_LIMITE_MAP[k] || k)
-                : (VENCIMENTO_DETALHE_MAP[k] || k);
-              return `${vLabel}: ${formatCurrency(v)}`;
-            })
-            .join(' | ');
-
-          return [label, formatCurrency(calcTotalVenc(op.resVenc)), vencStr];
-        });
-
-        autoTable(doc, {
-          startY: y,
-          head: [['Modalidade', 'Valor', 'Vencimentos']],
-          body: detailRows,
-          theme: 'striped',
-          styles: { fontSize: 8, cellPadding: 2 },
-          headStyles: { fillColor: [37, 99, 235] },
-          columnStyles: { 0: { cellWidth: 45 }, 2: { cellWidth: 100 } },
-        });
-        y = (doc as any).lastAutoTable.finalY + 8;
-      });
-
-      // ===== HISTÓRICO MENSAL =====
-      if (response.lsDtb.length > 1) {
-        sectionTitle('Histórico Mensal');
-
-        const histRows = response.lsDtb.map(dtb => [
-          formatDtb(dtb.dtb),
-          formatCurrency(calcCarteiraAtiva(dtb)),
-          String(dtb.qtdIfs),
-          `${dtb.docProc}%`,
-        ]);
-
-        autoTable(doc, {
-          startY: y,
-          head: [['Mês', 'Carteira Ativa', 'Instituições', 'Doc. Proc.']],
-          body: histRows,
-          theme: 'striped',
-          styles: { fontSize: 9, cellPadding: 2 },
-          headStyles: { fillColor: [37, 99, 235] },
-        });
-      }
-
-      // Save
       const fileName = `SCR-${response.cdCli.replace(/\D/g, '')}-${new Date().toISOString().split('T')[0]}.pdf`;
       doc.save(fileName);
     } catch (error) {
@@ -292,7 +148,7 @@ export function SCRPdfExport({ data }: SCRPdfExportProps) {
     } finally {
       setIsGenerating(false);
     }
-  };
+  }, [data]);
 
   return (
     <Button onClick={generatePdf} disabled={isGenerating} variant="outline" className="gap-2">
