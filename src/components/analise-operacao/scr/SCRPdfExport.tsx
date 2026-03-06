@@ -191,10 +191,30 @@ export function SCRPdfExport({ data }: SCRPdfExportProps) {
         emprestimos: [], titulos_descontados: [], financiamentos: [], outros_creditos: [], limite: [],
       };
 
+      // Group operations by mod within each category
+      const groupByMod = (ops: Operacao[]): Operacao[] => {
+        const grouped: Record<string, Operacao> = {};
+        ops.forEach(op => {
+          if (!grouped[op.mod]) {
+            grouped[op.mod] = { ...op, resVenc: { ...op.resVenc } };
+          } else {
+            Object.entries(op.resVenc).forEach(([k, v]) => {
+              grouped[op.mod].resVenc[k] = (grouped[op.mod].resVenc[k] || 0) + v;
+            });
+            if (op.varCamb === 'S') grouped[op.mod].varCamb = 'S';
+          }
+        });
+        return Object.values(grouped);
+      };
+
       latestDtb.lsOp.forEach(op => {
         const limite = isLimiteOp(op);
         const cat = getDisplayCategory(op.mod, limite);
         opsByCategory[cat].push(op);
+      });
+
+      (Object.keys(opsByCategory) as CategoryKey[]).forEach(cat => {
+        opsByCategory[cat] = groupByMod(opsByCategory[cat]);
       });
 
       categoryOrder.forEach(catKey => {
