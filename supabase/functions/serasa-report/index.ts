@@ -22,7 +22,10 @@ serve(async (req) => {
 
     const clientId = Deno.env.get('SERASA_CLIENT_ID');
     const clientSecret = Deno.env.get('SERASA_CLIENT_SECRET');
-    const baseUrl = Deno.env.get('SERASA_API_URL') || 'https://uat-api.serasaexperian.com.br';
+    // Extract just the base URL (protocol + host), stripping any path
+    const rawUrl = Deno.env.get('SERASA_API_URL') || 'https://uat-api.serasaexperian.com.br';
+    const parsedUrl = new URL(rawUrl);
+    const baseUrl = `${parsedUrl.protocol}//${parsedUrl.host}`;
 
     if (!clientId || !clientSecret) {
       return new Response(JSON.stringify({ error: 'Credenciais Serasa não configuradas' }), {
@@ -99,10 +102,22 @@ serve(async (req) => {
 
     if (!reportRes.ok) {
       console.error('Serasa report error:', reportRes.status, reportText.substring(0, 500));
-      return new Response(JSON.stringify({ 
-        error: `Erro ao consultar relatório Serasa: ${reportRes.status}`,
-        details: reportText.substring(0, 500),
-      }), {
+      
+      // Parse error for better messaging
+      let errorMessage = `Erro ao consultar relatório Serasa: ${reportRes.status}`;
+      try {
+        const errArr = JSON.parse(reportText);
+        if (Array.isArray(errArr) && errArr[0]?.message) {
+          const msg = errArr[0].message;
+          if (msg.includes('DOCUMENT_NOT_FOUND')) {
+            errorMessage = 'CPF não encontrado na base da Serasa Experian.';
+          } else {
+            errorMessage = msg;
+          }
+        }
+      } catch {}
+      
+      return new Response(JSON.stringify({ error: errorMessage }), {
         status: 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
