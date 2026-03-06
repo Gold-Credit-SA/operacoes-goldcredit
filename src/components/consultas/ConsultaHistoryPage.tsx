@@ -22,6 +22,7 @@ interface HistoryEntry {
   result_data: Record<string, unknown> | null;
   created_at: string;
   status: string;
+  consulted_by_name: string | null;
 }
 
 function formatCnpjDisplay(doc: string): string {
@@ -39,7 +40,7 @@ interface ConsultaHistoryPageProps {
 }
 
 export function ConsultaHistoryPage({ platform, title, description, icon }: ConsultaHistoryPageProps) {
-  const { user } = useAuth();
+  const { user } = useAuth();  // kept for auth check only
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [detailEntry, setDetailEntry] = useState<HistoryEntry | null>(null);
@@ -202,6 +203,9 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
                         <><span className="font-mono">{formatCnpjDisplay(entry.cnpj)}</span>{' · '}</>
                       )}
                       {format(new Date(entry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      {entry.consulted_by_name && (
+                        <>{' · '}<span className="italic">por {entry.consulted_by_name}</span></>
+                      )}
                     </p>
                   </div>
                   <div className="flex items-center gap-1">

@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { CONSULTA_TYPES, type ConsultaTypeId } from './ConsultaSelection';
 import { SCRDetailView } from './SCRDetailView';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export type ConsultaStatus = 'pending' | 'running' | 'success' | 'error';
 
@@ -70,6 +71,7 @@ async function executeConsulta(cnpj: string, id: ConsultaTypeId): Promise<Record
 }
 
 export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveToPlatform, entityName }: ConsultaExecutionProps) {
+  const { profile } = useAuth();
   const [results, setResults] = useState<ConsultaResult[]>(() =>
     selected.map(id => ({ id, status: 'pending' as const }))
   );
@@ -106,6 +108,7 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveT
             result_data: data as any,
             status: 'success',
             entity_name: extractedName,
+            consulted_by_name: profile?.name || user.email || null,
           } as any);
         }
       }
