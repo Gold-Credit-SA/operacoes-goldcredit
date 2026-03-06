@@ -58,7 +58,13 @@ async function executeConsulta(cnpj: string, id: ConsultaTypeId): Promise<Record
       body: { cpf: cnpj, reportName: 'PERFIL_DE_CREDITO_BASICO_PF' },
     });
     if (error) throw new Error(error.message || 'Erro ao consultar Serasa.');
-    if (data?.error) throw new Error(data.error);
+    if (data?.error) {
+      const msg = data.error as string;
+      if (msg.includes('não encontrado')) {
+        throw new Error('CPF não encontrado. Verifique se o CPF está correto. No ambiente de testes, apenas CPFs de homologação são aceitos.');
+      }
+      throw new Error(msg);
+    }
     return data?.data || data;
   }
 

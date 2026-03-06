@@ -1,26 +1,34 @@
 
 
-## Diagnóstico
+## Análise do Problema
 
-A autenticação Serasa está funcionando corretamente (status 201). O erro `DOCUMENT_NOT_FOUND` ocorre porque:
+Comparando os PDFs HBI originais com a plataforma:
 
-1. **Ambiente UAT**: O ambiente de testes da Serasa possui apenas CPFs de teste cadastrados, não CPFs reais.
-2. **CNPJ enviado para endpoint PF**: O relatório `PERFIL_DE_CREDITO_BASICO_PF` aceita apenas CPFs (11 dígitos). Se o usuário digitar um CNPJ (14 dígitos), a consulta falhará.
+**HBI original agrupa operações por modalidade (mod code)**:
+- 3x "Modalidade 0299" → 1 linha "Outros empréstimos" R$ 316.575,85 (soma)
+- 16x "Modalidade 0399" + 7x "Direitos creditórios descontados" → agrupados por mod
+- 2x "Modalidade 0499" → 1 linha "Outros financiamentos" R$ 56.208,82
+- 2x mod 1304 → 1 linha R$ 22.340,73
 
-## Plano
+**Plataforma atual**: mostra cada operação individualmente, gerando linhas duplicadas com valores "quebrados".
 
-### 1. Validação no Edge Function (`serasa-report`)
-- Rejeitar documentos que não tenham exatamente 11 dígitos (CPF) com mensagem clara: "Relatório PF requer CPF (11 dígitos). Para CNPJ, use um relatório PJ."
+O total geral está correto, mas os valores por linha estão fragmentados porque não agrupa.
 
-### 2. Filtro no frontend (`ConsultaSelection.tsx`)
-- Quando o documento digitado for CNPJ (14 dígitos), esconder automaticamente a opção "Relatório Básico PF (Serasa)" da lista de consultas disponíveis, já que esse relatório só funciona com CPF.
-- Quando for CPF (11 dígitos), exibir normalmente.
+## Correção
 
-### 3. Melhorar mensagem de erro no frontend
-- Em `ConsultaExecution.tsx`, ao receber `DOCUMENT_NOT_FOUND`, exibir mensagem mais orientativa: "CPF não encontrado. Verifique se o CPF está correto. No ambiente de testes, apenas CPFs de homologação são aceitos."
+### 1. `SCRDetalhamento.tsx` — Agrupar operações por mod code
 
-### Arquivos a editar
-- `supabase/functions/serasa-report/index.ts` — validação de 11 dígitos
-- `src/components/analise-operacao/ConsultaSelection.tsx` — filtrar opções PF/PJ por tipo de documento
-- `src/components/analise-operacao/ConsultaExecution.tsx` — mensagem de erro mais clara
+Criar lógica que agrupa operações com mesmo `mod` dentro de cada categoria:
+- Somar todos os buckets de `resVenc`
+- Somar o valor total
+- Mostrar 1 linha por mod code com valores agregados
+- Para `varCamb`, usar "Sim" se qualquer operação do grupo tiver
+
+### 2. `SCRPdfExport.tsx` — Mesma lógica de agrupamento no detalhamento do PDF
+
+Aplicar o mesmo agrupamento por mod na seção de detalhamento do PDF exportado.
+
+### Arquivos a editar:
+- `src/components/analise-operacao/scr/SCRDetalhamento.tsx` — agrupar ops por mod
+- `src/components/analise-operacao/scr/SCRPdfExport.tsx` — agrupar ops por mod no PDF
 

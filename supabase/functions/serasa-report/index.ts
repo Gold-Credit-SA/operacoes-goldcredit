@@ -20,6 +20,16 @@ serve(async (req) => {
       });
     }
 
+    // Validate CPF for PF reports
+    const cleanCpfCheck = cpf?.replace(/\D/g, '') || '';
+    const report = reportName || 'PERFIL_DE_CREDITO_BASICO_PF';
+    if (report.includes('_PF') && cleanCpfCheck.length !== 11) {
+      return new Response(JSON.stringify({ error: 'Relatório PF requer CPF (11 dígitos). Para CNPJ, use um relatório PJ.' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const clientId = Deno.env.get('SERASA_CLIENT_ID');
     const clientSecret = Deno.env.get('SERASA_CLIENT_SECRET');
     // Extract just the base URL (protocol + host), stripping any path
