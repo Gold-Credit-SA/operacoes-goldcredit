@@ -32,15 +32,19 @@ export function SCRLimitesCredito({ latestDtb }: SCRLimitesCreditoProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {limiteOps.map((op, i) => {
-              const label = LIMITE_SUB_LABELS[op.mod] || getModalidadeLabel(op.mod);
-              return (
+            {(() => {
+              const grouped: Record<string, number> = {};
+              limiteOps.forEach(op => {
+                const label = LIMITE_SUB_LABELS[op.mod] || getModalidadeLabel(op.mod);
+                grouped[label] = (grouped[label] || 0) + calcTotalVenc(op.resVenc);
+              });
+              return Object.entries(grouped).map(([label, value], i) => (
                 <TableRow key={i}>
                   <TableCell className="text-sm">{label}</TableCell>
-                  <TableCell className="text-right font-mono text-sm">{formatCurrency(calcTotalVenc(op.resVenc))}</TableCell>
+                  <TableCell className="text-right font-mono text-sm">{formatCurrency(value)}</TableCell>
                 </TableRow>
-              );
-            })}
+              ));
+            })()}
           </TableBody>
         </Table>
       </CardContent>
