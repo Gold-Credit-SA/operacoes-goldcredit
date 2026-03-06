@@ -1,25 +1,49 @@
 
 
-## Problema
+## Análise do Problema
 
-Operações com modalidades 0208 (Cheque especial e conta garantida), 0214 (Cheque especial) e 0207 (Cartão de crédito) estão aparecendo como "Créditos Vencidos" em vez de "Limites de Crédito". 
+Comparando as imagens:
 
-A causa: a heurística atual em `isLimiteOp` só classifica como limite se a operação NÃO tem buckets v110+. Porém, essas modalidades podem ter buckets v110+ E v10-v100 ao mesmo tempo. Quando isso acontece, a função retorna `false`, e os buckets baixos (v10-v100) vazam para "Créditos Vencidos".
+**HBI original** (3 linhas agrupadas):
+- Cheque especial: R$ 5.000,00
+- Cartão de Crédito: R$ 77.659,27
+- Descontos: R$ 600.000,00
 
-No relatório HBI original, **0208, 0214 e 0207 são sempre limites**, assim como 1909 e 1905.
+**Plataforma atual** (5 linhas individuais):
+- Outros financiamentos: R$ 39.261,69
+- Outros financiamentos: R$ 30.000,00
+- Descontos: R$ 600.000,00
+- Outros financiamentos: R$ 8.397,58
+- Outros empréstimos: R$ 5.000,00
 
-## Correção
+O total bate (R$ 682.659,27), mas dois problemas:
+1. **Operações não estão agrupadas** — o HBI soma operações com a mesma categoria de limite
+2. **Labels errados** — operações com mod 1902/1904 mostram o label genérico ("Outros financiamentos") em vez do label de limite do HBI
 
-### 1. `scr-utils.ts` — Adicionar 0208, 0214, 0207 ao `ALWAYS_LIMITE`
+## Plano de Correção
 
-Mover esses mod codes para a lista de "sempre limite", para que nunca sejam contados como créditos vencidos:
+### 1. Agrupar operações de limite por sub-label no `SCRLimitesCredito.tsx`
 
-```typescript
-const ALWAYS_LIMITE = ['1909', '1905', '0208', '0214', '0207'];
+Em vez de mostrar cada operação individualmente, agrupar por label e somar os valores:
+
+```
+Antes: 3x "Outros financiamentos" → 3 linhas
+Depois: 1x "Outros financiamentos" → 1 linha com soma
 ```
 
-A heurística genérica (sem a-vencer = limite) continua valendo para qualquer outro mod code desconhecido.
+### 2. Expandir `LIMITE_SUB_LABELS` em `scr-constants.ts`
+
+Adicionar mapeamentos para mod codes que aparecem como limites:
+- `1902` → "Outros empréstimos"
+- `1904` → "Outros financiamentos"  
+- `1901` → "Outros créditos"
+
+### 3. Aplicar mesma lógica de agrupamento no `SCRPdfExport.tsx`
+
+Agrupar limites por label no PDF também.
 
 ### Arquivos a editar:
-- `src/components/analise-operacao/scr/scr-utils.ts` — uma linha alterada
+- `src/components/analise-operacao/scr/scr-constants.ts` — adicionar labels
+- `src/components/analise-operacao/scr/SCRLimitesCredito.tsx` — agrupar por label
+- `src/components/analise-operacao/scr/SCRPdfExport.tsx` — agrupar limites no PDF
 
