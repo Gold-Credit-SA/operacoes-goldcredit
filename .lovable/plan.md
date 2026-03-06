@@ -1,34 +1,33 @@
 
 
-## Análise do Problema
+## Plano: PDF SCR idêntico ao modal — captura direta do DOM
 
-Comparando os PDFs HBI originais com a plataforma:
+### Problema
+O PDF atual renderiza os componentes em um container off-screen, mas o `html2canvas` não captura corretamente os estilos Tailwind CSS (variáveis CSS, bordas de cards, cores, fontes). O resultado fica sem formatação.
 
-**HBI original agrupa operações por modalidade (mod code)**:
-- 3x "Modalidade 0299" → 1 linha "Outros empréstimos" R$ 316.575,85 (soma)
-- 16x "Modalidade 0399" + 7x "Direitos creditórios descontados" → agrupados por mod
-- 2x "Modalidade 0499" → 1 linha "Outros financiamentos" R$ 56.208,82
-- 2x mod 1304 → 1 linha R$ 22.340,73
+### Solução
+Mudar a abordagem: em vez de re-renderizar componentes em um container oculto, **capturar diretamente o conteúdo do modal já renderizado na tela**. Isso garante que o PDF seja pixel-perfect com o que o usuário vê.
 
-**Plataforma atual**: mostra cada operação individualmente, gerando linhas duplicadas com valores "quebrados".
+### Mudanças
 
-O total geral está correto, mas os valores por linha estão fragmentados porque não agrupa.
+**1. `SCRDetailView.tsx` — adicionar ref ao container do conteúdo**
+- Envolver todo o conteúdo (exceto o botão de PDF) em um `div` com `ref`
+- Passar esse `ref` para o `SCRPdfExport` via prop
 
-## Correção
+**2. `SCRPdfExport.tsx` — capturar o DOM real em vez de re-renderizar**
+- Receber `contentRef: React.RefObject<HTMLDivElement>` como prop
+- No `generatePdf`, usar `html2canvas(contentRef.current)` diretamente sobre o conteúdo já visível na tela
+- Remover toda a lógica de `createRoot`, container off-screen e render de componentes React
+- Manter a lógica de multi-page slicing (já funciona bem)
+- Adicionar cabeçalho "Gerado em: ..." como texto no jsPDF antes do conteúdo capturado
+- Configurar `html2canvas` com `scrollY: -window.scrollY` para capturar corretamente mesmo com scroll
 
-### 1. `SCRDetalhamento.tsx` — Agrupar operações por mod code
+### Resultado
+- O PDF será uma cópia exata do modal, com todos os estilos, gráficos e tabelas
+- Código mais simples (sem re-renderização de componentes)
+- Sem dependência de timing para esperar animações do Recharts (já renderizados)
 
-Criar lógica que agrupa operações com mesmo `mod` dentro de cada categoria:
-- Somar todos os buckets de `resVenc`
-- Somar o valor total
-- Mostrar 1 linha por mod code com valores agregados
-- Para `varCamb`, usar "Sim" se qualquer operação do grupo tiver
-
-### 2. `SCRPdfExport.tsx` — Mesma lógica de agrupamento no detalhamento do PDF
-
-Aplicar o mesmo agrupamento por mod na seção de detalhamento do PDF exportado.
-
-### Arquivos a editar:
-- `src/components/analise-operacao/scr/SCRDetalhamento.tsx` — agrupar ops por mod
-- `src/components/analise-operacao/scr/SCRPdfExport.tsx` — agrupar ops por mod no PDF
+### Arquivos a editar
+- `src/components/analise-operacao/SCRDetailView.tsx`
+- `src/components/analise-operacao/scr/SCRPdfExport.tsx`
 
