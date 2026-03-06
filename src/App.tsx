@@ -12,13 +12,15 @@ import CedenteDetailPage from "./pages/CedenteDetailPage";
 import CarteiraGiro from "./pages/CarteiraGiro";
 import CarteiraMetricas from "./pages/CarteiraMetricas";
 import CarteiraGestao from "./pages/CarteiraGestao";
-import AnaliseOperacao from "./pages/AnaliseOperacao";
 import AdminSettings from "./pages/AdminSettings";
 import NotFound from "./pages/NotFound";
 import ChangePassword from "./pages/ChangePassword";
 import Profile from "./pages/Profile";
 import GestorDashboard from "./pages/GestorDashboard";
 import Consultas from "./pages/Consultas";
+import HistoricoSerasa from "./pages/HistoricoSerasa";
+import HistoricoSCR from "./pages/HistoricoSCR";
+import HistoricoAgrisk from "./pages/HistoricoAgrisk";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,6 +60,9 @@ function App() {
               <Route path="/carteira/metricas" element={<ProtectedRoute><AppLayout><CarteiraMetricas /></AppLayout></ProtectedRoute>} />
               <Route path="/carteira/gestao" element={<ProtectedRoute><AppLayout><CarteiraGestao /></AppLayout></ProtectedRoute>} />
               <Route path="/consultas" element={<ProtectedRoute><AppLayout><Consultas /></AppLayout></ProtectedRoute>} />
+              <Route path="/historico-serasa" element={<ProtectedRoute><AppLayout><HistoricoSerasa /></AppLayout></ProtectedRoute>} />
+              <Route path="/historico-scr" element={<ProtectedRoute><AppLayout><HistoricoSCR /></AppLayout></ProtectedRoute>} />
+              <Route path="/historico-agrisk" element={<ProtectedRoute><AppLayout><HistoricoAgrisk /></AppLayout></ProtectedRoute>} />
               <Route path="/analise-operacao" element={<Navigate to="/consultas" replace />} />
               <Route path="/analise-consulta" element={<Navigate to="/consultas" replace />} />
               <Route path="/perfil" element={<ProtectedRoute><AppLayout><Profile /></AppLayout></ProtectedRoute>} />
