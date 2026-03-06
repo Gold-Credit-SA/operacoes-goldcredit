@@ -40,6 +40,7 @@ export const VENCIMENTO_AVENCER_MAP: Record<string, string> = {
   'v140': '91 a 180 Dias',
   'v150': '181 a 360 Dias',
   'v160': '361 a 720 Dias',
+  'v165': 'Acima de 720 Dias',
   'v170': '721 a 1080 Dias',
   'v180': '1081 a 1440 Dias',
   'v190': '1441 a 1800 Dias',
@@ -53,18 +54,23 @@ export const VENCIMENTO_VENCIDO_MAP: Record<string, string> = {
   'v40': 'Vencidos de 31 a 60 dias',
 };
 
-// Labels for DETALHAMENTO table (with "A vencer" prefix, matching HBI format)
-export const VENCIMENTO_DETALHE_AVENCER_MAP: Record<string, string> = {
-  'v110': 'A vencer até 30 dias',
-  'v120': 'A vencer de 31 a 60 dias',
-  'v130': 'A vencer de 61 a 90 dias',
-  'v140': 'A vencer de 91 a 180 dias',
-  'v150': 'A vencer de 181 a 360 dias',
-  'v160': 'A vencer de 361 a 720 dias',
-  'v170': 'A vencer de 721 a 1080 dias',
-  'v180': 'A vencer de 1081 a 1440 dias',
-  'v190': 'A vencer de 1441 a 1800 dias',
-  'v200': 'A vencer acima de 1800 dias',
+// Labels for DETALHAMENTO table - same as carteira (HBI uses same labels)
+export const VENCIMENTO_DETALHE_MAP: Record<string, string> = {
+  'v10': 'Vencidos há mais de 15 dias',
+  'v20': 'Vencidos até 15 dias',
+  'v30': 'Vencidos de 1 a 30 dias',
+  'v40': 'Vencidos de 31 a 60 dias',
+  'v110': '30 Dias',
+  'v120': '31 a 60 Dias',
+  'v130': '61 a 90 Dias',
+  'v140': '91 a 180 Dias',
+  'v150': '181 a 360 Dias',
+  'v160': '361 a 720 Dias',
+  'v165': 'Acima de 720 Dias',
+  'v170': '721 a 1080 Dias',
+  'v180': '1081 a 1440 Dias',
+  'v190': '1441 a 1800 Dias',
+  'v200': 'Acima de 1800 Dias',
 };
 
 // Labels específicos para operações de LIMITE no DETALHAMENTO
@@ -98,10 +104,10 @@ export type CategoryKey = 'emprestimos' | 'titulos_descontados' | 'financiamento
 
 export const CATEGORY_LABELS: Record<CategoryKey, string> = {
   emprestimos: 'Empréstimos',
-  titulos_descontados: 'Títulos descontado Direitos creditórios descontados',
+  titulos_descontados: 'Títulos Descontados',
   financiamentos: 'Financiamentos',
-  outros_creditos: 'Outros créditos',
-  limite: 'Limite',
+  outros_creditos: 'Outros Créditos',
+  limite: 'Limites de Crédito',
 };
 
 // Shorter labels for sub-modalidade display under Limite category
