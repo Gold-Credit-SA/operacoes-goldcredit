@@ -61,6 +61,19 @@ function formatDocDisplay(doc: string): string {
 
 export function ConsultaSelection({ cnpj, onExecute, onBack }: ConsultaSelectionProps) {
   const [selected, setSelected] = useState<Set<ConsultaTypeId>>(new Set());
+  const isCpf = cnpj.replace(/\D/g, '').length === 11;
+
+  // Filter groups based on document type
+  const filteredGroups = CONSULTA_GROUPS.map(group => ({
+    ...group,
+    items: group.items.filter(item => {
+      // PF-only reports require CPF
+      if (item.id === 'serasa_basico_pf' && !isCpf) return false;
+      return true;
+    }),
+  })).filter(group => group.items.length > 0);
+
+  const filteredTypes = filteredGroups.flatMap(g => g.items);
 
   const toggle = useCallback((id: ConsultaTypeId) => {
     setSelected(prev => {
@@ -73,10 +86,10 @@ export function ConsultaSelection({ cnpj, onExecute, onBack }: ConsultaSelection
 
   const toggleAll = useCallback(() => {
     setSelected(prev => {
-      if (prev.size === CONSULTA_TYPES.length) return new Set();
-      return new Set(CONSULTA_TYPES.map(c => c.id));
+      if (prev.size === filteredTypes.length) return new Set();
+      return new Set(filteredTypes.map(c => c.id));
     });
-  }, []);
+  }, [filteredTypes]);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -99,12 +112,12 @@ export function ConsultaSelection({ cnpj, onExecute, onBack }: ConsultaSelection
               <h2 className="text-lg font-semibold text-foreground">Selecione as consultas</h2>
             </div>
             <Button variant="link" size="sm" onClick={toggleAll} className="text-xs">
-              {selected.size === CONSULTA_TYPES.length ? 'Desmarcar todas' : 'Selecionar todas'}
+              {selected.size === filteredTypes.length ? 'Desmarcar todas' : 'Selecionar todas'}
             </Button>
           </div>
 
           <div className="space-y-4">
-            {CONSULTA_GROUPS.map(group => (
+            {filteredGroups.map(group => (
               <div key={group.provider} className="space-y-2">
                 <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground/60">
                   {group.provider}
