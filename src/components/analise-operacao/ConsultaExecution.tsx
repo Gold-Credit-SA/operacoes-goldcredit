@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { CONSULTA_TYPES, type ConsultaTypeId } from './ConsultaSelection';
 import { SCRDetailView } from './SCRDetailView';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export type ConsultaStatus = 'pending' | 'running' | 'success' | 'error';
 
