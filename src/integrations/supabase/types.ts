@@ -47,6 +47,7 @@ export type Database = {
           consulta_label: string
           consulta_type: string
           created_at: string
+          entity_name: string | null
           id: string
           pdf_path: string | null
           platform: string
@@ -59,6 +60,7 @@ export type Database = {
           consulta_label: string
           consulta_type: string
           created_at?: string
+          entity_name?: string | null
           id?: string
           pdf_path?: string | null
           platform: string
@@ -71,6 +73,7 @@ export type Database = {
           consulta_label?: string
           consulta_type?: string
           created_at?: string
+          entity_name?: string | null
           id?: string
           pdf_path?: string | null
           platform?: string
