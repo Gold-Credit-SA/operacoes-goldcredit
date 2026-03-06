@@ -203,6 +203,9 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
                         <><span className="font-mono">{formatCnpjDisplay(entry.cnpj)}</span>{' · '}</>
                       )}
                       {format(new Date(entry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      {entry.consulted_by_name && (
+                        <>{' · '}<span className="italic">por {entry.consulted_by_name}</span></>
+                      )}
                     </p>
                   </div>
                   <div className="flex items-center gap-1">
