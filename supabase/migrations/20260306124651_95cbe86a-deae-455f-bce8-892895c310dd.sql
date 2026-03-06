@@ -1,0 +1,1 @@
+ALTER TABLE public.consulta_history ADD COLUMN entity_name text;
