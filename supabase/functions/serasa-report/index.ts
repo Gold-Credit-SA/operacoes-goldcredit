@@ -37,13 +37,15 @@ serve(async (req) => {
     console.log('Auth URL:', authUrl);
     console.log('Base URL from env:', baseUrl);
 
-    const authRes = await fetch(`${baseUrl}/security/iam/v1/client-identities/login`, {
+    const authUrl = `${baseUrl}/security/iam/v1/client-identities/login`;
+    console.log('Calling auth URL:', authUrl);
+
+    const authRes = await fetch(authUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${basicAuth}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({}),
     });
 
     const authText = await authRes.text();
