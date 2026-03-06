@@ -71,7 +71,7 @@ export function separateVencBuckets(resVenc: ResVenc): { vencidos: Record<string
  * - If it has v110+ buckets, it's a real credit operation (may have overdue portions).
  */
 export function isLimiteOp(op: Operacao): boolean {
-  const ALWAYS_LIMITE = ['1909', '1905'];
+  const ALWAYS_LIMITE = ['1909', '1905', '0208', '0214', '0207'];
   if (ALWAYS_LIMITE.includes(op.mod)) return true;
   
   // Any operation with ONLY low buckets (v10-v100) and NO a-vencer buckets (v110+)
