@@ -23,6 +23,7 @@ interface ConsultaExecutionProps {
   selected: ConsultaTypeId[];
   onBack: () => void;
   onNewAnalysis: () => void;
+  saveToPlatform?: string;
 }
 
 function formatCnpjDisplay(cnpj: string): string {
@@ -67,7 +68,7 @@ async function executeConsulta(cnpj: string, id: ConsultaTypeId): Promise<Record
   };
 }
 
-export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis }: ConsultaExecutionProps) {
+export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveToPlatform }: ConsultaExecutionProps) {
   const [results, setResults] = useState<ConsultaResult[]>(() =>
     selected.map(id => ({ id, status: 'pending' as const }))
   );
@@ -79,10 +80,26 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis }: Con
     try {
       const data = await executeConsulta(cnpj, id);
       setResults(prev => prev.map(r => r.id === id ? { ...r, status: 'success' as const, data } : r));
+
+      // Save to history if platform specified
+      if (saveToPlatform) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('consulta_history').insert({
+            user_id: user.id,
+            cnpj,
+            platform: saveToPlatform,
+            consulta_type: id,
+            consulta_label: getLabel(id),
+            result_data: data as any,
+            status: 'success',
+          });
+        }
+      }
     } catch (err) {
       setResults(prev => prev.map(r => r.id === id ? { ...r, status: 'error' as const, error: (err as Error).message } : r));
     }
-  }, [cnpj]);
+  }, [cnpj, saveToPlatform]);
 
   useEffect(() => {
     if (executedRef.current) return;
