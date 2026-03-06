@@ -2,48 +2,33 @@
 
 ## Análise do Problema
 
-Comparando as imagens:
+Comparando os PDFs HBI originais com a plataforma:
 
-**HBI original** (3 linhas agrupadas):
-- Cheque especial: R$ 5.000,00
-- Cartão de Crédito: R$ 77.659,27
-- Descontos: R$ 600.000,00
+**HBI original agrupa operações por modalidade (mod code)**:
+- 3x "Modalidade 0299" → 1 linha "Outros empréstimos" R$ 316.575,85 (soma)
+- 16x "Modalidade 0399" + 7x "Direitos creditórios descontados" → agrupados por mod
+- 2x "Modalidade 0499" → 1 linha "Outros financiamentos" R$ 56.208,82
+- 2x mod 1304 → 1 linha R$ 22.340,73
 
-**Plataforma atual** (5 linhas individuais):
-- Outros financiamentos: R$ 39.261,69
-- Outros financiamentos: R$ 30.000,00
-- Descontos: R$ 600.000,00
-- Outros financiamentos: R$ 8.397,58
-- Outros empréstimos: R$ 5.000,00
+**Plataforma atual**: mostra cada operação individualmente, gerando linhas duplicadas com valores "quebrados".
 
-O total bate (R$ 682.659,27), mas dois problemas:
-1. **Operações não estão agrupadas** — o HBI soma operações com a mesma categoria de limite
-2. **Labels errados** — operações com mod 1902/1904 mostram o label genérico ("Outros financiamentos") em vez do label de limite do HBI
+O total geral está correto, mas os valores por linha estão fragmentados porque não agrupa.
 
-## Plano de Correção
+## Correção
 
-### 1. Agrupar operações de limite por sub-label no `SCRLimitesCredito.tsx`
+### 1. `SCRDetalhamento.tsx` — Agrupar operações por mod code
 
-Em vez de mostrar cada operação individualmente, agrupar por label e somar os valores:
+Criar lógica que agrupa operações com mesmo `mod` dentro de cada categoria:
+- Somar todos os buckets de `resVenc`
+- Somar o valor total
+- Mostrar 1 linha por mod code com valores agregados
+- Para `varCamb`, usar "Sim" se qualquer operação do grupo tiver
 
-```
-Antes: 3x "Outros financiamentos" → 3 linhas
-Depois: 1x "Outros financiamentos" → 1 linha com soma
-```
+### 2. `SCRPdfExport.tsx` — Mesma lógica de agrupamento no detalhamento do PDF
 
-### 2. Expandir `LIMITE_SUB_LABELS` em `scr-constants.ts`
-
-Adicionar mapeamentos para mod codes que aparecem como limites:
-- `1902` → "Outros empréstimos"
-- `1904` → "Outros financiamentos"  
-- `1901` → "Outros créditos"
-
-### 3. Aplicar mesma lógica de agrupamento no `SCRPdfExport.tsx`
-
-Agrupar limites por label no PDF também.
+Aplicar o mesmo agrupamento por mod na seção de detalhamento do PDF exportado.
 
 ### Arquivos a editar:
-- `src/components/analise-operacao/scr/scr-constants.ts` — adicionar labels
-- `src/components/analise-operacao/scr/SCRLimitesCredito.tsx` — agrupar por label
-- `src/components/analise-operacao/scr/SCRPdfExport.tsx` — agrupar limites no PDF
+- `src/components/analise-operacao/scr/SCRDetalhamento.tsx` — agrupar ops por mod
+- `src/components/analise-operacao/scr/SCRPdfExport.tsx` — agrupar ops por mod no PDF
 
