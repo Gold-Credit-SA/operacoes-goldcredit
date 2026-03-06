@@ -41,6 +41,45 @@ export type Database = {
         }
         Relationships: []
       }
+      consulta_history: {
+        Row: {
+          cnpj: string
+          consulta_label: string
+          consulta_type: string
+          created_at: string
+          id: string
+          pdf_path: string | null
+          platform: string
+          result_data: Json | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          cnpj: string
+          consulta_label: string
+          consulta_type: string
+          created_at?: string
+          id?: string
+          pdf_path?: string | null
+          platform: string
+          result_data?: Json | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          cnpj?: string
+          consulta_label?: string
+          consulta_type?: string
+          created_at?: string
+          id?: string
+          pdf_path?: string | null
+          platform?: string
+          result_data?: Json | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       operacao_notas: {
         Row: {
           cedente_cpf_cnpj: string

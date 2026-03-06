@@ -18,6 +18,7 @@ import NotFound from "./pages/NotFound";
 import ChangePassword from "./pages/ChangePassword";
 import Profile from "./pages/Profile";
 import GestorDashboard from "./pages/GestorDashboard";
+import Consultas from "./pages/Consultas";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -56,8 +57,9 @@ function App() {
               <Route path="/carteira/giro" element={<ProtectedRoute><AppLayout><CarteiraGiro /></AppLayout></ProtectedRoute>} />
               <Route path="/carteira/metricas" element={<ProtectedRoute><AppLayout><CarteiraMetricas /></AppLayout></ProtectedRoute>} />
               <Route path="/carteira/gestao" element={<ProtectedRoute><AppLayout><CarteiraGestao /></AppLayout></ProtectedRoute>} />
-              <Route path="/analise-operacao" element={<ProtectedRoute><AppLayout><AnaliseOperacao /></AppLayout></ProtectedRoute>} />
-              <Route path="/analise-consulta" element={<Navigate to="/analise-operacao" replace />} />
+              <Route path="/consultas" element={<ProtectedRoute><AppLayout><Consultas /></AppLayout></ProtectedRoute>} />
+              <Route path="/analise-operacao" element={<Navigate to="/consultas" replace />} />
+              <Route path="/analise-consulta" element={<Navigate to="/consultas" replace />} />
               <Route path="/perfil" element={<ProtectedRoute><AppLayout><Profile /></AppLayout></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute requireAdmin><AppLayout><AdminSettings /></AppLayout></ProtectedRoute>} />
               {/* Legacy redirects */}

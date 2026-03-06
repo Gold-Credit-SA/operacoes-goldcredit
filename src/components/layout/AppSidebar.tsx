@@ -20,8 +20,8 @@ export function AppSidebar() {
   ];
 
   const navItemsAfter = [
-    { path: '/consulta', label: 'Consulta', icon: Search },
-    { path: '/analise-operacao', label: 'Análise de Operação', icon: ClipboardList },
+    { path: '/consulta', label: 'Cedentes', icon: Search },
+    { path: '/consultas', label: 'Consultas', icon: ClipboardList },
     ...(isMaster ? [{ path: '/admin', label: 'Configurações', icon: Settings }] : []),
   ];
 
@@ -97,7 +97,7 @@ export function AppSidebar() {
         <div className="pt-1" />
 
         {navItemsAfter.map((item) => {
-          const isActive = location.pathname === item.path;
+          const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
           return (
             <Link
               key={item.path}
