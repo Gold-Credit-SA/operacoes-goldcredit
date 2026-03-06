@@ -162,9 +162,14 @@ export function SCRPdfExport({ data }: SCRPdfExportProps) {
         const totalLimite = limiteOps.reduce((s, op) => s + calcTotalVenc(op.resVenc), 0);
         sectionTitle(`Limites de Crédito — ${formatCurrency(totalLimite)}`);
 
-        const limiteRows = limiteOps.map(op => [
-          LIMITE_SUB_LABELS[op.mod] || getModalidadeLabel(op.mod),
-          formatCurrency(calcTotalVenc(op.resVenc)),
+        const groupedLimits: Record<string, number> = {};
+        limiteOps.forEach(op => {
+          const label = LIMITE_SUB_LABELS[op.mod] || getModalidadeLabel(op.mod);
+          groupedLimits[label] = (groupedLimits[label] || 0) + calcTotalVenc(op.resVenc);
+        });
+        const limiteRows = Object.entries(groupedLimits).map(([label, value]) => [
+          label,
+          formatCurrency(value),
         ]);
 
         autoTable(doc, {
