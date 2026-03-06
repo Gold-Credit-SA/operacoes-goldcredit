@@ -1,34 +1,76 @@
 
 
-## Problema Identificado
+## Problema
 
-O valor que deveria aparecer como **Limite Total** está sendo exibido como **Créditos Vencidos**. Isso acontece porque:
+Comparando o PDF exportado pela plataforma com o relatório HBI original, existem várias diferenças estruturais:
 
-1. A função `isLimiteOp` só identifica `mod === '1909'` como limite, mas na prática operações de cheque especial (0214/0208) e cartão de crédito (0207) também podem funcionar como limites de crédito no SCR.
-2. O bucket `v20` dessas operações é classificado como "vencido" pela `separateVencBuckets` (num ≤ 100 = vencido), quando na verdade representam valores de limite.
-3. O componente `SCRLimites` mostra um formato simplificado que não corresponde ao layout real do HBI (que inclui sub-labels como "Cheque especial", "Cartão de Crédito" e informação de prazo do limite).
+### O que o HBI mostra (formato correto):
+1. **"Créditos a Vencer - R$ X"** — seção separada com tabela Prazo | Valor | %
+2. **"Créditos Vencidos - R$ X"** — seção separada com tabela Prazo | Valor | %
+3. **"Limites de Crédito - R$ X"** — seção separada com tabela Modalidade | Limite
+4. **"Detalhamento das Operações - Mês/Ano"** — com sub-seções por categoria:
+   - **"Empréstimos — R$ X"** (header de grupo com total)
+   - Linhas individuais: Modalidade | Valor | Vencimentos (inline: "30 Dias: R$ X | 31 a 60 Dias: R$ X")
+   - **"Títulos Descontados — R$ X"** (header de grupo)
+   - etc.
+
+### O que a plataforma mostra (errado):
+1. **"CARTEIRA ATIVA"** — formato unificado (não existe no HBI)
+2. Sem seção separada de "Limites de Crédito"
+3. Detalhamento mostra categoria + sublabel empilhados por operação, sem headers de grupo com totais
+4. Coluna "Cambial" no detalhamento (HBI não mostra)
+5. Bucket `v165` aparece sem label mapeado
+6. Labels de vencido no detalhamento mostram com prefixo errado
 
 ## Plano de Correção
 
-### 1. Expandir `isLimiteOp` em `scr-utils.ts`
-- Incluir mods que são limites de crédito: `1909`, `0208`, `0214` (quando atuam como limite), e `1905` (Capital de giro com teto rotativo).
-- Ou melhor: usar `getModalidadeCategory(op.mod) === 'limite'` para manter consistência com o agrupamento por categoria.
+### 1. Reestruturar layout para 4 seções separadas (UI + PDF)
 
-### 2. Atualizar `getModalidadeCategory` em `scr-constants.ts`
-- Garantir que mods de limite (0208, 0214 quando aplicável) sejam categorizados como `'limite'`.
+**Substituir** `SCRCarteiraAtiva` por duas seções separadas:
+- **"Créditos a Vencer"** — Card com total no título, tabela com Prazo | Valor | %
+- **"Créditos Vencidos"** — Card com total no título, tabela com Prazo | Valor | %
 
-### 3. Reformatar `SCRLimites.tsx` conforme o relatório HBI real
-- Mostrar formato com colunas: Modalidade | Valor | Subvencionado | Descrição do prazo | Valor do prazo
-- Incluir sub-labels ("Cheque especial", "Cartão de Crédito") conforme a imagem de referência
-- Mostrar "Limite Total" no header com o valor consolidado
+**Criar** `SCRLimitesCredito` como seção separada:
+- **"Limites de Crédito"** — Card com total no título, tabela com Modalidade | Limite
 
-### 4. Garantir que `SCRCarteiraAtiva` e `SCRPdfExport` excluam corretamente os limites
-- Verificar que o filtro `!isLimiteOp(op)` use a mesma lógica atualizada
-- Corrigir o PDF export para refletir as mesmas mudanças
+### 2. Reformatar `SCRDetalhamento` para formato HBI
 
-### Arquivos a editar
-- `src/components/analise-operacao/scr/scr-utils.ts` — expandir `isLimiteOp`
-- `src/components/analise-operacao/scr/scr-constants.ts` — ajustar categorização de limites
-- `src/components/analise-operacao/scr/SCRLimites.tsx` — reformatar layout conforme HBI
-- `src/components/analise-operacao/scr/SCRPdfExport.tsx` — manter consistência no PDF
+- Título: "Detalhamento das Operações - Mês/Ano"
+- Para cada categoria com operações, mostrar **header de grupo**: "Empréstimos — R$ total"
+- Abaixo, cada operação com: Modalidade (label) | Valor | Vencimentos inline ("30 Dias: R$ X, 31 a 60 Dias: R$ Y")
+- Remover coluna "Cambial"
+- Usar labels corretos: "30 Dias", "31 a 60 Dias" etc. (sem prefixo "A vencer de")
+
+### 3. Adicionar `v165` ao mapa de labels
+
+- Adicionar `'v165': 'Acima de 720 Dias'` (ou label adequado) ao `VENCIMENTO_AVENCER_MAP`
+
+### 4. Corrigir labels de vencidos
+
+No mapa `VENCIMENTO_VENCIDO_MAP`:
+- `v10` → "Vencidos há mais de 15 dias"  
+- `v20` → "Vencidos até 15 dias"
+- `v30` → "Vencidos de 1 a 30 dias" (verificar)
+- `v40` → "Vencidos de 31 a 60 dias"
+
+### 5. Atualizar `SCRDetailView` para renderizar as 4 seções na ordem correta
+
+```
+SCRHeader → SCRCreditosAVencer → SCRCreditosVencidos → SCRLimitesCredito → SCRDetalhamento → SCRHistorico
+```
+
+### 6. Sincronizar `SCRPdfExport` com a mesma estrutura
+
+- Separar em seções: "Créditos a Vencer", "Créditos Vencidos", "Limites de Crédito"
+- Detalhamento com headers de categoria e ops individuais
+- Remover coluna Cambial
+- Usar labels de vencimento corretos (sem prefixo)
+
+### Arquivos a criar/editar:
+- `src/components/analise-operacao/scr/SCRCarteiraAtiva.tsx` — reescrever como "Créditos a Vencer" + "Créditos Vencidos" (dois componentes ou um com duas cards)
+- `src/components/analise-operacao/scr/SCRLimitesCredito.tsx` — criar novo
+- `src/components/analise-operacao/scr/SCRDetalhamento.tsx` — reformatar com headers de grupo
+- `src/components/analise-operacao/scr/scr-constants.ts` — adicionar v165, corrigir labels de detalhamento
+- `src/components/analise-operacao/SCRDetailView.tsx` — atualizar composição
+- `src/components/analise-operacao/scr/SCRPdfExport.tsx` — sincronizar estrutura
 
