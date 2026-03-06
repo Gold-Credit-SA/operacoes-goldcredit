@@ -1,5 +1,4 @@
 import { ResVenc, DtbEntry, Operacao } from './scr-types';
-export { isLimiteOp } from './scr-utils';
 
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
