@@ -46,6 +46,7 @@ export type Database = {
           cnpj: string
           consulta_label: string
           consulta_type: string
+          consulted_by_name: string | null
           created_at: string
           entity_name: string | null
           id: string
@@ -59,6 +60,7 @@ export type Database = {
           cnpj: string
           consulta_label: string
           consulta_type: string
+          consulted_by_name?: string | null
           created_at?: string
           entity_name?: string | null
           id?: string
@@ -72,6 +74,7 @@ export type Database = {
           cnpj?: string
           consulta_label?: string
           consulta_type?: string
+          consulted_by_name?: string | null
           created_at?: string
           entity_name?: string | null
           id?: string

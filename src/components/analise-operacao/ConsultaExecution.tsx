@@ -70,6 +70,7 @@ async function executeConsulta(cnpj: string, id: ConsultaTypeId): Promise<Record
 }
 
 export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveToPlatform, entityName }: ConsultaExecutionProps) {
+  const { profile } = useAuth();
   const [results, setResults] = useState<ConsultaResult[]>(() =>
     selected.map(id => ({ id, status: 'pending' as const }))
   );
