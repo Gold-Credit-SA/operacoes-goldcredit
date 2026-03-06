@@ -22,7 +22,10 @@ serve(async (req) => {
 
     const clientId = Deno.env.get('SERASA_CLIENT_ID');
     const clientSecret = Deno.env.get('SERASA_CLIENT_SECRET');
-    const baseUrl = Deno.env.get('SERASA_API_URL') || 'https://uat-api.serasaexperian.com.br';
+    // Extract just the base URL (protocol + host), stripping any path
+    const rawUrl = Deno.env.get('SERASA_API_URL') || 'https://uat-api.serasaexperian.com.br';
+    const parsedUrl = new URL(rawUrl);
+    const baseUrl = `${parsedUrl.protocol}//${parsedUrl.host}`;
 
     if (!clientId || !clientSecret) {
       return new Response(JSON.stringify({ error: 'Credenciais Serasa não configuradas' }), {
