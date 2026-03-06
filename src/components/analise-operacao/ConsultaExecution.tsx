@@ -108,6 +108,7 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveT
             result_data: data as any,
             status: 'success',
             entity_name: extractedName,
+            consulted_by_name: profile?.name || user.email || null,
           } as any);
         }
       }

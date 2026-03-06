@@ -22,6 +22,7 @@ interface HistoryEntry {
   result_data: Record<string, unknown> | null;
   created_at: string;
   status: string;
+  consulted_by_name: string | null;
 }
 
 function formatCnpjDisplay(doc: string): string {
