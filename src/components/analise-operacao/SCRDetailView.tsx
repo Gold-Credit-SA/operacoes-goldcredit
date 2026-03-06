@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { SCRResponse } from './scr/scr-types';
 import { SCRHeader } from './scr/SCRHeader';
-import { SCRCreditosAVencer, SCRCreditosVencidos } from './scr/SCRCarteiraAtiva';
+import { SCRCreditosCharts, SCRCarteiraAtivaTable } from './scr/SCRCarteiraAtiva';
 import { SCRLimitesCredito } from './scr/SCRLimitesCredito';
 import { SCRDetalhamento } from './scr/SCRDetalhamento';
 import { SCRHistorico } from './scr/SCRHistorico';
@@ -53,8 +53,8 @@ export function SCRDetailView({ data }: SCRDetailViewProps) {
         totalOperacoes={totalOperacoes}
         riskClassification={riskClassification}
       />
-      <SCRCreditosAVencer latestDtb={latestDtb} />
-      <SCRCreditosVencidos latestDtb={latestDtb} />
+      <SCRCreditosCharts latestDtb={latestDtb} />
+      <SCRCarteiraAtivaTable latestDtb={latestDtb} />
       <SCRLimitesCredito latestDtb={latestDtb} />
       <SCRDetalhamento latestDtb={latestDtb} />
       <SCRHistorico lsDtb={response.lsDtb} />
