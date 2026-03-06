@@ -86,11 +86,15 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveT
       if (saveToPlatform) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          // Try to extract entity name from result data (SCR returns name)
+          // Extract entity name from result data - check nested structures
           const extractedName = entityName
-            || (data as any)?.nome
+            || (data as any)?.data?.name
+            || (data as any)?.name
+            || (data as any)?.response?.name
+            || (data as any)?.data?.response?.name
             || (data as any)?.razaoSocial
             || (data as any)?.nomeCliente
+            || (data as any)?.data?.razaoSocial
             || null;
 
           await supabase.from('consulta_history').insert({
