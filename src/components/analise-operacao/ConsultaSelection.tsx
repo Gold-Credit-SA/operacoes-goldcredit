@@ -30,7 +30,7 @@ export const CONSULTA_GROUPS: ConsultaGroup[] = [
   {
     provider: 'Serasa',
     items: [
-      { id: 'serasa', label: 'Serasa Avançado' },
+      { id: 'serasa_basico_pf', label: 'Relatório Básico PF (Serasa)' },
     ],
   },
   {

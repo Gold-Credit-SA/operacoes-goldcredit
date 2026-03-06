@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CONSULTA_TYPES, type ConsultaTypeId } from './ConsultaSelection';
 import { SCRDetailView } from './SCRDetailView';
+import { SerasaDetailView } from './serasa/SerasaDetailView';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -42,15 +43,18 @@ async function executeConsulta(cnpj: string, id: ConsultaTypeId): Promise<Record
     const { data, error } = await supabase.functions.invoke('hbi-scr', {
       body: { cnpj },
     });
+    if (error) throw new Error(error.message || 'Erro ao consultar SCR.');
+    if (data?.error) throw new Error(data.error);
+    return data?.data || data;
+  }
 
-    if (error) {
-      throw new Error(error.message || 'Erro ao consultar SCR.');
-    }
-
-    if (data?.error) {
-      throw new Error(data.error);
-    }
-
+  // Serasa - real Serasa integration
+  if (id === 'serasa_basico_pf') {
+    const { data, error } = await supabase.functions.invoke('serasa-report', {
+      body: { cpf: cnpj, reportName: 'PERFIL_DE_CREDITO_BASICO_PF' },
+    });
+    if (error) throw new Error(error.message || 'Erro ao consultar Serasa.');
+    if (data?.error) throw new Error(data.error);
     return data?.data || data;
   }
 
@@ -220,6 +224,8 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveT
             {detailResult?.data && (
               detailResult.id === 'scr' ? (
                 <SCRDetailView data={detailResult.data} />
+              ) : detailResult.id === 'serasa_basico_pf' ? (
+                <SerasaDetailView data={detailResult.data} />
               ) : (
                 <div className="space-y-3">
                   {renderDetailData(detailResult.data)}
