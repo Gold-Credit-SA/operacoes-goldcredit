@@ -5,7 +5,7 @@ import { DtbEntry, Operacao } from './scr-types';
 import {
   CATEGORY_LABELS, CategoryKey, VENCIMENTO_DETALHE_MAP, VENCIMENTO_AVENCER_MAP,
   VENCIMENTO_LIMITE_MAP, LIMITE_SUB_LABELS,
-  getDisplayCategory, getModalidadeLabel,
+  getDisplayCategory, getModalidadeLabel, sortOpsByPriority,
 } from './scr-constants';
 import { formatCurrency, calcTotalVenc, formatDtb, isLimiteOp, separateVencBuckets } from './scr-utils';
 
@@ -81,9 +81,9 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
     opsByCategory[cat].push(op);
   });
 
-  // Apply grouping per category
+  // Apply grouping and sorting per category
   (Object.keys(opsByCategory) as CategoryKey[]).forEach(cat => {
-    opsByCategory[cat] = groupByMod(opsByCategory[cat]);
+    opsByCategory[cat] = sortOpsByPriority(groupByMod(opsByCategory[cat]));
   });
 
   // Build chart data: for each a-vencer bucket, sum values per non-limite category
@@ -114,42 +114,41 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
       <CardContent className="space-y-6">
         {/* Summary chart + legend */}
         {chartData.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-start">
-            <div>
-              <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={chartData} margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                  <YAxis tickFormatter={formatCompact} tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={70} />
-                  <Tooltip content={<ChartTooltip />} />
-                  {activeCats.map(cat => (
-                    <Area
-                      key={cat}
-                      type="monotone"
-                      dataKey={cat}
-                      name={CATEGORY_LABELS[cat]}
-                      stroke={CHART_COLORS[cat]}
-                      fill={CHART_COLORS[cat]}
-                      fillOpacity={0.1}
-                      strokeWidth={2}
-                    />
-                  ))}
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="space-y-3 min-w-[180px]">
-              <div className="text-right">
+          <div>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={chartData} margin={{ top: 10, right: 30, bottom: 5, left: 10 }}>
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
+                <YAxis tickFormatter={formatCompact} tick={{ fontSize: 10 }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} width={80} />
+                <Tooltip content={<ChartTooltip />} />
+                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                {activeCats.map(cat => (
+                  <Area
+                    key={cat}
+                    type="monotone"
+                    dataKey={cat}
+                    name={CATEGORY_LABELS[cat]}
+                    stroke={CHART_COLORS[cat]}
+                    fill={CHART_COLORS[cat]}
+                    fillOpacity={0.15}
+                    strokeWidth={2}
+                  />
+                ))}
+              </AreaChart>
+            </ResponsiveContainer>
+            <div className="flex flex-wrap gap-4 mt-4 justify-center">
+              <div className="text-center px-4 py-2 rounded-md bg-muted/50">
                 <p className="font-mono text-lg font-bold">{formatCurrency(totalGeral)}</p>
-                <p className="text-xs text-muted-foreground">Total</p>
+                <p className="text-xs text-muted-foreground">Total Geral</p>
               </div>
               {activeCats.map(cat => {
                 const catTotal = opsByCategory[cat].reduce((s, op) => s + calcTotalVenc(op.resVenc), 0);
                 return (
-                  <div key={cat} className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: CHART_COLORS[cat] }} />
-                    <div className="text-right flex-1">
-                      <p className="font-mono text-sm font-semibold">{formatCurrency(catTotal)}</p>
+                  <div key={cat} className="text-center px-4 py-2 rounded-md border">
+                    <div className="flex items-center gap-2 justify-center mb-1">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: CHART_COLORS[cat] }} />
                       <p className="text-xs text-muted-foreground">{CATEGORY_LABELS[cat]}</p>
                     </div>
+                    <p className="font-mono text-sm font-semibold">{formatCurrency(catTotal)}</p>
                   </div>
                 );
               })}

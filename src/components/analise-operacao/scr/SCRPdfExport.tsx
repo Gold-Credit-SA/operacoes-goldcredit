@@ -7,7 +7,7 @@ import { SCRResponse, DtbEntry, Operacao } from './scr-types';
 import {
   VENCIMENTO_AVENCER_MAP, VENCIMENTO_VENCIDO_MAP,
   VENCIMENTO_DETALHE_MAP, VENCIMENTO_LIMITE_MAP, LIMITE_SUB_LABELS,
-  CATEGORY_LABELS, CategoryKey, getDisplayCategory, getModalidadeLabel,
+  CATEGORY_LABELS, CategoryKey, getDisplayCategory, getModalidadeLabel, sortOpsByPriority,
 } from './scr-constants';
 import {
   formatCurrency, formatCnpj, getRaizDocumento, formatDate,
@@ -214,7 +214,7 @@ export function SCRPdfExport({ data }: SCRPdfExportProps) {
       });
 
       (Object.keys(opsByCategory) as CategoryKey[]).forEach(cat => {
-        opsByCategory[cat] = groupByMod(opsByCategory[cat]);
+        opsByCategory[cat] = sortOpsByPriority(groupByMod(opsByCategory[cat]));
       });
 
       categoryOrder.forEach(catKey => {
