@@ -44,16 +44,28 @@ serve(async (req) => {
       body: JSON.stringify({}),
     });
 
+    const authText = await authRes.text();
+    console.log('Serasa auth response status:', authRes.status);
+    console.log('Serasa auth response body (first 500):', authText.substring(0, 500));
+
     if (!authRes.ok) {
-      const authError = await authRes.text();
-      console.error('Serasa auth error:', authRes.status, authError);
-      return new Response(JSON.stringify({ error: `Erro na autenticação Serasa: ${authRes.status}` }), {
+      console.error('Serasa auth error:', authRes.status, authText.substring(0, 300));
+      return new Response(JSON.stringify({ error: `Erro na autenticação Serasa: ${authRes.status}`, details: authText.substring(0, 500) }), {
         status: 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const authData = await authRes.json();
+    let authData: any;
+    try {
+      authData = JSON.parse(authText);
+    } catch {
+      return new Response(JSON.stringify({ error: 'Resposta de autenticação Serasa inválida', details: authText.substring(0, 500) }), {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const accessToken = authData.accessToken || authData.access_token;
 
     if (!accessToken) {
