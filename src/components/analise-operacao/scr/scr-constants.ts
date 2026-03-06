@@ -12,17 +12,22 @@ export const MODALIDADE_MAP: Record<string, string> = {
   '0210': 'Crédito pessoal sem consignação',
   '0211': 'Crédito rotativo',
   '0212': 'Financiamento imobiliário',
-  '0213': 'Microcrédito',
+  '0213': 'Empréstimos Cheque especial',
   '0214': 'Cheque especial',
-  '0301': 'Direitos creditórios descontados',
+  '0215': 'Empréstimos Capital de giro com prazo de vencimento até 365 dias',
+  '0217': 'Empréstimos Capital de giro com teto rotativo',
+  '0299': 'Empréstimos Outros empréstimos',
+  '0301': 'Títulos descontado Direitos creditorios descontados Desconto de duplicatas',
   '0302': 'Desconto de duplicatas',
   '0303': 'Desconto de cheques',
+  '0399': 'Títulos descontado Direitos creditorios descontados Outros títulos descontados',
   '0401': 'Financiamento imobiliário',
   '0402': 'Financiamento de veículos',
   '0403': 'Financiamento rural',
   '0404': 'Financiamento de máquinas e equipamentos',
   '0405': 'Financiamento de infraestrutura',
-  '1304': 'Capital de giro com prazo de vencimento até 365 dias',
+  '0499': 'Outros financiamentos',
+  '1304': 'Outros créditos Cartão de crédito - compra à vista e parcelado lojista',
   '1305': 'Capital de giro com prazo de vencimento superior a 365 dias',
   '1901': 'Outros créditos',
   '1902': 'Outros empréstimos',
@@ -122,6 +127,18 @@ export const LIMITE_SUB_LABELS: Record<string, string> = {
   '1904': 'Outros financiamentos',
 };
 
+// Sort priority within each category (lower = first). Unlisted mods go to 9999.
+export const CATEGORY_SORT_ORDER: Record<string, number> = {
+  // Empréstimos
+  '0213': 1, '0215': 2, '0217': 3, '0299': 99,
+  // Títulos Descontados
+  '0301': 1, '0399': 99,
+  // Financiamentos
+  '0499': 99,
+  // Outros Créditos
+  '1304': 1,
+};
+
 export function getModalidadeCategory(mod: string): CategoryKey {
   const code = parseInt(mod);
   if (code >= 200 && code < 300) return 'emprestimos';
@@ -143,4 +160,12 @@ export function getDisplayCategory(mod: string, isLimite: boolean): CategoryKey 
 
 export function getModalidadeLabel(mod: string): string {
   return MODALIDADE_MAP[mod] || `Modalidade ${mod}`;
+}
+
+export function sortOpsByPriority(ops: Operacao[]): Operacao[] {
+  return [...ops].sort((a, b) => {
+    const pa = CATEGORY_SORT_ORDER[a.mod] ?? 9999;
+    const pb = CATEGORY_SORT_ORDER[b.mod] ?? 9999;
+    return pa - pb;
+  });
 }
