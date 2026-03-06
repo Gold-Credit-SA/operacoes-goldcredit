@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { SCRResponse } from './scr/scr-types';
 import { SCRHeader } from './scr/SCRHeader';
@@ -13,6 +13,8 @@ interface SCRDetailViewProps {
 }
 
 export function SCRDetailView({ data }: SCRDetailViewProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
+
   const response = useMemo<SCRResponse | null>(() => {
     const resp = (data as any)?.response || (data as any)?.data?.response || data;
     if (resp?.lsDtb) return resp as SCRResponse;
@@ -43,21 +45,23 @@ export function SCRDetailView({ data }: SCRDetailViewProps) {
   return (
     <div className="space-y-6">
       <div className="flex justify-end">
-        <SCRPdfExport data={data} />
+        <SCRPdfExport contentRef={contentRef} cdCli={response.cdCli} />
       </div>
-      <SCRHeader
-        cdCli={response.cdCli}
-        dtbConsult={response.dtbConsult}
-        entityName={entityName}
-        latestDtb={latestDtb}
-        totalOperacoes={totalOperacoes}
-        riskClassification={riskClassification}
-      />
-      <SCRCreditosCharts latestDtb={latestDtb} />
-      <SCRCarteiraAtivaTable latestDtb={latestDtb} />
-      <SCRLimitesCredito latestDtb={latestDtb} />
-      <SCRDetalhamento latestDtb={latestDtb} />
-      <SCRHistorico lsDtb={response.lsDtb} />
+      <div ref={contentRef} className="space-y-6">
+        <SCRHeader
+          cdCli={response.cdCli}
+          dtbConsult={response.dtbConsult}
+          entityName={entityName}
+          latestDtb={latestDtb}
+          totalOperacoes={totalOperacoes}
+          riskClassification={riskClassification}
+        />
+        <SCRCreditosCharts latestDtb={latestDtb} />
+        <SCRCarteiraAtivaTable latestDtb={latestDtb} />
+        <SCRLimitesCredito latestDtb={latestDtb} />
+        <SCRDetalhamento latestDtb={latestDtb} />
+        <SCRHistorico lsDtb={response.lsDtb} />
+      </div>
     </div>
   );
 }
