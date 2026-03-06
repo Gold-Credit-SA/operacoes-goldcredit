@@ -89,8 +89,7 @@ serve(async (req) => {
 
     console.log('Serasa auth successful, fetching report...');
 
-    // Step 2: Fetch credit report
-    const report = reportName || 'PERFIL_DE_CREDITO_BASICO_PF';
+    // Step 2: Fetch credit report (reuse 'report' from validation above)
     let reportUrl = `${baseUrl}/credit-services/person-information-report/v1/creditreport?reportName=${report}`;
 
     if (optionalFeatures) {
