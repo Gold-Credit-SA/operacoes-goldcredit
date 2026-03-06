@@ -1,4 +1,5 @@
 import { ResVenc, DtbEntry, Operacao } from './scr-types';
+export { isLimiteOp } from './scr-utils';
 
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -41,6 +42,12 @@ export function calcTotalVenc(resVenc: ResVenc): number {
 
 export function calcTotalAVencer(dtbEntry: DtbEntry): number {
   return dtbEntry.lsOp.reduce((sum, op) => sum + calcTotalVenc(op.resVenc), 0);
+}
+
+export function calcCarteiraAtiva(dtbEntry: DtbEntry): number {
+  return dtbEntry.lsOp
+    .filter(op => !isLimiteOp(op))
+    .reduce((sum, op) => sum + calcTotalVenc(op.resVenc), 0);
 }
 
 // Separate vencido (overdue) buckets from a-vencer (upcoming) buckets

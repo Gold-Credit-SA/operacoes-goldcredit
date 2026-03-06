@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { Calendar } from 'lucide-react';
 import { DtbEntry } from './scr-types';
-import { formatCurrency, formatDtb, calcTotalAVencer } from './scr-utils';
+import { formatCurrency, formatDtb, calcCarteiraAtiva } from './scr-utils';
 
 interface SCRHistoricoProps {
   lsDtb: DtbEntry[];
@@ -34,7 +34,7 @@ export function SCRHistorico({ lsDtb }: SCRHistoricoProps) {
 
   const chartData = lsDtb.map(dtb => ({
     name: formatDtb(dtb.dtb),
-    total: calcTotalAVencer(dtb),
+    total: calcCarteiraAtiva(dtb),
     instituicoes: dtb.qtdIfs,
   }));
 
@@ -61,7 +61,7 @@ export function SCRHistorico({ lsDtb }: SCRHistoricoProps) {
           <TableHeader>
             <TableRow>
               <TableHead>Mês</TableHead>
-              <TableHead className="text-right">Total</TableHead>
+              <TableHead className="text-right">Carteira Ativa</TableHead>
               <TableHead className="text-right">Instituições</TableHead>
               <TableHead className="text-right">Doc. Proc.</TableHead>
             </TableRow>
@@ -70,7 +70,7 @@ export function SCRHistorico({ lsDtb }: SCRHistoricoProps) {
             {lsDtb.map((dtb) => (
               <TableRow key={dtb.dtb}>
                 <TableCell className="font-medium">{formatDtb(dtb.dtb)}</TableCell>
-                <TableCell className="text-right font-mono">{formatCurrency(calcTotalAVencer(dtb))}</TableCell>
+                <TableCell className="text-right font-mono">{formatCurrency(calcCarteiraAtiva(dtb))}</TableCell>
                 <TableCell className="text-right">{dtb.qtdIfs}</TableCell>
                 <TableCell className="text-right">{dtb.docProc}%</TableCell>
               </TableRow>
