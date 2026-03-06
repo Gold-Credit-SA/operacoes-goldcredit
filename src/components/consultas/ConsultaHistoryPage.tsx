@@ -1,10 +1,11 @@
-import { useState, useCallback, useEffect } from 'react';
-import { FileText, Download, Loader2, Clock, Search } from 'lucide-react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { FileText, Download, Loader2, Clock, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { SCRDetailView } from '@/components/analise-operacao/SCRDetailView';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,6 +15,7 @@ import { ptBR } from 'date-fns/locale';
 interface HistoryEntry {
   id: string;
   cnpj: string;
+  entity_name: string | null;
   consulta_label: string;
   consulta_type: string;
   pdf_path: string | null;
@@ -41,6 +43,9 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [detailEntry, setDetailEntry] = useState<HistoryEntry | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const loadHistory = useCallback(async () => {
     if (!user) return;
@@ -50,8 +55,9 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
         .from('consulta_history')
         .select('*')
         .eq('platform', platform)
+        .eq('status', 'success')
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(200);
 
       if (!error && data) {
         setHistory(data as unknown as HistoryEntry[]);
@@ -67,12 +73,38 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
     loadHistory();
   }, [loadHistory]);
 
+  const filteredHistory = useMemo(() => {
+    return history.filter(entry => {
+      // Search filter
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const matchesName = entry.entity_name?.toLowerCase().includes(term);
+        const matchesCnpj = entry.cnpj.includes(searchTerm.replace(/\D/g, ''));
+        const matchesLabel = entry.consulta_label.toLowerCase().includes(term);
+        if (!matchesName && !matchesCnpj && !matchesLabel) return false;
+      }
+      // Date from filter
+      if (dateFrom) {
+        const entryDate = entry.created_at.slice(0, 10);
+        if (entryDate < dateFrom) return false;
+      }
+      // Date to filter
+      if (dateTo) {
+        const entryDate = entry.created_at.slice(0, 10);
+        if (entryDate > dateTo) return false;
+      }
+      return true;
+    });
+  }, [history, searchTerm, dateFrom, dateTo]);
+
   const handleDownloadPdf = useCallback(async (pdfPath: string) => {
     const { data } = await supabase.storage.from('consulta-pdfs').createSignedUrl(pdfPath, 300);
     if (data?.signedUrl) {
       window.open(data.signedUrl, '_blank');
     }
   }, []);
+
+  const hasFilters = searchTerm || dateFrom || dateTo;
 
   return (
     <div className="min-h-screen bg-background">
@@ -90,37 +122,85 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
         </div>
       </div>
 
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className="p-6 max-w-4xl mx-auto space-y-4">
+        {/* Filters */}
+        <Card>
+          <CardContent className="py-3">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Buscar por nome ou CPF/CNPJ..."
+                  className="pl-10"
+                />
+              </div>
+              <div className="flex gap-2 items-center">
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="w-[150px] text-xs"
+                  placeholder="De"
+                />
+                <span className="text-muted-foreground text-xs">até</span>
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="w-[150px] text-xs"
+                  placeholder="Até"
+                />
+                {hasFilters && (
+                  <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(''); setDateFrom(''); setDateTo(''); }}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : history.length === 0 ? (
+        ) : filteredHistory.length === 0 ? (
           <Card>
             <CardContent className="py-16 text-center">
               <Clock className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
-              <p className="text-muted-foreground text-lg">Nenhuma consulta realizada.</p>
-              <p className="text-sm text-muted-foreground/60 mt-1">
-                Realize uma consulta na tela de Consultas para ver o histórico aqui.
+              <p className="text-muted-foreground text-lg">
+                {hasFilters ? 'Nenhuma consulta encontrada com os filtros aplicados.' : 'Nenhuma consulta realizada.'}
               </p>
+              {!hasFilters && (
+                <p className="text-sm text-muted-foreground/60 mt-1">
+                  Realize uma consulta na tela de Consultas para ver o histórico aqui.
+                </p>
+              )}
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-2">
-            {history.map(entry => (
+            <p className="text-xs text-muted-foreground">{filteredHistory.length} consulta(s)</p>
+            {filteredHistory.map(entry => (
               <Card key={entry.id} className="hover:border-primary/30 transition-colors">
                 <CardContent className="py-3 flex items-center gap-3">
                   <FileText className="h-5 w-5 text-primary shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-foreground">{entry.consulta_label}</span>
-                      <Badge variant={entry.status === 'success' ? 'default' : 'destructive'} className="text-[10px]">
-                        {entry.status === 'success' ? 'Sucesso' : 'Erro'}
+                      <span className="text-sm font-medium text-foreground truncate">
+                        {entry.entity_name || formatCnpjDisplay(entry.cnpj)}
+                      </span>
+                      <Badge variant="outline" className="text-[10px] shrink-0">
+                        {entry.consulta_label}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      <span className="font-mono">{formatCnpjDisplay(entry.cnpj)}</span>
-                      {' · '}
+                      {entry.entity_name && (
+                        <><span className="font-mono">{formatCnpjDisplay(entry.cnpj)}</span>{' · '}</>
+                      )}
                       {format(new Date(entry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                     </p>
                   </div>
@@ -151,7 +231,7 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
-              {detailEntry?.consulta_label}
+              {detailEntry?.entity_name || detailEntry?.consulta_label}
             </DialogTitle>
           </DialogHeader>
           <ScrollArea className="max-h-[70vh]">

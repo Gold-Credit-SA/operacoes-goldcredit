@@ -24,6 +24,7 @@ interface ConsultaExecutionProps {
   onBack: () => void;
   onNewAnalysis: () => void;
   saveToPlatform?: string;
+  entityName?: string;
 }
 
 function formatCnpjDisplay(cnpj: string): string {
@@ -68,7 +69,7 @@ async function executeConsulta(cnpj: string, id: ConsultaTypeId): Promise<Record
   };
 }
 
-export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveToPlatform }: ConsultaExecutionProps) {
+export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveToPlatform, entityName }: ConsultaExecutionProps) {
   const [results, setResults] = useState<ConsultaResult[]>(() =>
     selected.map(id => ({ id, status: 'pending' as const }))
   );
@@ -81,10 +82,17 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveT
       const data = await executeConsulta(cnpj, id);
       setResults(prev => prev.map(r => r.id === id ? { ...r, status: 'success' as const, data } : r));
 
-      // Save to history if platform specified
+      // Save to history if platform specified (only successes)
       if (saveToPlatform) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
+          // Try to extract entity name from result data (SCR returns name)
+          const extractedName = entityName
+            || (data as any)?.nome
+            || (data as any)?.razaoSocial
+            || (data as any)?.nomeCliente
+            || null;
+
           await supabase.from('consulta_history').insert({
             user_id: user.id,
             cnpj,
@@ -93,7 +101,8 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveT
             consulta_label: getLabel(id),
             result_data: data as any,
             status: 'success',
-          });
+            entity_name: extractedName,
+          } as any);
         }
       }
     } catch (err) {
