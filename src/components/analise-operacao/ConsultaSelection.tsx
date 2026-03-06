@@ -51,8 +51,12 @@ interface ConsultaSelectionProps {
   onBack: () => void;
 }
 
-function formatCnpjDisplay(cnpj: string): string {
-  return `${cnpj.slice(0, 2)}.${cnpj.slice(2, 5)}.${cnpj.slice(5, 8)}/${cnpj.slice(8, 12)}-${cnpj.slice(12)}`;
+function formatDocDisplay(doc: string): string {
+  const d = doc.replace(/\D/g, '');
+  if (d.length === 11) {
+    return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+  }
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
 }
 
 export function ConsultaSelection({ cnpj, onExecute, onBack }: ConsultaSelectionProps) {
@@ -82,8 +86,8 @@ export function ConsultaSelection({ cnpj, onExecute, onBack }: ConsultaSelection
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>CNPJ:</span>
-          <Badge variant="outline" className="font-mono text-xs">{formatCnpjDisplay(cnpj)}</Badge>
+          <span>{cnpj.replace(/\D/g, '').length === 11 ? 'CPF' : 'CNPJ'}:</span>
+          <Badge variant="outline" className="font-mono text-xs">{formatDocDisplay(cnpj)}</Badge>
         </div>
       </div>
 
