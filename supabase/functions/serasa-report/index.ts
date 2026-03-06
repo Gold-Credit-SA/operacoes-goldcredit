@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 serve(async (req) => {
@@ -34,10 +34,6 @@ serve(async (req) => {
     // Step 1: Authenticate - get Bearer token
     const basicAuth = btoa(`${clientId}:${clientSecret}`);
     const authUrl = `${baseUrl}/security/iam/v1/client-identities/login`;
-    console.log('Auth URL:', authUrl);
-    console.log('Base URL from env:', baseUrl);
-
-    const authUrl = `${baseUrl}/security/iam/v1/client-identities/login`;
     console.log('Calling auth URL:', authUrl);
 
     const authRes = await fetch(authUrl, {
@@ -53,7 +49,6 @@ serve(async (req) => {
     console.log('Serasa auth response body (first 500):', authText.substring(0, 500));
 
     if (!authRes.ok) {
-      console.error('Serasa auth error:', authRes.status, authText.substring(0, 300));
       return new Response(JSON.stringify({ error: `Erro na autenticação Serasa: ${authRes.status}`, details: authText.substring(0, 500) }), {
         status: 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -73,8 +68,7 @@ serve(async (req) => {
     const accessToken = authData.accessToken || authData.access_token;
 
     if (!accessToken) {
-      console.error('No access token in auth response:', JSON.stringify(authData));
-      return new Response(JSON.stringify({ error: 'Token de acesso não retornado pela Serasa' }), {
+      return new Response(JSON.stringify({ error: 'Token de acesso não retornado pela Serasa', authResponse: authData }), {
         status: 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -90,7 +84,6 @@ serve(async (req) => {
       reportUrl += `&optionalFeatures=${optionalFeatures}`;
     }
 
-    // Clean CPF - only digits
     const cleanCpf = cpf.replace(/\D/g, '');
 
     const reportRes = await fetch(reportUrl, {
@@ -102,19 +95,29 @@ serve(async (req) => {
       },
     });
 
+    const reportText = await reportRes.text();
+
     if (!reportRes.ok) {
-      const reportError = await reportRes.text();
-      console.error('Serasa report error:', reportRes.status, reportError);
+      console.error('Serasa report error:', reportRes.status, reportText.substring(0, 500));
       return new Response(JSON.stringify({ 
         error: `Erro ao consultar relatório Serasa: ${reportRes.status}`,
-        details: reportError,
+        details: reportText.substring(0, 500),
       }), {
         status: 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const reportData = await reportRes.json();
+    let reportData: any;
+    try {
+      reportData = JSON.parse(reportText);
+    } catch {
+      return new Response(JSON.stringify({ error: 'Resposta de relatório Serasa inválida', details: reportText.substring(0, 500) }), {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     console.log('Serasa report fetched successfully');
 
     return new Response(JSON.stringify({ data: reportData }), {
