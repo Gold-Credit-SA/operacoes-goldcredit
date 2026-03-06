@@ -1,3 +1,5 @@
+import { Operacao } from './scr-types';
+
 // SCR Modalidade codes to labels
 export const MODALIDADE_MAP: Record<string, string> = {
   '0201': 'Adiantamentos a depositantes',
