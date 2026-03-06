@@ -1,34 +1,34 @@
 
 
-## Análise do Problema
+## Plano: Nome da empresa no histórico + filtros + não salvar erros
 
-Comparando os PDFs HBI originais com a plataforma:
+### Mudanças necessárias
 
-**HBI original agrupa operações por modalidade (mod code)**:
-- 3x "Modalidade 0299" → 1 linha "Outros empréstimos" R$ 316.575,85 (soma)
-- 16x "Modalidade 0399" + 7x "Direitos creditórios descontados" → agrupados por mod
-- 2x "Modalidade 0499" → 1 linha "Outros financiamentos" R$ 56.208,82
-- 2x mod 1304 → 1 linha R$ 22.340,73
+**1. Migration: adicionar coluna `entity_name` na tabela `consulta_history`**
+- `ALTER TABLE consulta_history ADD COLUMN entity_name text;`
+- Armazena o nome da empresa/pessoa consultada
 
-**Plataforma atual**: mostra cada operação individualmente, gerando linhas duplicadas com valores "quebrados".
+**2. `ConsultaExecution.tsx` — não salvar erros + salvar nome da empresa**
+- Receber nova prop `entityName?: string`
+- No bloco de save (linha 85-97), já só salva no `success` — correto, erros não entram
+- Adicionar `entity_name` no insert
+- Extrair nome do resultado quando disponível (ex: SCR retorna nome na resposta)
 
-O total geral está correto, mas os valores por linha estão fragmentados porque não agrupa.
+**3. `Consultas.tsx` — passar nome da entidade**
+- Após confirmar CNPJ, tentar buscar o nome via dados do resultado ou permitir que o `ConsultaExecution` extraia do retorno da API
+- Passar `entityName` para `ConsultaExecution`
 
-## Correção
+**4. `ConsultaHistoryPage.tsx` — exibir nome + adicionar filtros**
+- Mostrar `entity_name` como título principal de cada entrada (ao invés de apenas `consulta_label`)
+- Adicionar barra de filtros no topo:
+  - Campo de busca por nome/CNPJ (texto livre)
+  - Filtro por período (data início/fim com date pickers)
+- Filtrar no client-side sobre os dados carregados
+- Remover badge de status (já que erros não serão mais salvos)
 
-### 1. `SCRDetalhamento.tsx` — Agrupar operações por mod code
-
-Criar lógica que agrupa operações com mesmo `mod` dentro de cada categoria:
-- Somar todos os buckets de `resVenc`
-- Somar o valor total
-- Mostrar 1 linha por mod code com valores agregados
-- Para `varCamb`, usar "Sim" se qualquer operação do grupo tiver
-
-### 2. `SCRPdfExport.tsx` — Mesma lógica de agrupamento no detalhamento do PDF
-
-Aplicar o mesmo agrupamento por mod na seção de detalhamento do PDF exportado.
-
-### Arquivos a editar:
-- `src/components/analise-operacao/scr/SCRDetalhamento.tsx` — agrupar ops por mod
-- `src/components/analise-operacao/scr/SCRPdfExport.tsx` — agrupar ops por mod no PDF
+### Arquivos a editar
+- **Migration SQL** — nova coluna `entity_name`
+- `src/components/analise-operacao/ConsultaExecution.tsx` — prop `entityName`, incluir no insert
+- `src/pages/Consultas.tsx` — passar `entityName`
+- `src/components/consultas/ConsultaHistoryPage.tsx` — exibir nome, filtros de busca e data
 
