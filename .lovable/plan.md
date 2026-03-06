@@ -1,34 +1,34 @@
 
 
-## Plano: Histórico Mensal — Mostrar apenas Carteira Ativa
+## Análise do Problema
 
-### Problema atual
-O `calcTotalAVencer` soma **todas** as operações (incluindo limites de crédito), inflando o valor de "endividamento". Limites de crédito não são dívida real.
+Comparando os PDFs HBI originais com a plataforma:
 
-### Solução
+**HBI original agrupa operações por modalidade (mod code)**:
+- 3x "Modalidade 0299" → 1 linha "Outros empréstimos" R$ 316.575,85 (soma)
+- 16x "Modalidade 0399" + 7x "Direitos creditórios descontados" → agrupados por mod
+- 2x "Modalidade 0499" → 1 linha "Outros financiamentos" R$ 56.208,82
+- 2x mod 1304 → 1 linha R$ 22.340,73
 
-**1. Criar função `calcCarteiraAtiva` em `scr-utils.ts`**
-- Filtra operações usando `isLimiteOp` para excluir limites
-- Soma apenas operações de carteira ativa (créditos a vencer + vencidos)
+**Plataforma atual**: mostra cada operação individualmente, gerando linhas duplicadas com valores "quebrados".
 
-```typescript
-export function calcCarteiraAtiva(dtbEntry: DtbEntry): number {
-  return dtbEntry.lsOp
-    .filter(op => !isLimiteOp(op))
-    .reduce((sum, op) => sum + calcTotalVenc(op.resVenc), 0);
-}
-```
+O total geral está correto, mas os valores por linha estão fragmentados porque não agrupa.
 
-**2. Atualizar `SCRHistorico.tsx`**
-- Usar `calcCarteiraAtiva` no lugar de `calcTotalAVencer` para o gráfico e tabela
-- Renomear coluna "Total" para "Carteira Ativa"
-- Manter instituições e doc. processados
+## Correção
 
-**3. Atualizar `SCRPdfExport.tsx`**
-- Usar `calcCarteiraAtiva` na seção de histórico mensal do PDF
+### 1. `SCRDetalhamento.tsx` — Agrupar operações por mod code
 
-### Arquivos a editar
-- `src/components/analise-operacao/scr/scr-utils.ts` — nova função
-- `src/components/analise-operacao/scr/SCRHistorico.tsx` — trocar cálculo e label
-- `src/components/analise-operacao/scr/SCRPdfExport.tsx` — trocar cálculo no histórico
+Criar lógica que agrupa operações com mesmo `mod` dentro de cada categoria:
+- Somar todos os buckets de `resVenc`
+- Somar o valor total
+- Mostrar 1 linha por mod code com valores agregados
+- Para `varCamb`, usar "Sim" se qualquer operação do grupo tiver
+
+### 2. `SCRPdfExport.tsx` — Mesma lógica de agrupamento no detalhamento do PDF
+
+Aplicar o mesmo agrupamento por mod na seção de detalhamento do PDF exportado.
+
+### Arquivos a editar:
+- `src/components/analise-operacao/scr/SCRDetalhamento.tsx` — agrupar ops por mod
+- `src/components/analise-operacao/scr/SCRPdfExport.tsx` — agrupar ops por mod no PDF
 

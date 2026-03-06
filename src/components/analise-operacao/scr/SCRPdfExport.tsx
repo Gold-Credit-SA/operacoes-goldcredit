@@ -11,7 +11,7 @@ import {
 } from './scr-constants';
 import {
   formatCurrency, formatCnpj, getRaizDocumento, formatDate,
-  formatDtb, calcTotalVenc, calcTotalAVencer, separateVencBuckets, isLimiteOp,
+  formatDtb, calcTotalVenc, calcCarteiraAtiva, separateVencBuckets, isLimiteOp,
 } from './scr-utils';
 
 interface SCRPdfExportProps {
@@ -269,14 +269,14 @@ export function SCRPdfExport({ data }: SCRPdfExportProps) {
 
         const histRows = response.lsDtb.map(dtb => [
           formatDtb(dtb.dtb),
-          formatCurrency(calcTotalAVencer(dtb)),
+          formatCurrency(calcCarteiraAtiva(dtb)),
           String(dtb.qtdIfs),
           `${dtb.docProc}%`,
         ]);
 
         autoTable(doc, {
           startY: y,
-          head: [['Mês', 'Total', 'Instituições', 'Doc. Proc.']],
+          head: [['Mês', 'Carteira Ativa', 'Instituições', 'Doc. Proc.']],
           body: histRows,
           theme: 'striped',
           styles: { fontSize: 9, cellPadding: 2 },
