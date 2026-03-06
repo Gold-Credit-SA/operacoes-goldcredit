@@ -20,8 +20,8 @@ export function AppSidebar() {
   ];
 
   const navItemsAfter = [
-    { path: '/consulta', label: 'Consulta', icon: Search },
-    { path: '/analise-operacao', label: 'Análise de Operação', icon: ClipboardList },
+    { path: '/consulta', label: 'Cedentes', icon: Search },
+    { path: '/consultas', label: 'Consultas', icon: ClipboardList },
     ...(isMaster ? [{ path: '/admin', label: 'Configurações', icon: Settings }] : []),
   ];
 
