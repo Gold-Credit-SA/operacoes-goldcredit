@@ -154,7 +154,7 @@ export function SerasaDetailView({ data, document: docNumber }: SerasaDetailView
 
   return (
     <div className="space-y-4 overflow-hidden">
-      <div className="flex justify-end">
+      <div className="flex justify-start">
         <SerasaPdfExport contentRef={contentRef} document={docForExport} />
       </div>
       <div ref={contentRef} className="space-y-6 overflow-x-auto">
