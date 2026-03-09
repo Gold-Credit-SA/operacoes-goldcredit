@@ -769,17 +769,22 @@ function NegativeDetailTable({ title, icon, items, summary, columns, columnLabel
             </div>
             {/* Extra fields row below table if any item has them */}
             {items.some(item => getExtraFields(item).length > 0) && (
-              <div className="mt-2 space-y-1.5">
-                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Informações adicionais:</p>
+              <div className="mt-3 space-y-2">
+                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Informações adicionais por registro:</p>
                 {items.map((item, i) => {
                   const extras = getExtraFields(item);
                   if (extras.length === 0) return null;
                   return (
-                    <div key={i} className="text-[10px] text-muted-foreground p-2 bg-muted/30 rounded border border-border flex flex-wrap gap-x-4 gap-y-0.5">
-                      <span className="font-medium text-foreground">#{i + 1}</span>
-                      {extras.map(([k, v]) => (
-                        <span key={k}>{fieldLabel(k)}: <span className="text-foreground">{isDateKey(k) ? fmtDate(String(v)) : String(v)}</span></span>
-                      ))}
+                    <div key={i} className="text-[10px] p-2.5 bg-muted/30 rounded-lg border border-border space-y-1">
+                      <span className="font-semibold text-foreground text-xs">Registro #{i + 1}</span>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-0.5">
+                        {extras.map((f) => (
+                          <div key={f.key} className="flex items-baseline gap-1.5">
+                            <span className="text-muted-foreground shrink-0">{f.label}:</span>
+                            <span className="text-foreground font-medium">{f.value}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   );
                 })}
