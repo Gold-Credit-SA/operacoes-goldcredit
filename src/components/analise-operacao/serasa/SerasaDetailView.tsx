@@ -23,6 +23,8 @@ import {
 interface SerasaDetailViewProps {
   data: Record<string, unknown>;
   document?: string;
+  hideExportButton?: boolean;
+  externalRef?: React.RefObject<HTMLDivElement>;
 }
 
 type GenericRecord = Record<string, any>;
