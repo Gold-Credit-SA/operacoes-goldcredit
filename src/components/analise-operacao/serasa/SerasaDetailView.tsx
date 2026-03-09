@@ -375,8 +375,8 @@ export function SerasaDetailView({ data }: SerasaDetailViewProps) {
         icon={<DollarSign className="h-4 w-4 text-destructive" />}
         items={pefin?.pefinResponse || []}
         summary={pefin?.summary}
-        columns={['occurrenceDate', 'amount', 'legalNature', 'contractId', 'creditorName', 'principal', 'federalUnit']}
-        columnLabels={['Data', 'Valor', 'Natureza', 'Contrato', 'Origem', 'Avalista', 'UF']}
+        columns={['occurrenceDate', 'inclusionDate', 'amount', 'legalNature', 'contractId', 'creditorName', 'principal', 'federalUnit']}
+        columnLabels={['Data Ocorrência', 'Data Inclusão', 'Valor', 'Natureza', 'Contrato', 'Origem', 'Avalista', 'UF']}
       />
 
       {/* ═══════════════════ REFIN DETALHES ═══════════════════ */}
@@ -385,8 +385,8 @@ export function SerasaDetailView({ data }: SerasaDetailViewProps) {
         icon={<Landmark className="h-4 w-4 text-destructive" />}
         items={refin?.refinResponse || []}
         summary={refin?.summary}
-        columns={['occurrenceDate', 'amount', 'legalNature', 'contractId', 'creditorName', 'principal', 'federalUnit']}
-        columnLabels={['Data', 'Valor', 'Modalidade', 'Contrato', 'Origem', 'Avalista', 'UF']}
+        columns={['occurrenceDate', 'inclusionDate', 'amount', 'legalNature', 'contractId', 'creditorName', 'principal', 'federalUnit']}
+        columnLabels={['Data Ocorrência', 'Data Inclusão', 'Valor', 'Modalidade', 'Contrato', 'Origem', 'Avalista', 'UF']}
       />
 
       {/* ═══════════════════ CONVEM / DÍVIDAS VENCIDAS ═══════════════════ */}
@@ -395,8 +395,8 @@ export function SerasaDetailView({ data }: SerasaDetailViewProps) {
         icon={<Receipt className="h-4 w-4 text-destructive" />}
         items={collectionRecords?.collectionRecordsResponse || []}
         summary={collectionRecords?.summary}
-        columns={['occurrenceDate', 'amount', 'legalNature', 'contractId', 'creditorName', 'principal', 'federalUnit']}
-        columnLabels={['Data', 'Valor', 'Natureza', 'Contrato', 'Origem', 'Avalista', 'UF']}
+        columns={['occurrenceDate', 'inclusionDate', 'amount', 'legalNature', 'contractId', 'creditorName', 'principal', 'federalUnit']}
+        columnLabels={['Data Ocorrência', 'Data Inclusão', 'Valor', 'Natureza', 'Contrato', 'Origem', 'Avalista', 'UF']}
       />
 
       {/* ═══════════════════ PROTESTOS ═══════════════════ */}
@@ -405,8 +405,8 @@ export function SerasaDetailView({ data }: SerasaDetailViewProps) {
         icon={<BookOpen className="h-4 w-4 text-destructive" />}
         items={notary?.notaryResponse || []}
         summary={notary?.summary}
-        columns={['occurrenceDate', 'amount', 'city', 'federalUnit', 'notaryName']}
-        columnLabels={['Data', 'Valor', 'Cidade', 'UF', 'N° do Cartório']}
+        columns={['occurrenceDate', 'inclusionDate', 'amount', 'city', 'federalUnit', 'notaryName']}
+        columnLabels={['Data Ocorrência', 'Data Inclusão', 'Valor', 'Cidade', 'UF', 'N° do Cartório']}
       />
 
       {/* ═══════════════════ CHEQUES SEM FUNDO ═══════════════════ */}
@@ -415,8 +415,8 @@ export function SerasaDetailView({ data }: SerasaDetailViewProps) {
         icon={<CreditCard className="h-4 w-4 text-destructive" />}
         items={checks?.checkResponse || []}
         summary={checks?.summary}
-        columns={['occurrenceDate', 'amount', 'bankName', 'city', 'federalUnit']}
-        columnLabels={['Data', 'Valor', 'Banco', 'Cidade', 'UF']}
+        columns={['occurrenceDate', 'inclusionDate', 'bankId', 'bankName', 'bankAgencyId', 'checkCount', 'checkNumber', 'alinea', 'city', 'federalUnit']}
+        columnLabels={['Data Ocorrência', 'Data Inclusão', 'Cód. Banco', 'Banco', 'Agência', 'Qtd. Cheques', 'N° Cheque', 'Alínea', 'Cidade', 'UF']}
       />
 
       {/* ═══════════════════ PARTICIPAÇÕES SOCIETÁRIAS ═══════════════════ */}
