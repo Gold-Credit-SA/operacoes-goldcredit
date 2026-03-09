@@ -298,15 +298,30 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
                   </div>
                   <div className="flex items-center gap-1">
                     {entry.result_data && (
-                      <Button variant="ghost" size="sm" onClick={() => setDetailEntry(entry)}>
-                        <FileText className="h-3.5 w-3.5 mr-1" />
-                        Detalhes
-                      </Button>
+                      <>
+                        <Button variant="ghost" size="sm" onClick={() => setDetailEntry(entry)}>
+                          <FileText className="h-3.5 w-3.5 mr-1" />
+                          Detalhes
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={generatingPdfId === entry.id}
+                          onClick={() => handleGeneratePdf(entry)}
+                        >
+                          {generatingPdfId === entry.id ? (
+                            <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                          ) : (
+                            <FileDown className="h-3.5 w-3.5 mr-1" />
+                          )}
+                          PDF
+                        </Button>
+                      </>
                     )}
                     {entry.pdf_path && (
                       <Button variant="ghost" size="sm" onClick={() => handleDownloadPdf(entry.pdf_path!)}>
                         <Download className="h-3.5 w-3.5 mr-1" />
-                        PDF
+                        Baixar
                       </Button>
                     )}
                   </div>
