@@ -1,120 +1,17 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-type DocumentType = 'cpf' | 'cnpj';
-type EndpointType = 'person' | 'business';
-
-interface SerasaReportConfig {
-  id: string;
-  documentType: DocumentType;
-  endpointType: EndpointType;
-  reportName: string;
-  reportParameters: string;
-  optionalFeatures?: string;
-}
-
-const SERASA_REPORTS: Record<string, SerasaReportConfig> = {
-  serasa_basico_pj: {
-    id: 'serasa_basico_pj',
-    documentType: 'cnpj',
-    endpointType: 'business',
-    reportName: 'RELATORIO_BASICO_PJ_PME',
-    reportParameters:
-      'ewogICJyZXBvcnRQYXJhbWV0ZXJzIiA6IFsgewogICAgIm5hbWUiIDogIkxJTUlURV9DUkVESVRPIiwKICAgICJ2YWx1ZSIgOiAiSExDMyIKICB9LCB7CiAgICAibmFtZSIgOiAiU0NPUkUiLAogICAgInZhbHVlIiA6ICJIUEpNIgogIH0sIHsKICAgICJuYW1lIiA6ICJSSVNDT19OT1ZBU19FTVBSRVNBUyIsCiAgICAidmFsdWUiIDogIkhORTMiCiAgfSwgewogICAgIm5hbWUiIDogIlBPTlRVQUxJREFERV9QQUdBTUVOVE8iLAogICAgInZhbHVlIiA6ICJISVAzIgogIH0gXQp9PQ',
-  },
-  serasa_avancado_pj_analitico: {
-    id: 'serasa_avancado_pj_analitico',
-    documentType: 'cnpj',
-    endpointType: 'business',
-    reportName: 'RELATORIO_AVANCADO_PJ_PME_ANALITICO',
-    reportParameters:
-      'ewogICJyZXBvcnRQYXJhbWV0ZXJzIiA6IFsgewogICAgIm5hbWUiIDogIkxJTUlURV9DUkVESVRPIiwKICAgICJ2YWx1ZSIgOiAiSExDMyIKICB9LCB7CiAgICAibmFtZSIgOiAiUklTQ09fTk9WQVNfRU1QUkVTQVMiLAogICAgInZhbHVlIiA6ICJITkUzIgogIH0sIHsKICAgICJuYW1lIiA6ICJQT05UVUFMSURBREVfUEFHQU1FTlRPIiwKICAgICJ2YWx1ZSIgOiAiSElQMyIKICB9LCB7CiAgICAibmFtZSIgOiAic2VnbWVudENvZGUiLAogICAgInZhbHVlIiA6ICIwMjgiCiAgfSBdCn0',
-  },
-  serasa_basico_pf: {
-    id: 'serasa_basico_pf',
-    documentType: 'cpf',
-    endpointType: 'person',
-    reportName: 'RELATORIO_BASICO_PF_PME',
-    reportParameters: 'ewogICJyZXBvcnRQYXJhbWV0ZXJzIiA6IFsgewogICAgIm5hbWUiIDogIlJFTkRBX0VTVElNQURBX1BGIiwKICAgICJ2YWx1ZSIgOiAiSFJQNSIKICB9IF0KfQ',
-    optionalFeatures: 'HISTORICO_PAGAMENTO, MAIS_ANOTACOES_1000, RENDA_ESTIMADA_PF',
-  },
-  serasa_avancado_top_score_pf: {
-    id: 'serasa_avancado_top_score_pf',
-    documentType: 'cpf',
-    endpointType: 'person',
-    reportName: 'RELATORIO_AVANCADO_TOP_SCORE_PF_PME',
-    reportParameters: 'ewogICJyZXBvcnRQYXJhbWV0ZXJzIiA6IFsgewogICAgIm5hbWUiIDogIlJFTkRBX0VTVElNQURBX1BGIiwKICAgICJ2YWx1ZSIgOiAiSFJQNSIKICB9IF0KfT0',
-    optionalFeatures: 'HISTORICO_PAGAMENTO',
-  },
+// Map consultaId to Serasa report names
+const REPORT_MAP: Record<string, { reportName: string; type: 'PF' | 'PJ' }> = {
+  serasa_basico_pf: { reportName: 'PERFIL_DE_CREDITO_BASICO_PF', type: 'PF' },
+  serasa_avancado_top_score_pf: { reportName: 'TOP_SCORE_PF', type: 'PF' },
+  serasa_basico_pj: { reportName: 'RELATORIO_BASICO_PJ', type: 'PJ' },
+  serasa_avancado_pj_analitico: { reportName: 'RELATORIO_ANALITICO_PJ', type: 'PJ' },
 };
-
-let cachedToken: { value: string; expiresAt: number } | null = null;
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
-
-function getReportPath(endpointType: EndpointType): string {
-  return endpointType === 'business'
-    ? '/credit-services/business-information-report/v1/reports'
-    : '/credit-services/person-information-report/v1/creditreport';
-}
-
-function getCleanDocument(document: string): string {
-  return document.replace(/\D/g, '');
-}
-
-async function getAccessToken(baseUrl: string, clientId: string, clientSecret: string): Promise<string> {
-  if (cachedToken && Date.now() < cachedToken.expiresAt - 60_000) {
-    return cachedToken.value;
-  }
-
-  const authUrl = `${baseUrl}/security/iam/v1/client-identities/login`;
-  const basicAuth = btoa(`${clientId}:${clientSecret}`);
-
-  const authRes = await fetch(authUrl, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${basicAuth}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  const authText = await authRes.text();
-
-  if (!authRes.ok) {
-    throw new Error(`Erro na autenticacao Serasa: ${authRes.status} ${authText.substring(0, 300)}`);
-  }
-
-  let authData: Record<string, unknown>;
-  try {
-    authData = JSON.parse(authText);
-  } catch {
-    throw new Error(`Resposta de autenticacao Serasa invalida: ${authText.substring(0, 300)}`);
-  }
-
-  const accessToken = String(authData.accessToken || authData.access_token || '');
-  if (!accessToken) {
-    throw new Error('Token de acesso nao retornado pela Serasa');
-  }
-
-  const expiresInRaw = Number(authData.expiresIn || authData.expires_in || 3600);
-  const expiresInMs = Number.isFinite(expiresInRaw) ? expiresInRaw * 1000 : 3600 * 1000;
-  cachedToken = {
-    value: accessToken,
-    expiresAt: Date.now() + expiresInMs,
-  };
-
-  return accessToken;
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -122,25 +19,51 @@ serve(async (req) => {
   }
 
   try {
-    const { document, consultaId } = await req.json();
+    const body = await req.json();
+    const { document, consultaId, optionalFeatures, federalUnit } = body;
 
-    if (!document) {
-      return jsonResponse({ error: 'CPF ou CNPJ e obrigatorio' }, 400);
+    // Backwards compatibility: accept old format too
+    const doc = document || body.cpf || body.cnpj;
+    const cId = consultaId || (body.reportName ? Object.entries(REPORT_MAP).find(([_, v]) => v.reportName === body.reportName)?.[0] : null) || 'serasa_basico_pf';
+
+    if (!doc) {
+      return new Response(JSON.stringify({ error: 'Documento é obrigatório (document)' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    if (!consultaId || !SERASA_REPORTS[consultaId]) {
-      return jsonResponse({ error: 'Consulta Serasa invalida' }, 400);
+    const cleanDoc = doc.replace(/\D/g, '');
+    const isPF = cleanDoc.length === 11;
+    const isPJ = cleanDoc.length === 14;
+
+    if (!isPF && !isPJ) {
+      return new Response(JSON.stringify({ error: 'Documento inválido. Informe CPF (11 dígitos) ou CNPJ (14 dígitos).' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const config = SERASA_REPORTS[consultaId];
-    const cleanDocument = getCleanDocument(String(document));
-
-    if (config.documentType === 'cpf' && cleanDocument.length !== 11) {
-      return jsonResponse({ error: 'Esta consulta requer CPF com 11 digitos' }, 400);
+    const reportConfig = REPORT_MAP[cId];
+    if (!reportConfig) {
+      return new Response(JSON.stringify({ error: `consultaId não reconhecido: ${cId}. Valores válidos: ${Object.keys(REPORT_MAP).join(', ')}` }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    if (config.documentType === 'cnpj' && cleanDocument.length !== 14) {
-      return jsonResponse({ error: 'Esta consulta requer CNPJ com 14 digitos' }, 400);
+    // Validate document type matches report type
+    if (reportConfig.type === 'PF' && !isPF) {
+      return new Response(JSON.stringify({ error: 'Relatório PF requer CPF (11 dígitos). Para CNPJ, use um relatório PJ.' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    if (reportConfig.type === 'PJ' && !isPJ) {
+      return new Response(JSON.stringify({ error: 'Relatório PJ requer CNPJ (14 dígitos). Para CPF, use um relatório PF.' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const clientId = Deno.env.get('SERASA_CLIENT_ID');
@@ -150,65 +73,129 @@ serve(async (req) => {
     const baseUrl = `${parsedUrl.protocol}//${parsedUrl.host}`;
 
     if (!clientId || !clientSecret) {
-      return jsonResponse({ error: 'Credenciais Serasa nao configuradas' }, 500);
+      return new Response(JSON.stringify({ error: 'Credenciais Serasa não configuradas' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const accessToken = await getAccessToken(baseUrl, clientId, clientSecret);
-    const reportUrl = new URL(`${baseUrl}${getReportPath(config.endpointType)}`);
-    reportUrl.searchParams.set('reportName', config.reportName);
-    reportUrl.searchParams.set('reportParameters', config.reportParameters);
-    if (config.optionalFeatures) {
-      reportUrl.searchParams.set('optionalFeatures', config.optionalFeatures);
+    // Step 1: Authenticate
+    const basicAuth = btoa(`${clientId}:${clientSecret}`);
+    const authUrl = `${baseUrl}/security/iam/v1/client-identities/login`;
+    console.log('Calling auth URL:', authUrl);
+
+    const authRes = await fetch(authUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${basicAuth}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const authText = await authRes.text();
+    console.log('Serasa auth response status:', authRes.status);
+
+    if (!authRes.ok) {
+      return new Response(JSON.stringify({ error: `Erro na autenticação Serasa: ${authRes.status}`, details: authText.substring(0, 500) }), {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
+
+    let authData: any;
+    try {
+      authData = JSON.parse(authText);
+    } catch {
+      return new Response(JSON.stringify({ error: 'Resposta de autenticação Serasa inválida' }), {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const accessToken = authData.accessToken || authData.access_token;
+    if (!accessToken) {
+      return new Response(JSON.stringify({ error: 'Token de acesso não retornado pela Serasa' }), {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log('Serasa auth successful, fetching report:', reportConfig.reportName);
+
+    // Step 2: Build report URL based on PF vs PJ
+    // PF uses person endpoint, PJ uses business endpoint
+    const reportPath = isPF
+      ? '/credit-services/person-information-report/v1/creditreport'
+      : '/credit-services/business-information-report/v1/creditreport';
+
+    let reportUrl = `${baseUrl}${reportPath}?reportName=${reportConfig.reportName}`;
+
+    // Add federalUnit - required by Serasa for PF reports
+    const uf = federalUnit || 'SP';
+    reportUrl += `&federalUnit=${uf}`;
+
+    if (optionalFeatures) {
+      reportUrl += `&optionalFeatures=${optionalFeatures}`;
+    }
+
+    console.log('Report URL:', reportUrl);
 
     const reportRes = await fetch(reportUrl, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
-        'X-Document-Id': cleanDocument,
+        'X-Document-Id': cleanDoc,
       },
     });
 
     const reportText = await reportRes.text();
 
     if (!reportRes.ok) {
-      let errorMessage = `Erro ao consultar relatorio Serasa: ${reportRes.status}`;
+      console.error('Serasa report error:', reportRes.status, reportText.substring(0, 500));
 
+      let errorMessage = `Erro ao consultar relatório Serasa: ${reportRes.status}`;
       try {
-        const errorData = JSON.parse(reportText);
-        const firstError = Array.isArray(errorData) ? errorData[0] : errorData;
-        const rawMessage = String(firstError?.message || firstError?.error || '');
-        if (rawMessage.includes('DOCUMENT_NOT_FOUND')) {
-          errorMessage = 'Documento nao encontrado na base da Serasa Experian.';
-        } else if (rawMessage) {
-          errorMessage = rawMessage;
+        const errArr = JSON.parse(reportText);
+        if (Array.isArray(errArr) && errArr[0]?.message) {
+          const msg = errArr[0].message;
+          if (msg.includes('DOCUMENT_NOT_FOUND')) {
+            errorMessage = isPF
+              ? 'CPF não encontrado na base da Serasa Experian.'
+              : 'CNPJ não encontrado na base da Serasa Experian.';
+          } else {
+            errorMessage = msg;
+          }
         }
-      } catch {
-        if (reportText) {
-          errorMessage = `${errorMessage}: ${reportText.substring(0, 300)}`;
-        }
-      }
+      } catch {}
 
-      return jsonResponse({ error: errorMessage });
+      return new Response(JSON.stringify({ error: errorMessage }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    let reportData: unknown;
+    let reportData: any;
     try {
       reportData = JSON.parse(reportText);
     } catch {
-      return jsonResponse(
-        {
-          error: 'Resposta de relatorio Serasa invalida',
-          details: reportText.substring(0, 300),
-        },
-        502,
-      );
+      return new Response(JSON.stringify({ error: 'Resposta de relatório Serasa inválida' }), {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    return jsonResponse({ data: reportData });
+    console.log('Serasa report fetched successfully for', cId);
+
+    return new Response(JSON.stringify({ data: reportData }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
   } catch (err) {
     console.error('serasa-report error:', err);
-    return jsonResponse({ error: err instanceof Error ? err.message : 'Erro interno' }, 500);
+    return new Response(JSON.stringify({ error: err.message || 'Erro interno' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });
