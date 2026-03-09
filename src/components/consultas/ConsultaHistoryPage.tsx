@@ -19,6 +19,7 @@ interface HistoryEntry {
   entity_name: string | null;
   consulta_label: string;
   consulta_type: string;
+  platform: string;
   pdf_path: string | null;
   result_data: Record<string, unknown> | null;
   created_at: string;
