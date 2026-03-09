@@ -69,6 +69,16 @@ function formatCount(value: unknown, suffix = 'registros'): string {
   return `${count} ${suffix}`;
 }
 
+function calcAge(birthDate: unknown): number | null {
+  if (!birthDate) return null;
+  const d = new Date(String(birthDate));
+  if (Number.isNaN(d.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  if (now.getMonth() < d.getMonth() || (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())) age--;
+  return age;
+}
+
 function yesNo(value: unknown): string {
   if (value === true) return 'Sim';
   if (value === false) return 'Nao';
