@@ -442,7 +442,7 @@ export function SerasaDetailView({ data, document: docNumber }: SerasaDetailView
         {participation.length === 0 ? (
           <p className="text-xs text-muted-foreground">Nenhum registro para este documento.</p>
         ) : (
-          <div className="overflow-hidden border border-border rounded-lg">
+          <div className="overflow-x-auto border border-border rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -480,7 +480,7 @@ export function SerasaDetailView({ data, document: docNumber }: SerasaDetailView
         {stolenItems.length === 0 ? (
           <p className="text-xs text-muted-foreground">Nenhum registro para este documento.</p>
         ) : (
-          <div className="overflow-hidden border border-border rounded-lg">
+          <div className="overflow-x-auto border border-border rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -537,7 +537,7 @@ export function SerasaDetailView({ data, document: docNumber }: SerasaDetailView
             <p className="text-xs text-muted-foreground mb-2">
               Consultas à Serasa Experian  Exibindo {inquiryItems.length} registros.
             </p>
-            <div className="overflow-hidden border border-border rounded-lg">
+            <div className="overflow-x-auto border border-border rounded-lg">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -679,7 +679,7 @@ function SimpleTableSection({
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">{emptyMessage}</p>
         ) : (
-          <div className="overflow-hidden rounded-lg border">
+          <div className="overflow-x-auto rounded-lg border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -736,7 +736,7 @@ function NegDetailTable({
       <p className="text-xs text-muted-foreground mb-2">
         {title}  Exibindo {rows.length} registros.
       </p>
-      <div className="overflow-hidden border border-border rounded-lg">
+      <div className="overflow-x-auto border border-border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>
