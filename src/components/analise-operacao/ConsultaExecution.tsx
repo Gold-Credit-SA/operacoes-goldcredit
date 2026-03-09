@@ -52,16 +52,16 @@ async function executeConsulta(cnpj: string, id: ConsultaTypeId): Promise<Record
     return data?.data || data;
   }
 
-  // Serasa - real Serasa integration
-  if (id === 'serasa_basico_pf') {
+  // Serasa - real Serasa integration (PF and PJ)
+  if (id.startsWith('serasa_')) {
     const { data, error } = await supabase.functions.invoke('serasa-report', {
-      body: { cpf: cnpj, reportName: 'PERFIL_DE_CREDITO_BASICO_PF' },
+      body: { document: cnpj, consultaId: id },
     });
     if (error) throw new Error(error.message || 'Erro ao consultar Serasa.');
     if (data?.error) {
       const msg = data.error as string;
       if (msg.includes('não encontrado')) {
-        throw new Error('CPF não encontrado. Verifique se o CPF está correto. No ambiente de testes, apenas CPFs de homologação são aceitos.');
+        throw new Error('Documento não encontrado. Verifique se o CPF/CNPJ está correto.');
       }
       throw new Error(msg);
     }
