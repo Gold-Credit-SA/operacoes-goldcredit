@@ -263,6 +263,52 @@ export function SerasaDetailView({ data, document: docNumber }: SerasaDetailView
         </div>
       </div>
 
+      {/* ── Serasa Score ── */}
+      <div>
+        <p className="text-sm font-semibold text-primary mb-1">Serasa Score</p>
+        <p className="text-xs text-muted-foreground mb-3">
+          Nossa análise de risco de crédito que indica a probabilidade do indivíduo pagar suas contas em dia nos próximos 12 meses
+        </p>
+
+        <div className="border border-border rounded-lg p-4 mb-3">
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-2xl font-bold text-foreground">{scoreValue || '-'}</span>
+            {defaultRate && (
+              <Badge variant="outline" className="border-amber-500 text-amber-600 text-[11px] px-2 py-0.5">
+                {defaultRate}
+              </Badge>
+            )}
+          </div>
+          <div className="relative h-2 bg-muted rounded-full overflow-hidden">
+            <div
+              className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all"
+              style={{ width: `${Math.min((scoreValue / 1000) * 100, 100)}%` }}
+            />
+          </div>
+          <div className="flex justify-between mt-1.5">
+            <span className="text-[10px] text-muted-foreground">0</span>
+            <span className="text-[10px] text-muted-foreground">500</span>
+            <span className="text-[10px] text-muted-foreground">1000</span>
+          </div>
+        </div>
+
+        <div className="border border-border rounded-lg p-3 mb-3">
+          <p className="text-xs font-bold text-foreground mb-1">Interpretação</p>
+          <p className="text-xs text-muted-foreground">
+            {scoreValue > 0
+              ? `A chance de um consumidor, com score entre ${Math.floor(scoreValue / 100) * 100 + 1} e ${(Math.floor(scoreValue / 100) + 1) * 100}, pagar seus compromissos financeiros nos próximos 12 meses é de ${defaultRate || '-'}`
+              : 'Sem score disponível para interpretação'}
+          </p>
+        </div>
+
+        <div className="border border-border rounded-lg p-3 border-dashed">
+          <p className="text-xs font-bold text-foreground mb-1">Atenção</p>
+          <p className="text-xs text-muted-foreground">
+            A decisão da aprovação ou não do crédito é de exclusiva responsabilidade do concedente. As informações prestadas pela Serasa Experian têm o objetivo de subsidiar essas decisões e, em nenhuma hipótese alguma, devem ser utilizadas como justificativa pelo concedente do crédito, para tomada da referida decisão.
+          </p>
+        </div>
+      </div>
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-sm">
