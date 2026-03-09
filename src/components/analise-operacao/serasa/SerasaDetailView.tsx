@@ -87,8 +87,9 @@ function yesNo(value: unknown): string {
   return String(value ?? '-');
 }
 
-export function SerasaDetailView({ data, document: docNumber }: SerasaDetailViewProps) {
-  const contentRef = useRef<HTMLDivElement>(null);
+export function SerasaDetailView({ data, document: docNumber, hideExportButton, externalRef }: SerasaDetailViewProps) {
+  const internalRef = useRef<HTMLDivElement>(null);
+  const contentRef = externalRef || internalRef;
   const report = ((data as any)?.reports?.[0] || (data as any)?.data?.reports?.[0] || data) as GenericRecord;
   const registration = (report?.registration || {}) as GenericRecord;
   const negativeData = (report?.negativeData || {}) as GenericRecord;
