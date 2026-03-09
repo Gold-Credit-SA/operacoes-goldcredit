@@ -736,7 +736,7 @@ function NegDetailTable({
       <p className="text-xs text-muted-foreground mb-2">
         {title}  Exibindo {rows.length} registros.
       </p>
-      <div className="overflow-hidden border border-border rounded-lg">
+      <div className="overflow-x-auto border border-border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>
