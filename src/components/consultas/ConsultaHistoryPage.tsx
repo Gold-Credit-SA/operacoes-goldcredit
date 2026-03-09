@@ -110,7 +110,90 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
     }
   }, []);
 
+  const handleGeneratePdf = useCallback(async (entry: HistoryEntry) => {
+    setGeneratingPdfId(entry.id);
+    // We need to render content first, so we open a hidden dialog-like render
+    // Use a small delay to let the hidden content render
+    await new Promise(r => setTimeout(r, 100));
+
+    const el = pdfContentRef.current;
+    if (!el) {
+      setGeneratingPdfId(null);
+      return;
+    }
+
+    try {
+      const pdfWidth = 210;
+      const pdfHeight = 297;
+      const margin = 8;
+      const contentWidth = pdfWidth - margin * 2;
+      const maxContentHeight = pdfHeight - margin * 2;
+      const pdf = new jsPDF('p', 'mm', 'a4');
+
+      pdf.setFontSize(7);
+      pdf.setTextColor(150);
+      pdf.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, pdfWidth - margin, margin + 3, { align: 'right' });
+
+      let currentY = margin + 6;
+      const children = Array.from(el.children) as HTMLElement[];
+
+      for (const child of children) {
+        const canvas = await html2canvas(child, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          scrollY: -window.scrollY,
+        });
+
+        const renderedHeight = (canvas.height * contentWidth) / canvas.width;
+
+        if (currentY + renderedHeight > maxContentHeight + margin) {
+          pdf.addPage();
+          currentY = margin;
+        }
+
+        if (renderedHeight > maxContentHeight) {
+          const imgWidth = canvas.width;
+          const imgHeight = canvas.height;
+          const pagePixelHeight = (maxContentHeight * imgWidth) / contentWidth;
+          const totalSlices = Math.ceil(imgHeight / pagePixelHeight);
+
+          for (let s = 0; s < totalSlices; s++) {
+            if (s > 0) { pdf.addPage(); currentY = margin; }
+            const srcY = s * pagePixelHeight;
+            const srcH = Math.min(pagePixelHeight, imgHeight - srcY);
+            const sliceCanvas = document.createElement('canvas');
+            sliceCanvas.width = imgWidth;
+            sliceCanvas.height = Math.ceil(srcH);
+            const ctx = sliceCanvas.getContext('2d');
+            if (ctx) {
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+              ctx.drawImage(canvas, 0, Math.floor(srcY), imgWidth, Math.ceil(srcH), 0, 0, imgWidth, Math.ceil(srcH));
+            }
+            const sliceHeight = (srcH * contentWidth) / imgWidth;
+            pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, sliceHeight);
+            currentY += sliceHeight;
+          }
+        } else {
+          pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, renderedHeight);
+          currentY += renderedHeight + 2;
+        }
+      }
+
+      const cleanDoc = entry.cnpj.replace(/\D/g, '');
+      const fileName = `${entry.consulta_label}-${cleanDoc}-${new Date().toISOString().split('T')[0]}.pdf`;
+      pdf.save(fileName);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+    } finally {
+      setGeneratingPdfId(null);
+    }
+  }, []);
+
   const hasFilters = searchTerm || dateFrom || dateTo;
+  const pdfEntry = generatingPdfId ? history.find(h => h.id === generatingPdfId) : null;
 
   return (
     <div className="min-h-screen bg-background">
