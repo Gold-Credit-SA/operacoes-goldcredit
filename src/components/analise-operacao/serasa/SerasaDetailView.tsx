@@ -22,6 +22,7 @@ import {
 
 interface SerasaDetailViewProps {
   data: Record<string, unknown>;
+  document?: string;
 }
 
 type GenericRecord = Record<string, any>;
