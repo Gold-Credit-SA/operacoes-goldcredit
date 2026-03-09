@@ -442,7 +442,7 @@ export function SerasaDetailView({ data, document: docNumber }: SerasaDetailView
         {participation.length === 0 ? (
           <p className="text-xs text-muted-foreground">Nenhum registro para este documento.</p>
         ) : (
-          <div className="overflow-hidden border border-border rounded-lg">
+          <div className="overflow-x-auto border border-border rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow>
