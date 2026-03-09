@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import { SERASA_CONSULTAS } from './serasa/config';
 
 interface ConsultaType {
   id: string;
@@ -22,16 +23,14 @@ export const CONSULTA_GROUPS: ConsultaGroup[] = [
       { id: 'restritivos', label: 'Restritivos Nacional' },
       { id: 'endividamento', label: 'Endividamento Financeiro' },
       { id: 'cpr', label: 'Consulta CPR' },
-      { id: 'imoveis_simples', label: 'Pesquisa de Imóveis - Simples' },
-      { id: 'imoveis_car', label: 'Pesquisa Imóveis - CAR' },
-      { id: 'patrimonio_veicular', label: 'Patrimônio Veicular' },
+      { id: 'imoveis_simples', label: 'Pesquisa de Imoveis - Simples' },
+      { id: 'imoveis_car', label: 'Pesquisa Imoveis - CAR' },
+      { id: 'patrimonio_veicular', label: 'Patrimonio Veicular' },
     ],
   },
   {
     provider: 'Serasa',
-    items: [
-      { id: 'serasa_basico_pf', label: 'Relatório Básico PF (Serasa)' },
-    ],
+    items: SERASA_CONSULTAS,
   },
   {
     provider: 'HBI',
@@ -41,7 +40,7 @@ export const CONSULTA_GROUPS: ConsultaGroup[] = [
   },
 ];
 
-export const CONSULTA_TYPES = CONSULTA_GROUPS.flatMap(g => g.items);
+export const CONSULTA_TYPES = CONSULTA_GROUPS.flatMap((g) => g.items);
 
 export type ConsultaTypeId = string;
 
@@ -63,20 +62,21 @@ export function ConsultaSelection({ cnpj, onExecute, onBack }: ConsultaSelection
   const [selected, setSelected] = useState<Set<ConsultaTypeId>>(new Set());
   const isCpf = cnpj.replace(/\D/g, '').length === 11;
 
-  // Filter groups based on document type
-  const filteredGroups = CONSULTA_GROUPS.map(group => ({
+  const filteredGroups = CONSULTA_GROUPS.map((group) => ({
     ...group,
-    items: group.items.filter(item => {
-      // PF-only reports require CPF
-      if (item.id === 'serasa_basico_pf' && !isCpf) return false;
+    items: group.items.filter((item) => {
+      if (group.provider === 'Serasa') {
+        if (item.id.includes('_pf') && !isCpf) return false;
+        if (item.id.includes('_pj') && isCpf) return false;
+      }
       return true;
     }),
-  })).filter(group => group.items.length > 0);
+  })).filter((group) => group.items.length > 0);
 
-  const filteredTypes = filteredGroups.flatMap(g => g.items);
+  const filteredTypes = filteredGroups.flatMap((g) => g.items);
 
   const toggle = useCallback((id: ConsultaTypeId) => {
-    setSelected(prev => {
+    setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -85,22 +85,23 @@ export function ConsultaSelection({ cnpj, onExecute, onBack }: ConsultaSelection
   }, []);
 
   const toggleAll = useCallback(() => {
-    setSelected(prev => {
+    setSelected((prev) => {
       if (prev.size === filteredTypes.length) return new Set();
-      return new Set(filteredTypes.map(c => c.id));
+      return new Set(filteredTypes.map((c) => c.id));
     });
   }, [filteredTypes]);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      {/* CNPJ context */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0">
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>{cnpj.replace(/\D/g, '').length === 11 ? 'CPF' : 'CNPJ'}:</span>
-          <Badge variant="outline" className="font-mono text-xs">{formatDocDisplay(cnpj)}</Badge>
+          <Badge variant="outline" className="font-mono text-xs">
+            {formatDocDisplay(cnpj)}
+          </Badge>
         </div>
       </div>
 
@@ -117,25 +118,22 @@ export function ConsultaSelection({ cnpj, onExecute, onBack }: ConsultaSelection
           </div>
 
           <div className="space-y-4">
-            {filteredGroups.map(group => (
+            {filteredGroups.map((group) => (
               <div key={group.provider} className="space-y-2">
                 <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground/60">
                   {group.provider}
                 </span>
                 <div className="grid gap-2">
-                  {group.items.map(ct => (
+                  {group.items.map((ct) => (
                     <label
                       key={ct.id}
-                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${
                         selected.has(ct.id)
                           ? 'border-primary bg-primary/5'
                           : 'border-border hover:border-muted-foreground/30'
-                      }`}
+                      } cursor-pointer`}
                     >
-                      <Checkbox
-                        checked={selected.has(ct.id)}
-                        onCheckedChange={() => toggle(ct.id)}
-                      />
+                      <Checkbox checked={selected.has(ct.id)} onCheckedChange={() => toggle(ct.id)} />
                       <span className="text-sm font-medium text-foreground">{ct.label}</span>
                     </label>
                   ))}
@@ -144,11 +142,7 @@ export function ConsultaSelection({ cnpj, onExecute, onBack }: ConsultaSelection
             ))}
           </div>
 
-          <Button
-            onClick={() => onExecute(Array.from(selected))}
-            disabled={selected.size === 0}
-            className="w-full"
-          >
+          <Button onClick={() => onExecute(Array.from(selected))} disabled={selected.size === 0} className="w-full">
             Executar consultas ({selected.size})
           </Button>
         </CardContent>
