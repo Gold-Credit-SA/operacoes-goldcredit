@@ -240,8 +240,8 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
               {detailEntry?.entity_name || detailEntry?.consulta_label}
             </DialogTitle>
           </DialogHeader>
-          <ScrollArea className="flex-1 min-h-0 pr-2">
-            <div className="pb-4">
+          <div className="flex-1 min-h-0 overflow-auto pr-2">
+            <div className="pb-4 min-w-0">
             {detailEntry?.result_data && (
               detailEntry.consulta_type === 'scr' ? (
                 <SCRDetailView data={detailEntry.result_data} />
@@ -254,7 +254,7 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
               )
             )}
             </div>
-          </ScrollArea>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
