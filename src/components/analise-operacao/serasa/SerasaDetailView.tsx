@@ -1,5 +1,6 @@
-import type { ComponentType, ReactNode } from 'react';
+import { useRef, type ComponentType, type ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { SerasaPdfExport } from './SerasaPdfExport';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
