@@ -153,11 +153,11 @@ export function SerasaDetailView({ data, document: docNumber }: SerasaDetailView
   const reportName = String(pick(report, ['reportName']) || 'RELATÓRIO BÁSICO').replace(/_/g, ' ');
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 overflow-hidden">
       <div className="flex justify-end">
         <SerasaPdfExport contentRef={contentRef} document={docForExport} />
       </div>
-      <div ref={contentRef} className="space-y-6">
+      <div ref={contentRef} className="space-y-6 overflow-x-auto">
 
       {/* ── Header Strip ── */}
       <div className="border border-border rounded-lg bg-muted/30 px-5 py-3 flex flex-col gap-1">
