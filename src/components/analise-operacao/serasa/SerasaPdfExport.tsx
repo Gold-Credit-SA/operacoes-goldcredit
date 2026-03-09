@@ -30,7 +30,6 @@ export function SerasaPdfExport({ contentRef, document: doc }: SerasaPdfExportPr
       pdf.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, pdfWidth - margin, margin + 3, { align: 'right' });
 
       let currentY = margin + 6;
-      let isFirstPage = true;
 
       const children = Array.from(contentRef.current.children) as HTMLElement[];
 
