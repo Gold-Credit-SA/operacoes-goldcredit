@@ -233,14 +233,15 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
 
       {/* Detail Dialog */}
       <Dialog open={!!detailEntry} onOpenChange={(open) => !open && setDetailEntry(null)}>
-        <DialogContent className="max-w-3xl max-h-[85vh]">
-          <DialogHeader>
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] flex flex-col">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
               {detailEntry?.entity_name || detailEntry?.consulta_label}
             </DialogTitle>
           </DialogHeader>
-          <ScrollArea className="max-h-[70vh]">
+          <ScrollArea className="flex-1 min-h-0 pr-2">
+            <div className="pb-4">
             {detailEntry?.result_data && (
               detailEntry.consulta_type === 'scr' ? (
                 <SCRDetailView data={detailEntry.result_data} />
@@ -252,6 +253,7 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
                 </pre>
               )
             )}
+            </div>
           </ScrollArea>
         </DialogContent>
       </Dialog>
