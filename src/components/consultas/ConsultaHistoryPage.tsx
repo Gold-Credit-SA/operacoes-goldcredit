@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { SCRDetailView } from '@/components/analise-operacao/SCRDetailView';
+import { SerasaDetailView } from '@/components/analise-operacao/serasa/SerasaDetailView';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
@@ -18,6 +19,7 @@ interface HistoryEntry {
   entity_name: string | null;
   consulta_label: string;
   consulta_type: string;
+  platform: string;
   pdf_path: string | null;
   result_data: Record<string, unknown> | null;
   created_at: string;
@@ -242,6 +244,8 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
             {detailEntry?.result_data && (
               detailEntry.consulta_type === 'scr' ? (
                 <SCRDetailView data={detailEntry.result_data} />
+              ) : detailEntry.platform === 'serasa' || detailEntry.consulta_type.startsWith('serasa') ? (
+                <SerasaDetailView data={detailEntry.result_data} document={detailEntry.cnpj} />
               ) : (
                 <pre className="text-xs text-foreground whitespace-pre-wrap bg-muted p-4 rounded-lg">
                   {JSON.stringify(detailEntry.result_data, null, 2)}
