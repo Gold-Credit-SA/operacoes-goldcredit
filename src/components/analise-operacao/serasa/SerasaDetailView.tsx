@@ -676,10 +676,44 @@ function NegativeDetailTable({ title, icon, items, summary, columns, columnLabel
     return String(val);
   };
 
-  // Collect extra fields not in columns
-  const getExtraFields = (item: any): [string, unknown][] => {
-    const skip = new Set([...columns, 'dispute', 'cadus', 'inclusionDate']);
-    return Object.entries(item).filter(([k, v]) => !skip.has(k) && v != null && typeof v !== 'object');
+  // Collect ALL extra fields not in the main columns
+  const getExtraFields = (item: any): { key: string; label: string; value: string }[] => {
+    const skip = new Set(columns);
+    const extras: { key: string; label: string; value: string }[] = [];
+    
+    for (const [k, v] of Object.entries(item)) {
+      if (skip.has(k) || v == null) continue;
+      
+      if (k === 'dispute' && typeof v === 'object') {
+        // Flatten dispute sub-fields
+        const d = v as Record<string, unknown>;
+        for (const [dk, dv] of Object.entries(d)) {
+          if (dv == null) continue;
+          extras.push({
+            key: `dispute.${dk}`,
+            label: fieldLabel(dk),
+            value: typeof dv === 'boolean' ? (dv ? 'Sim' : 'Não') : isDateKey(dk) ? fmtDate(String(dv)) : String(dv),
+          });
+        }
+      } else if (typeof v === 'object') {
+        // Flatten any other nested object
+        for (const [sk, sv] of Object.entries(v as Record<string, unknown>)) {
+          if (sv == null) continue;
+          extras.push({
+            key: `${k}.${sk}`,
+            label: `${fieldLabel(k)} - ${fieldLabel(sk)}`,
+            value: typeof sv === 'boolean' ? (sv ? 'Sim' : 'Não') : isDateKey(sk) ? fmtDate(String(sv)) : String(sv),
+          });
+        }
+      } else {
+        extras.push({
+          key: k,
+          label: fieldLabel(k),
+          value: typeof v === 'boolean' ? (v ? 'Sim' : 'Não') : isDateKey(k) ? fmtDate(String(v)) : String(v),
+        });
+      }
+    }
+    return extras;
   };
 
   return (
