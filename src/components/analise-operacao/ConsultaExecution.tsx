@@ -230,8 +230,8 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveT
               {detailResult ? getLabel(detailResult.id) : ''}
             </DialogTitle>
           </DialogHeader>
-          <ScrollArea className="flex-1 min-h-0 pr-2">
-            <div className="pb-4">
+          <div className="flex-1 min-h-0 overflow-auto pr-2">
+            <div className="pb-4 min-w-0">
             {detailResult?.data && (
               detailResult.id === 'scr' ? (
                 <SCRDetailView data={detailResult.data} />
@@ -244,7 +244,7 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveT
               )
             )}
             </div>
-          </ScrollArea>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
