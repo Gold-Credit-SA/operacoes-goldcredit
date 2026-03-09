@@ -43,13 +43,15 @@ interface ConsultaHistoryPageProps {
 }
 
 export function ConsultaHistoryPage({ platform, title, description, icon }: ConsultaHistoryPageProps) {
-  const { user } = useAuth();  // kept for auth check only
+  const { user } = useAuth();
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [detailEntry, setDetailEntry] = useState<HistoryEntry | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
+  const pdfContentRef = useRef<HTMLDivElement>(null);
 
   const loadHistory = useCallback(async () => {
     if (!user) return;
