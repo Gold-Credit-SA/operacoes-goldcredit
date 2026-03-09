@@ -153,7 +153,7 @@ export function SerasaDetailView({ data, document: docNumber }: SerasaDetailView
   const reportName = String(pick(report, ['reportName']) || 'RELATÓRIO BÁSICO').replace(/_/g, ' ');
 
   return (
-    <div className="space-y-4 overflow-hidden">
+    <div className="space-y-4">
       <div className="flex justify-start">
         <SerasaPdfExport contentRef={contentRef} document={docForExport} />
       </div>

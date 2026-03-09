@@ -1,9 +1,8 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
-import { FileText, Download, Loader2, Clock, Search, X } from 'lucide-react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { FileText, Download, Loader2, Clock, Search, X, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { SCRDetailView } from '@/components/analise-operacao/SCRDetailView';
@@ -12,6 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface HistoryEntry {
   id: string;
@@ -42,13 +43,15 @@ interface ConsultaHistoryPageProps {
 }
 
 export function ConsultaHistoryPage({ platform, title, description, icon }: ConsultaHistoryPageProps) {
-  const { user } = useAuth();  // kept for auth check only
+  const { user } = useAuth();
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [detailEntry, setDetailEntry] = useState<HistoryEntry | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
+  const pdfContentRef = useRef<HTMLDivElement>(null);
 
   const loadHistory = useCallback(async () => {
     if (!user) return;
@@ -107,7 +110,90 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
     }
   }, []);
 
+  const handleGeneratePdf = useCallback(async (entry: HistoryEntry) => {
+    setGeneratingPdfId(entry.id);
+    // We need to render content first, so we open a hidden dialog-like render
+    // Use a small delay to let the hidden content render
+    await new Promise(r => setTimeout(r, 100));
+
+    const el = pdfContentRef.current;
+    if (!el) {
+      setGeneratingPdfId(null);
+      return;
+    }
+
+    try {
+      const pdfWidth = 210;
+      const pdfHeight = 297;
+      const margin = 8;
+      const contentWidth = pdfWidth - margin * 2;
+      const maxContentHeight = pdfHeight - margin * 2;
+      const pdf = new jsPDF('p', 'mm', 'a4');
+
+      pdf.setFontSize(7);
+      pdf.setTextColor(150);
+      pdf.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, pdfWidth - margin, margin + 3, { align: 'right' });
+
+      let currentY = margin + 6;
+      const children = Array.from(el.children) as HTMLElement[];
+
+      for (const child of children) {
+        const canvas = await html2canvas(child, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          scrollY: -window.scrollY,
+        });
+
+        const renderedHeight = (canvas.height * contentWidth) / canvas.width;
+
+        if (currentY + renderedHeight > maxContentHeight + margin) {
+          pdf.addPage();
+          currentY = margin;
+        }
+
+        if (renderedHeight > maxContentHeight) {
+          const imgWidth = canvas.width;
+          const imgHeight = canvas.height;
+          const pagePixelHeight = (maxContentHeight * imgWidth) / contentWidth;
+          const totalSlices = Math.ceil(imgHeight / pagePixelHeight);
+
+          for (let s = 0; s < totalSlices; s++) {
+            if (s > 0) { pdf.addPage(); currentY = margin; }
+            const srcY = s * pagePixelHeight;
+            const srcH = Math.min(pagePixelHeight, imgHeight - srcY);
+            const sliceCanvas = document.createElement('canvas');
+            sliceCanvas.width = imgWidth;
+            sliceCanvas.height = Math.ceil(srcH);
+            const ctx = sliceCanvas.getContext('2d');
+            if (ctx) {
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+              ctx.drawImage(canvas, 0, Math.floor(srcY), imgWidth, Math.ceil(srcH), 0, 0, imgWidth, Math.ceil(srcH));
+            }
+            const sliceHeight = (srcH * contentWidth) / imgWidth;
+            pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, sliceHeight);
+            currentY += sliceHeight;
+          }
+        } else {
+          pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, currentY, contentWidth, renderedHeight);
+          currentY += renderedHeight + 2;
+        }
+      }
+
+      const cleanDoc = entry.cnpj.replace(/\D/g, '');
+      const fileName = `${entry.consulta_label}-${cleanDoc}-${new Date().toISOString().split('T')[0]}.pdf`;
+      pdf.save(fileName);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+    } finally {
+      setGeneratingPdfId(null);
+    }
+  }, []);
+
   const hasFilters = searchTerm || dateFrom || dateTo;
+  const pdfEntry = generatingPdfId ? history.find(h => h.id === generatingPdfId) : null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -212,15 +298,30 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
                   </div>
                   <div className="flex items-center gap-1">
                     {entry.result_data && (
-                      <Button variant="ghost" size="sm" onClick={() => setDetailEntry(entry)}>
-                        <FileText className="h-3.5 w-3.5 mr-1" />
-                        Detalhes
-                      </Button>
+                      <>
+                        <Button variant="ghost" size="sm" onClick={() => setDetailEntry(entry)}>
+                          <FileText className="h-3.5 w-3.5 mr-1" />
+                          Detalhes
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={generatingPdfId === entry.id}
+                          onClick={() => handleGeneratePdf(entry)}
+                        >
+                          {generatingPdfId === entry.id ? (
+                            <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                          ) : (
+                            <FileDown className="h-3.5 w-3.5 mr-1" />
+                          )}
+                          PDF
+                        </Button>
+                      </>
                     )}
                     {entry.pdf_path && (
                       <Button variant="ghost" size="sm" onClick={() => handleDownloadPdf(entry.pdf_path!)}>
                         <Download className="h-3.5 w-3.5 mr-1" />
-                        PDF
+                        Baixar
                       </Button>
                     )}
                   </div>
@@ -257,6 +358,23 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Hidden render for PDF generation */}
+      {pdfEntry?.result_data && (
+        <div className="fixed left-[-9999px] top-0 w-[800px] bg-white">
+          <div ref={pdfContentRef} className="space-y-6 p-4">
+            {pdfEntry.consulta_type === 'scr' ? (
+              <SCRDetailView data={pdfEntry.result_data} />
+            ) : pdfEntry.platform === 'serasa' || pdfEntry.consulta_type.startsWith('serasa') ? (
+              <SerasaDetailView data={pdfEntry.result_data} document={pdfEntry.cnpj} />
+            ) : (
+              <pre className="text-xs whitespace-pre-wrap p-4">
+                {JSON.stringify(pdfEntry.result_data, null, 2)}
+              </pre>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
