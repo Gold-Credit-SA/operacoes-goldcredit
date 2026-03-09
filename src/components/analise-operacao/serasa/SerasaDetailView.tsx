@@ -679,7 +679,7 @@ function SimpleTableSection({
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">{emptyMessage}</p>
         ) : (
-          <div className="overflow-hidden rounded-lg border">
+          <div className="overflow-x-auto rounded-lg border">
             <Table>
               <TableHeader>
                 <TableRow>
