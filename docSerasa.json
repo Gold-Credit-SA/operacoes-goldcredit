@@ -1,0 +1,633 @@
+{
+  "info": {
+    "_postman_id": "e70d2867-694e-47b0-a0d0-67f9a4633d36",
+    "name": "[CLI] GOLD CREDIT SECURITIZADORA S/A",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "52110939",
+    "_collection_link": "https://go.postman.co/collection/52110939-e70d2867-694e-47b0-a0d0-67f9a4633d36?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "RELATORIO_BASICO_PJ_PME",
+      "item": [
+        {
+          "name": "HOMOLOGAÇÃO",
+          "item": [
+            {
+              "name": "VALIDAÇÃO DE TOKEN",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = JSON.parse(responseBody);\r",
+                      "pm.collectionVariables.set(\"customer-api-bearer\", jsonData.accessToken);\r",
+                      "pm.collectionVariables.set(\"ClientID\", \"6050f0ea8b8a5f474c8c92ca\");\r",
+                      "pm.collectionVariables.set(\"ClientSecret\", \"9c29c8c474f5a8b8ae0f0506\");"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {}
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    {
+                      "key": "password",
+                      "value": "{{ClientSecret}}",
+                      "type": "string"
+                    },
+                    {
+                      "key": "username",
+                      "value": "{{ClientID}}",
+                      "type": "string"  
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "https://uat-api.serasaexperian.com.br/security/iam/v1/client-identities/login",
+                  "protocol": "https",
+                  "host": [
+                    "uat-api",
+                    "serasaexperian",
+                    "com",
+                    "br"
+                  ],
+                  "path": [
+                    "security",
+                    "iam",
+                    "v1",
+                    "client-identities",
+                    "login"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "CONSULTA",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "eyJ4NXQjUzI1NiI6IjVKb0RSSlYzaTdETnMxbVZTUG1ub3ZNNGxFRnlRU00xYURzdURQcUV2YXciLCJraWQiOiJzZXJhc2FzZWN1cml0eXN0ZyIsImFsZyI6IlJTNTEyIn0.eyJ0ZW5hbnRfaWQiOiI2MjM0YmYwM2FiMTQ2MjRkNDgwN2Q2YTUiLCJzdWIiOiI2MDUwZjBlYThiOGE1ZjQ3NGM4YzkyY2EiLCJsb2dvbiI6IkhPTTQ2OTIwIiwiaXNzIjoiaHR0cDovL2V4cGVyaWFuLWRwLWlhbS1hdXRob3JpemF0aW9uLXNlcnZlci1zZXJ2aWNlLmRpZ2l0YWwtaWRlbnRpdHktc2VydmljZXMtdWF0LnN2YyIsImF1dGhvcml0aWVzIjpbIlJPTEVfQ0xJLUFVVEgtQkFTSUMiLCJST0xFX0NMSS1BVVRILUlERU5USUZJRUQiLCJST0xFX0NMSS0xU1RQQVJUWSIsIlJPTEVfQ0xJLTNSRFBBUlRZIl0sImNsaWVudF9pZCI6IjYwNTBmMGVhOGI4YTVmNDc0YzhjOTJjYSIsIm5iZiI6MTc3MzA2ODc3OCwic2VydmljZV9pZCI6IjYwNTBmMGVhYmQ4YWIzNDkwMzA1YzZmZCIsIm9yZ2FuaXphdGlvbl9pZCI6IjYyMzRiZjAzYWIxNDYyNGQ0ODA3ZDZhNSIsInNjb3BlIjpbIlJFQUQiLCJXUklURSJdLCJleHAiOjE3NzMwNzIzNzgsImlhdCI6MTc3MzA2ODc3OCwiYnVzaW5lc3NfaWQiOiI2MTc3MTJiOTM5NGUwYjRlZmY2NzhlMzQiLCJhcHBfaWQiOiI2MDUwZjBlNGJkOGFiMzQ5MDMwNWM2ZmMiLCJqdGkiOiI3ODFlODQ2NC02NzQwLTRkNGMtODU5NS05M2I2NTU4NDNlNmYifQ.jIq4t_exe2Qtf7mCZgMikvjbz5wAgoWu2vE1f_Gbruf0DHVDW4XpkjYWnbuU_c4kIvF_5q_lfawJmQAJ0fD9U4qhUazCp-XmVVt4TFylRjPJqlFjSu-IqYkDRpPdddsX4ezbHDd09UOim0pDm0jTfOWA_GDazhhdLoWuLTOkmyw7RKPEr-UYFypzQ6yJYVsBpKo91GlvizPpiWaoxrGE5xfFK3AluudiONu1C4Vq_5MMeGqZxBOKAnXSH2ELGWvNgxMszC5_MwAt4JHlRBsuyFTYEAyEe0aw_GSzMuNNVFIsyUx6a4EMPDM2R3bA8ulghlhuylrSW3eJJTViN1gf8A",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Document-id",
+                    "value": "33000167000101",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "https://uat-api.serasaexperian.com.br/credit-services/business-information-report/v1/reports?reportName=RELATORIO_BASICO_PJ_PME&reportParameters=ewogICJyZXBvcnRQYXJhbWV0ZXJzIiA6IFsgewogICAgIm5hbWUiIDogIkxJTUlURV9DUkVESVRPIiwKICAgICJ2YWx1ZSIgOiAiSExDMyIKICB9LCB7CiAgICAibmFtZSIgOiAiU0NPUkUiLAogICAgInZhbHVlIiA6ICJIUEpNIgogIH0sIHsKICAgICJuYW1lIiA6ICJSSVNDT19OT1ZBU19FTVBSRVNBUyIsCiAgICAidmFsdWUiIDogIkhORTMiCiAgfSwgewogICAgIm5hbWUiIDogIlBPTlRVQUxJREFERV9QQUdBTUVOVE8iLAogICAgInZhbHVlIiA6ICJISVAzIgogIH0gXQp9PQ",
+                  "protocol": "https",
+                  "host": [
+                    "uat-api",
+                    "serasaexperian",
+                    "com",
+                    "br"
+                  ],
+                  "path": [
+                    "credit-services",
+                    "business-information-report",
+                    "v1",
+                    "reports"
+                  ],
+                  "query": [
+                    {
+                      "key": "reportName",
+                      "value": "RELATORIO_BASICO_PJ_PME"
+                    },
+                    {
+                      "key": "reportParameters",
+                      "value": "ewogICJyZXBvcnRQYXJhbWV0ZXJzIiA6IFsgewogICAgIm5hbWUiIDogIkxJTUlURV9DUkVESVRPIiwKICAgICJ2YWx1ZSIgOiAiSExDMyIKICB9LCB7CiAgICAibmFtZSIgOiAiU0NPUkUiLAogICAgInZhbHVlIiA6ICJIUEpNIgogIH0sIHsKICAgICJuYW1lIiA6ICJSSVNDT19OT1ZBU19FTVBSRVNBUyIsCiAgICAidmFsdWUiIDogIkhORTMiCiAgfSwgewogICAgIm5hbWUiIDogIlBPTlRVQUxJREFERV9QQUdBTUVOVE8iLAogICAgInZhbHVlIiA6ICJISVAzIgogIH0gXQp9PQ"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "RELATORIO_AVANCADO_PJ_PME_ANALITICO",
+      "item": [
+        {
+          "name": "HOMOLOGAÇÃO",
+          "item": [
+            {
+              "name": "VALIDAÇÃO CREDENCIAL",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = JSON.parse(responseBody);\r",
+                      "pm.collectionVariables.set(\"customer-api-bearer\", jsonData.accessToken);\r",
+                      "pm.collectionVariables.set(\"ClientID\", \"6050f0ea8b8a5f474c8c92ca\");\r",
+                      "pm.collectionVariables.set(\"ClientSecret\", \"9c29c8c474f5a8b8ae0f0506\");"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {}
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    {
+                      "key": "password",
+                      "value": "{{ClientSecret}}",
+                      "type": "string"
+                    },
+                    {
+                      "key": "username",
+                      "value": "{{ClientID}}",
+                      "type": "string"
+                    },
+                    {
+                      "key": "saveHelperData",
+                      "value": true,
+                      "type": "boolean"
+                    },
+                    {
+                      "key": "showPassword",
+                      "value": false,
+                      "type": "boolean"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "https://uat-api.serasaexperian.com.br/security/iam/v1/client-identities/login",
+                  "protocol": "https",
+                  "host": [
+                    "uat-api",
+                    "serasaexperian",
+                    "com",
+                    "br"
+                  ],
+                  "path": [
+                    "security",
+                    "iam",
+                    "v1",
+                    "client-identities",
+                    "login"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "CONSULTA",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "eyJ4NXQjUzI1NiI6IjVKb0RSSlYzaTdETnMxbVZTUG1ub3ZNNGxFRnlRU00xYURzdURQcUV2YXciLCJraWQiOiJzZXJhc2FzZWN1cml0eXN0ZyIsImFsZyI6IlJTNTEyIn0.eyJ0ZW5hbnRfaWQiOiI2MjM0YmYwM2FiMTQ2MjRkNDgwN2Q2YTUiLCJzdWIiOiI2MDUwZjBlYThiOGE1ZjQ3NGM4YzkyY2EiLCJsb2dvbiI6IkhPTTQ2OTIwIiwiaXNzIjoiaHR0cDovL2V4cGVyaWFuLWRwLWlhbS1hdXRob3JpemF0aW9uLXNlcnZlci1zZXJ2aWNlLmRpZ2l0YWwtaWRlbnRpdHktc2VydmljZXMtdWF0LnN2YyIsImF1dGhvcml0aWVzIjpbIlJPTEVfQ0xJLUFVVEgtQkFTSUMiLCJST0xFX0NMSS1BVVRILUlERU5USUZJRUQiLCJST0xFX0NMSS0xU1RQQVJUWSIsIlJPTEVfQ0xJLTNSRFBBUlRZIl0sImNsaWVudF9pZCI6IjYwNTBmMGVhOGI4YTVmNDc0YzhjOTJjYSIsIm5iZiI6MTc3MzA2ODk3Niwic2VydmljZV9pZCI6IjYwNTBmMGVhYmQ4YWIzNDkwMzA1YzZmZCIsIm9yZ2FuaXphdGlvbl9pZCI6IjYyMzRiZjAzYWIxNDYyNGQ0ODA3ZDZhNSIsInNjb3BlIjpbIlJFQUQiLCJXUklURSJdLCJleHAiOjE3NzMwNzI1NzYsImlhdCI6MTc3MzA2ODk3NiwiYnVzaW5lc3NfaWQiOiI2MTc3MTJiOTM5NGUwYjRlZmY2NzhlMzQiLCJhcHBfaWQiOiI2MDUwZjBlNGJkOGFiMzQ5MDMwNWM2ZmMiLCJqdGkiOiI4MWYxNzkxZC0zMmYyLTRlZjgtOTNiMC02MDE2ZWJlOTIxODQifQ.A-ukfc5w5mYsyUyCSImJPp1lEca-UzyK3lN7hXo87p7aCs4PsmnvtVZtEOw0qLfZ9RawYsOjjTg6yKY4UZw2RMHhxaVqhmh9NS0s7j7wmatwGhb3WajN3NzWUzWB4Ku-roz5iPVyj7kwvn9Sbvo3OohQr3t-xecCW-X3EenvqfXW0XXnAU_NaFyhtwAMQgJFaXh_vyuaNokGg8ZFwbxZlFhBa8WDUL5susOTNhcU06sRq_OBxy0eSeoNsxQ4YJWKz0v10040WHjoDXKp09u0z-AKC3OSwVr1mrD1t9DEiFTNxn6mvcyn9rgzqfVOYdnWz1aK7MQz7qaOJLP-wHV3eQ",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Document-id",
+                    "value": "00000028000129",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "",
+                    "value": "",
+                    "type": "text",
+                    "disabled": true
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "https://uat-api.serasaexperian.com.br/credit-services/business-information-report/v1/reports?reportName=RELATORIO_AVANCADO_PJ_PME_ANALITICO&reportParameters=ewogICJyZXBvcnRQYXJhbWV0ZXJzIiA6IFsgewogICAgIm5hbWUiIDogIkxJTUlURV9DUkVESVRPIiwKICAgICJ2YWx1ZSIgOiAiSExDMyIKICB9LCB7CiAgICAibmFtZSIgOiAiUklTQ09fTk9WQVNfRU1QUkVTQVMiLAogICAgInZhbHVlIiA6ICJITkUzIgogIH0sIHsKICAgICJuYW1lIiA6ICJQT05UVUFMSURBREVfUEFHQU1FTlRPIiwKICAgICJ2YWx1ZSIgOiAiSElQMyIKICB9LCB7CiAgICAibmFtZSIgOiAic2VnbWVudENvZGUiLAogICAgInZhbHVlIiA6ICIwMjgiCiAgfSBdCn0",
+                  "protocol": "https",
+                  "host": [
+                    "uat-api",
+                    "serasaexperian",
+                    "com",
+                    "br"
+                  ],
+                  "path": [
+                    "credit-services",
+                    "business-information-report",
+                    "v1",
+                    "reports"
+                  ],
+                  "query": [
+                    {
+                      "key": "reportName",
+                      "value": "RELATORIO_AVANCADO_PJ_PME_ANALITICO"
+                    },
+                    {
+                      "key": "optionalFeatures",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "reportParameters",
+                      "value": "ewogICJyZXBvcnRQYXJhbWV0ZXJzIiA6IFsgewogICAgIm5hbWUiIDogIkxJTUlURV9DUkVESVRPIiwKICAgICJ2YWx1ZSIgOiAiSExDMyIKICB9LCB7CiAgICAibmFtZSIgOiAiUklTQ09fTk9WQVNfRU1QUkVTQVMiLAogICAgInZhbHVlIiA6ICJITkUzIgogIH0sIHsKICAgICJuYW1lIiA6ICJQT05UVUFMSURBREVfUEFHQU1FTlRPIiwKICAgICJ2YWx1ZSIgOiAiSElQMyIKICB9LCB7CiAgICAibmFtZSIgOiAic2VnbWVudENvZGUiLAogICAgInZhbHVlIiA6ICIwMjgiCiAgfSBdCn0"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "RELATORIO_BASICO_PF_PME",
+      "item": [
+        {
+          "name": "HOMOLOGAÇÃO",
+          "item": [
+            {
+              "name": "VALIDAÇÃO IAM",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = JSON.parse(responseBody);\r",
+                      "pm.collectionVariables.set(\"customer-api-bearer\", jsonData.accessToken);\r",
+                      "pm.collectionVariables.set(\"ClientID\", \"6050f0ea8b8a5f474c8c92ca\");\r",
+                      "pm.collectionVariables.set(\"ClientSecret\", \"9c29c8c474f5a8b8ae0f0506\");"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {}
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    {
+                      "key": "password",
+                      "value": "{{ClientSecret}}",
+                      "type": "string"
+                    },
+                    {
+                      "key": "username",
+                      "value": "{{ClientID}}",
+                      "type": "string"
+                    },
+                    {
+                      "key": "saveHelperData",
+                      "value": true,
+                      "type": "boolean"
+                    },
+                    {
+                      "key": "showPassword",
+                      "value": false,
+                      "type": "boolean"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "",
+                    "value": "",
+                    "type": "text",
+                    "disabled": true
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "https://uat-api.serasaexperian.com.br/security/iam/v1/client-identities/login",
+                  "protocol": "https",
+                  "host": [
+                    "uat-api",
+                    "serasaexperian",
+                    "com",
+                    "br"
+                  ],
+                  "path": [
+                    "security",
+                    "iam",
+                    "v1",
+                    "client-identities",
+                    "login"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "CONSULTA",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "eyJ4NXQjUzI1NiI6IjVKb0RSSlYzaTdETnMxbVZTUG1ub3ZNNGxFRnlRU00xYURzdURQcUV2YXciLCJraWQiOiJzZXJhc2FzZWN1cml0eXN0ZyIsImFsZyI6IlJTNTEyIn0.eyJ0ZW5hbnRfaWQiOiI2MjM0YmYwM2FiMTQ2MjRkNDgwN2Q2YTUiLCJzdWIiOiI2MDUwZjBlYThiOGE1ZjQ3NGM4YzkyY2EiLCJsb2dvbiI6IkhPTTQ2OTIwIiwiaXNzIjoiaHR0cDovL2V4cGVyaWFuLWRwLWlhbS1hdXRob3JpemF0aW9uLXNlcnZlci1zZXJ2aWNlLmRpZ2l0YWwtaWRlbnRpdHktc2VydmljZXMtdWF0LnN2YyIsImF1dGhvcml0aWVzIjpbIlJPTEVfQ0xJLUFVVEgtQkFTSUMiLCJST0xFX0NMSS1BVVRILUlERU5USUZJRUQiLCJST0xFX0NMSS0xU1RQQVJUWSIsIlJPTEVfQ0xJLTNSRFBBUlRZIl0sImNsaWVudF9pZCI6IjYwNTBmMGVhOGI4YTVmNDc0YzhjOTJjYSIsIm5iZiI6MTc3MzA2OTEwNiwic2VydmljZV9pZCI6IjYwNTBmMGVhYmQ4YWIzNDkwMzA1YzZmZCIsIm9yZ2FuaXphdGlvbl9pZCI6IjYyMzRiZjAzYWIxNDYyNGQ0ODA3ZDZhNSIsInNjb3BlIjpbIlJFQUQiLCJXUklURSJdLCJleHAiOjE3NzMwNzI3MDYsImlhdCI6MTc3MzA2OTEwNiwiYnVzaW5lc3NfaWQiOiI2MTc3MTJiOTM5NGUwYjRlZmY2NzhlMzQiLCJhcHBfaWQiOiI2MDUwZjBlNGJkOGFiMzQ5MDMwNWM2ZmMiLCJqdGkiOiJlZTI1MjIxNS1iMmY2LTQwNTItOGI4Zi1iNDE3ZGZjMTgxYjAifQ.cb3jE_GpMReRRzNXU2w4147DinAXJuUMICvmpXQ6xjKfhrENclimGxzcCB042NfRMWmh8bFCcH0cP0xpgjFse1lrZDxr-b8uyplFe5-jya0VeVK52dTHVq5iI3UhUEicB7SwZwdsIlJBgf95enHm1ixwNZeuTsWoMJ7oYiqakdGOj-5doWENsZWY035R1pJFhULnBCHgvLFSecrh9TCm3wgU7lalij8nHHqQQPBLA7J80VmZh4ruKpMH22xNTVpkYpnRpS0QJ9eAdSI8Y6XH91bdJ2tT9xQ4i_GqlNdlXv5C0Br4ZNv0f9M-1S_CbmKME1dW7T5T4GGn9VDvV1_6Eg",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Document-id",
+                    "value": "00000001244",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "",
+                    "value": "",
+                    "type": "text",
+                    "disabled": true
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "https://uat-api.serasaexperian.com.br/credit-services/person-information-report/v1/creditreport?reportName=RELATORIO_BASICO_PF_PME&reportParameters=ewogICJyZXBvcnRQYXJhbWV0ZXJzIiA6IFsgewogICAgIm5hbWUiIDogIlJFTkRBX0VTVElNQURBX1BGIiwKICAgICJ2YWx1ZSIgOiAiSFJQNSIKICB9IF0KfQ&optionalFeatures=HISTORICO_PAGAMENTO, MAIS_ANOTACOES_1000, RENDA_ESTIMADA_PF",
+                  "protocol": "https",
+                  "host": [
+                    "uat-api",
+                    "serasaexperian",
+                    "com",
+                    "br"
+                  ],
+                  "path": [
+                    "credit-services",
+                    "person-information-report",
+                    "v1",
+                    "creditreport"
+                  ],
+                  "query": [
+                    {
+                      "key": "reportName",
+                      "value": "RELATORIO_BASICO_PF_PME"
+                    },
+                    {
+                      "key": "reportParameters",
+                      "value": "ewogICJyZXBvcnRQYXJhbWV0ZXJzIiA6IFsgewogICAgIm5hbWUiIDogIlJFTkRBX0VTVElNQURBX1BGIiwKICAgICJ2YWx1ZSIgOiAiSFJQNSIKICB9IF0KfQ"
+                    },
+                    {
+                      "key": "optionalFeatures",
+                      "value": "HISTORICO_PAGAMENTO, MAIS_ANOTACOES_1000, RENDA_ESTIMADA_PF"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "RELATORIO_AVANCADO_TOP_SCORE_PF_PME",
+      "item": [
+        {
+          "name": "HOMOLOGAÇÃO",
+          "item": [
+            {
+              "name": "VALIDAÇÃO CREDENCIAL",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = JSON.parse(responseBody);\r",
+                      "pm.collectionVariables.set(\"customer-api-bearer\", jsonData.accessToken);\r",
+                      "pm.collectionVariables.set(\"ClientID\", \"6050f0ea8b8a5f474c8c92ca\");\r",
+                      "pm.collectionVariables.set(\"ClientSecret\", \"9c29c8c474f5a8b8ae0f0506\");"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {}
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    {
+                      "key": "password",
+                      "value": "{{ClientSecret}}",
+                      "type": "string"
+                    },
+                    {
+                      "key": "username",
+                      "value": "{{ClientID}}",
+                      "type": "string"
+                    },
+                    {
+                      "key": "saveHelperData",
+                      "value": true,
+                      "type": "boolean"
+                    },
+                    {
+                      "key": "showPassword",
+                      "value": false,
+                      "type": "boolean"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "https://uat-api.serasaexperian.com.br/security/iam/v1/client-identities/login",
+                  "protocol": "https",
+                  "host": [
+                    "uat-api",
+                    "serasaexperian",
+                    "com",
+                    "br"
+                  ],
+                  "path": [
+                    "security",
+                    "iam",
+                    "v1",
+                    "client-identities",
+                    "login"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "CONSULTA",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "eyJ4NXQjUzI1NiI6IjVKb0RSSlYzaTdETnMxbVZTUG1ub3ZNNGxFRnlRU00xYURzdURQcUV2YXciLCJraWQiOiJzZXJhc2FzZWN1cml0eXN0ZyIsImFsZyI6IlJTNTEyIn0.eyJ0ZW5hbnRfaWQiOiI2MjM0YmYwM2FiMTQ2MjRkNDgwN2Q2YTUiLCJzdWIiOiI2MDUwZjBlYThiOGE1ZjQ3NGM4YzkyY2EiLCJsb2dvbiI6IkhPTTQ2OTIwIiwiaXNzIjoiaHR0cDovL2V4cGVyaWFuLWRwLWlhbS1hdXRob3JpemF0aW9uLXNlcnZlci1zZXJ2aWNlLmRpZ2l0YWwtaWRlbnRpdHktc2VydmljZXMtdWF0LnN2YyIsImF1dGhvcml0aWVzIjpbIlJPTEVfQ0xJLUFVVEgtQkFTSUMiLCJST0xFX0NMSS1BVVRILUlERU5USUZJRUQiLCJST0xFX0NMSS0xU1RQQVJUWSIsIlJPTEVfQ0xJLTNSRFBBUlRZIl0sImNsaWVudF9pZCI6IjYwNTBmMGVhOGI4YTVmNDc0YzhjOTJjYSIsIm5iZiI6MTc3MzA2OTQzNSwic2VydmljZV9pZCI6IjYwNTBmMGVhYmQ4YWIzNDkwMzA1YzZmZCIsIm9yZ2FuaXphdGlvbl9pZCI6IjYyMzRiZjAzYWIxNDYyNGQ0ODA3ZDZhNSIsInNjb3BlIjpbIlJFQUQiLCJXUklURSJdLCJleHAiOjE3NzMwNzMwMzUsImlhdCI6MTc3MzA2OTQzNSwiYnVzaW5lc3NfaWQiOiI2MTc3MTJiOTM5NGUwYjRlZmY2NzhlMzQiLCJhcHBfaWQiOiI2MDUwZjBlNGJkOGFiMzQ5MDMwNWM2ZmMiLCJqdGkiOiJlZDM1NGJkMS0zM2I0LTQ3ZTQtOGQwYi1mMjVlMWNiNzY4NjYifQ.OlIZxTKssVhtMP9MIPK3pb_yhQnzSQRh_6f0NljTYK66hGBm37OO_y8Gsp-SKwQztcWKKdp5npNOQhTbRWH2XEcsjPDdqkwWWrhuH6IBC5aS3xPHj2Kuc7ldZbMIG9LEm5x_9Q_h2cQekj7MjXAOPaHIZAzURd7g2NenGUojqiSzDM0UaTx1TxnfDUeOpZTsTu3lkhRe0TQCx96VhO7By27tMdCcWxVMFRQzb1eLJKyiD0W3QxTmid113qoiLTkIqkSYdCbZnjWuvrEIyp8QUYEkDY1pbEdQY2paq3u-B-gy_cBPntjbbxaRa57FSnLkQQ21aYon8Fqborz2x2bvzg",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Document-Id",
+                    "value": "00000001244",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "",
+                    "value": "",
+                    "type": "text",
+                    "disabled": true
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "https://uat-api.serasaexperian.com.br/credit-services/person-information-report/v1/creditreport?reportName=RELATORIO_AVANCADO_TOP_SCORE_PF_PME&optionalFeatures=HISTORICO_PAGAMENTO&reportParameters=ewogICJyZXBvcnRQYXJhbWV0ZXJzIiA6IFsgewogICAgIm5hbWUiIDogIlJFTkRBX0VTVElNQURBX1BGIiwKICAgICJ2YWx1ZSIgOiAiSFJQNSIKICB9IF0KfT0",
+                  "protocol": "https",
+                  "host": [
+                    "uat-api",
+                    "serasaexperian",
+                    "com",
+                    "br"
+                  ],
+                  "path": [
+                    "credit-services",
+                    "person-information-report",
+                    "v1",
+                    "creditreport"
+                  ],
+                  "query": [
+                    {
+                      "key": "reportName",
+                      "value": "RELATORIO_AVANCADO_TOP_SCORE_PF_PME"
+                    },
+                    {
+                      "key": "optionalFeatures",
+                      "value": "HISTORICO_PAGAMENTO"
+                    },
+                    {
+                      "key": "reportParameters",
+                      "value": "ewogICJyZXBvcnRQYXJhbWV0ZXJzIiA6IFsgewogICAgIm5hbWUiIDogIlJFTkRBX0VTVElNQURBX1BGIiwKICAgICJ2YWx1ZSIgOiAiSFJQNSIKICB9IF0KfT0",
+                      "type": "text"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "customer-api-bearer",
+      "value": ""
+    },
+    {
+      "key": "ClientID",
+      "value": ""
+    },
+    {
+      "key": "ClientSecret",
+      "value": ""
+    }
+  ]
+}
+
+
