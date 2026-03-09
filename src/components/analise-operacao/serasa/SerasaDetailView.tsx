@@ -375,8 +375,8 @@ export function SerasaDetailView({ data }: SerasaDetailViewProps) {
         icon={<DollarSign className="h-4 w-4 text-destructive" />}
         items={pefin?.pefinResponse || []}
         summary={pefin?.summary}
-        columns={['occurrenceDate', 'amount', 'legalNature', 'contractId', 'creditorName', 'principal', 'federalUnit']}
-        columnLabels={['Data', 'Valor', 'Natureza', 'Contrato', 'Origem', 'Avalista', 'UF']}
+        columns={['occurrenceDate', 'inclusionDate', 'amount', 'legalNature', 'contractId', 'creditorName', 'principal', 'federalUnit']}
+        columnLabels={['Data Ocorrência', 'Data Inclusão', 'Valor', 'Natureza', 'Contrato', 'Origem', 'Avalista', 'UF']}
       />
 
       {/* ═══════════════════ REFIN DETALHES ═══════════════════ */}
@@ -385,8 +385,8 @@ export function SerasaDetailView({ data }: SerasaDetailViewProps) {
         icon={<Landmark className="h-4 w-4 text-destructive" />}
         items={refin?.refinResponse || []}
         summary={refin?.summary}
-        columns={['occurrenceDate', 'amount', 'legalNature', 'contractId', 'creditorName', 'principal', 'federalUnit']}
-        columnLabels={['Data', 'Valor', 'Modalidade', 'Contrato', 'Origem', 'Avalista', 'UF']}
+        columns={['occurrenceDate', 'inclusionDate', 'amount', 'legalNature', 'contractId', 'creditorName', 'principal', 'federalUnit']}
+        columnLabels={['Data Ocorrência', 'Data Inclusão', 'Valor', 'Modalidade', 'Contrato', 'Origem', 'Avalista', 'UF']}
       />
 
       {/* ═══════════════════ CONVEM / DÍVIDAS VENCIDAS ═══════════════════ */}
@@ -395,8 +395,8 @@ export function SerasaDetailView({ data }: SerasaDetailViewProps) {
         icon={<Receipt className="h-4 w-4 text-destructive" />}
         items={collectionRecords?.collectionRecordsResponse || []}
         summary={collectionRecords?.summary}
-        columns={['occurrenceDate', 'amount', 'legalNature', 'contractId', 'creditorName', 'principal', 'federalUnit']}
-        columnLabels={['Data', 'Valor', 'Natureza', 'Contrato', 'Origem', 'Avalista', 'UF']}
+        columns={['occurrenceDate', 'inclusionDate', 'amount', 'legalNature', 'contractId', 'creditorName', 'principal', 'federalUnit']}
+        columnLabels={['Data Ocorrência', 'Data Inclusão', 'Valor', 'Natureza', 'Contrato', 'Origem', 'Avalista', 'UF']}
       />
 
       {/* ═══════════════════ PROTESTOS ═══════════════════ */}
@@ -405,8 +405,8 @@ export function SerasaDetailView({ data }: SerasaDetailViewProps) {
         icon={<BookOpen className="h-4 w-4 text-destructive" />}
         items={notary?.notaryResponse || []}
         summary={notary?.summary}
-        columns={['occurrenceDate', 'amount', 'city', 'federalUnit', 'notaryName']}
-        columnLabels={['Data', 'Valor', 'Cidade', 'UF', 'N° do Cartório']}
+        columns={['occurrenceDate', 'inclusionDate', 'amount', 'city', 'federalUnit', 'notaryName']}
+        columnLabels={['Data Ocorrência', 'Data Inclusão', 'Valor', 'Cidade', 'UF', 'N° do Cartório']}
       />
 
       {/* ═══════════════════ CHEQUES SEM FUNDO ═══════════════════ */}
@@ -415,8 +415,8 @@ export function SerasaDetailView({ data }: SerasaDetailViewProps) {
         icon={<CreditCard className="h-4 w-4 text-destructive" />}
         items={checks?.checkResponse || []}
         summary={checks?.summary}
-        columns={['occurrenceDate', 'amount', 'bankName', 'city', 'federalUnit']}
-        columnLabels={['Data', 'Valor', 'Banco', 'Cidade', 'UF']}
+        columns={['occurrenceDate', 'inclusionDate', 'bankId', 'bankName', 'bankAgencyId', 'checkCount', 'checkNumber', 'alinea', 'city', 'federalUnit']}
+        columnLabels={['Data Ocorrência', 'Data Inclusão', 'Cód. Banco', 'Banco', 'Agência', 'Qtd. Cheques', 'N° Cheque', 'Alínea', 'Cidade', 'UF']}
       />
 
       {/* ═══════════════════ PARTICIPAÇÕES SOCIETÁRIAS ═══════════════════ */}
@@ -676,10 +676,44 @@ function NegativeDetailTable({ title, icon, items, summary, columns, columnLabel
     return String(val);
   };
 
-  // Collect extra fields not in columns
-  const getExtraFields = (item: any): [string, unknown][] => {
-    const skip = new Set([...columns, 'dispute', 'cadus', 'inclusionDate']);
-    return Object.entries(item).filter(([k, v]) => !skip.has(k) && v != null && typeof v !== 'object');
+  // Collect ALL extra fields not in the main columns
+  const getExtraFields = (item: any): { key: string; label: string; value: string }[] => {
+    const skip = new Set(columns);
+    const extras: { key: string; label: string; value: string }[] = [];
+    
+    for (const [k, v] of Object.entries(item)) {
+      if (skip.has(k) || v == null) continue;
+      
+      if (k === 'dispute' && typeof v === 'object') {
+        // Flatten dispute sub-fields
+        const d = v as Record<string, unknown>;
+        for (const [dk, dv] of Object.entries(d)) {
+          if (dv == null) continue;
+          extras.push({
+            key: `dispute.${dk}`,
+            label: fieldLabel(dk),
+            value: typeof dv === 'boolean' ? (dv ? 'Sim' : 'Não') : isDateKey(dk) ? fmtDate(String(dv)) : String(dv),
+          });
+        }
+      } else if (typeof v === 'object') {
+        // Flatten any other nested object
+        for (const [sk, sv] of Object.entries(v as Record<string, unknown>)) {
+          if (sv == null) continue;
+          extras.push({
+            key: `${k}.${sk}`,
+            label: `${fieldLabel(k)} - ${fieldLabel(sk)}`,
+            value: typeof sv === 'boolean' ? (sv ? 'Sim' : 'Não') : isDateKey(sk) ? fmtDate(String(sv)) : String(sv),
+          });
+        }
+      } else {
+        extras.push({
+          key: k,
+          label: fieldLabel(k),
+          value: typeof v === 'boolean' ? (v ? 'Sim' : 'Não') : isDateKey(k) ? fmtDate(String(v)) : String(v),
+        });
+      }
+    }
+    return extras;
   };
 
   return (
@@ -735,17 +769,22 @@ function NegativeDetailTable({ title, icon, items, summary, columns, columnLabel
             </div>
             {/* Extra fields row below table if any item has them */}
             {items.some(item => getExtraFields(item).length > 0) && (
-              <div className="mt-2 space-y-1.5">
-                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Informações adicionais:</p>
+              <div className="mt-3 space-y-2">
+                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Informações adicionais por registro:</p>
                 {items.map((item, i) => {
                   const extras = getExtraFields(item);
                   if (extras.length === 0) return null;
                   return (
-                    <div key={i} className="text-[10px] text-muted-foreground p-2 bg-muted/30 rounded border border-border flex flex-wrap gap-x-4 gap-y-0.5">
-                      <span className="font-medium text-foreground">#{i + 1}</span>
-                      {extras.map(([k, v]) => (
-                        <span key={k}>{fieldLabel(k)}: <span className="text-foreground">{isDateKey(k) ? fmtDate(String(v)) : String(v)}</span></span>
-                      ))}
+                    <div key={i} className="text-[10px] p-2.5 bg-muted/30 rounded-lg border border-border space-y-1">
+                      <span className="font-semibold text-foreground text-xs">Registro #{i + 1}</span>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-0.5">
+                        {extras.map((f) => (
+                          <div key={f.key} className="flex items-baseline gap-1.5">
+                            <span className="text-muted-foreground shrink-0">{f.label}:</span>
+                            <span className="text-foreground font-medium">{f.value}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   );
                 })}
