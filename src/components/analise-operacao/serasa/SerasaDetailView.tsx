@@ -177,8 +177,8 @@ export function SerasaDetailView({ data, document: docNumber }: SerasaDetailView
         <MetricCard
           icon={Search}
           title="Consultas neste mes"
-          value={String(pick(inquiry, ['inquirySummary.actual'], 0))}
-          subtitle={`${pick(inquiry, ['inquirySummary.previous'], 0)} no mes passado`}
+          value={String(pick(factsInquirySummary, ['inquiryQuantity.actual'], pick(factsInquiry, ['summary.count'], 0)))}
+          subtitle={`${pick(factsInquirySummary, ['inquiryQuantity.creditInquiriesQuantity.length'], 0)} meses com consultas`}
         />
       </div>
 
