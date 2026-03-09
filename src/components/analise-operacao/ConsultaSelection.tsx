@@ -31,6 +31,9 @@ export const CONSULTA_GROUPS: ConsultaGroup[] = [
     provider: 'Serasa',
     items: [
       { id: 'serasa_basico_pf', label: 'Relatório Básico PF (Serasa)' },
+      { id: 'serasa_avancado_top_score_pf', label: 'Top Score PF (Serasa)' },
+      { id: 'serasa_basico_pj', label: 'Relatório Básico PJ (Serasa)' },
+      { id: 'serasa_avancado_pj_analitico', label: 'Relatório Analítico PJ (Serasa)' },
     ],
   },
   {
