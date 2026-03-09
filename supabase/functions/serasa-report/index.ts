@@ -123,9 +123,8 @@ serve(async (req) => {
     console.log('Serasa auth successful, fetching report:', reportConfig.reportName);
 
     // Step 2: Build report URL based on PF vs PJ
-    const reportPath = isPF
-      ? '/credit-services/person-information-report/v1/creditreport'
-      : '/credit-services/business-information-report/v1/creditreport';
+    // Use same endpoint for PF and PJ - Serasa uses report name to differentiate
+    const reportPath = '/credit-services/person-information-report/v1/creditreport';
 
     let reportUrl = `${baseUrl}${reportPath}?reportName=${reportConfig.reportName}`;
 
