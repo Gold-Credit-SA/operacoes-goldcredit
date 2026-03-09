@@ -537,7 +537,7 @@ export function SerasaDetailView({ data, document: docNumber }: SerasaDetailView
             <p className="text-xs text-muted-foreground mb-2">
               Consultas à Serasa Experian  Exibindo {inquiryItems.length} registros.
             </p>
-            <div className="overflow-hidden border border-border rounded-lg">
+            <div className="overflow-x-auto border border-border rounded-lg">
               <Table>
                 <TableHeader>
                   <TableRow>
