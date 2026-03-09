@@ -223,14 +223,15 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveT
 
       {/* Detail Dialog */}
       <Dialog open={!!detailResult} onOpenChange={(open) => !open && setDetailResult(null)}>
-        <DialogContent className="max-w-3xl max-h-[85vh]">
-          <DialogHeader>
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] flex flex-col">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
               {detailResult ? getLabel(detailResult.id) : ''}
             </DialogTitle>
           </DialogHeader>
-          <ScrollArea className="max-h-[70vh]">
+          <ScrollArea className="flex-1 min-h-0 pr-2">
+            <div className="pb-4">
             {detailResult?.data && (
               detailResult.id === 'scr' ? (
                 <SCRDetailView data={detailResult.data} />
@@ -242,6 +243,7 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveT
                 </div>
               )
             )}
+            </div>
           </ScrollArea>
         </DialogContent>
       </Dialog>
