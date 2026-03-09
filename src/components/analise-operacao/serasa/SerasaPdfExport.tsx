@@ -30,28 +30,28 @@ export function SerasaPdfExport({ contentRef, document: doc }: SerasaPdfExportPr
       pdf.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, pdfWidth - margin, margin + 3, { align: 'right' });
 
       let currentY = margin + 6;
-      let isFirstPage = true;
 
       const children = Array.from(contentRef.current.children) as HTMLElement[];
 
       for (const child of children) {
+        if (child.offsetHeight === 0) continue;
+
         const canvas = await html2canvas(child, {
           scale: 2,
           useCORS: true,
           backgroundColor: '#ffffff',
           logging: false,
-          scrollY: -window.scrollY,
+          windowWidth: contentRef.current.scrollWidth || 800,
+          scrollY: 0,
+          scrollX: 0,
         });
 
         const renderedHeight = (canvas.height * contentWidth) / canvas.width;
 
-        if (!isFirstPage || currentY + renderedHeight > maxContentHeight + margin) {
-          if (currentY > margin + 6) {
-            if (currentY + renderedHeight > maxContentHeight + margin) {
-              pdf.addPage();
-              currentY = margin;
-            }
-          }
+        // Check if we need a new page
+        if (currentY + renderedHeight > maxContentHeight + margin && currentY > margin + 6) {
+          pdf.addPage();
+          currentY = margin;
         }
 
         if (renderedHeight > maxContentHeight) {
@@ -87,8 +87,6 @@ export function SerasaPdfExport({ contentRef, document: doc }: SerasaPdfExportPr
           pdf.addImage(imgData, 'PNG', margin, currentY, contentWidth, renderedHeight);
           currentY += renderedHeight + 2;
         }
-
-        isFirstPage = false;
       }
 
       const cleanDoc = doc.replace(/\D/g, '');

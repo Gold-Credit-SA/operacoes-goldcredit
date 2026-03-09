@@ -112,9 +112,8 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
 
   const handleGeneratePdf = useCallback(async (entry: HistoryEntry) => {
     setGeneratingPdfId(entry.id);
-    // We need to render content first, so we open a hidden dialog-like render
-    // Use a small delay to let the hidden content render
-    await new Promise(r => setTimeout(r, 100));
+    // Wait for hidden content to render fully
+    await new Promise(r => setTimeout(r, 800));
 
     const el = pdfContentRef.current;
     if (!el) {
@@ -135,20 +134,28 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
       pdf.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, pdfWidth - margin, margin + 3, { align: 'right' });
 
       let currentY = margin + 6;
+
+      // Get direct children of the contentRef (individual sections)
       const children = Array.from(el.children) as HTMLElement[];
 
       for (const child of children) {
+        // Skip elements with zero height
+        if (child.offsetHeight === 0) continue;
+
         const canvas = await html2canvas(child, {
           scale: 2,
           useCORS: true,
           backgroundColor: '#ffffff',
           logging: false,
-          scrollY: -window.scrollY,
+          windowWidth: 800,
+          scrollY: 0,
+          scrollX: 0,
         });
 
         const renderedHeight = (canvas.height * contentWidth) / canvas.width;
 
-        if (currentY + renderedHeight > maxContentHeight + margin) {
+        // Check if we need a new page
+        if (currentY + renderedHeight > maxContentHeight + margin && currentY > margin + 6) {
           pdf.addPage();
           currentY = margin;
         }
@@ -361,18 +368,25 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
 
       {/* Hidden render for PDF generation */}
       {pdfEntry?.result_data && (
-        <div className="fixed left-[-9999px] top-0 w-[800px] bg-white">
-          <div ref={pdfContentRef} className="space-y-6 p-4">
-            {pdfEntry.consulta_type === 'scr' ? (
+        <div className="fixed left-[-9999px] top-0 w-[800px] bg-white" style={{ visibility: 'hidden', zIndex: -1 }}>
+          {pdfEntry.consulta_type === 'scr' ? (
+            <div ref={pdfContentRef} className="space-y-6 p-4">
               <SCRDetailView data={pdfEntry.result_data} />
-            ) : pdfEntry.platform === 'serasa' || pdfEntry.consulta_type.startsWith('serasa') ? (
-              <SerasaDetailView data={pdfEntry.result_data} document={pdfEntry.cnpj} />
-            ) : (
-              <pre className="text-xs whitespace-pre-wrap p-4">
+            </div>
+          ) : pdfEntry.platform === 'serasa' || pdfEntry.consulta_type.startsWith('serasa') ? (
+            <SerasaDetailView
+              data={pdfEntry.result_data}
+              document={pdfEntry.cnpj}
+              hideExportButton
+              externalRef={pdfContentRef}
+            />
+          ) : (
+            <div ref={pdfContentRef} className="p-4">
+              <pre className="text-xs whitespace-pre-wrap">
                 {JSON.stringify(pdfEntry.result_data, null, 2)}
               </pre>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>

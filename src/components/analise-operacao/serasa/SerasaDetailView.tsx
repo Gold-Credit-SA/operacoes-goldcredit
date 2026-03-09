@@ -23,6 +23,8 @@ import {
 interface SerasaDetailViewProps {
   data: Record<string, unknown>;
   document?: string;
+  hideExportButton?: boolean;
+  externalRef?: React.RefObject<HTMLDivElement>;
 }
 
 type GenericRecord = Record<string, any>;
@@ -85,8 +87,9 @@ function yesNo(value: unknown): string {
   return String(value ?? '-');
 }
 
-export function SerasaDetailView({ data, document: docNumber }: SerasaDetailViewProps) {
-  const contentRef = useRef<HTMLDivElement>(null);
+export function SerasaDetailView({ data, document: docNumber, hideExportButton, externalRef }: SerasaDetailViewProps) {
+  const internalRef = useRef<HTMLDivElement>(null);
+  const contentRef = externalRef || internalRef;
   const report = ((data as any)?.reports?.[0] || (data as any)?.data?.reports?.[0] || data) as GenericRecord;
   const registration = (report?.registration || {}) as GenericRecord;
   const negativeData = (report?.negativeData || {}) as GenericRecord;
@@ -154,10 +157,12 @@ export function SerasaDetailView({ data, document: docNumber }: SerasaDetailView
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-start">
-        <SerasaPdfExport contentRef={contentRef} document={docForExport} />
-      </div>
-      <div ref={contentRef} className="space-y-6 overflow-x-auto">
+      {!hideExportButton && (
+        <div className="flex justify-start">
+          <SerasaPdfExport contentRef={contentRef} document={docForExport} />
+        </div>
+      )}
+      <div ref={contentRef} className="space-y-6">
 
       {/* ── Header Strip ── */}
       <div className="border border-border rounded-lg bg-muted/30 px-5 py-3 flex flex-col gap-1">
