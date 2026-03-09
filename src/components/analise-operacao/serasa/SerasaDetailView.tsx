@@ -426,49 +426,147 @@ export function SerasaDetailView({ data, document: docNumber }: SerasaDetailView
         />
       </div>
 
-      <SimpleTableSection
-        title="Participacoes societarias"
-        icon={Building2}
-        emptyMessage="Nenhum registro para este documento."
-        rows={participation}
-        columns={[
-          { header: 'Empresa', render: (item) => item.companyName || item.name || '-' },
-          { header: 'Documento', render: (item) => formatDocument(item.documentNumber || item.document) },
-          { header: 'Participacao', render: (item) => item.percentage || item.participationPercentage || '-' },
-          { header: 'Situacao', render: (item) => item.status || '-' },
-        ]}
-      />
+      {/* ── Participações Societárias ── */}
+      <div>
+        <p className="text-sm font-semibold text-primary mb-1">Participações Societárias</p>
+        <p className="text-xs text-muted-foreground mb-3">
+          Vínculos do documento como sócio em outras empresas.
+        </p>
 
-      <SimpleTableSection
-        title="Documentos roubados"
-        icon={ShieldAlert}
-        emptyMessage="Nenhum registro para este documento."
-        rows={stolenItems}
-        columns={[
-          { header: 'Documento', render: (item) => item.documentType || item.type || '-' },
-          { header: 'Data', render: (item) => formatDate(item.occurrenceDate || item.date) },
-          { header: 'Origem', render: (item) => item.source || item.institution || '-' },
-          { header: 'UF', render: (item) => item.federalUnit || '-' },
-        ]}
-      />
+        <div className="border border-border rounded-lg p-3 mb-3">
+          <p className="text-[11px] font-medium text-muted-foreground">Participação societária</p>
+          <p className="text-sm font-bold text-foreground">{participation.length}</p>
+        </div>
 
-      <SimpleTableSection
-        title="Consultas a Serasa Experian"
-        icon={Search}
-        emptyMessage="Nenhuma consulta registrada."
-        rows={inquiryItems}
-        columns={[
-          { header: 'Data da consulta', render: (item) => formatDate(item.occurrenceDate) },
-          { header: 'Quantidade no dia', render: (item) => item.inquiryQuantity || item.quantity || 1 },
-          { header: 'Segmento do consultante', render: (item) => item.segmentDescription || '-' },
-        ]}
-        headerAside={
-          <div className="flex gap-2">
-            <Badge variant="secondary">Mes atual: {pick(inquiry, ['inquirySummary.actual'], 0)}</Badge>
-            <Badge variant="outline">Mes passado: {pick(inquiry, ['inquirySummary.previous'], 0)}</Badge>
+        <p className="text-xs text-muted-foreground mb-2">Detalhes das participações societárias</p>
+        {participation.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nenhum registro para este documento.</p>
+        ) : (
+          <div className="overflow-hidden border border-border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs font-medium">Empresa</TableHead>
+                  <TableHead className="text-xs font-medium">Documento</TableHead>
+                  <TableHead className="text-xs font-medium">Participação</TableHead>
+                  <TableHead className="text-xs font-medium">Situação</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {participation.map((item, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="text-xs py-2">{item.companyName || item.name || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDocument(item.documentNumber || item.document)}</TableCell>
+                    <TableCell className="text-xs py-2">{item.percentage || item.participationPercentage || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.status || '-'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
-        }
-      />
+        )}
+      </div>
+
+      {/* ── Documentos Roubados ── */}
+      <div>
+        <p className="text-sm font-semibold text-primary mb-1">Documentos Roubados</p>
+
+        <div className="border border-border rounded-lg p-3 mb-3">
+          <p className="text-[11px] font-medium text-muted-foreground">Documentos roubados</p>
+          <p className="text-sm font-bold text-foreground">{stolenItems.length > 0 ? `${stolenItems.length} ocorrências` : 'Sem ocorrências'}</p>
+        </div>
+
+        <p className="text-xs text-muted-foreground mb-2">Documentos roubados, furtados ou extraviados</p>
+        {stolenItems.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nenhum registro para este documento.</p>
+        ) : (
+          <div className="overflow-hidden border border-border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs font-medium">Documento</TableHead>
+                  <TableHead className="text-xs font-medium">Data</TableHead>
+                  <TableHead className="text-xs font-medium">Origem</TableHead>
+                  <TableHead className="text-xs font-medium">UF</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {stolenItems.map((item, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="text-xs py-2">{item.documentType || item.type || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDate(item.occurrenceDate || item.date)}</TableCell>
+                    <TableCell className="text-xs py-2">{item.source || item.institution || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.federalUnit || '-'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+
+      {/* ── Consultas à Serasa Experian ── */}
+      <div>
+        <p className="text-sm font-semibold text-primary mb-1">Consultas à Serasa Experian</p>
+        <p className="text-xs text-muted-foreground mb-3">
+          Detalhamento do mês atual e do mês anterior de consultas deste documento.
+        </p>
+
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-bold text-foreground">
+              {consultasAtual > 0 ? `${consultasAtual} consultas` : 'Sem consultas'}
+            </p>
+            <p className="text-[11px] text-muted-foreground">Consultas neste mês</p>
+          </div>
+          <div className="border border-border rounded-lg p-3">
+            <div className="flex items-center gap-1.5">
+              <p className="text-[11px] font-bold text-foreground">
+                {inquiryCount > 0 ? `${inquiryCount} consultas` : 'Sem consultas'}
+              </p>
+              {inquiryCount > 0 && <AlertTriangle className="h-3 w-3 text-amber-500" />}
+            </div>
+            <p className="text-[11px] text-muted-foreground">Consultas no mês passado</p>
+          </div>
+        </div>
+
+        {inquiryItems.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nenhuma consulta registrada.</p>
+        ) : (
+          <>
+            <p className="text-xs text-muted-foreground mb-2">
+              Consultas à Serasa Experian  Exibindo {inquiryItems.length} registros.
+            </p>
+            <div className="overflow-hidden border border-border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs font-medium">Data da consulta</TableHead>
+                    <TableHead className="text-xs font-medium">Quantidade de consultas no dia</TableHead>
+                    <TableHead className="text-xs font-medium">Segmento do consultante</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {inquiryItems.map((item, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="text-xs py-2">{formatDate(item.occurrenceDate)}</TableCell>
+                      <TableCell className="text-xs py-2">{item.inquiryQuantity || item.quantity || 1}</TableCell>
+                      <TableCell className="text-xs py-2">{item.segmentDescription || '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── Disclaimer ── */}
+      <div className="border-t border-border pt-4 mt-6">
+        <p className="text-[10px] text-muted-foreground leading-relaxed">
+          Este relatório é estritamente confidencial e destinado a apoiar decisões de crédito e negócios. É proibida a reprodução, total ou parcial, bem como sua divulgação a terceiros, por qualquer forma. A decisão de conceder ou não crédito é de inteira responsabilidade da empresa concedente. Serasa Experian. Todos os direitos reservados.
+        </p>
+      </div>
       </div>
     </div>
   );
