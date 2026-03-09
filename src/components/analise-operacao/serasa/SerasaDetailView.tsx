@@ -157,10 +157,12 @@ export function SerasaDetailView({ data, document: docNumber, hideExportButton, 
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-start">
-        <SerasaPdfExport contentRef={contentRef} document={docForExport} />
-      </div>
-      <div ref={contentRef} className="space-y-6 overflow-x-auto">
+      {!hideExportButton && (
+        <div className="flex justify-start">
+          <SerasaPdfExport contentRef={contentRef} document={docForExport} />
+        </div>
+      )}
+      <div ref={contentRef} className="space-y-6">
 
       {/* ── Header Strip ── */}
       <div className="border border-border rounded-lg bg-muted/30 px-5 py-3 flex flex-col gap-1">
