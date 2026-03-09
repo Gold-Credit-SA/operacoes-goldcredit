@@ -309,90 +309,122 @@ export function SerasaDetailView({ data, document: docNumber }: SerasaDetailView
         </div>
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm">
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-            Anotacoes negativas
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <SummaryBadge label="Pefin" count={pick(pefin, ['summary.count'], 0)} amount={pick(pefin, ['summary.balance'], 0)} />
-            <SummaryBadge label="Refin" count={pick(refin, ['summary.count'], 0)} amount={pick(refin, ['summary.balance'], 0)} />
-            <SummaryBadge label="Dividas vencidas" count={pick(convem, ['summary.count'], 0)} amount={pick(convem, ['summary.balance'], 0)} />
-            <SummaryBadge label="Protestos" count={pick(protests, ['summary.count'], 0)} amount={pick(protests, ['summary.balance'], 0)} />
-            <SummaryBadge label="Cheques sem fundo" count={pick(checks, ['summary.count'], 0)} amount={pick(checks, ['summary.balance'], 0)} />
+      {/* ── Anotações Negativas ── */}
+      <div>
+        <p className="text-sm font-semibold text-primary mb-1">Anotações Negativas</p>
+        <p className="text-xs text-muted-foreground mb-4">
+          Detalhamento sobre as anotações negativas do indivíduo de acordo com diversas fontes.
+        </p>
+
+        {/* Resumo */}
+        <div className="mb-4">
+          <p className="text-sm font-semibold text-primary mb-1">Resumo</p>
+          <p className="text-xs text-foreground mb-3">
+            Total de dívidas: <span className="font-bold">{formatCurrency(totalNegativeValue)}</span>
+          </p>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+            <NegSummaryBox
+              label="Total em anotações negativas"
+              value={totalNegativeValue}
+              count={totalNegativeCount}
+            />
+            <NegSummaryBox
+              label="Dívidas comerciais - Pefin"
+              value={pick(pefin, ['summary.balance'], 0)}
+              count={pick(pefin, ['summary.count'], 0)}
+            />
+            <NegSummaryBox
+              label="Dívidas em Instituições Financeiras - Refin"
+              value={pick(refin, ['summary.balance'], 0)}
+              count={pick(refin, ['summary.count'], 0)}
+            />
+            <NegSummaryBox
+              label="Dívidas vencidas - Convem"
+              value={pick(convem, ['summary.balance'], 0)}
+              count={pick(convem, ['summary.count'], 0)}
+            />
+            <NegSummaryBox
+              label="Dívidas Protestadas"
+              value={pick(protests, ['summary.balance'], 0)}
+              count={pick(protests, ['summary.count'], 0)}
+            />
+            <NegSummaryBox
+              label="Cheques sem fundo BACEN"
+              value={pick(checks, ['summary.balance'], 0)}
+              count={pick(checks, ['summary.count'], 0)}
+            />
           </div>
+        </div>
 
-          <NegativeTable
-            title="Dividas comerciais - Pefin"
-            rows={pefinItems}
-            columns={[
-              { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
-              { header: 'Valor', render: (item) => formatCurrency(item.amount) },
-              { header: 'Modalidade', render: (item) => item.legalNature || '-' },
-              { header: 'Contrato', render: (item) => item.contractId || '-' },
-              { header: 'Origem', render: (item) => item.creditorName || item.bankName || '-' },
-              { header: 'Avalista', render: (item) => yesNo(item.guaranteeFlag) },
-              { header: 'UF', render: (item) => item.federalUnit || '-' },
-            ]}
-          />
+        {/* Tabelas individuais */}
+        <NegDetailTable
+          title="Dívidas em Instituições Financeiras - Refin"
+          rows={refinItems}
+          columns={[
+            { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
+            { header: 'Valor', render: (item) => formatCurrency(item.amount) },
+            { header: 'Modalidade', render: (item) => item.legalNature || '-' },
+            { header: 'Contrato', render: (item) => item.contractId || '-' },
+            { header: 'Origem', render: (item) => item.creditorName || item.bankName || '-' },
+            { header: 'Avalista', render: (item) => yesNo(item.guaranteeFlag) },
+            { header: 'UF', render: (item) => item.federalUnit || '-' },
+          ]}
+        />
 
-          <NegativeTable
-            title="Dividas em instituicoes financeiras - Refin"
-            rows={refinItems}
-            columns={[
-              { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
-              { header: 'Valor', render: (item) => formatCurrency(item.amount) },
-              { header: 'Modalidade', render: (item) => item.legalNature || '-' },
-              { header: 'Contrato', render: (item) => item.contractId || '-' },
-              { header: 'Origem', render: (item) => item.creditorName || item.bankName || '-' },
-              { header: 'Avalista', render: (item) => yesNo(item.guaranteeFlag) },
-              { header: 'UF', render: (item) => item.federalUnit || '-' },
-            ]}
-          />
+        <NegDetailTable
+          title="Dívidas comerciais - Pefin"
+          rows={pefinItems}
+          columns={[
+            { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
+            { header: 'Valor', render: (item) => formatCurrency(item.amount) },
+            { header: 'Modalidade', render: (item) => item.legalNature || '-' },
+            { header: 'Contrato', render: (item) => item.contractId || '-' },
+            { header: 'Origem', render: (item) => item.creditorName || item.bankName || '-' },
+            { header: 'Avalista', render: (item) => yesNo(item.guaranteeFlag) },
+            { header: 'UF', render: (item) => item.federalUnit || '-' },
+          ]}
+        />
 
-          <NegativeTable
-            title="Dividas vencidas - Convem"
-            rows={convemItems}
-            columns={[
-              { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
-              { header: 'Valor', render: (item) => formatCurrency(item.amount) },
-              { header: 'Modalidade', render: (item) => item.legalNature || '-' },
-              { header: 'Contrato', render: (item) => item.contractId || '-' },
-              { header: 'Origem', render: (item) => item.creditorName || item.bankName || '-' },
-              { header: 'Avalista', render: (item) => yesNo(item.guaranteeFlag) },
-              { header: 'UF', render: (item) => item.federalUnit || '-' },
-            ]}
-          />
+        <NegDetailTable
+          title="Dívidas vencidas - Convem"
+          rows={convemItems}
+          columns={[
+            { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
+            { header: 'Valor', render: (item) => formatCurrency(item.amount) },
+            { header: 'Modalidade', render: (item) => item.legalNature || '-' },
+            { header: 'Contrato', render: (item) => item.contractId || '-' },
+            { header: 'Origem', render: (item) => item.creditorName || item.bankName || '-' },
+            { header: 'Avalista', render: (item) => yesNo(item.guaranteeFlag) },
+            { header: 'UF', render: (item) => item.federalUnit || '-' },
+          ]}
+        />
 
-          <NegativeTable
-            title="Dividas protestadas"
-            rows={protestItems}
-            columns={[
-              { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
-              { header: 'Valor', render: (item) => formatCurrency(item.amount) },
-              { header: 'Cidade', render: (item) => item.city || '-' },
-              { header: 'UF', render: (item) => item.federalUnit || '-' },
-              { header: 'Cartorio', render: (item) => item.notaryOfficeNumber || item.officeNumber || '-' },
-            ]}
-          />
+        <NegDetailTable
+          title="Dívidas Protestadas  (Registradas em cartório)"
+          rows={protestItems}
+          columns={[
+            { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
+            { header: 'Valor', render: (item) => formatCurrency(item.amount) },
+            { header: 'Cidade', render: (item) => item.city || '-' },
+            { header: 'UF', render: (item) => item.federalUnit || '-' },
+            { header: 'N° do Cartório', render: (item) => item.notaryOfficeNumber || item.officeNumber || '-' },
+          ]}
+        />
 
-          <NegativeTable
-            title="Cheques sem fundo Bacen"
-            rows={checkItems}
-            columns={[
-              { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
-              { header: 'Quantidade', render: (item) => item.checkCount || item.quantity || '-' },
-              { header: 'Banco', render: (item) => item.bankName || '-' },
-              { header: 'Agencia', render: (item) => item.branch || '-' },
-              { header: 'Cidade', render: (item) => item.city || '-' },
-              { header: 'UF', render: (item) => item.federalUnit || '-' },
-            ]}
-          />
-        </CardContent>
-      </Card>
+        <NegDetailTable
+          title="Cheques sem fundo BACEN"
+          rows={checkItems}
+          columns={[
+            { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
+            { header: 'Quantidade', render: (item) => item.checkCount || item.quantity || '-' },
+            { header: 'Banco', render: (item) => item.bankName || '-' },
+            { header: 'Agência', render: (item) => item.branch || '-' },
+            { header: 'Cidade', render: (item) => item.city || '-' },
+            { header: 'UF', render: (item) => item.federalUnit || '-' },
+          ]}
+        />
+      </div>
 
       <SimpleTableSection
         title="Participacoes societarias"
