@@ -75,7 +75,8 @@ function yesNo(value: unknown): string {
   return String(value ?? '-');
 }
 
-export function SerasaDetailView({ data }: SerasaDetailViewProps) {
+export function SerasaDetailView({ data, document: docNumber }: SerasaDetailViewProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
   const report = ((data as any)?.reports?.[0] || (data as any)?.data?.reports?.[0] || data) as GenericRecord;
   const registration = (report?.registration || {}) as GenericRecord;
   const negativeData = (report?.negativeData || {}) as GenericRecord;
@@ -83,11 +84,16 @@ export function SerasaDetailView({ data }: SerasaDetailViewProps) {
   const stolenDocuments = (report?.stolenDocuments || {}) as GenericRecord;
   const optionalFeatures = (report?.optionalFeatures || {}) as GenericRecord;
   const score = (optionalFeatures?.scoreResponse || optionalFeatures?.score || {}) as GenericRecord;
-  const pefin = (negativeData?.pefinResponse || {}) as GenericRecord;
-  const refin = (negativeData?.refinResponse || {}) as GenericRecord;
-  const convem = (negativeData?.collectionRecordsResponse || {}) as GenericRecord;
-  const checks = (negativeData?.checkResponse || {}) as GenericRecord;
-  const protests = (negativeData?.notaryResponse || {}) as GenericRecord;
+  const pefin = (negativeData?.pefinResponse || negativeData?.pefin || {}) as GenericRecord;
+  const refin = (negativeData?.refinResponse || negativeData?.refin || {}) as GenericRecord;
+  const convem = (negativeData?.collectionRecordsResponse || negativeData?.collectionRecords || {}) as GenericRecord;
+  const checks = (negativeData?.checkResponse || negativeData?.check || {}) as GenericRecord;
+  const protests = (negativeData?.notaryResponse || negativeData?.notary || {}) as GenericRecord;
+
+  const facts = (report?.facts || {}) as GenericRecord;
+  const factsInquiry = (facts?.inquiry || inquiry) as GenericRecord;
+  const factsInquirySummary = (facts?.inquirySummary || {}) as GenericRecord;
+  const factsStolenDocs = (facts?.stolenDocuments || stolenDocuments) as GenericRecord;
 
   const participation = asArray(
     pick(report, [
@@ -99,13 +105,13 @@ export function SerasaDetailView({ data }: SerasaDetailViewProps) {
     ], []),
   );
 
-  const pefinItems = asArray(pick(pefin, ['ppiResponse'], []));
-  const refinItems = asArray(pick(refin, ['rpiResponse'], []));
-  const convemItems = asArray(pick(convem, ['collectionRecordsResponseDetail'], []));
-  const checkItems = asArray(pick(checks, ['checkResponseDetail'], []));
-  const protestItems = asArray(pick(protests, ['notaryResponseDetail'], []));
-  const stolenItems = asArray(pick(stolenDocuments, ['stolenDocumentsResponse', 'documents'], []));
-  const inquiryItems = asArray(pick(inquiry, ['inquiryResponse'], []));
+  const pefinItems = asArray(pick(pefin, ['pefinResponse', 'ppiResponse'], []));
+  const refinItems = asArray(pick(refin, ['refinResponse', 'rpiResponse'], []));
+  const convemItems = asArray(pick(convem, ['collectionRecordsResponse', 'collectionRecordsResponseDetail'], []));
+  const checkItems = asArray(pick(checks, ['checkResponse', 'checkResponseDetail'], []));
+  const protestItems = asArray(pick(protests, ['notaryResponse', 'notaryResponseDetail'], []));
+  const stolenItems = asArray(pick(factsStolenDocs, ['stolenDocumentsResponse', 'documents'], []));
+  const inquiryItems = asArray(pick(factsInquiry, ['inquiryResponse'], []));
 
   const totalNegativeValue =
     Number(pick(pefin, ['summary.balance'], 0)) +
@@ -121,8 +127,14 @@ export function SerasaDetailView({ data }: SerasaDetailViewProps) {
     Number(pick(checks, ['summary.count'], 0)) +
     Number(pick(protests, ['summary.count'], 0));
 
+  const docForExport = docNumber || String(pick(registration, ['documentNumber', 'document']) || 'sem-doc');
+
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <SerasaPdfExport contentRef={contentRef} document={docForExport} />
+      </div>
+      <div ref={contentRef} className="space-y-4">
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-sm">
