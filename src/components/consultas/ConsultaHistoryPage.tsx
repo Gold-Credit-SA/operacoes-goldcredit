@@ -368,18 +368,25 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
 
       {/* Hidden render for PDF generation */}
       {pdfEntry?.result_data && (
-        <div className="fixed left-[-9999px] top-0 w-[800px] bg-white">
-          <div ref={pdfContentRef} className="space-y-6 p-4">
-            {pdfEntry.consulta_type === 'scr' ? (
+        <div className="fixed left-[-9999px] top-0 w-[800px] bg-white" style={{ visibility: 'hidden', zIndex: -1 }}>
+          {pdfEntry.consulta_type === 'scr' ? (
+            <div ref={pdfContentRef} className="space-y-6 p-4">
               <SCRDetailView data={pdfEntry.result_data} />
-            ) : pdfEntry.platform === 'serasa' || pdfEntry.consulta_type.startsWith('serasa') ? (
-              <SerasaDetailView data={pdfEntry.result_data} document={pdfEntry.cnpj} />
-            ) : (
-              <pre className="text-xs whitespace-pre-wrap p-4">
+            </div>
+          ) : pdfEntry.platform === 'serasa' || pdfEntry.consulta_type.startsWith('serasa') ? (
+            <SerasaDetailView
+              data={pdfEntry.result_data}
+              document={pdfEntry.cnpj}
+              hideExportButton
+              externalRef={pdfContentRef}
+            />
+          ) : (
+            <div ref={pdfContentRef} className="p-4">
+              <pre className="text-xs whitespace-pre-wrap">
                 {JSON.stringify(pdfEntry.result_data, null, 2)}
               </pre>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>
