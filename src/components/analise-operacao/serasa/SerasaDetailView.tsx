@@ -608,3 +608,56 @@ function SimpleTableSection({
     </Card>
   );
 }
+
+function NegSummaryBox({ label, value, count }: { label: string; value: unknown; count: unknown }) {
+  const c = Number(count ?? 0);
+  const v = Number(value ?? 0);
+  return (
+    <div className="border border-border rounded-lg p-3">
+      <p className="text-[11px] font-medium text-muted-foreground leading-tight">{label}</p>
+      <p className={`text-sm font-bold mt-1 ${c > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+        {c > 0 ? formatCurrency(v) : 'Sem registros'}
+      </p>
+      {c > 0 && <p className="text-[11px] text-muted-foreground mt-0.5">{c} registros</p>}
+    </div>
+  );
+}
+
+function NegDetailTable({
+  title,
+  rows,
+  columns,
+}: {
+  title: string;
+  rows: any[];
+  columns: Array<{ header: string; render: (item: any) => ReactNode }>;
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <div className="mt-4">
+      <p className="text-xs text-muted-foreground mb-2">
+        {title}  Exibindo {rows.length} registros.
+      </p>
+      <div className="overflow-hidden border border-border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {columns.map((col) => (
+                <TableHead key={col.header} className="text-xs font-medium">{col.header}</TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((item, i) => (
+              <TableRow key={i}>
+                {columns.map((col) => (
+                  <TableCell key={col.header} className="text-xs py-2">{col.render(item)}</TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
