@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { CONSULTA_TYPES, type ConsultaTypeId } from './ConsultaSelection';
 import { SCRDetailView } from './SCRDetailView';
 import { SerasaDetailView } from './serasa/SerasaDetailView';
+import { isSerasaConsulta } from './serasa/config';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -38,80 +39,86 @@ function formatDocDisplay(doc: string): string {
 }
 
 function getLabel(id: ConsultaTypeId): string {
-  return CONSULTA_TYPES.find(c => c.id === id)?.label || id;
+  return CONSULTA_TYPES.find((c) => c.id === id)?.label || id;
 }
 
-async function executeConsulta(cnpj: string, id: ConsultaTypeId): Promise<Record<string, unknown>> {
-  // SCR - real HBI integration
+async function executeConsulta(document: string, id: ConsultaTypeId): Promise<Record<string, unknown>> {
   if (id === 'scr') {
     const { data, error } = await supabase.functions.invoke('hbi-scr', {
-      body: { cnpj },
+      body: { cnpj: document },
     });
     if (error) throw new Error(error.message || 'Erro ao consultar SCR.');
     if (data?.error) throw new Error(data.error);
     return data?.data || data;
   }
 
-  // Serasa - real Serasa integration
-  if (id === 'serasa_basico_pf') {
+  if (isSerasaConsulta(id)) {
     const { data, error } = await supabase.functions.invoke('serasa-report', {
-      body: { cpf: cnpj, reportName: 'PERFIL_DE_CREDITO_BASICO_PF' },
+      body: { document, consultaId: id },
     });
     if (error) throw new Error(error.message || 'Erro ao consultar Serasa.');
     if (data?.error) {
-      const msg = data.error as string;
-      if (msg.includes('não encontrado')) {
-        throw new Error('CPF não encontrado. Verifique se o CPF está correto. No ambiente de testes, apenas CPFs de homologação são aceitos.');
+      const msg = String(data.error);
+      if (msg.toLowerCase().includes('nao encontrado') || msg.toLowerCase().includes('não encontrado')) {
+        throw new Error('Documento nao encontrado. Em homologacao, use a massa de testes informada pela Serasa.');
       }
       throw new Error(msg);
     }
     return data?.data || data;
   }
 
-  // Other consultas - still simulated
-  await new Promise(r => setTimeout(r, 1500 + Math.random() * 2000));
-  
+  await new Promise((resolve) => setTimeout(resolve, 1500 + Math.random() * 2000));
+
   if (Math.random() < 0.15) {
-    throw new Error('Timeout na conexão com o provedor. Tente novamente.');
+    throw new Error('Timeout na conexao com o provedor. Tente novamente.');
   }
 
   return {
     consultaId: id,
-    cnpj,
+    cnpj: document,
     dataConsulta: new Date().toISOString(),
     status: 'completed',
-    resultado: `Resultado da consulta ${getLabel(id)} para ${formatDocDisplay(cnpj)}.`,
+    resultado: `Resultado da consulta ${getLabel(id)} para ${formatDocDisplay(document)}.`,
   };
 }
 
-export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveToPlatform, entityName }: ConsultaExecutionProps) {
+export function ConsultaExecution({
+  cnpj,
+  selected,
+  onBack,
+  onNewAnalysis,
+  saveToPlatform,
+  entityName,
+}: ConsultaExecutionProps) {
   const { profile } = useAuth();
   const [results, setResults] = useState<ConsultaResult[]>(() =>
-    selected.map(id => ({ id, status: 'pending' as const }))
+    selected.map((id) => ({ id, status: 'pending' as const })),
   );
   const executedRef = useRef(false);
   const [detailResult, setDetailResult] = useState<ConsultaResult | null>(null);
 
   const runConsulta = useCallback(async (id: ConsultaTypeId) => {
-    setResults(prev => prev.map(r => r.id === id ? { ...r, status: 'running' as const, error: undefined } : r));
+    setResults((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'running', error: undefined } : r)));
     try {
       const data = await executeConsulta(cnpj, id);
-      setResults(prev => prev.map(r => r.id === id ? { ...r, status: 'success' as const, data } : r));
+      setResults((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'success', data } : r)));
 
-      // Save to history if platform specified (only successes)
       if (saveToPlatform) {
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
         if (user) {
-          // Extract entity name from result data - check nested structures
-          const extractedName = entityName
-            || (data as any)?.data?.name
-            || (data as any)?.name
-            || (data as any)?.response?.name
-            || (data as any)?.data?.response?.name
-            || (data as any)?.razaoSocial
-            || (data as any)?.nomeCliente
-            || (data as any)?.data?.razaoSocial
-            || null;
+          const extractedName =
+            entityName ||
+            (data as any)?.data?.name ||
+            (data as any)?.name ||
+            (data as any)?.response?.name ||
+            (data as any)?.data?.response?.name ||
+            (data as any)?.razaoSocial ||
+            (data as any)?.nomeCliente ||
+            (data as any)?.data?.razaoSocial ||
+            null;
 
           await supabase.from('consulta_history').insert({
             user_id: user.id,
@@ -127,24 +134,24 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveT
         }
       }
     } catch (err) {
-      setResults(prev => prev.map(r => r.id === id ? { ...r, status: 'error' as const, error: (err as Error).message } : r));
+      setResults((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, status: 'error', error: (err as Error).message } : r)),
+      );
     }
-  }, [cnpj, saveToPlatform]);
+  }, [cnpj, entityName, profile?.name, saveToPlatform]);
 
   useEffect(() => {
     if (executedRef.current) return;
     executedRef.current = true;
-    // Run all selected queries in parallel
-    selected.forEach(id => runConsulta(id));
+    selected.forEach((id) => runConsulta(id));
   }, [selected, runConsulta]);
 
-  const allDone = results.every(r => r.status === 'success' || r.status === 'error');
-  const hasErrors = results.some(r => r.status === 'error');
-  const successCount = results.filter(r => r.status === 'success').length;
+  const allDone = results.every((r) => r.status === 'success' || r.status === 'error');
+  const hasErrors = results.some((r) => r.status === 'error');
+  const successCount = results.filter((r) => r.status === 'success').length;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0" disabled={!allDone}>
@@ -157,62 +164,60 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveT
               </h2>
               {allDone && (
                 <Badge variant={hasErrors ? 'destructive' : 'default'} className="text-xs">
-                  {successCount}/{results.length} concluídas
+                  {successCount}/{results.length} concluidas
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {cnpj.replace(/\D/g, '').length === 11 ? 'CPF' : 'CNPJ'}: <span className="font-mono">{formatDocDisplay(cnpj)}</span>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {cnpj.replace(/\D/g, '').length === 11 ? 'CPF' : 'CNPJ'}:{' '}
+              <span className="font-mono">{formatDocDisplay(cnpj)}</span>
             </p>
           </div>
         </div>
         {allDone && (
           <Button variant="outline" size="sm" onClick={onNewAnalysis}>
-            <RotateCcw className="h-4 w-4 mr-1.5" />
-            Nova Análise
+            <RotateCcw className="mr-1.5 h-4 w-4" />
+            Nova Analise
           </Button>
         )}
       </div>
 
-      {/* Results list */}
       <div className="space-y-3">
-        {results.map(r => (
-          <Card key={r.id} className={`transition-colors ${
-            r.status === 'success' ? 'border-primary/30' :
-            r.status === 'error' ? 'border-destructive/30' :
-            ''
-          }`}>
-            <CardContent className="py-4 flex items-center gap-3">
-              {/* Status icon */}
+        {results.map((r) => (
+          <Card
+            key={r.id}
+            className={`transition-colors ${
+              r.status === 'success'
+                ? 'border-primary/30'
+                : r.status === 'error'
+                  ? 'border-destructive/30'
+                  : ''
+            }`}
+          >
+            <CardContent className="flex items-center gap-3 py-4">
               {r.status === 'pending' && <div className="h-5 w-5 rounded-full border-2 border-muted-foreground/30" />}
-              {r.status === 'running' && <Loader2 className="h-5 w-5 text-primary animate-spin" />}
+              {r.status === 'running' && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
               {r.status === 'success' && <CheckCircle2 className="h-5 w-5 text-primary" />}
               {r.status === 'error' && <XCircle className="h-5 w-5 text-destructive" />}
 
-              {/* Label */}
-              <div className="flex-1 min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-foreground">{getLabel(r.id)}</p>
-                {r.status === 'running' && (
-                  <p className="text-xs text-muted-foreground">Consultando...</p>
-                )}
-                {r.status === 'error' && (
-                  <p className="text-xs text-destructive">{r.error}</p>
-                )}
+                {r.status === 'running' && <p className="text-xs text-muted-foreground">Consultando...</p>}
+                {r.status === 'error' && <p className="text-xs text-destructive">{r.error}</p>}
                 {r.status === 'success' && (
-                  <p className="text-xs text-muted-foreground">Consulta concluída com sucesso</p>
+                  <p className="text-xs text-muted-foreground">Consulta concluida com sucesso</p>
                 )}
               </div>
 
-              {/* Actions */}
               {r.status === 'error' && (
                 <Button variant="outline" size="sm" onClick={() => runConsulta(r.id)}>
-                  <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                  <RotateCcw className="mr-1 h-3.5 w-3.5" />
                   Tentar novamente
                 </Button>
               )}
               {r.status === 'success' && (
                 <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setDetailResult(r)}>
-                  <FileText className="h-3.5 w-3.5 mr-1" />
+                  <FileText className="mr-1 h-3.5 w-3.5" />
                   Ver detalhes
                 </Button>
               )}
@@ -221,7 +226,6 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveT
         ))}
       </div>
 
-      {/* Detail Dialog */}
       <Dialog open={!!detailResult} onOpenChange={(open) => !open && setDetailResult(null)}>
         <DialogContent className="max-w-3xl max-h-[85vh]">
           <DialogHeader>
@@ -231,17 +235,14 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveT
             </DialogTitle>
           </DialogHeader>
           <ScrollArea className="max-h-[70vh]">
-            {detailResult?.data && (
-              detailResult.id === 'scr' ? (
+            {detailResult?.data &&
+              (detailResult.id === 'scr' ? (
                 <SCRDetailView data={detailResult.data} />
-              ) : detailResult.id === 'serasa_basico_pf' ? (
+              ) : isSerasaConsulta(detailResult.id) ? (
                 <SerasaDetailView data={detailResult.data} />
               ) : (
-                <div className="space-y-3">
-                  {renderDetailData(detailResult.data)}
-                </div>
-              )
-            )}
+                <div className="space-y-3">{renderDetailData(detailResult.data)}</div>
+              ))}
           </ScrollArea>
         </DialogContent>
       </Dialog>
@@ -252,29 +253,31 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveT
 function renderDetailData(data: Record<string, unknown>, depth = 0): React.ReactNode {
   return Object.entries(data).map(([key, value]) => {
     if (value === null || value === undefined) return null;
-    
+
     if (typeof value === 'object' && !Array.isArray(value)) {
       return (
         <div key={key} className={`${depth > 0 ? 'ml-4' : ''} space-y-1`}>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{formatKey(key)}</p>
-          <div className="border-l-2 border-border pl-3 space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{formatKey(key)}</p>
+          <div className="space-y-2 border-l-2 border-border pl-3">
             {renderDetailData(value as Record<string, unknown>, depth + 1)}
           </div>
         </div>
       );
     }
-    
+
     if (Array.isArray(value)) {
       return (
         <div key={key} className={`${depth > 0 ? 'ml-4' : ''} space-y-1`}>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{formatKey(key)}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{formatKey(key)}</p>
           {value.length === 0 ? (
-            <p className="text-sm text-muted-foreground italic">Nenhum item</p>
+            <p className="text-sm italic text-muted-foreground">Nenhum item</p>
           ) : (
             <div className="space-y-2">
               {value.map((item, i) => (
-                <div key={i} className="border border-border rounded-md p-2">
-                  {typeof item === 'object' ? renderDetailData(item as Record<string, unknown>, depth + 1) : (
+                <div key={i} className="rounded-md border border-border p-2">
+                  {typeof item === 'object' ? (
+                    renderDetailData(item as Record<string, unknown>, depth + 1)
+                  ) : (
                     <p className="text-sm text-foreground">{String(item)}</p>
                   )}
                 </div>
@@ -287,8 +290,8 @@ function renderDetailData(data: Record<string, unknown>, depth = 0): React.React
 
     return (
       <div key={key} className={`${depth > 0 ? 'ml-4' : ''} flex items-baseline gap-2 py-0.5`}>
-        <span className="text-xs text-muted-foreground shrink-0">{formatKey(key)}:</span>
-        <span className="text-sm text-foreground break-all">{String(value)}</span>
+        <span className="shrink-0 text-xs text-muted-foreground">{formatKey(key)}:</span>
+        <span className="break-all text-sm text-foreground">{String(value)}</span>
       </div>
     );
   });
@@ -299,5 +302,5 @@ function formatKey(key: string): string {
     .replace(/([A-Z])/g, ' $1')
     .replace(/[_-]/g, ' ')
     .trim()
-    .replace(/^\w/, c => c.toUpperCase());
+    .replace(/^\w/, (c) => c.toUpperCase());
 }
