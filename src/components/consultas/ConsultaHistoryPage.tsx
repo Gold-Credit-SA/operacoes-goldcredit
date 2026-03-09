@@ -358,6 +358,23 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Hidden render for PDF generation */}
+      {pdfEntry?.result_data && (
+        <div className="fixed left-[-9999px] top-0 w-[800px] bg-white">
+          <div ref={pdfContentRef} className="space-y-6 p-4">
+            {pdfEntry.consulta_type === 'scr' ? (
+              <SCRDetailView data={pdfEntry.result_data} />
+            ) : pdfEntry.platform === 'serasa' || pdfEntry.consulta_type.startsWith('serasa') ? (
+              <SerasaDetailView data={pdfEntry.result_data} document={pdfEntry.cnpj} />
+            ) : (
+              <pre className="text-xs whitespace-pre-wrap p-4">
+                {JSON.stringify(pdfEntry.result_data, null, 2)}
+              </pre>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
