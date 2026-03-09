@@ -325,6 +325,7 @@ export function SerasaDetailView({ data, document: docNumber }: SerasaDetailView
           </div>
         }
       />
+      </div>
     </div>
   );
 }
