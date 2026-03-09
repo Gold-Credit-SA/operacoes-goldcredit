@@ -340,7 +340,7 @@ function DataRow({ label, value }: { label: string; value: unknown }) {
   return (
     <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
       <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="mt-1 text-sm font-medium text-foreground">{value || '-'}</p>
+      <p className="mt-1 text-sm font-medium text-foreground">{String(value || '-')}</p>
     </div>
   );
 }
