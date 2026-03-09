@@ -69,6 +69,16 @@ function formatCount(value: unknown, suffix = 'registros'): string {
   return `${count} ${suffix}`;
 }
 
+function calcAge(birthDate: unknown): number | null {
+  if (!birthDate) return null;
+  const d = new Date(String(birthDate));
+  if (Number.isNaN(d.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  if (now.getMonth() < d.getMonth() || (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())) age--;
+  return age;
+}
+
 function yesNo(value: unknown): string {
   if (value === true) return 'Sim';
   if (value === false) return 'Nao';
@@ -129,73 +139,129 @@ export function SerasaDetailView({ data, document: docNumber }: SerasaDetailView
 
   const docForExport = docNumber || String(pick(registration, ['documentNumber', 'document']) || 'sem-doc');
 
+  const scoreValue = Number(pick(score, ['score'], 0));
+  const defaultRate = pick<string>(score, ['defaultRate', 'message'], '');
+  const consultasAtual = Number(pick(factsInquirySummary, ['inquiryQuantity.actual'], 0));
+  const consultasAnterior = Number(pick(factsInquirySummary, ['inquiryQuantity.creditInquiriesQuantity.0.occurrences'], 0));
+  const inquiryCount = Number(pick(factsInquiry, ['summary.count'], 0));
+  const statusRF = String(pick(registration, ['statusRegistration', 'documentStatus']) || '-');
+  const statusDate = formatDate(pick(registration, ['statusDate', 'updateDate']));
+  const consumerName = String(pick(registration, ['consumerName', 'name']) || '-');
+  const docFormatted = formatDocument(pick(registration, ['documentNumber', 'document']));
+  const birthDateRaw = pick<string>(registration, ['birthDate'], '');
+  const birthAge = calcAge(birthDateRaw);
+  const reportName = String(pick(report, ['reportName']) || 'RELATÓRIO BÁSICO').replace(/_/g, ' ');
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
         <SerasaPdfExport contentRef={contentRef} document={docForExport} />
       </div>
-      <div ref={contentRef} className="space-y-4">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm">
-            <FileSearch className="h-4 w-4 text-primary" />
-            Informacoes fixadas
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2">
-          <DataRow label="Nome" value={pick(registration, ['consumerName', 'name'])} />
-          <DataRow label="CPF" value={formatDocument(pick(registration, ['documentNumber', 'document']))} />
-          <DataRow label="Situacao na Receita Federal" value={pick(registration, ['statusRegistration', 'documentStatus'])} />
-          <DataRow label="Atualizado em" value={formatDate(pick(registration, ['statusDate', 'updateDate']))} />
-          <DataRow label="Data de nascimento" value={formatDate(pick(registration, ['birthDate']))} />
-          <DataRow label="Idade" value={pick(registration, ['age'])} />
-          <DataRow label="Municipio/UF" value={joinLocation(pick(registration, ['city']), pick(registration, ['federalUnit']))} />
-          <DataRow label="Nome da mae" value={pick(registration, ['motherName'])} />
-        </CardContent>
-      </Card>
+      <div ref={contentRef} className="space-y-6">
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
-          icon={TrendingUp}
-          title="Serasa Score"
-          value={pick(score, ['score'], '-')}
-          subtitle={pick(score, ['message', 'scoreModel'], 'Sem score')}
-        />
-        <MetricCard
-          icon={AlertTriangle}
-          title="Total em anotacoes negativas"
-          value={formatCurrency(totalNegativeValue)}
-          subtitle={formatCount(totalNegativeCount)}
-          danger={totalNegativeCount > 0}
-        />
-        <MetricCard
-          icon={Building2}
-          title="Participacao societaria"
-          value={String(participation.length)}
-          subtitle={participation.length > 0 ? 'Com participacoes' : 'Sem participacoes'}
-        />
-        <MetricCard
-          icon={Search}
-          title="Consultas neste mes"
-          value={String(pick(factsInquirySummary, ['inquiryQuantity.actual'], pick(factsInquiry, ['summary.count'], 0)))}
-          subtitle={`${pick(factsInquirySummary, ['inquiryQuantity.creditInquiriesQuantity.length'], 0)} meses com consultas`}
-        />
+      {/* ── Header Strip ── */}
+      <div className="border border-border rounded-lg bg-muted/30 px-5 py-3 flex flex-col gap-1">
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">{new Date().toLocaleDateString('pt-BR')} {new Date().toLocaleTimeString('pt-BR')}</p>
+        </div>
+        <p className="text-sm font-bold text-foreground">{reportName}</p>
+        <p className="text-sm text-muted-foreground">CPF: {docFormatted} | {consumerName}</p>
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm">
-            <User className="h-4 w-4 text-primary" />
-            Outros dados cadastrais
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2">
-          <DataRow label="Sexo" value={pick(registration, ['consumerGender'])} />
-          <DataRow label="Faixa do score" value={pick(score, ['range'])} />
-          <DataRow label="Probabilidade de pagamento" value={pick(score, ['defaultRate'])} />
-          <DataRow label="Documentos roubados" value={stolenItems.length > 0 ? `${stolenItems.length} ocorrencias` : 'Sem ocorrencias'} />
-        </CardContent>
-      </Card>
+      {/* ── Informações fixadas ── */}
+      <div>
+        <p className="text-sm font-semibold text-primary mb-3">Informações fixadas</p>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {/* Situação RF */}
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Situação na Receita Federal</p>
+            <p className="text-sm font-bold text-foreground mt-1">{statusRF}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Atualizado em {statusDate}</p>
+          </div>
+          {/* Score */}
+          <div className="border border-border rounded-lg p-3">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-bold text-foreground">{scoreValue || '-'}</span>
+              {defaultRate && (
+                <Badge variant="outline" className="border-green-500 text-green-600 text-[10px] px-1.5 py-0.5 whitespace-nowrap">
+                  {defaultRate}
+                </Badge>
+              )}
+            </div>
+            <div className="mt-2 relative h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className="absolute inset-y-0 left-0 bg-primary rounded-full"
+                style={{ width: `${Math.min((scoreValue / 1000) * 100, 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between mt-1">
+              <span className="text-[10px] text-muted-foreground">0</span>
+              <span className="text-[10px] text-muted-foreground">500</span>
+              <span className="text-[10px] text-muted-foreground">1000</span>
+            </div>
+          </div>
+          {/* Total negativas */}
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Total em anotações negativas</p>
+            <p className={`text-sm font-bold mt-1 ${totalNegativeCount > 0 ? 'text-destructive' : 'text-foreground'}`}>
+              {totalNegativeValue > 0 ? formatCurrency(totalNegativeValue) : 'Sem registros'}
+            </p>
+            {totalNegativeCount > 0 && (
+              <p className="text-[11px] text-muted-foreground mt-0.5">{totalNegativeCount} registros</p>
+            )}
+          </div>
+          {/* Participação societária */}
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Participação societária</p>
+            <p className="text-sm font-bold text-foreground mt-1">{participation.length}</p>
+          </div>
+          {/* Consultas mês */}
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">
+              {consultasAtual > 0 ? `${consultasAtual} consultas` : 'Sem consultas'}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Consultas neste mês</p>
+          </div>
+        </div>
+        {/* Consultas mês passado */}
+        <div className="mt-3 inline-block border border-border rounded-lg p-3">
+          <div className="flex items-center gap-1.5">
+            <p className="text-[11px] font-medium text-foreground">
+              {inquiryCount > 0 ? `${inquiryCount} consultas` : 'Sem consultas'}
+            </p>
+            {inquiryCount > 0 && <AlertTriangle className="h-3 w-3 text-amber-500" />}
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Consultas no mês passado</p>
+        </div>
+      </div>
+
+      {/* ── Identificação Cadastral ── */}
+      <div>
+        <p className="text-sm font-semibold text-primary mb-3">Identificação Cadastral</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Situação na Receita Federal</p>
+            <p className="text-sm font-bold text-foreground mt-1">{statusRF}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Atualizado em {statusDate}</p>
+          </div>
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Data de Nascimento</p>
+            <p className="text-sm font-bold text-foreground mt-1">{birthAge !== null ? `${birthAge} anos` : '-'}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{formatDate(birthDateRaw)}</p>
+          </div>
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Município/UF</p>
+            <p className="text-sm font-bold text-foreground mt-1">{joinLocation(pick(registration, ['city']), pick(registration, ['federalUnit']))}</p>
+          </div>
+        </div>
+        <p className="text-xs font-medium text-muted-foreground mt-4 mb-2">Outros Dados Cadastrais</p>
+        <div className="border border-border rounded-lg p-3">
+          <p className="text-sm text-foreground">
+            <span className="font-bold">Nome da Mãe:</span>{' '}
+            {String(pick(registration, ['motherName']) || '-')}
+          </p>
+        </div>
+      </div>
 
       <Card>
         <CardHeader className="pb-3">
