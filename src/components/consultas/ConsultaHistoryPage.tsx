@@ -243,6 +243,8 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
             {detailEntry?.result_data && (
               detailEntry.consulta_type === 'scr' ? (
                 <SCRDetailView data={detailEntry.result_data} />
+              ) : detailEntry.platform === 'serasa' || detailEntry.consulta_type.startsWith('serasa') ? (
+                <SerasaDetailView data={detailEntry.result_data} document={detailEntry.cnpj} />
               ) : (
                 <pre className="text-xs text-foreground whitespace-pre-wrap bg-muted p-4 rounded-lg">
                   {JSON.stringify(detailEntry.result_data, null, 2)}
