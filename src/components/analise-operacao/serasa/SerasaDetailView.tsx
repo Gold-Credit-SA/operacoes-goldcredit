@@ -246,7 +246,9 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const socialCapital = pick(companyData, ['socialCapitalValue', 'capitalValue', 'accomplishedValue']);
   const companyAddress = pick(registration, ['address']) || pick(identificationReport, ['address']) || {} as GenericRecord;
 
-  const statusRF = String(pick(registration, ['statusRegistration', 'documentStatus']) || pick(identificationReport, ['statusRegistration']) || '-');
+  const rawStatusRF = String(pick(registration, ['statusRegistration', 'documentStatus']) || pick(identificationReport, ['statusRegistration', 'statusCodeDescription']) || '-');
+  // Clean "SITUACAO DO CNPJ EM DD/MM/YYYY: ATIVA" → "ATIVA"
+  const statusRF = rawStatusRF.replace(/SITUACAO\s+DO\s+CNPJ\s+EM\s+\S+:\s*/i, '').trim() || rawStatusRF;
   const statusDate = formatDate(pick(registration, ['statusDate', 'updateDate']) || pick(identificationReport, ['updateDate']));
 
   const consultasAtual = isPJ
