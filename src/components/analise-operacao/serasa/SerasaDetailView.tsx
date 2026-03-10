@@ -1277,13 +1277,13 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
               <TableBody>
                 {participationFinal.map((item: any, i: number) => (
                   <TableRow key={i}>
-                    <TableCell className="text-xs py-2">{formatDocument(item.documentNumber || item.document || item.companyDocument)}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDocument(item.businessDocument || item.documentNumber || item.document || item.companyDocument)}</TableCell>
                     <TableCell className="text-xs py-2">{item.companyName || item.name || item.razaoSocial || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{item.percentage || item.participationPercentage || item.capital || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{formatDate(item.since || item.admissionDate || item.startDate)}</TableCell>
-                    <TableCell className="text-xs py-2">{item.federalUnit || item.uf || item.state || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{item.statusRegistration || item.situationRF || item.status || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{formatDate(item.statusDate || item.situationDate)}</TableCell>
+                    <TableCell className="text-xs py-2">{item.participationPercentage != null ? `${item.participationPercentage}%` : item.percentage || item.capital || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDate(item.since || item.sinceDate || item.admissionDate || item.startDate)}</TableCell>
+                    <TableCell className="text-xs py-2">{item.companyState || item.federalUnit || item.uf || item.state || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.companyStatus || item.statusRegistration || item.situationRF || item.status || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDate(item.companyStatusDate || item.statusDate || item.situationDate)}</TableCell>
                     <TableCell className="text-xs py-2">{formatDate(item.updateDate || item.updatedAt)}</TableCell>
                   </TableRow>
                 ))}
