@@ -1005,7 +1005,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
 
       {/* ═══════════════════ SHARED SECTIONS ═══════════════════ */}
 
-      {/* ── Anotações Negativas ── */}
+      {/* ── Anotações Negativas (PF) ── */}
+      {isPF && (
       <div>
         <p className="text-sm font-semibold text-primary mb-1">Anotações Negativas</p>
         <p className="text-xs text-muted-foreground mb-4">
