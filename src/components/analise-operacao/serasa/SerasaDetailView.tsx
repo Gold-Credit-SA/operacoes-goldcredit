@@ -88,7 +88,8 @@ function yesNo(value: unknown): string {
   return String(value ?? '-');
 }
 
-export function SerasaDetailView({ data, document: docNumber, hideExportButton, externalRef }: SerasaDetailViewProps) {
+export function SerasaDetailView({ data, document: docNumber, consultaId, hideExportButton, externalRef }: SerasaDetailViewProps) {
+  const isTopScore = consultaId === 'serasa_avancado_top_score_pf';
   const internalRef = useRef<HTMLDivElement>(null);
   const contentRef = externalRef || internalRef;
   const report = ((data as any)?.reports?.[0] || (data as any)?.data?.reports?.[0] || data) as GenericRecord;
