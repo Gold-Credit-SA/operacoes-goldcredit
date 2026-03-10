@@ -53,6 +53,11 @@ function formatCurrency(value: unknown): string {
 function formatDate(value: unknown): string {
   if (!value) return '-';
   const raw = String(value);
+  // Handle date-only strings (YYYY-MM-DD) without timezone shift
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [y, m, d] = raw.split('-');
+    return `${d}/${m}/${y}`;
+  }
   const parsed = new Date(raw);
   if (Number.isNaN(parsed.getTime())) return raw;
   return parsed.toLocaleDateString('pt-BR');
