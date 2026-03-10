@@ -235,8 +235,8 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveT
             {detailResult?.data && (
               detailResult.id === 'scr' ? (
                 <SCRDetailView data={detailResult.data} />
-              ) : detailResult.id === 'serasa_basico_pf' ? (
-                <SerasaDetailView data={detailResult.data} />
+              ) : detailResult.id.startsWith('serasa_') ? (
+                <SerasaDetailView data={detailResult.data} document={cnpj} />
               ) : (
                 <div className="space-y-3">
                   {renderDetailData(detailResult.data)}
