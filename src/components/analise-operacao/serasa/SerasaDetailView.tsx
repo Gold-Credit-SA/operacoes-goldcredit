@@ -419,7 +419,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           ) : (
           <div className="border border-border rounded-lg p-3">
             <p className="text-[11px] font-medium text-muted-foreground">Participação societária</p>
-            <p className="text-sm font-bold text-foreground mt-1">{participation.length}</p>
+            <p className="text-sm font-bold text-foreground mt-1">{participationFinal.length}</p>
           </div>
           )}
         </div>
