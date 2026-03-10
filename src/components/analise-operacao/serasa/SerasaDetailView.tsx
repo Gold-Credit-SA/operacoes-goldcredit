@@ -355,7 +355,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           )}
           {/* Consultas últimos 13 meses (PJ) / Consultas mês (PF) */}
           {isPJ ? (() => {
-            const total13Months = pjInquiryHistorical.reduce((sum: number, item: any) => sum + Number(item?.quantity || item?.count || 0), 0) + consultasAtual;
+            const total13Months = pjInquiryHistorical.reduce((sum: number, item: any) => sum + Number(item?.occurrences || item?.quantity || item?.count || 0), 0) + consultasAtual;
             return (
             <div className="border border-border rounded-lg p-3">
               <div className="flex items-center gap-1">
