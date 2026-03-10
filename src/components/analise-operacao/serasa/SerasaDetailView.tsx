@@ -116,14 +116,16 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const stolenDocuments = (report?.stolenDocuments || {}) as GenericRecord;
   const optionalFeatures = (report?.optionalFeatures || {}) as GenericRecord;
 
-  // Score - PJ uses H4PJ model, PF uses HRLD
+  // Score - PJ H4PJ is at report.score directly; PF HRLD at optionalFeatures.scoreResponse
+  // Credit limit HLC1 is at report.scores.scoreResponse[]
+  const directScore = (report?.score || {}) as GenericRecord;
   const scoresSection = (report?.scores || optionalFeatures?.scores || {}) as GenericRecord;
-  const scoreResponseArr = asArray(scoresSection?.scoreResponse || optionalFeatures?.scoreResponse || []);
-  // Find the main score (H4PJ or HRLD) — exclude HLC1 which is credit limit
-  const mainScoreObj = scoreResponseArr.find((s: any) => s.scoreModel !== 'HLC1') || scoreResponseArr[0];
-  const score = (mainScoreObj || optionalFeatures?.scoreResponse || optionalFeatures?.score || {}) as GenericRecord;
-  // Find credit limit score (HLC1)
+  const scoreResponseArr = asArray(scoresSection?.scoreResponse || []);
   const creditLimitScore = scoreResponseArr.find((s: any) => s.scoreModel === 'HLC1') as GenericRecord | undefined;
+  // Use direct score (H4PJ/HRLD) if available, otherwise fall back to scoreResponse array
+  const mainScoreFromArr = scoreResponseArr.find((s: any) => s.scoreModel !== 'HLC1');
+  const score = (directScore?.score ? directScore : mainScoreFromArr || optionalFeatures?.scoreResponse || optionalFeatures?.score || {}) as GenericRecord;
+
   const pefin = (negativeData?.pefinResponse || negativeData?.pefin || {}) as GenericRecord;
   const refin = (negativeData?.refinResponse || negativeData?.refin || {}) as GenericRecord;
   const convem = (negativeData?.collectionRecordsResponse || negativeData?.collectionRecords || {}) as GenericRecord;
@@ -134,13 +136,16 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
 
   // PJ specific - company data / QSA
   const identificationReport = (report?.identificationReport || {}) as GenericRecord;
-  const companyData = (report?.companyData || optionalFeatures?.companyData || {}) as GenericRecord;
+  const qsaReport = (report?.QSAReport || report?.qsaReport || {}) as GenericRecord;
+  const companyData = (qsaReport?.companyData || report?.companyData || optionalFeatures?.companyData || {}) as GenericRecord;
   const partnersList = asArray(companyData?.partnersList || companyData?.partners || []);
   const directorsList = asArray(companyData?.directorsList || companyData?.directors || []);
 
-  // QSA from basic report structure (PartnerResponse / DirectorResponse)
-  const qsaPartners = asArray(report?.qsa?.partnerResponse || report?.qsa?.partners || optionalFeatures?.qsa?.partnerResponse || []);
-  const qsaDirectors = asArray(report?.qsa?.directorResponse || report?.qsa?.directors || optionalFeatures?.qsa?.directorResponse || []);
+  // QSA partners/directors from QSAReport or fallback paths
+  const qsaPartnerReport = (qsaReport?.partnerCompleteReport || qsaReport?.partnerReport || {}) as GenericRecord;
+  const qsaDirectorReport = (qsaReport?.directorCompleteReport || qsaReport?.directorReport || {}) as GenericRecord;
+  const qsaPartners = asArray(qsaPartnerReport?.partnersList || qsaPartnerReport?.partners || report?.qsa?.partnerResponse || report?.qsa?.partners || optionalFeatures?.qsa?.partnerResponse || []);
+  const qsaDirectors = asArray(qsaDirectorReport?.directorsList || qsaDirectorReport?.directors || report?.qsa?.directorResponse || report?.qsa?.directors || optionalFeatures?.qsa?.directorResponse || []);
   const allPartners = partnersList.length > 0 ? partnersList : qsaPartners;
   const allDirectors = directorsList.length > 0 ? directorsList : qsaDirectors;
 
@@ -238,10 +243,12 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const economicActivity = String(pick(identificationReport, ['economicActivity']) || '-');
   const cnae = String(pick(identificationReport, ['cnae']) || '-');
   const numberEmployees = pick(identificationReport, ['numberEmployees']);
-  const socialCapital = pick(companyData, ['socialCapitalValue', 'capitalValue']);
+  const socialCapital = pick(companyData, ['socialCapitalValue', 'capitalValue', 'accomplishedValue']);
   const companyAddress = pick(registration, ['address']) || pick(identificationReport, ['address']) || {} as GenericRecord;
 
-  const statusRF = String(pick(registration, ['statusRegistration', 'documentStatus']) || pick(identificationReport, ['statusRegistration']) || '-');
+  const rawStatusRF = String(pick(registration, ['statusRegistration', 'documentStatus']) || pick(identificationReport, ['statusRegistration', 'statusCodeDescription']) || '-');
+  // Clean "SITUACAO DO CNPJ EM DD/MM/YYYY: ATIVA" → "ATIVA"
+  const statusRF = rawStatusRF.replace(/SITUACAO\s+DO\s+CNPJ\s+EM\s+\S+:\s*/i, '').trim() || rawStatusRF;
   const statusDate = formatDate(pick(registration, ['statusDate', 'updateDate']) || pick(identificationReport, ['updateDate']));
 
   const consultasAtual = isPJ
@@ -317,8 +324,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           })()}
           {/* Ocorrência de anotações negativas */}
           {isPJ ? (() => {
-            const partnersWithAnnotations = allPartners.filter((p: any) => p.hasNegativeData === true || p.negativeData === true || p.hasAnnotations === true || String(p.annotations || '').toLowerCase() === 'sim').length;
-            const directorsWithAnnotations = allDirectors.filter((d: any) => d.hasNegativeData === true || d.negativeData === true || d.hasAnnotations === true || String(d.annotations || '').toLowerCase() === 'sim').length;
+            const partnersWithAnnotations = allPartners.filter((p: any) => p.hasNegativeData === true || p.negativeData === true || p.hasAnnotations === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim').length;
+            const directorsWithAnnotations = allDirectors.filter((d: any) => d.hasNegativeData === true || d.negativeData === true || d.hasAnnotations === true || d.restrictionSign === true || String(d.annotations || '').toLowerCase() === 'sim').length;
             const totalAnnotations = partnersWithAnnotations + directorsWithAnnotations;
             return (
             <div className="border border-border rounded-lg p-3">
@@ -395,7 +402,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         <div className="grid grid-cols-4 md:grid-cols-8 gap-2 mb-4">
           <div className="border border-border rounded-lg p-2 aspect-square flex flex-col justify-center">
             <p className="text-[10px] font-medium text-muted-foreground">Situação Cadastral</p>
-            <p className="text-xs font-bold text-foreground mt-1">{statusRF?.replace(/SITUACAO DO CNPJ EM .+?:\s*/i, '').trim() || statusRF}</p>
+            <p className="text-xs font-bold text-foreground mt-1">{statusRF}</p>
           </div>
           <div className="border border-border rounded-lg p-2 aspect-square flex flex-col justify-center">
             <p className="text-[10px] font-medium text-muted-foreground">Fundação em</p>
