@@ -510,7 +510,61 @@ export function SerasaDetailView({ data, document: docNumber, hideExportButton, 
         )}
       </div>
 
-      {/* ── Documentos Roubados ── */}
+      {/* ── Renda Estimada ── */}
+      {rendaEstimada.length > 0 && (
+        <div>
+          <p className="text-sm font-semibold text-primary mb-3">Renda Estimada</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {rendaEstimada.map((item: any, i: number) => (
+              <div key={i} className="border border-border rounded-lg p-3">
+                <p className="text-[11px] font-medium text-muted-foreground">Modelo: {item.attributeModel || '-'}</p>
+                <p className="text-lg font-bold text-foreground mt-1">
+                  {item.scoring ? formatCurrency(item.scoring) : '-'}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">{item.message || '-'}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Cheques Sustados ── */}
+      {checkFilingsItems.length > 0 && (
+        <div>
+          <p className="text-sm font-semibold text-primary mb-3">Cheques Sustados (Contumácia)</p>
+          <div className="overflow-x-auto border border-border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs font-medium">Banco</TableHead>
+                  <TableHead className="text-xs font-medium">Agência</TableHead>
+                  <TableHead className="text-xs font-medium">Conta</TableHead>
+                  <TableHead className="text-xs font-medium">Cheque Inicial</TableHead>
+                  <TableHead className="text-xs font-medium">Cheque Final</TableHead>
+                  <TableHead className="text-xs font-medium">Valor</TableHead>
+                  <TableHead className="text-xs font-medium">Motivo</TableHead>
+                  <TableHead className="text-xs font-medium">Data Inclusão</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {checkFilingsItems.map((item: any, i: number) => (
+                  <TableRow key={i}>
+                    <TableCell className="text-xs py-2">{item.bankName || item.bankNumber || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.agencyNumber || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.accountNumberCheck || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.initialCheckNumber || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.finalCheckNumber || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatCurrency(item.checkAmount)}</TableCell>
+                    <TableCell className="text-xs py-2">{item.briefDescriptionReason || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDate(item.dateTimeInclusion)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
+
       <div>
         <p className="text-sm font-semibold text-primary mb-1">Documentos Roubados</p>
 
