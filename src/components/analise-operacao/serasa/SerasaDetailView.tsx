@@ -1587,8 +1587,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         );
       })()}
 
-      {/* ── Cheques Sustados PJ ── */}
-      {isPJ && (() => {
+      {/* ── Cheques Sustados (Avançado PJ only) ── */}
+      {isAvancadoPJ && (() => {
         const checkFilingsPJ = (report?.checkFilingsHistorical || optionalFeatures?.checkFilingsHistorical || report?.checkFilings || optionalFeatures?.checkFilings || {}) as GenericRecord;
         const checkFilingsPJItems = asArray(checkFilingsPJ?.checkFilingsHistoricalResponse || checkFilingsPJ?.results || checkFilingsPJ?.items || []);
         return (
