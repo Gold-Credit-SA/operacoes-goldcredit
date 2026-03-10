@@ -773,6 +773,15 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           Detalhamento do mês atual e do mês anterior de consultas deste documento.
         </p>
 
+        {/* Bar chart - pure divs for PDF export compatibility */}
+        <InquiryBarChart inquiryItems={inquiryItems} />
+
+        {/* Legend */}
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-3 h-3 rounded-sm bg-primary" />
+          <span className="text-[11px] text-muted-foreground">Crédito</span>
+        </div>
+
         <div className="grid grid-cols-2 gap-3 mb-3">
           <div className="border border-border rounded-lg p-3">
             <p className="text-[11px] font-bold text-foreground">
@@ -787,7 +796,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
               </p>
               {inquiryCount > 0 && <AlertTriangle className="h-3 w-3 text-amber-500" />}
             </div>
-            <p className="text-[11px] text-muted-foreground">Consultas no mês passado</p>
+            <p className="text-[11px] text-muted-foreground">Consultas últimos 4 meses</p>
           </div>
         </div>
 
@@ -820,6 +829,14 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             </div>
           </>
         )}
+
+        {/* Informações */}
+        <div className="border border-border rounded-lg p-3 mt-3">
+          <p className="text-xs font-bold text-foreground mb-1">Informações</p>
+          <p className="text-[10px] text-muted-foreground leading-relaxed">
+            Simples consulta ao CPF no cadastro da Serasa. Essa informação de consulta não significa negócio realizado, nem se confunde com anotação negativa no cadastro de inadimplentes. Quando houver consulta do CNPJ consultante, será apresentada a Razão Social.
+          </p>
+        </div>
       </div>
 
       {/* ── Histórico de Pagamento (Top Score only) ── */}
@@ -1066,6 +1083,50 @@ function NegDetailTable({
             ))}
           </TableBody>
         </Table>
+      </div>
+    </div>
+  );
+}
+
+/** Pure-div bar chart for inquiry history – no canvas, PDF-safe */
+function InquiryBarChart({ inquiryItems }: { inquiryItems: any[] }) {
+  // Group inquiries by month (last 6 months)
+  const now = new Date();
+  const months: { label: string; count: number }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const label = d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', '');
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const count = inquiryItems.reduce((sum, item) => {
+      const itemDate = new Date(String(item.occurrenceDate || ''));
+      if (!Number.isNaN(itemDate.getTime())) {
+        const itemKey = `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}`;
+        if (itemKey === key) return sum + Number(item.inquiryQuantity || item.quantity || 1);
+      }
+      return sum;
+    }, 0);
+    months.push({ label: label.charAt(0).toUpperCase() + label.slice(1), count });
+  }
+
+  const maxCount = Math.max(...months.map(m => m.count), 1);
+  const barMaxHeight = 120;
+
+  return (
+    <div className="border border-border rounded-lg p-4 mb-3">
+      <div className="flex items-end justify-between gap-2" style={{ height: barMaxHeight + 30 }}>
+        {months.map((m, i) => {
+          const barH = m.count > 0 ? Math.max((m.count / maxCount) * barMaxHeight, 8) : 0;
+          return (
+            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+              <span className="text-[10px] font-medium text-foreground">{m.count}</span>
+              <div
+                className="w-full max-w-[32px] rounded-t bg-primary transition-all"
+                style={{ height: barH }}
+              />
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap">{m.label}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
