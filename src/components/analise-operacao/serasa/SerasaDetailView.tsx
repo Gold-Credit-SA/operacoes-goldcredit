@@ -773,6 +773,15 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           Detalhamento do mês atual e do mês anterior de consultas deste documento.
         </p>
 
+        {/* Bar chart - pure divs for PDF export compatibility */}
+        <InquiryBarChart inquiryItems={inquiryItems} />
+
+        {/* Legend */}
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-3 h-3 rounded-sm bg-primary" />
+          <span className="text-[11px] text-muted-foreground">Crédito</span>
+        </div>
+
         <div className="grid grid-cols-2 gap-3 mb-3">
           <div className="border border-border rounded-lg p-3">
             <p className="text-[11px] font-bold text-foreground">
@@ -787,7 +796,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
               </p>
               {inquiryCount > 0 && <AlertTriangle className="h-3 w-3 text-amber-500" />}
             </div>
-            <p className="text-[11px] text-muted-foreground">Consultas no mês passado</p>
+            <p className="text-[11px] text-muted-foreground">Consultas últimos 4 meses</p>
           </div>
         </div>
 
