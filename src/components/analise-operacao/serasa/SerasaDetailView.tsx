@@ -23,6 +23,7 @@ import {
 interface SerasaDetailViewProps {
   data: Record<string, unknown>;
   document?: string;
+  consultaId?: string;
   hideExportButton?: boolean;
   externalRef?: React.RefObject<HTMLDivElement>;
 }
