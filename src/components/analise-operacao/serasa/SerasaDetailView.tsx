@@ -179,6 +179,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const docFormatted = formatDocument(pick(registration, ['documentNumber', 'document']));
   const birthDateRaw = pick<string>(registration, ['birthDate'], '');
   const birthAge = calcAge(birthDateRaw);
+  const motherName = String(pick(registration, ['motherName']) || '-');
+  const gender = String(pick(registration, ['gender', 'sex']) || '-');
   const reportName = String(pick(report, ['reportName']) || 'RELATÓRIO BÁSICO').replace(/_/g, ' ');
 
   return (
