@@ -389,12 +389,14 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             </div>
             );
           })() : (
+          <>
           <div className="border border-border rounded-lg p-3">
             <p className="text-[11px] font-medium text-muted-foreground">
               {consultasAtual > 0 ? `${consultasAtual} consultas` : 'Sem consultas'}
             </p>
             <p className="text-[11px] text-muted-foreground mt-0.5">Consultas neste mês</p>
           </div>
+          </>
           )}
           {/* Capital social (PJ) / Participação societária (PF) */}
           {isPJ ? (
@@ -409,6 +411,20 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           </div>
           )}
         </div>
+        {/* Consultas no mês passado (PF only) */}
+        {isPF && consultasMesAnterior > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-3">
+            <div className="border border-border rounded-lg p-3">
+              <div className="flex items-center gap-1">
+                <p className="text-[11px] font-medium text-muted-foreground">
+                  {consultasMesAnterior} consulta{consultasMesAnterior !== 1 ? 's' : ''}
+                </p>
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Consultas no mês passado</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ═══════════════════ PJ-SPECIFIC SECTIONS ═══════════════════ */}
