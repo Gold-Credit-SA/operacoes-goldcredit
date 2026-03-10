@@ -485,6 +485,83 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         </div>
       </div>
 
+      {/* ── Serasa Score Empresas ── */}
+      {hasScore && (() => {
+        const riskLabel = scoreValue >= 801 ? 'Risco mínimo' : scoreValue >= 601 ? 'Risco muito baixo' : scoreValue >= 401 ? 'Risco baixo' : scoreValue >= 201 ? 'Risco médio' : scoreValue > 0 ? 'Risco alto' : '';
+        const riskColor = scoreValue >= 601 ? 'border-green-500 text-green-600' : scoreValue >= 401 ? 'border-blue-500 text-blue-600' : scoreValue >= 201 ? 'border-amber-500 text-amber-600' : 'border-destructive text-destructive';
+        const riskCreditLabel = scoreValue >= 601 ? 'Baixo' : scoreValue >= 401 ? 'Médio' : scoreValue >= 201 ? 'Médio' : 'Alto';
+        const marketPractice = scoreValue >= 601 ? 'Venda a prazo' : scoreValue >= 401 ? 'Venda a prazo com cautela' : scoreValue >= 201 ? 'Venda com garantias adicionais' : 'Venda somente à vista';
+
+        // Score range interpretation
+        const scoreLow = Math.floor(scoreValue / 50) * 50 + 1;
+        const scoreHigh = scoreLow + 49;
+
+        return (
+        <div>
+          <p className="text-sm font-semibold text-primary mb-1">Serasa Score Empresas</p>
+          <p className="text-[11px] text-muted-foreground mb-3">Nossa análise de risco de crédito que indica a probabilidade da empresa pagar suas contas em dia nos próximos 12 meses</p>
+          <hr className="border-border mb-4" />
+
+          {/* Score bar */}
+          <div className="border border-border rounded-lg p-4 mb-3">
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-3xl font-bold text-foreground">{scoreValue || '-'}</span>
+              {riskLabel && (
+                <Badge variant="outline" className={`${riskColor} text-xs px-2 py-0.5`}>
+                  {riskLabel}
+                </Badge>
+              )}
+            </div>
+            <div className="relative h-2 bg-muted rounded-full overflow-hidden mb-1">
+              <div
+                className="absolute inset-y-0 left-0 bg-primary rounded-full"
+                style={{ width: `${Math.min((scoreValue / 1000) * 100, 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[10px] text-muted-foreground">0</span>
+              <span className="text-[10px] text-muted-foreground">500</span>
+              <span className="text-[10px] text-muted-foreground">1000</span>
+            </div>
+          </div>
+
+          {/* 3 info cards */}
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="border border-border rounded-lg p-3">
+              <p className="text-sm font-bold text-foreground">{defaultRate || '-'}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Probabilidade de inadimplência</p>
+            </div>
+            <div className="border border-border rounded-lg p-3">
+              <p className="text-sm font-bold text-foreground">{riskCreditLabel}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Risco de Crédito</p>
+            </div>
+            <div className="border border-border rounded-lg p-3">
+              <p className="text-sm font-bold text-foreground">{marketPractice}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Prática de Mercado</p>
+            </div>
+          </div>
+
+          {/* Interpretação */}
+          <div className="border border-border rounded-lg p-4 mb-3">
+            <p className="text-xs font-semibold text-foreground mb-2">Interpretação</p>
+            <ul className="list-disc list-inside space-y-1 text-xs text-muted-foreground">
+              <li>A pontuação enquadra-se na faixa de {scoreLow} a {scoreHigh} e representa {scoreValue >= 601 ? 'bons indicadores' : scoreValue >= 401 ? 'indicadores moderados' : scoreValue >= 201 ? 'sinais de vulnerabilidades' : 'sinais críticos de vulnerabilidades'} da sua capacidade de pagamento.</li>
+              <li>Para empresas com este perfil de risco, é prática de mercado {scoreValue >= 601 ? 'conceder crédito com políticas padrão de venda a prazo.' : scoreValue >= 401 ? 'conceder crédito com acompanhamento periódico do perfil de risco.' : 'conceder crédito com maior rigor na decisão, valendo-se de garantias adicionais e constantes monitoramentos do perfil de risco.'}</li>
+              {defaultRate && <li>Empresas com esta categoria de risco costumam honrar os compromissos de pagamentos assumidos em {(100 - parseFloat(String(defaultRate).replace(',', '.'))).toFixed(2).replace('.', ',')}% das operações</li>}
+            </ul>
+          </div>
+
+          {/* Atenção */}
+          <div className="border border-amber-300 rounded-lg p-4">
+            <p className="text-xs font-semibold text-foreground mb-1">Atenção</p>
+            <p className="text-[11px] text-muted-foreground">
+              A decisão da aprovação ou não do crédito é de exclusiva responsabilidade do concedente. As informações prestadas pela Serasa Experian têm o objetivo de subsidiar essas decisões e, em hipótese alguma, devem ser utilizadas como justificativa pelo concedente do crédito, para a tomada da referida decisão.
+            </p>
+          </div>
+        </div>
+        );
+      })()}
+
       {/* ── Quadro Social e Administrativo ── */}
       <div>
         <p className="text-sm font-semibold text-primary mb-3">Quadro Social e Administrativo</p>
