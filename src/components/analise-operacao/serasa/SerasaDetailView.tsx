@@ -1385,22 +1385,28 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           <>
             <p className="text-xs text-muted-foreground mb-2">
               Consultas à Serasa Experian  Exibindo {inquiryItems.length} registros.
+              {isPJ && (() => {
+                const sourcesCount = Number(pjInquiryQuantity?.sourcesConsulted || pjInquiryQuantity?.fontesConsultadas || 0);
+                return sourcesCount > 0 ? <span className="ml-2 font-medium">Fontes Consultadas: {sourcesCount}</span> : null;
+              })()}
             </p>
             <div className="overflow-x-auto border border-border rounded-lg">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-xs font-medium">Data da consulta</TableHead>
+                    <TableHead className="text-xs font-medium">{isPJ ? 'Nome do consultante' : 'Segmento do consultante'}</TableHead>
+                    {isPJ && <TableHead className="text-xs font-medium">CNPJ do consultante</TableHead>}
                     <TableHead className="text-xs font-medium">Quantidade de consultas no dia</TableHead>
-                    <TableHead className="text-xs font-medium">{isPJ ? 'Empresa consultante' : 'Segmento do consultante'}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {inquiryItems.map((item, i) => (
                     <TableRow key={i}>
                       <TableCell className="text-xs py-2">{formatDate(item.occurrenceDate)}</TableCell>
-                      <TableCell className="text-xs py-2">{item.daysQuantity || item.inquiryQuantity || item.quantity || 1}</TableCell>
                       <TableCell className="text-xs py-2">{item.companyName || item.segmentDescription || '-'}</TableCell>
+                      {isPJ && <TableCell className="text-xs py-2">{item.companyDocumentId ? formatDocument(item.companyDocumentId) : '-'}</TableCell>}
+                      <TableCell className="text-xs py-2">{item.daysQuantity || item.inquiryQuantity || item.quantity || 1}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
