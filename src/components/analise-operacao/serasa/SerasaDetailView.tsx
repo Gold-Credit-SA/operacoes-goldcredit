@@ -1378,6 +1378,185 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         </div>
       </div>
 
+      {/* ── Informações Comportamentais (PJ only) ── */}
+      {isPJ && (() => {
+        const behavioralData = (report?.behavioralData || optionalFeatures?.behavioralData || report?.positiveData || optionalFeatures?.positiveData || {}) as GenericRecord;
+        const marketRelationship = (behavioralData?.marketRelationship || report?.marketRelationship || optionalFeatures?.marketRelationship || {}) as GenericRecord;
+        const paymentHistoryPJ = (behavioralData?.paymentHistory || report?.paymentHistoryCompany || optionalFeatures?.paymentHistoryCompany || {}) as GenericRecord;
+        const commitmentEvolution = (behavioralData?.commitmentEvolution || report?.commitmentEvolution || optionalFeatures?.commitmentEvolution || {}) as GenericRecord;
+        const businessReferences = (behavioralData?.businessReferences || report?.businessReferences || optionalFeatures?.businessReferences || {}) as GenericRecord;
+
+        const marketItems = asArray(marketRelationship?.marketRelationshipResponse || marketRelationship?.results || marketRelationship?.items || []);
+        const pjPayItems = asArray(paymentHistoryPJ?.paymentHistoryResponse || paymentHistoryPJ?.payments || paymentHistoryPJ?.items || paymentHistoryPJ?.results || []);
+        const commitmentItems = asArray(commitmentEvolution?.commitmentEvolutionResponse || commitmentEvolution?.results || commitmentEvolution?.items || []);
+        const businessRefItems = asArray(businessReferences?.businessReferencesResponse || businessReferences?.results || businessReferences?.items || []);
+        const pjPaySummary = (paymentHistoryPJ?.summary || paymentHistoryPJ) as GenericRecord;
+
+        return (
+        <div>
+          <p className="text-sm font-semibold text-primary mb-1">Informações Comportamentais</p>
+          <p className="text-xs text-muted-foreground mb-4">
+            Dados de comportamento de pagamento e relacionamento da empresa com o mercado.
+          </p>
+
+          {/* Relacionamento com o Mercado */}
+          <div className="mb-4">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Relacionamento com o Mercado</p>
+            {marketItems.length > 0 ? (
+              <div className="overflow-x-auto border border-border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs font-medium">Período</TableHead>
+                      <TableHead className="text-xs font-medium">Segmento</TableHead>
+                      <TableHead className="text-xs font-medium">Valor Total</TableHead>
+                      <TableHead className="text-xs font-medium">Qtd. Operações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {marketItems.map((item: any, i: number) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-xs py-2">{item.period || item.month || formatDate(item.date) || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.segment || item.type || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.totalAmount ? formatCurrency(item.totalAmount) : item.amount ? formatCurrency(item.amount) : '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.operationsCount || item.quantity || '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="border border-border rounded-lg p-3">
+                <p className="text-xs text-muted-foreground">Sem dados de relacionamento com o mercado.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Histórico de Pagamentos */}
+          <div className="mb-4">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Histórico de Pagamentos</p>
+            {pjPayItems.length > 0 ? (
+              <div className="overflow-x-auto border border-border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs font-medium">Período</TableHead>
+                      <TableHead className="text-xs font-medium">Pontual</TableHead>
+                      <TableHead className="text-xs font-medium">1-14 dias</TableHead>
+                      <TableHead className="text-xs font-medium">15-30 dias</TableHead>
+                      <TableHead className="text-xs font-medium">31-60 dias</TableHead>
+                      <TableHead className="text-xs font-medium">61-90 dias</TableHead>
+                      <TableHead className="text-xs font-medium">{'>'}90 dias</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pjPayItems.map((item: any, i: number) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.onTime || item.punctual || item.onTimePayment || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.delay1to14 || item.late1to14 || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.delay15to30 || item.late15to30 || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.delay31to60 || item.late31to60 || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.delay61to90 || item.late61to90 || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.delayOver90 || item.lateOver90 || '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : pjPaySummary?.onTimePayment ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="border border-border rounded-lg p-3">
+                  <p className="text-[11px] font-medium text-muted-foreground">Pontual</p>
+                  <p className="text-sm font-bold text-foreground mt-1">{pjPaySummary.onTimePayment}</p>
+                </div>
+                <div className="border border-border rounded-lg p-3">
+                  <p className="text-[11px] font-medium text-muted-foreground">Com atraso</p>
+                  <p className="text-sm font-bold text-foreground mt-1">{pjPaySummary.latePayment || '-'}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="border border-border rounded-lg p-3">
+                <p className="text-xs text-muted-foreground">Sem dados de histórico de pagamentos.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Evolução de Compromissos */}
+          <div className="mb-4">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Evolução de Compromissos</p>
+            {commitmentItems.length > 0 ? (
+              <div className="overflow-x-auto border border-border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs font-medium">Período</TableHead>
+                      <TableHead className="text-xs font-medium">Valor Assumido</TableHead>
+                      <TableHead className="text-xs font-medium">Valor Liquidado</TableHead>
+                      <TableHead className="text-xs font-medium">Valor a Vencer</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {commitmentItems.map((item: any, i: number) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.assumedAmount ? formatCurrency(item.assumedAmount) : item.totalAmount ? formatCurrency(item.totalAmount) : '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.settledAmount ? formatCurrency(item.settledAmount) : item.paidAmount ? formatCurrency(item.paidAmount) : '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.toExpireAmount ? formatCurrency(item.toExpireAmount) : item.pendingAmount ? formatCurrency(item.pendingAmount) : '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="border border-border rounded-lg p-3">
+                <p className="text-xs text-muted-foreground">Sem dados de evolução de compromissos.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Referenciais de Negócio */}
+          <div className="mb-4">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Referenciais de Negócio</p>
+            {businessRefItems.length > 0 ? (
+              <div className="overflow-x-auto border border-border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs font-medium">Segmento</TableHead>
+                      <TableHead className="text-xs font-medium">Data Início</TableHead>
+                      <TableHead className="text-xs font-medium">Última Compra</TableHead>
+                      <TableHead className="text-xs font-medium">Maior Compra</TableHead>
+                      <TableHead className="text-xs font-medium">Maior Atraso</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {businessRefItems.map((item: any, i: number) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-xs py-2">{item.segment || item.type || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{formatDate(item.startDate || item.firstPurchase)}</TableCell>
+                        <TableCell className="text-xs py-2">{formatDate(item.lastPurchase || item.lastDate)}</TableCell>
+                        <TableCell className="text-xs py-2">{item.highestPurchase ? formatCurrency(item.highestPurchase) : '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.longestDelay || item.maxDelay || '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="border border-border rounded-lg p-3">
+                <p className="text-xs text-muted-foreground">Sem dados de referenciais de negócio.</p>
+              </div>
+            )}
+          </div>
+
+          <p className="text-[10px] text-muted-foreground mt-3 leading-relaxed">
+            As informações comportamentais refletem o histórico de relacionamento comercial e financeiro da empresa. Dados sujeitos à atualização conforme fontes disponíveis.
+          </p>
+        </div>
+        );
+      })()}
+
       {/* ── Histórico de Pagamento (PF Top Score only) ── */}
       {isTopScore && (
       <div>
