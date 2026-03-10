@@ -269,6 +269,9 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const consultasAtual = isPJ
     ? Number(pjInquiryQuantity?.actual || 0)
     : Number(pick(factsInquirySummary, ['inquiryQuantity.actual'], 0));
+  const consultasMesAnterior = isPF
+    ? Number(pick(factsInquirySummary, ['inquiryQuantity.lastMonth', 'inquiryQuantity.previous'], 0))
+    : 0;
   const consultasBankAtual = isPJ ? Number(pjInquiryQuantity?.bankActual || 0) : 0;
   const inquiryCount = isPJ
     ? inquiryItems.length
