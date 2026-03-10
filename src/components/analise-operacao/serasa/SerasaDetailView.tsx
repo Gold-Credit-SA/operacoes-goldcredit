@@ -1141,6 +1141,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         />
         )}
       </div>
+      )}
 
       {/* ── Participações Societárias (PF only) ── */}
       {isPF && (
