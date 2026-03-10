@@ -5,14 +5,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// Map consultaId to Serasa report names
-const REPORT_MAP: Record<string, { reportName: string; type: 'PF' | 'PJ' }> = {
+// Map consultaId to Serasa report names and default score models
+const REPORT_MAP: Record<string, { reportName: string; type: 'PF' | 'PJ'; defaultScoreModel?: string }> = {
   serasa_basico_pf: { reportName: 'RELATORIO_BASICO_PF_PME', type: 'PF' },
-  serasa_avancado_top_score_pf: { reportName: 'RELATORIO_AVANCADO_TOP_SCORE_PF_PME', type: 'PF' },
+  serasa_avancado_top_score_pf: { reportName: 'RELATORIO_AVANCADO_TOP_SCORE_PF_PME', type: 'PF', defaultScoreModel: 'HRLD' },
   serasa_basico_pj: { reportName: 'RELATORIO_BASICO_PJ_PME', type: 'PJ' },
   serasa_avancado_pj: { reportName: 'RELATORIO_AVANCADO_PJ_PME', type: 'PJ' },
   serasa_avancado_pj_analitico: { reportName: 'RELATORIO_AVANCADO_PJ_PME_ANALITICO', type: 'PJ' },
 };
+
+/** Encode reportParameters as base64 for Serasa API */
+function encodeReportParameters(params: Array<{ name: string; value: string }>): string {
+  const payload = JSON.stringify({ reportParameters: params });
+  return btoa(payload);
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -21,7 +27,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { document, consultaId, optionalFeatures, federalUnit } = body;
+    const { document, consultaId, optionalFeatures, federalUnit, scoreModel } = body;
 
     // Backwards compatibility: accept old format too
     const doc = document || body.cpf || body.cnpj;
@@ -124,7 +130,6 @@ serve(async (req) => {
     console.log('Serasa auth successful, fetching report:', reportConfig.reportName);
 
     // Step 2: Build report URL based on PF vs PJ
-    // PF uses person endpoint, PJ uses business endpoint
     const reportPath = isPF
       ? '/credit-services/person-information-report/v1/creditreport'
       : '/credit-services/business-information-report/v1/creditreport';
@@ -139,15 +144,34 @@ serve(async (req) => {
       reportUrl += `&optionalFeatures=${optionalFeatures}`;
     }
 
+    // Build reportParameters for score model if applicable
+    const reportParams: Array<{ name: string; value: string }> = [];
+
+    // Use provided score model or default from config
+    const effectiveScoreModel = scoreModel || reportConfig.defaultScoreModel;
+    if (effectiveScoreModel) {
+      reportParams.push({ name: 'SCORE', value: effectiveScoreModel });
+    }
+
+    // Encode and append reportParameters if any exist
+    if (reportParams.length > 0) {
+      const encoded = encodeReportParameters(reportParams);
+      reportUrl += `&reportParameters=${encoded}`;
+      console.log('reportParameters (decoded):', JSON.stringify({ reportParameters: reportParams }));
+    }
+
     console.log('Report URL:', reportUrl);
+
+    // Build headers
+    const reportHeaders: Record<string, string> = {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      'X-Document-Id': cleanDoc,
+    };
 
     const reportRes = await fetch(reportUrl, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'X-Document-Id': cleanDoc,
-      },
+      headers: reportHeaders,
     });
 
     const reportText = await reportRes.text();

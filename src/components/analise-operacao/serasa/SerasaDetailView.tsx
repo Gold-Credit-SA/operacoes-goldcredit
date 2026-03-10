@@ -108,6 +108,14 @@ export function SerasaDetailView({ data, document: docNumber, hideExportButton, 
   const factsInquirySummary = (facts?.inquirySummary || {}) as GenericRecord;
   const factsStolenDocs = (facts?.stolenDocuments || stolenDocuments) as GenericRecord;
 
+  const judgements = (negativeData?.judgementFilingsResponse || negativeData?.judgementFilings || {}) as GenericRecord;
+  const bankrupts = (negativeData?.bankruptsResponse || negativeData?.bankrupts || {}) as GenericRecord;
+  const checkFilingsHistorical = (report?.checkFilingsHistorical || {}) as GenericRecord;
+
+  // Renda estimada from optionalFeatures attributes
+  const attributes = (optionalFeatures?.attributes || optionalFeatures?.attributesResponse || report?.attributes || {}) as GenericRecord;
+  const rendaEstimada = asArray(pick(attributes, ['attributesResponse'], []));
+
   const participation = asArray(
     pick(report, [
       'companyData.companyParticipationResponse',
@@ -115,6 +123,7 @@ export function SerasaDetailView({ data, document: docNumber, hideExportButton, 
       'partnerParticipation.participationResponse',
       'partnerParticipationResponse',
       'socialParticipation.socialParticipationResponse',
+      'partnershipResponse',
     ], []),
   );
 
@@ -125,6 +134,9 @@ export function SerasaDetailView({ data, document: docNumber, hideExportButton, 
   const protestItems = asArray(pick(protests, ['notaryResponse', 'notaryResponseDetail'], []));
   const stolenItems = asArray(pick(factsStolenDocs, ['stolenDocumentsResponse', 'documents'], []));
   const inquiryItems = asArray(pick(factsInquiry, ['inquiryResponse'], []));
+  const judgementItems = asArray(pick(judgements, ['judgementFilingsResponse'], []));
+  const bankruptItems = asArray(pick(bankrupts, ['bankruptsResponse'], []));
+  const checkFilingsItems = asArray(pick(checkFilingsHistorical, ['checkFilingsHistoricalResponse'], []));
 
   const totalNegativeValue =
     Number(pick(pefin, ['summary.balance'], 0)) +
