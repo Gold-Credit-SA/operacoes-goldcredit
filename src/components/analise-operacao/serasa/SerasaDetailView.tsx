@@ -1378,8 +1378,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         </div>
       </div>
 
-      {/* ── Informações Comportamentais (PJ only) ── */}
-      {isPJ && (() => {
+      {/* ── Informações Comportamentais (Avançado PJ only) ── */}
+      {isAvancadoPJ && (() => {
         const behavioralData = (report?.behavioralData || optionalFeatures?.behavioralData || report?.positiveData || optionalFeatures?.positiveData || {}) as GenericRecord;
         const marketRelationship = (behavioralData?.marketRelationship || report?.marketRelationship || optionalFeatures?.marketRelationship || {}) as GenericRecord;
         const paymentHistoryPJ = (behavioralData?.paymentHistory || report?.paymentHistoryCompany || optionalFeatures?.paymentHistoryCompany || {}) as GenericRecord;
@@ -1557,8 +1557,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         );
       })()}
 
-      {/* ── Limite de Crédito PJ ── */}
-      {isPJ && (() => {
+      {/* ── Limite de Crédito PJ (Avançado PJ only) ── */}
+      {isAvancadoPJ && (() => {
         const creditLimit = (pick(optionalFeatures, ['creditLimit', 'creditLimitResponse', 'limitCredit']) 
           || pick(report, ['creditLimit', 'creditLimitResponse', 'limitCredit'])
           || pick(report?.behavioralData || optionalFeatures?.behavioralData || report?.positiveData, ['creditLimit'])) as any;
@@ -1587,8 +1587,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         );
       })()}
 
-      {/* ── Cheques Sustados PJ ── */}
-      {isPJ && (() => {
+      {/* ── Cheques Sustados (Avançado PJ only) ── */}
+      {isAvancadoPJ && (() => {
         const checkFilingsPJ = (report?.checkFilingsHistorical || optionalFeatures?.checkFilingsHistorical || report?.checkFilings || optionalFeatures?.checkFilings || {}) as GenericRecord;
         const checkFilingsPJItems = asArray(checkFilingsPJ?.checkFilingsHistoricalResponse || checkFilingsPJ?.results || checkFilingsPJ?.items || []);
         return (
