@@ -1,67 +1,72 @@
 
 
-## Comparação: Relatório Oficial Serasa vs Nosso Relatório
+## Integração AgRisk - Plano
 
-Analisei o JSON retornado pela API Serasa para o CNPJ 20.663.814/0001-13 (Avançado PJ) e comparei com as 4 imagens do relatório oficial. Aqui estão as discrepâncias encontradas:
+### Resumo
 
----
+Criar uma Edge Function `agrisk-query` que se autentica na API de produção do AgRisk (`https://api.agrisk.digital`) e executa o fluxo completo: login → cadastro do cliente por CPF/CNPJ → solicitação de consulta com produtos → polling dos resultados. No frontend, conectar as consultas Agrisk existentes (Restritivos, Endividamento, Imóveis) a esta função real, substituindo a simulação atual.
 
-### Problemas Identificados
+### 1. Configuração de Secrets
 
-**1. Limite de Crédito PJ nao encontra os dados**
-- O código procura `optionalFeatures.creditLimit` ou `report.creditLimit`
-- A API retorna o limite em `scores.scoreResponse[0]` com `scoreModel: "HLC1"` e `score: 74550` (= R$ 74.550,00)
-- Resultado: seção mostra "Sem dados" quando deveria mostrar **R$ 74.550,00**
+Serão necessários dois secrets:
+- `AGRISK_CREDENTIAL` — e-mail ou CPF de acesso à API
+- `AGRISK_PASSWORD` — senha de acesso
 
-**2. defaultRate exibido incorretamente**
-- API retorna `"01378"` (string crua sem formatação)
-- Deveria exibir: `13,78%` (probabilidade de inadimplência)
-- O cálculo de "honrar compromissos" faz `100 - parseFloat("01378")` = `-1278` em vez de `86,22%`
-- Correção: parsear "01378" como `13.78` (inserir ponto decimal 2 casas antes do final)
+### 2. Edge Function `agrisk-query`
 
-**3. Gráfico de consultas mostra apenas 6 meses**
-- Oficial mostra **13 meses** de histórico (Fev/2025 a Mar/2026)
-- API retorna 13 itens em `historical[]`
-- Nosso `InquiryBarChartPJ` renderiza apenas 6 meses
+**Arquivo:** `supabase/functions/agrisk-query/index.ts`
 
-**4. Tabela de consultas falta coluna CNPJ**
-- Oficial tem: Data | Nome do consultante | **CNPJ do consultante** | Quantidade
-- Nosso tem: Data | Quantidade | Empresa consultante
-- Faltam: coluna CNPJ e reordenação das colunas
+Fluxo da função:
+1. Recebe `{ taxId, products }` no body (taxId = CPF/CNPJ sem máscara, products = array de IDs de produto)
+2. **Login** — `POST /login` com `credential` e `password` → obtém `token`
+3. **Cadastrar cliente** — `POST /clients` com `{ taxId }`. Se retornar 400 com `clientId` (já cadastrado), usa esse ID
+4. **Solicitar consulta** — `POST /queries` com `{ clients: [clientId], products }` → retorna items com queryIds e status
+5. **Polling** — Aguarda até 30s fazendo polling em `GET /queries/clients/{clientId}` checando se os status mudaram de `pending` para `completed`/`error`
+6. **Buscar resultados** — Dependendo do produto, busca dados nos endpoints específicos:
+   - Restritivos: `/queries/clients/{clientId}/bvs/{queryId}` (contém judicial, fiscal, criminal, etc.)
+   - Endividamento: `/queries/clients/{clientId}/bndes`
+   - Imóveis CAR: dados no campo `check_bioma` ou endpoint de CAR
+   - Imóveis Simples: via endpoint de veicular/imóveis
 
-**5. Fontes Consultadas ausente**
-- Oficial exibe "Fontes Consultadas: 12" ao lado da contagem de consultas
-- Não renderizamos esse dado
+Retorna os dados consolidados ao frontend.
 
-**6. Campo "Opção Tributária" ausente nos Dados Cadastrais**
-- O grid de cards oficiais tem 8 cards (inclui "Filiais" e "Opção Tributária")
-- Nosso grid tem 7 cards, falta "Opção Tributária"
+### 3. Mapeamento de Produtos
 
-**7. Seção "Informações sobre compras" e campos extras nos Outros Dados**
-- Oficial mostra campos adicionais: "Importação sobre compras", "Exportação sobre vendas"
-- Nosso código não renderiza esses campos
+A API do AgRisk usa IDs de produto (obtidos via `GET /v2/products`). A função buscará dinamicamente os produtos disponíveis e mapeará os IDs selecionados no frontend para os IDs reais da API.
 
-**8. Empresa antecessora** 
-- API retorna `predecessorList` (array com 2 itens)
-- Código exibe apenas um valor estático, não itera a lista
+Mapeamento frontend → AgRisk:
+- `restritivos` → produto "Restritivo Nacional" (credit-restrictives-fif-pf, antecedentes, protestos, etc.)
+- `endividamento` → produto "Endividamento" (BNDES, Boa Vista)
+- `imoveis_simples` → produto "Imóveis Rurais - Simples"
+- `imoveis_car` → produto "Imóveis Rurais - CAR"
 
----
+### 4. Alterações no Frontend
 
-### Plano de Correções
+**`ConsultaExecution.tsx`** — Na função `executeConsulta`, adicionar cases para os IDs Agrisk que chamam a Edge Function:
+```text
+if (['restritivos', 'endividamento', 'imoveis_simples', 'imoveis_car', ...].includes(id)) {
+  → supabase.functions.invoke('agrisk-query', { body: { taxId: cnpj, consultaType: id } })
+}
+```
 
-1. **Fix Limite de Crédito PJ**: Buscar valor em `scores.scoreResponse` onde `scoreModel === 'HLC1'`, usar `score` como valor monetário e `message` como interpretação
+**`ConsultaSelection.tsx`** — As consultas Agrisk já existem na lista. Nenhuma alteração necessária, exceto eventualmente remover `patrimonio_veicular` e `cpr` se não forem integrados nesta fase.
 
-2. **Fix defaultRate parsing**: Converter string crua ("01378") para percentual formatado ("13,78%") — inserir vírgula 2 casas antes do final
+### 5. Tratamento de Erros
 
-3. **Expandir gráfico para 13 meses**: Alterar `InquiryBarChartPJ` para usar todos os itens do `historical[]` da API em vez de gerar apenas 6 meses
+- **401 Unauthorized** — Credenciais inválidas, mensagem clara ao usuário
+- **400 Bad Request** — Cliente não encontrado/CPF inválido, retornar mensagem do AgRisk
+- **Timeout no polling** — Após 30s sem resultado, retornar status parcial informando que a consulta está em processamento
+- Respostas com status não-OK da API retornam erro descritivo sem expor detalhes técnicos
 
-4. **Adicionar coluna CNPJ na tabela de consultas PJ**: Incluir `companyDocumentId` formatado
+### 6. Arquivos Envolvidos
 
-5. **Adicionar "Fontes Consultadas"**: Exibir contagem total de fontes na seção de consultas
+| Arquivo | Ação |
+|---------|------|
+| `supabase/functions/agrisk-query/index.ts` | Criar — nova Edge Function |
+| `src/components/analise-operacao/ConsultaExecution.tsx` | Editar — conectar consultas Agrisk à função real |
+| `supabase/config.toml` | Verificar — `verify_jwt = false` para nova função |
 
-6. **Adicionar "Opção Tributária"**: Novo card no grid de dados cadastrais
+### Próximo Passo
 
-7. **Iterar predecessorList**: Exibir todas as empresas antecessoras como lista
-
-Todas as alterações serão feitas em `SerasaDetailView.tsx`.
+Antes de implementar, preciso configurar os dois secrets (`AGRISK_CREDENTIAL` e `AGRISK_PASSWORD`) com suas credenciais reais.
 

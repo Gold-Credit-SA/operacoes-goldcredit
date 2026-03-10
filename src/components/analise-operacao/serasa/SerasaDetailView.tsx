@@ -117,7 +117,13 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const optionalFeatures = (report?.optionalFeatures || {}) as GenericRecord;
 
   // Score - PJ uses H4PJ model, PF uses HRLD
-  const score = (optionalFeatures?.scoreResponse || optionalFeatures?.score || {}) as GenericRecord;
+  const scoresSection = (report?.scores || optionalFeatures?.scores || {}) as GenericRecord;
+  const scoreResponseArr = asArray(scoresSection?.scoreResponse || optionalFeatures?.scoreResponse || []);
+  // Find the main score (H4PJ or HRLD) — exclude HLC1 which is credit limit
+  const mainScoreObj = scoreResponseArr.find((s: any) => s.scoreModel !== 'HLC1') || scoreResponseArr[0];
+  const score = (mainScoreObj || optionalFeatures?.scoreResponse || optionalFeatures?.score || {}) as GenericRecord;
+  // Find credit limit score (HLC1)
+  const creditLimitScore = scoreResponseArr.find((s: any) => s.scoreModel === 'HLC1') as GenericRecord | undefined;
   const pefin = (negativeData?.pefinResponse || negativeData?.pefin || {}) as GenericRecord;
   const refin = (negativeData?.refinResponse || negativeData?.refin || {}) as GenericRecord;
   const convem = (negativeData?.collectionRecordsResponse || negativeData?.collectionRecords || {}) as GenericRecord;
@@ -202,7 +208,19 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
 
   // Common derived values
   const scoreValue = Number(pick(score, ['score'], 0));
-  const defaultRate = pick<string>(score, ['defaultRate', 'message'], '');
+  const rawDefaultRate = pick<string>(score, ['defaultRate'], '');
+  // Parse raw defaultRate: "01378" → "13,78%"
+  const defaultRate = (() => {
+    const raw = String(rawDefaultRate || '').replace(/\D/g, '');
+    if (!raw || raw.length < 3) return pick<string>(score, ['message'], '') || '';
+    const num = raw.slice(0, raw.length - 2) + ',' + raw.slice(raw.length - 2);
+    return num + '%';
+  })();
+  const defaultRateNumeric = (() => {
+    const raw = String(rawDefaultRate || '').replace(/\D/g, '');
+    if (!raw || raw.length < 3) return NaN;
+    return parseFloat(raw.slice(0, raw.length - 2) + '.' + raw.slice(raw.length - 2));
+  })();
   const scoreModel = pick<string>(score, ['scoreModel'], '');
 
   // PF values
@@ -374,7 +392,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         <p className="text-[11px] text-muted-foreground mb-3">Atualizado em {statusDate}</p>
 
         {/* Top summary grid */}
-        <div className="grid grid-cols-4 md:grid-cols-7 gap-2 mb-4">
+        <div className="grid grid-cols-4 md:grid-cols-8 gap-2 mb-4">
           <div className="border border-border rounded-lg p-2 aspect-square flex flex-col justify-center">
             <p className="text-[10px] font-medium text-muted-foreground">Situação Cadastral</p>
             <p className="text-xs font-bold text-foreground mt-1">{statusRF?.replace(/SITUACAO DO CNPJ EM .+?:\s*/i, '').trim() || statusRF}</p>
@@ -415,6 +433,12 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             <p className="text-[10px] font-medium text-muted-foreground">Filiais</p>
             <p className="text-xs font-bold text-foreground mt-1">
               {String(pick(identificationReport, ['branchesQuantity', 'branches', 'filials']) || 'Sem dados')}
+            </p>
+          </div>
+          <div className="border border-border rounded-lg p-2 aspect-square flex flex-col justify-center">
+            <p className="text-[10px] font-medium text-muted-foreground">Opção Tributária</p>
+            <p className="text-xs font-bold text-foreground mt-1">
+              {String(pick(identificationReport, ['taxOption', 'tributaryOption', 'opcaoTributaria', 'taxRegime']) || 'Sem dados')}
             </p>
           </div>
         </div>
@@ -480,7 +504,26 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           </div>
           <div className="px-4 py-2 flex gap-2">
             <span className="text-muted-foreground text-xs font-medium shrink-0">Empresa antecessora:</span>
-            <span className="text-xs text-foreground">{String(pick(identificationReport, ['predecessorCompany', 'previousCompany', 'antecessora']) || '-')}</span>
+            <span className="text-xs text-foreground">
+              {(() => {
+                const predecessors = asArray(pick(identificationReport, ['predecessorList', 'predecessorCompany'], []));
+                if (predecessors.length > 0) {
+                  return predecessors.map((p: any, i: number) => (
+                    <span key={i}>{typeof p === 'string' ? p : (p.companyName || p.name || '-')}{p.documentId ? ` (${formatDocument(p.documentId)})` : ''}{i < predecessors.length - 1 ? '; ' : ''}</span>
+                  ));
+                }
+                const single = pick(identificationReport, ['predecessorCompany', 'previousCompany', 'antecessora']);
+                return String(single || '-');
+              })()}
+            </span>
+          </div>
+          <div className="px-4 py-2 flex gap-2">
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Importação sobre compras:</span>
+            <span className="text-xs text-foreground">{String(pick(identificationReport, ['importPercentage', 'importOnPurchases', 'importacaoCompras']) || '-')}</span>
+          </div>
+          <div className="px-4 py-2 flex gap-2">
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Exportação sobre vendas:</span>
+            <span className="text-xs text-foreground">{String(pick(identificationReport, ['exportPercentage', 'exportOnSales', 'exportacaoVendas']) || '-')}</span>
           </div>
         </div>
       </div>
@@ -547,7 +590,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             <ul className="list-disc list-inside space-y-1 text-xs text-muted-foreground">
               <li>A pontuação enquadra-se na faixa de {scoreLow} a {scoreHigh} e representa {scoreValue >= 601 ? 'bons indicadores' : scoreValue >= 401 ? 'indicadores moderados' : scoreValue >= 201 ? 'sinais de vulnerabilidades' : 'sinais críticos de vulnerabilidades'} da sua capacidade de pagamento.</li>
               <li>Para empresas com este perfil de risco, é prática de mercado {scoreValue >= 601 ? 'conceder crédito com políticas padrão de venda a prazo.' : scoreValue >= 401 ? 'conceder crédito com acompanhamento periódico do perfil de risco.' : 'conceder crédito com maior rigor na decisão, valendo-se de garantias adicionais e constantes monitoramentos do perfil de risco.'}</li>
-              {defaultRate && <li>Empresas com esta categoria de risco costumam honrar os compromissos de pagamentos assumidos em {(100 - parseFloat(String(defaultRate).replace(',', '.'))).toFixed(2).replace('.', ',')}% das operações</li>}
+              {!isNaN(defaultRateNumeric) && <li>Empresas com esta categoria de risco costumam honrar os compromissos de pagamentos assumidos em {(100 - defaultRateNumeric).toFixed(2).replace('.', ',')}% das operações</li>}
             </ul>
           </div>
 
@@ -1342,22 +1385,28 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           <>
             <p className="text-xs text-muted-foreground mb-2">
               Consultas à Serasa Experian  Exibindo {inquiryItems.length} registros.
+              {isPJ && (() => {
+                const sourcesCount = Number(pjInquiryQuantity?.sourcesConsulted || pjInquiryQuantity?.fontesConsultadas || 0);
+                return sourcesCount > 0 ? <span className="ml-2 font-medium">Fontes Consultadas: {sourcesCount}</span> : null;
+              })()}
             </p>
             <div className="overflow-x-auto border border-border rounded-lg">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-xs font-medium">Data da consulta</TableHead>
+                    <TableHead className="text-xs font-medium">{isPJ ? 'Nome do consultante' : 'Segmento do consultante'}</TableHead>
+                    {isPJ && <TableHead className="text-xs font-medium">CNPJ do consultante</TableHead>}
                     <TableHead className="text-xs font-medium">Quantidade de consultas no dia</TableHead>
-                    <TableHead className="text-xs font-medium">{isPJ ? 'Empresa consultante' : 'Segmento do consultante'}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {inquiryItems.map((item, i) => (
                     <TableRow key={i}>
                       <TableCell className="text-xs py-2">{formatDate(item.occurrenceDate)}</TableCell>
-                      <TableCell className="text-xs py-2">{item.daysQuantity || item.inquiryQuantity || item.quantity || 1}</TableCell>
                       <TableCell className="text-xs py-2">{item.companyName || item.segmentDescription || '-'}</TableCell>
+                      {isPJ && <TableCell className="text-xs py-2">{item.companyDocumentId ? formatDocument(item.companyDocumentId) : '-'}</TableCell>}
+                      <TableCell className="text-xs py-2">{item.daysQuantity || item.inquiryQuantity || item.quantity || 1}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -1559,11 +1608,14 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
 
       {/* ── Limite de Crédito PJ (Avançado PJ only) ── */}
       {isAvancadoPJ && (() => {
-        const creditLimit = (pick(optionalFeatures, ['creditLimit', 'creditLimitResponse', 'limitCredit']) 
+        // Try dedicated creditLimit fields first, then fall back to HLC1 score model
+        const creditLimitDedicated = (pick(optionalFeatures, ['creditLimit', 'creditLimitResponse', 'limitCredit']) 
           || pick(report, ['creditLimit', 'creditLimitResponse', 'limitCredit'])
           || pick(report?.behavioralData || optionalFeatures?.behavioralData || report?.positiveData, ['creditLimit'])) as any;
-        const limitValue = creditLimit?.value || creditLimit?.amount || creditLimit?.limitValue || creditLimit?.creditLimitValue;
-        const limitMessage = creditLimit?.message || creditLimit?.interpretation || '';
+        const limitValue = creditLimitDedicated?.value || creditLimitDedicated?.amount || creditLimitDedicated?.limitValue || creditLimitDedicated?.creditLimitValue
+          || (creditLimitScore?.score ? Number(creditLimitScore.score) : undefined);
+        const limitMessage = creditLimitDedicated?.message || creditLimitDedicated?.interpretation || creditLimitScore?.message || '';
+        
         return (
         <div>
           <p className="text-sm font-semibold text-primary mb-1">Limite de Crédito PJ</p>
@@ -1793,24 +1845,35 @@ function InquiryBarChart({ inquiryItems }: { inquiryItems: any[] }) {
 /** Pure-div bar chart for PJ inquiry history using historical data */
 function InquiryBarChartPJ({ historical }: { historical: any[] }) {
   // PJ historical: array of { inquiryDate: "YYYY-MM", occurrences, bankOccurrences }
-  const now = new Date();
+  // Use all items from the API (up to 13 months) instead of generating fixed months
   const months: { label: string; companies: number; banks: number }[] = [];
 
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const label = d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', '');
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-
-    const match = historical.find((h: any) => {
+  if (historical.length > 0) {
+    // Sort by date ascending
+    const sorted = [...historical].sort((a, b) => String(a.inquiryDate || '').localeCompare(String(b.inquiryDate || '')));
+    for (const h of sorted) {
       const hDate = String(h.inquiryDate || '');
-      return hDate.startsWith(key);
-    });
+      const [year, month] = hDate.split('-').map(Number);
+      if (year && month) {
+        const d = new Date(year, month - 1, 1);
+        const label = d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', '');
+        months.push({
+          label: label.charAt(0).toUpperCase() + label.slice(1),
+          companies: Number(h.occurrences || 0),
+          banks: Number(h.bankOccurrences || 0),
+        });
+      }
+    }
+  }
 
-    months.push({
-      label: label.charAt(0).toUpperCase() + label.slice(1),
-      companies: Number(match?.occurrences || 0),
-      banks: Number(match?.bankOccurrences || 0),
-    });
+  if (months.length === 0) {
+    // Fallback: generate 6 months
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const label = d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', '');
+      months.push({ label: label.charAt(0).toUpperCase() + label.slice(1), companies: 0, banks: 0 });
+    }
   }
 
   const maxCount = Math.max(...months.map(m => m.companies + m.banks), 1);
@@ -1818,7 +1881,7 @@ function InquiryBarChartPJ({ historical }: { historical: any[] }) {
 
   return (
     <div className="border border-border rounded-lg p-4 mb-3">
-      <div className="flex items-end justify-between gap-2" style={{ height: barMaxHeight + 30 }}>
+      <div className="flex items-end justify-between gap-1" style={{ height: barMaxHeight + 30 }}>
         {months.map((m, i) => {
           const total = m.companies + m.banks;
           const companyH = total > 0 ? Math.max((m.companies / maxCount) * barMaxHeight, m.companies > 0 ? 4 : 0) : 0;
@@ -1832,7 +1895,7 @@ function InquiryBarChartPJ({ historical }: { historical: any[] }) {
                 <div className="w-full rounded-t-sm bg-primary" style={{ height: companyH }} />
                 <div className="w-full bg-amber-500" style={{ height: bankH }} />
               </div>
-              <span className="text-[10px] text-muted-foreground text-center leading-tight mt-1">{m.label}</span>
+              <span className="text-[9px] text-muted-foreground text-center leading-tight mt-1">{m.label}</span>
             </div>
           );
         })}
