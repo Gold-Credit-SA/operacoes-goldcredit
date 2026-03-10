@@ -517,6 +517,20 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
               value={pick(checks, ['summary.balance'], 0)}
               count={pick(checks, ['summary.count'], 0)}
             />
+            {isTopScore && (
+            <>
+            <NegSummaryBox
+              label="Participação em falências"
+              value={0}
+              count={bankruptItems.length}
+            />
+            <NegSummaryBox
+              label="Ações Judiciais"
+              value={pick(judgements, ['summary.balance'], 0)}
+              count={pick(judgements, ['summary.count'], judgementItems.length)}
+            />
+            </>
+            )}
           </div>
         </div>
 
