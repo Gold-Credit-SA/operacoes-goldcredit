@@ -374,46 +374,46 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         <p className="text-[11px] text-muted-foreground mb-3">Atualizado em {statusDate}</p>
 
         {/* Top summary grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-4">
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Situação Cadastral</p>
-            <p className="text-sm font-bold text-foreground mt-1">{statusRF}</p>
+        <div className="grid grid-cols-4 md:grid-cols-7 gap-2 mb-4">
+          <div className="border border-border rounded-lg p-2 aspect-square flex flex-col justify-center">
+            <p className="text-[10px] font-medium text-muted-foreground">Situação Cadastral</p>
+            <p className="text-xs font-bold text-foreground mt-1">{statusRF?.replace(/SITUACAO DO CNPJ EM .+?:\s*/i, '').trim() || statusRF}</p>
           </div>
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Fundação em</p>
-            <p className="text-sm font-bold text-foreground mt-1">{formatDate(foundationDate)}</p>
+          <div className="border border-border rounded-lg p-2 aspect-square flex flex-col justify-center">
+            <p className="text-[10px] font-medium text-muted-foreground">Fundação em</p>
+            <p className="text-xs font-bold text-foreground mt-1">{formatDate(foundationDate)}</p>
             {foundationDate && (() => {
               const fd = new Date(String(foundationDate));
               if (!isNaN(fd.getTime())) {
                 const years = Math.floor((Date.now() - fd.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-                return <p className="text-[11px] text-muted-foreground mt-0.5">{years} anos</p>;
+                return <p className="text-[10px] text-muted-foreground">{years} anos</p>;
               }
               return null;
             })()}
           </div>
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Município/UF</p>
-            <p className="text-sm font-bold text-foreground mt-1">
+          <div className="border border-border rounded-lg p-2 aspect-square flex flex-col justify-center">
+            <p className="text-[10px] font-medium text-muted-foreground">Município/UF</p>
+            <p className="text-xs font-bold text-foreground mt-1">
               {joinLocation(companyAddress?.city || pick(registration, ['address.city']), companyAddress?.state || companyAddress?.federalUnit || pick(registration, ['address.state']))}
             </p>
           </div>
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Ramo de atividade</p>
-            <p className="text-sm font-bold text-foreground mt-1 text-xs leading-tight">{economicActivity}</p>
+          <div className="border border-border rounded-lg p-2 aspect-square flex flex-col justify-center">
+            <p className="text-[10px] font-medium text-muted-foreground">Ramo de atividade</p>
+            <p className="text-xs font-bold text-foreground mt-1 leading-tight">{economicActivity}</p>
           </div>
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Tipo de sociedade</p>
-            <p className="text-sm font-bold text-foreground mt-1 text-xs leading-tight">
+          <div className="border border-border rounded-lg p-2 aspect-square flex flex-col justify-center">
+            <p className="text-[10px] font-medium text-muted-foreground">Tipo de sociedade</p>
+            <p className="text-xs font-bold text-foreground mt-1 leading-tight">
               {String(pick(identificationReport, ['companyType', 'socialObject', 'natureOfBusiness']) || 'Sem dados')}
             </p>
           </div>
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Número de funcionários</p>
-            <p className="text-sm font-bold text-foreground mt-1">{numberEmployees ?? 'Sem dados'}</p>
+          <div className="border border-border rounded-lg p-2 aspect-square flex flex-col justify-center">
+            <p className="text-[10px] font-medium text-muted-foreground">Nº funcionários</p>
+            <p className="text-xs font-bold text-foreground mt-1">{numberEmployees ?? 'Sem dados'}</p>
           </div>
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Filiais</p>
-            <p className="text-sm font-bold text-foreground mt-1">
+          <div className="border border-border rounded-lg p-2 aspect-square flex flex-col justify-center">
+            <p className="text-[10px] font-medium text-muted-foreground">Filiais</p>
+            <p className="text-xs font-bold text-foreground mt-1">
               {String(pick(identificationReport, ['branchesQuantity', 'branches', 'filials']) || 'Sem dados')}
             </p>
           </div>
