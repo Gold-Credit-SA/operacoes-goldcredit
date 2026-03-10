@@ -74,7 +74,7 @@ export function ConsultaSelection({ cnpj, onExecute, onBack }: ConsultaSelection
       // PF-only reports require CPF
       if ((item.id === 'serasa_basico_pf' || item.id === 'serasa_avancado_top_score_pf') && !isCpf) return false;
       // PJ-only reports require CNPJ
-      if ((item.id === 'serasa_basico_pj' || item.id === 'serasa_avancado_pj_analitico') && isCpf) return false;
+      if ((item.id === 'serasa_basico_pj' || item.id === 'serasa_avancado_pj' || item.id === 'serasa_avancado_pj_analitico') && isCpf) return false;
       return true;
     }),
   })).filter(group => group.items.length > 0);
