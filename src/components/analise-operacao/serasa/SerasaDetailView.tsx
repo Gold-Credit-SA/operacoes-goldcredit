@@ -118,6 +118,18 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const attributes = (optionalFeatures?.attributes || optionalFeatures?.attributesResponse || report?.attributes || {}) as GenericRecord;
   const rendaEstimada = asArray(pick(attributes, ['attributesResponse'], []));
 
+  // Phones & addresses from registration
+  const phones = asArray(pick(registration, ['phones', 'phoneList', 'phone'], []));
+  const addresses = asArray(pick(registration, ['addresses', 'addressList', 'address'], []));
+
+  // Complementary data
+  const complementaryData = (registration?.complementaryData || registration?.additionalData || {}) as GenericRecord;
+
+  // Payment history
+  const paymentHistory = (report?.paymentHistory || report?.historicoPagamento || optionalFeatures?.paymentHistory || {}) as GenericRecord;
+  const paymentItems = asArray(pick(paymentHistory, ['paymentHistoryResponse', 'payments', 'items'], []));
+  const paymentSummary = (paymentHistory?.summary || paymentHistory) as GenericRecord;
+
   const participation = asArray(
     pick(report, [
       'companyData.companyParticipationResponse',
