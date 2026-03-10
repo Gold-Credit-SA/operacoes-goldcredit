@@ -822,6 +822,56 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         )}
       </div>
 
+      {/* ── Histórico de Pagamento (Top Score only) ── */}
+      {isTopScore && (
+      <div>
+        <p className="text-sm font-semibold text-primary mb-1">Histórico de pagamento</p>
+        <p className="text-xs text-muted-foreground mb-3">
+          Pontualidade de pagamento por período do documento consultado.
+        </p>
+
+        {paymentItems.length === 0 && !paymentSummary?.onTimePayment ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="border border-border rounded-lg p-3">
+              <p className="text-[11px] font-medium text-muted-foreground">Pontual até o vencimento</p>
+              <p className="text-sm font-bold text-foreground mt-1">{String(pick(paymentSummary, ['onTimeRate', 'punctualRate', 'onTimePayment']) || '-')}</p>
+            </div>
+            <div className="border border-border rounded-lg p-3">
+              <p className="text-[11px] font-medium text-muted-foreground">1 a 7 dias de atraso</p>
+              <p className="text-sm font-bold text-foreground mt-1">{String(pick(paymentSummary, ['lateRate', 'delayRate', 'latePayment']) || '-')}</p>
+            </div>
+          </div>
+        ) : paymentItems.length > 0 ? (
+          <div className="overflow-x-auto border border-border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs font-medium">Período</TableHead>
+                  <TableHead className="text-xs font-medium">Pontual</TableHead>
+                  <TableHead className="text-xs font-medium">Atraso</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paymentItems.map((item: any, i: number) => (
+                  <TableRow key={i}>
+                    <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.onTimeRate || item.punctualRate || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.lateRate || item.delayRate || '-'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">Nenhum registro para este documento.</p>
+        )}
+
+        <p className="text-[10px] text-muted-foreground mt-3 leading-relaxed">
+          Esse relatório contém informações históricas reais ocorridas nos últimos 12 meses e tem como objetivo demonstrar o comportamento de pagamento do consumidor nesse período.
+        </p>
+      </div>
+      )}
+
       {/* ── Disclaimer ── */}
       <div className="border-t border-border pt-4 mt-6">
         <p className="text-[10px] text-muted-foreground leading-relaxed">
