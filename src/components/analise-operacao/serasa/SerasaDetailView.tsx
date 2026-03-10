@@ -520,8 +520,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         )}
       </div>
 
-      {/* ── Renda Estimada ── */}
-      {rendaEstimada.length > 0 && (
+      {/* ── Renda Estimada (Top Score only) ── */}
+      {isTopScore && rendaEstimada.length > 0 && (
         <div>
           <p className="text-sm font-semibold text-primary mb-3">Renda Estimada</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
