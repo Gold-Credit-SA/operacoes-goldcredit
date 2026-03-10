@@ -392,7 +392,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         <p className="text-[11px] text-muted-foreground mb-3">Atualizado em {statusDate}</p>
 
         {/* Top summary grid */}
-        <div className="grid grid-cols-4 md:grid-cols-7 gap-2 mb-4">
+        <div className="grid grid-cols-4 md:grid-cols-8 gap-2 mb-4">
           <div className="border border-border rounded-lg p-2 aspect-square flex flex-col justify-center">
             <p className="text-[10px] font-medium text-muted-foreground">Situação Cadastral</p>
             <p className="text-xs font-bold text-foreground mt-1">{statusRF?.replace(/SITUACAO DO CNPJ EM .+?:\s*/i, '').trim() || statusRF}</p>
@@ -433,6 +433,12 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             <p className="text-[10px] font-medium text-muted-foreground">Filiais</p>
             <p className="text-xs font-bold text-foreground mt-1">
               {String(pick(identificationReport, ['branchesQuantity', 'branches', 'filials']) || 'Sem dados')}
+            </p>
+          </div>
+          <div className="border border-border rounded-lg p-2 aspect-square flex flex-col justify-center">
+            <p className="text-[10px] font-medium text-muted-foreground">Opção Tributária</p>
+            <p className="text-xs font-bold text-foreground mt-1">
+              {String(pick(identificationReport, ['taxOption', 'tributaryOption', 'opcaoTributaria', 'taxRegime']) || 'Sem dados')}
             </p>
           </div>
         </div>
