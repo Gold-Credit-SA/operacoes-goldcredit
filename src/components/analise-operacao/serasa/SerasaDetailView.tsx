@@ -190,6 +190,13 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const rendaEstimada = asArray(pick(attributes, ['attributesResponse'], []));
 
   const participationFinal = (() => {
+    // PF basic: report.partner.partnershipResponse
+    const partnerSection = report?.partner as GenericRecord | undefined;
+    if (partnerSection) {
+      const items = asArray(partnerSection?.partnershipResponse || []);
+      if (items.length) return items;
+    }
+    // Other paths
     const paths = [
       'companyData.companyParticipationResponse',
       'companyParticipationResponse',
@@ -199,22 +206,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
       'partnershipResponse',
     ];
     let items = asArray(pick(report, paths, []));
-    if (!items.length) items = asArray(pick(optionalFeatures, ['companyParticipationResponse', 'companyParticipation.companyParticipationResponse', 'partnerParticipation.participationResponse'], []));
-    if (!items.length) items = asArray(pick(facts, ['companyParticipationResponse', 'companyParticipation.companyParticipationResponse', 'partnerParticipation.participationResponse'], []));
-    // Try nested response wrapper
-    if (!items.length) {
-      const wrapper = report?.companyParticipation || optionalFeatures?.companyParticipation || facts?.companyParticipation || report?.partnerParticipation || optionalFeatures?.partnerParticipation;
-      if (wrapper) {
-        items = asArray((wrapper as any)?.companyParticipationResponse || (wrapper as any)?.participationResponse || (wrapper as any)?.results || []);
-      }
-    }
-    // Also check report.socialParticipation
-    if (!items.length) {
-      const sp = report?.socialParticipation || optionalFeatures?.socialParticipation;
-      if (sp) {
-        items = asArray((sp as any)?.socialParticipationResponse || (sp as any)?.results || []);
-      }
-    }
+    if (!items.length) items = asArray(pick(optionalFeatures, ['companyParticipationResponse', 'companyParticipation.companyParticipationResponse'], []));
+    if (!items.length) items = asArray(pick(facts, ['companyParticipationResponse', 'companyParticipation.companyParticipationResponse'], []));
     return items;
   })();
 
