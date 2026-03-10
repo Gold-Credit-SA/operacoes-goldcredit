@@ -122,9 +122,6 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const internalRef = useRef<HTMLDivElement>(null);
   const contentRef = externalRef || internalRef;
   const report = ((data as any)?.reports?.[0] || (data as any)?.data?.reports?.[0] || data) as GenericRecord;
-  // DEBUG: log report keys to find participation path
-  console.log('[SerasaDebug] report.partner:', JSON.stringify(report?.partner, null, 2));
-  console.log('[SerasaDebug] report.negativeSummary:', JSON.stringify(report?.negativeSummary, null, 2));
   const registration = (report?.registration || {}) as GenericRecord;
   const negativeData = (report?.negativeData || {}) as GenericRecord;
   const inquiry = (report?.inquiry || {}) as GenericRecord;
@@ -193,6 +190,13 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const rendaEstimada = asArray(pick(attributes, ['attributesResponse'], []));
 
   const participationFinal = (() => {
+    // PF basic: report.partner.partnershipResponse
+    const partnerSection = report?.partner as GenericRecord | undefined;
+    if (partnerSection) {
+      const items = asArray(partnerSection?.partnershipResponse || []);
+      if (items.length) return items;
+    }
+    // Other paths
     const paths = [
       'companyData.companyParticipationResponse',
       'companyParticipationResponse',
@@ -202,22 +206,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
       'partnershipResponse',
     ];
     let items = asArray(pick(report, paths, []));
-    if (!items.length) items = asArray(pick(optionalFeatures, ['companyParticipationResponse', 'companyParticipation.companyParticipationResponse', 'partnerParticipation.participationResponse'], []));
-    if (!items.length) items = asArray(pick(facts, ['companyParticipationResponse', 'companyParticipation.companyParticipationResponse', 'partnerParticipation.participationResponse'], []));
-    // Try nested response wrapper
-    if (!items.length) {
-      const wrapper = report?.companyParticipation || optionalFeatures?.companyParticipation || facts?.companyParticipation || report?.partnerParticipation || optionalFeatures?.partnerParticipation;
-      if (wrapper) {
-        items = asArray((wrapper as any)?.companyParticipationResponse || (wrapper as any)?.participationResponse || (wrapper as any)?.results || []);
-      }
-    }
-    // Also check report.socialParticipation
-    if (!items.length) {
-      const sp = report?.socialParticipation || optionalFeatures?.socialParticipation;
-      if (sp) {
-        items = asArray((sp as any)?.socialParticipationResponse || (sp as any)?.results || []);
-      }
-    }
+    if (!items.length) items = asArray(pick(optionalFeatures, ['companyParticipationResponse', 'companyParticipation.companyParticipationResponse'], []));
+    if (!items.length) items = asArray(pick(facts, ['companyParticipationResponse', 'companyParticipation.companyParticipationResponse'], []));
     return items;
   })();
 
@@ -1287,13 +1277,13 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
               <TableBody>
                 {participationFinal.map((item: any, i: number) => (
                   <TableRow key={i}>
-                    <TableCell className="text-xs py-2">{formatDocument(item.documentNumber || item.document || item.companyDocument)}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDocument(item.businessDocument || item.documentNumber || item.document || item.companyDocument)}</TableCell>
                     <TableCell className="text-xs py-2">{item.companyName || item.name || item.razaoSocial || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{item.percentage || item.participationPercentage || item.capital || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{formatDate(item.since || item.admissionDate || item.startDate)}</TableCell>
-                    <TableCell className="text-xs py-2">{item.federalUnit || item.uf || item.state || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{item.statusRegistration || item.situationRF || item.status || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{formatDate(item.statusDate || item.situationDate)}</TableCell>
+                    <TableCell className="text-xs py-2">{item.participationPercentage != null ? `${item.participationPercentage}%` : item.percentage || item.capital || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDate(item.since || item.sinceDate || item.admissionDate || item.startDate)}</TableCell>
+                    <TableCell className="text-xs py-2">{item.companyState || item.federalUnit || item.uf || item.state || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.companyStatus || item.statusRegistration || item.situationRF || item.status || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDate(item.companyStatusDate || item.statusDate || item.situationDate)}</TableCell>
                     <TableCell className="text-xs py-2">{formatDate(item.updateDate || item.updatedAt)}</TableCell>
                   </TableRow>
                 ))}
