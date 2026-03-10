@@ -189,16 +189,34 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const attributes = (optionalFeatures?.attributes || optionalFeatures?.attributesResponse || report?.attributes || {}) as GenericRecord;
   const rendaEstimada = asArray(pick(attributes, ['attributesResponse'], []));
 
-  const participation = asArray(
-    pick(report, [
+  const participationFinal = (() => {
+    const paths = [
       'companyData.companyParticipationResponse',
       'companyParticipationResponse',
       'partnerParticipation.participationResponse',
       'partnerParticipationResponse',
       'socialParticipation.socialParticipationResponse',
       'partnershipResponse',
-    ], []),
-  );
+    ];
+    let items = asArray(pick(report, paths, []));
+    if (!items.length) items = asArray(pick(optionalFeatures, ['companyParticipationResponse', 'companyParticipation.companyParticipationResponse', 'partnerParticipation.participationResponse'], []));
+    if (!items.length) items = asArray(pick(facts, ['companyParticipationResponse', 'companyParticipation.companyParticipationResponse', 'partnerParticipation.participationResponse'], []));
+    // Try nested response wrapper
+    if (!items.length) {
+      const wrapper = report?.companyParticipation || optionalFeatures?.companyParticipation || facts?.companyParticipation || report?.partnerParticipation || optionalFeatures?.partnerParticipation;
+      if (wrapper) {
+        items = asArray((wrapper as any)?.companyParticipationResponse || (wrapper as any)?.participationResponse || (wrapper as any)?.results || []);
+      }
+    }
+    // Also check report.socialParticipation
+    if (!items.length) {
+      const sp = report?.socialParticipation || optionalFeatures?.socialParticipation;
+      if (sp) {
+        items = asArray((sp as any)?.socialParticipationResponse || (sp as any)?.results || []);
+      }
+    }
+    return items;
+  })();
 
   const pefinItems = asArray(pick(pefin, ['pefinResponse', 'ppiResponse'], []));
   const refinItems = asArray(pick(refin, ['refinResponse', 'rpiResponse'], []));
@@ -407,7 +425,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           ) : (
           <div className="border border-border rounded-lg p-3">
             <p className="text-[11px] font-medium text-muted-foreground">Participação societária</p>
-            <p className="text-sm font-bold text-foreground mt-1">{participation.length}</p>
+            <p className="text-sm font-bold text-foreground mt-1">{participationFinal.length}</p>
           </div>
           )}
         </div>
@@ -1242,30 +1260,38 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
 
         <div className="border border-border rounded-lg p-3 mb-3">
           <p className="text-[11px] font-medium text-muted-foreground">Participação societária</p>
-          <p className="text-sm font-bold text-foreground">{participation.length}</p>
+          <p className="text-sm font-bold text-foreground">{participationFinal.length}</p>
         </div>
 
-        <p className="text-xs text-muted-foreground mb-2">Detalhes das participações societárias</p>
-        {participation.length === 0 ? (
+        <p className="text-xs text-muted-foreground mb-2">Detalhes das participações societárias{participationFinal.length > 0 ? `  Exibindo ${participationFinal.length} registro${participationFinal.length > 1 ? 's' : ''}.` : ''}</p>
+        {participationFinal.length === 0 ? (
           <p className="text-xs text-muted-foreground">Nenhum registro para este documento.</p>
         ) : (
           <div className="overflow-x-auto border border-border rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-xs font-medium">Empresa</TableHead>
-                  <TableHead className="text-xs font-medium">Documento</TableHead>
-                  <TableHead className="text-xs font-medium">Participação</TableHead>
-                  <TableHead className="text-xs font-medium">Situação</TableHead>
+                  <TableHead className="text-xs font-medium">CNPJ</TableHead>
+                  <TableHead className="text-xs font-medium">Razão Social</TableHead>
+                  <TableHead className="text-xs font-medium">Capital</TableHead>
+                  <TableHead className="text-xs font-medium">Desde</TableHead>
+                  <TableHead className="text-xs font-medium">UF</TableHead>
+                  <TableHead className="text-xs font-medium">Situação Receita Federal</TableHead>
+                  <TableHead className="text-xs font-medium">Data da situação</TableHead>
+                  <TableHead className="text-xs font-medium">Atualizado em:</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {participation.map((item, i) => (
+                {participationFinal.map((item: any, i: number) => (
                   <TableRow key={i}>
-                    <TableCell className="text-xs py-2">{item.companyName || item.name || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{formatDocument(item.documentNumber || item.document)}</TableCell>
-                    <TableCell className="text-xs py-2">{item.percentage || item.participationPercentage || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{item.status || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDocument(item.documentNumber || item.document || item.companyDocument)}</TableCell>
+                    <TableCell className="text-xs py-2">{item.companyName || item.name || item.razaoSocial || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.percentage || item.participationPercentage || item.capital || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDate(item.since || item.admissionDate || item.startDate)}</TableCell>
+                    <TableCell className="text-xs py-2">{item.federalUnit || item.uf || item.state || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.statusRegistration || item.situationRF || item.status || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDate(item.statusDate || item.situationDate)}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDate(item.updateDate || item.updatedAt)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
