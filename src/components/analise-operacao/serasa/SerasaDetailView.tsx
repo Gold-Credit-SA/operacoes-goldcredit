@@ -1602,10 +1602,13 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
 
       {/* ── Limite de Crédito PJ (Avançado PJ only) ── */}
       {isAvancadoPJ && (() => {
-        const creditLimit = (pick(optionalFeatures, ['creditLimit', 'creditLimitResponse', 'limitCredit']) 
+        // Try dedicated creditLimit fields first, then fall back to HLC1 score model
+        const creditLimitDedicated = (pick(optionalFeatures, ['creditLimit', 'creditLimitResponse', 'limitCredit']) 
           || pick(report, ['creditLimit', 'creditLimitResponse', 'limitCredit'])
           || pick(report?.behavioralData || optionalFeatures?.behavioralData || report?.positiveData, ['creditLimit'])) as any;
-        const limitValue = creditLimit?.value || creditLimit?.amount || creditLimit?.limitValue || creditLimit?.creditLimitValue;
+        const limitValue = creditLimitDedicated?.value || creditLimitDedicated?.amount || creditLimitDedicated?.limitValue || creditLimitDedicated?.creditLimitValue
+          || (creditLimitScore?.score ? Number(creditLimitScore.score) : undefined);
+        const limitMessage = creditLimitDedicated?.message || creditLimitDedicated?.interpretation || creditLimitScore?.message || '';
         const limitMessage = creditLimit?.message || creditLimit?.interpretation || '';
         return (
         <div>
