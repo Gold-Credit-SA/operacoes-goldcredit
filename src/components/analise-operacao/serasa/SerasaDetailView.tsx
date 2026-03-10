@@ -123,14 +123,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const contentRef = externalRef || internalRef;
   const report = ((data as any)?.reports?.[0] || (data as any)?.data?.reports?.[0] || data) as GenericRecord;
   // DEBUG: log report keys to find participation path
-  console.log('[SerasaDebug] report keys:', Object.keys(report || {}));
-  console.log('[SerasaDebug] report.optionalFeatures keys:', Object.keys(report?.optionalFeatures || {}));
-  console.log('[SerasaDebug] report.facts keys:', Object.keys(report?.facts || {}));
-  console.log('[SerasaDebug] report.companyParticipation:', report?.companyParticipation);
-  console.log('[SerasaDebug] report.partnerParticipation:', report?.partnerParticipation);
-  console.log('[SerasaDebug] report.socialParticipation:', report?.socialParticipation);
-  console.log('[SerasaDebug] optionalFeatures.companyParticipation:', report?.optionalFeatures?.companyParticipation);
-  console.log('[SerasaDebug] facts.companyParticipation:', report?.facts?.companyParticipation);
+  console.log('[SerasaDebug] report.partner:', JSON.stringify(report?.partner, null, 2));
+  console.log('[SerasaDebug] report.negativeSummary:', JSON.stringify(report?.negativeSummary, null, 2));
   const registration = (report?.registration || {}) as GenericRecord;
   const negativeData = (report?.negativeData || {}) as GenericRecord;
   const inquiry = (report?.inquiry || {}) as GenericRecord;
