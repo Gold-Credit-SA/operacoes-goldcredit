@@ -7,10 +7,11 @@ const corsHeaders = {
 
 // Map consultaId to Serasa report names
 const REPORT_MAP: Record<string, { reportName: string; type: 'PF' | 'PJ' }> = {
-  serasa_basico_pf: { reportName: 'PERFIL_DE_CREDITO_BASICO_PF', type: 'PF' },
-  serasa_avancado_top_score_pf: { reportName: 'TOP_SCORE_PF', type: 'PF' },
-  serasa_basico_pj: { reportName: 'RELATORIO_BASICO_PJ', type: 'PJ' },
-  serasa_avancado_pj_analitico: { reportName: 'RELATORIO_ANALITICO_PJ', type: 'PJ' },
+  serasa_basico_pf: { reportName: 'RELATORIO_BASICO_PF_PME', type: 'PF' },
+  serasa_avancado_top_score_pf: { reportName: 'RELATORIO_AVANCADO_TOP_SCORE_PF_PME', type: 'PF' },
+  serasa_basico_pj: { reportName: 'RELATORIO_BASICO_PJ_PME', type: 'PJ' },
+  serasa_avancado_pj: { reportName: 'RELATORIO_AVANCADO_PJ_PME', type: 'PJ' },
+  serasa_avancado_pj_analitico: { reportName: 'RELATORIO_AVANCADO_PJ_PME_ANALITICO', type: 'PJ' },
 };
 
 serve(async (req) => {
