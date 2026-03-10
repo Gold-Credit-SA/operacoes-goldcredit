@@ -1845,24 +1845,35 @@ function InquiryBarChart({ inquiryItems }: { inquiryItems: any[] }) {
 /** Pure-div bar chart for PJ inquiry history using historical data */
 function InquiryBarChartPJ({ historical }: { historical: any[] }) {
   // PJ historical: array of { inquiryDate: "YYYY-MM", occurrences, bankOccurrences }
-  const now = new Date();
+  // Use all items from the API (up to 13 months) instead of generating fixed months
   const months: { label: string; companies: number; banks: number }[] = [];
 
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const label = d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', '');
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-
-    const match = historical.find((h: any) => {
+  if (historical.length > 0) {
+    // Sort by date ascending
+    const sorted = [...historical].sort((a, b) => String(a.inquiryDate || '').localeCompare(String(b.inquiryDate || '')));
+    for (const h of sorted) {
       const hDate = String(h.inquiryDate || '');
-      return hDate.startsWith(key);
-    });
+      const [year, month] = hDate.split('-').map(Number);
+      if (year && month) {
+        const d = new Date(year, month - 1, 1);
+        const label = d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', '');
+        months.push({
+          label: label.charAt(0).toUpperCase() + label.slice(1),
+          companies: Number(h.occurrences || 0),
+          banks: Number(h.bankOccurrences || 0),
+        });
+      }
+    }
+  }
 
-    months.push({
-      label: label.charAt(0).toUpperCase() + label.slice(1),
-      companies: Number(match?.occurrences || 0),
-      banks: Number(match?.bankOccurrences || 0),
-    });
+  if (months.length === 0) {
+    // Fallback: generate 6 months
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const label = d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', '');
+      months.push({ label: label.charAt(0).toUpperCase() + label.slice(1), companies: 0, banks: 0 });
+    }
   }
 
   const maxCount = Math.max(...months.map(m => m.companies + m.banks), 1);
@@ -1870,7 +1881,7 @@ function InquiryBarChartPJ({ historical }: { historical: any[] }) {
 
   return (
     <div className="border border-border rounded-lg p-4 mb-3">
-      <div className="flex items-end justify-between gap-2" style={{ height: barMaxHeight + 30 }}>
+      <div className="flex items-end justify-between gap-1" style={{ height: barMaxHeight + 30 }}>
         {months.map((m, i) => {
           const total = m.companies + m.banks;
           const companyH = total > 0 ? Math.max((m.companies / maxCount) * barMaxHeight, m.companies > 0 ? 4 : 0) : 0;
@@ -1884,7 +1895,7 @@ function InquiryBarChartPJ({ historical }: { historical: any[] }) {
                 <div className="w-full rounded-t-sm bg-primary" style={{ height: companyH }} />
                 <div className="w-full bg-amber-500" style={{ height: bankH }} />
               </div>
-              <span className="text-[10px] text-muted-foreground text-center leading-tight mt-1">{m.label}</span>
+              <span className="text-[9px] text-muted-foreground text-center leading-tight mt-1">{m.label}</span>
             </div>
           );
         })}
