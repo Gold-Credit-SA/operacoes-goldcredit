@@ -377,6 +377,7 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
             <SerasaDetailView
               data={pdfEntry.result_data}
               document={pdfEntry.cnpj}
+              consultaId={pdfEntry.consulta_type}
               hideExportButton
               externalRef={pdfContentRef}
             />
