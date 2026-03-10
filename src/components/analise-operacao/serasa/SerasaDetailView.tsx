@@ -289,13 +289,139 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             <p className="text-sm font-bold text-foreground mt-1">{joinLocation(pick(registration, ['city']), pick(registration, ['federalUnit']))}</p>
           </div>
         </div>
+        {/* Dados cadastrais completos (Top Score) */}
+        {isTopScore && (
+        <>
+        <p className="text-xs font-medium text-muted-foreground mt-4 mb-2">Dados cadastrais</p>
+        <div className="overflow-x-auto border border-border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs font-medium">Nome completo</TableHead>
+                <TableHead className="text-xs font-medium">CPF</TableHead>
+                <TableHead className="text-xs font-medium">Data de nascimento</TableHead>
+                <TableHead className="text-xs font-medium">Nome da mãe</TableHead>
+                <TableHead className="text-xs font-medium">Sexo</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow>
+                <TableCell className="text-xs py-2">{consumerName}</TableCell>
+                <TableCell className="text-xs py-2">{docFormatted}</TableCell>
+                <TableCell className="text-xs py-2">{formatDate(birthDateRaw)}</TableCell>
+                <TableCell className="text-xs py-2">{motherName}</TableCell>
+                <TableCell className="text-xs py-2">{gender}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+        </>
+        )}
+
+        {/* Dados cadastrais simples (Básico) */}
+        {!isTopScore && (
+        <>
         <p className="text-xs font-medium text-muted-foreground mt-4 mb-2">Outros Dados Cadastrais</p>
         <div className="border border-border rounded-lg p-3">
           <p className="text-sm text-foreground">
             <span className="font-bold">Nome da Mãe:</span>{' '}
-            {String(pick(registration, ['motherName']) || '-')}
+            {motherName}
           </p>
         </div>
+        </>
+        )}
+
+        {/* Telefones (Top Score) */}
+        {isTopScore && phones.length > 0 && (
+        <>
+        <p className="text-xs font-medium text-muted-foreground mt-4 mb-2">Telefones</p>
+        <div className="overflow-x-auto border border-border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs font-medium">Prioridade</TableHead>
+                <TableHead className="text-xs font-medium">Tipo</TableHead>
+                <TableHead className="text-xs font-medium">Telefone</TableHead>
+                <TableHead className="text-xs font-medium">Data de atualização</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {phones.map((phone: any, i: number) => (
+                <TableRow key={i}>
+                  <TableCell className="text-xs py-2">{phone.priority || phone.phonePriority || '-'}</TableCell>
+                  <TableCell className="text-xs py-2">{phone.type || phone.phoneType || '-'}</TableCell>
+                  <TableCell className="text-xs py-2">{phone.phoneNumber || phone.number || phone.areaCode ? `${phone.areaCode || ''}${phone.phoneNumber || phone.number || ''}` : '-'}</TableCell>
+                  <TableCell className="text-xs py-2">{formatDate(phone.updateDate || phone.date)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        </>
+        )}
+
+        {/* Endereços (Top Score) */}
+        {isTopScore && addresses.length > 0 && (
+        <>
+        <p className="text-xs font-medium text-muted-foreground mt-4 mb-2">Endereços</p>
+        <div className="overflow-x-auto border border-border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs font-medium">Prioridade</TableHead>
+                <TableHead className="text-xs font-medium">Endereço</TableHead>
+                <TableHead className="text-xs font-medium">Data de atualização</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {addresses.map((addr: any, i: number) => {
+                const fullAddr = [addr.streetTitle, addr.streetName, addr.houseNumber, addr.complement, addr.neighborhood ? `- ${addr.neighborhood}` : '', addr.city, addr.federalUnit ? `- ${addr.federalUnit}` : '', addr.zipCode].filter(Boolean).join(' ') || addr.address || addr.fullAddress || '-';
+                return (
+                <TableRow key={i}>
+                  <TableCell className="text-xs py-2">{addr.priority || addr.addressPriority || '-'}</TableCell>
+                  <TableCell className="text-xs py-2 max-w-md">{fullAddr}</TableCell>
+                  <TableCell className="text-xs py-2">{formatDate(addr.updateDate || addr.date)}</TableCell>
+                </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+        </>
+        )}
+
+        {/* Informações cadastrais complementares (Top Score) */}
+        {isTopScore && (
+        <>
+        <p className="text-xs font-medium text-muted-foreground mt-4 mb-2">Informações cadastrais complementares</p>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Estado civil</p>
+            <p className="text-sm font-bold text-foreground mt-1">{String(pick(registration, ['maritalStatus', 'civilStatus']) || pick(complementaryData, ['maritalStatus']) || '-')}</p>
+          </div>
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Escolaridade</p>
+            <p className="text-sm font-bold text-foreground mt-1">{String(pick(registration, ['educationLevel', 'education']) || pick(complementaryData, ['educationLevel']) || '-')}</p>
+          </div>
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Profissão</p>
+            <p className="text-sm font-bold text-foreground mt-1">{String(pick(registration, ['profession', 'occupation']) || pick(complementaryData, ['profession']) || '-')}</p>
+          </div>
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Dependentes</p>
+            <p className="text-sm font-bold text-foreground mt-1">{String(pick(registration, ['dependents', 'numberOfDependents']) || pick(complementaryData, ['dependents']) || '-')}</p>
+          </div>
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">UF de Nascimento</p>
+            <p className="text-sm font-bold text-foreground mt-1">{String(pick(registration, ['birthFederalUnit', 'birthState']) || pick(complementaryData, ['birthFederalUnit']) || '-')}</p>
+          </div>
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Cidade de nascimento</p>
+            <p className="text-sm font-bold text-foreground mt-1">{String(pick(registration, ['birthCity']) || pick(complementaryData, ['birthCity']) || '-')}</p>
+          </div>
+        </div>
+        </>
+        )}
       </div>
 
       {/* ── Serasa Score (Top Score only) ── */}
