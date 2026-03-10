@@ -504,7 +504,26 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           </div>
           <div className="px-4 py-2 flex gap-2">
             <span className="text-muted-foreground text-xs font-medium shrink-0">Empresa antecessora:</span>
-            <span className="text-xs text-foreground">{String(pick(identificationReport, ['predecessorCompany', 'previousCompany', 'antecessora']) || '-')}</span>
+            <span className="text-xs text-foreground">
+              {(() => {
+                const predecessors = asArray(pick(identificationReport, ['predecessorList', 'predecessorCompany'], []));
+                if (predecessors.length > 0) {
+                  return predecessors.map((p: any, i: number) => (
+                    <span key={i}>{typeof p === 'string' ? p : (p.companyName || p.name || '-')}{p.documentId ? ` (${formatDocument(p.documentId)})` : ''}{i < predecessors.length - 1 ? '; ' : ''}</span>
+                  ));
+                }
+                const single = pick(identificationReport, ['predecessorCompany', 'previousCompany', 'antecessora']);
+                return String(single || '-');
+              })()}
+            </span>
+          </div>
+          <div className="px-4 py-2 flex gap-2">
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Importação sobre compras:</span>
+            <span className="text-xs text-foreground">{String(pick(identificationReport, ['importPercentage', 'importOnPurchases', 'importacaoCompras']) || '-')}</span>
+          </div>
+          <div className="px-4 py-2 flex gap-2">
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Exportação sobre vendas:</span>
+            <span className="text-xs text-foreground">{String(pick(identificationReport, ['exportPercentage', 'exportOnSales', 'exportacaoVendas']) || '-')}</span>
           </div>
         </div>
       </div>
