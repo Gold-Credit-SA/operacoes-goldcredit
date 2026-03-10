@@ -1557,8 +1557,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         );
       })()}
 
-      {/* ── Limite de Crédito PJ ── */}
-      {isPJ && (() => {
+      {/* ── Limite de Crédito PJ (Avançado PJ only) ── */}
+      {isAvancadoPJ && (() => {
         const creditLimit = (pick(optionalFeatures, ['creditLimit', 'creditLimitResponse', 'limitCredit']) 
           || pick(report, ['creditLimit', 'creditLimitResponse', 'limitCredit'])
           || pick(report?.behavioralData || optionalFeatures?.behavioralData || report?.positiveData, ['creditLimit'])) as any;
