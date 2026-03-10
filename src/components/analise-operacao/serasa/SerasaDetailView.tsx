@@ -1557,6 +1557,81 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         );
       })()}
 
+      {/* ── Limite de Crédito PJ ── */}
+      {isPJ && (() => {
+        const creditLimit = (pick(optionalFeatures, ['creditLimit', 'creditLimitResponse', 'limitCredit']) 
+          || pick(report, ['creditLimit', 'creditLimitResponse', 'limitCredit'])
+          || pick(report?.behavioralData || optionalFeatures?.behavioralData || report?.positiveData, ['creditLimit'])) as any;
+        const limitValue = creditLimit?.value || creditLimit?.amount || creditLimit?.limitValue || creditLimit?.creditLimitValue;
+        const limitMessage = creditLimit?.message || creditLimit?.interpretation || '';
+        return (
+        <div>
+          <p className="text-sm font-semibold text-primary mb-1">Limite de Crédito PJ</p>
+          <p className="text-xs text-muted-foreground mb-3">
+            Apresenta a sugestão de limite de crédito para a empresa consultada, ajustado a seu grau de risco, facilitando o processo de decisão na venda financiada ou concessão de crédito.
+          </p>
+          <hr className="border-border mb-4" />
+
+          <div className="border border-border rounded-lg p-4 mb-3">
+            <p className="text-xs font-medium text-muted-foreground">Limite de Crédito PJ</p>
+            <p className="text-lg font-bold text-foreground mt-1">{limitValue ? formatCurrency(limitValue) : 'Sem dados'}</p>
+          </div>
+
+          <div className="border border-border rounded-lg p-4">
+            <p className="text-xs font-semibold text-foreground mb-1">Interpretação</p>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              {limitMessage || 'O Limite de Crédito trata-se de modelo estatístico, calculado com dados positivos, financeiros e comportamentais, além de considerar em sua composição referenciais de negócios, como o Faturamento Estimado e a probabilidade de inadimplência. Combine a solução com outras informações relevantes em sua política para tomada de decisão.'}
+            </p>
+          </div>
+        </div>
+        );
+      })()}
+
+      {/* ── Cheques Sustados PJ ── */}
+      {isPJ && (() => {
+        const checkFilingsPJ = (report?.checkFilingsHistorical || optionalFeatures?.checkFilingsHistorical || report?.checkFilings || optionalFeatures?.checkFilings || {}) as GenericRecord;
+        const checkFilingsPJItems = asArray(checkFilingsPJ?.checkFilingsHistoricalResponse || checkFilingsPJ?.results || checkFilingsPJ?.items || []);
+        return (
+        <div>
+          <p className="text-sm font-semibold text-primary mb-1">Cheques Sustados</p>
+          <p className="text-xs text-muted-foreground mb-3">
+            Indica sobre a recorrência de sustação de cheques vinculado ao documento consultado.
+          </p>
+          <hr className="border-border mb-4" />
+
+          <p className="text-xs font-medium text-foreground mb-2">Histórico de ocorrências com cheques</p>
+          {checkFilingsPJItems.length > 0 ? (
+            <div className="overflow-x-auto border border-border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs font-medium">Data</TableHead>
+                    <TableHead className="text-xs font-medium">Banco</TableHead>
+                    <TableHead className="text-xs font-medium">Agência</TableHead>
+                    <TableHead className="text-xs font-medium">Motivo</TableHead>
+                    <TableHead className="text-xs font-medium">Quantidade</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {checkFilingsPJItems.map((item: any, i: number) => (
+                    <TableRow key={i}>
+                      <TableCell className="text-xs py-2">{formatDate(item.occurrenceDate || item.date)}</TableCell>
+                      <TableCell className="text-xs py-2">{item.bankName || item.bank || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.bankAgencyId || item.agency || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.reason || item.motive || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.quantity || item.count || '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Nenhum registro para este documento.</p>
+          )}
+        </div>
+        );
+      })()}
+
       {/* ── Histórico de Pagamento (PF Top Score only) ── */}
       {isTopScore && (
       <div>
