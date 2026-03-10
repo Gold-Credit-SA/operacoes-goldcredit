@@ -189,28 +189,34 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const attributes = (optionalFeatures?.attributes || optionalFeatures?.attributesResponse || report?.attributes || {}) as GenericRecord;
   const rendaEstimada = asArray(pick(attributes, ['attributesResponse'], []));
 
-  const participation = asArray(
-    pick(report, [
+  const participationFinal = (() => {
+    const paths = [
       'companyData.companyParticipationResponse',
       'companyParticipationResponse',
       'partnerParticipation.participationResponse',
       'partnerParticipationResponse',
       'socialParticipation.socialParticipationResponse',
       'partnershipResponse',
-    ], []),
-  ) || [];
-  // Fallback: try optionalFeatures and facts
-  const participationFinal = participation.length > 0 ? participation : asArray(
-    pick(optionalFeatures, [
-      'companyParticipationResponse',
-      'companyParticipation.companyParticipationResponse',
-    ], []),
-  ) || asArray(
-    pick(facts, [
-      'companyParticipationResponse',
-      'companyParticipation.companyParticipationResponse',
-    ], []),
-  );
+    ];
+    let items = asArray(pick(report, paths, []));
+    if (!items.length) items = asArray(pick(optionalFeatures, ['companyParticipationResponse', 'companyParticipation.companyParticipationResponse', 'partnerParticipation.participationResponse'], []));
+    if (!items.length) items = asArray(pick(facts, ['companyParticipationResponse', 'companyParticipation.companyParticipationResponse', 'partnerParticipation.participationResponse'], []));
+    // Try nested response wrapper
+    if (!items.length) {
+      const wrapper = report?.companyParticipation || optionalFeatures?.companyParticipation || facts?.companyParticipation || report?.partnerParticipation || optionalFeatures?.partnerParticipation;
+      if (wrapper) {
+        items = asArray((wrapper as any)?.companyParticipationResponse || (wrapper as any)?.participationResponse || (wrapper as any)?.results || []);
+      }
+    }
+    // Also check report.socialParticipation
+    if (!items.length) {
+      const sp = report?.socialParticipation || optionalFeatures?.socialParticipation;
+      if (sp) {
+        items = asArray((sp as any)?.socialParticipationResponse || (sp as any)?.results || []);
+      }
+    }
+    return items;
+  })();
 
   const pefinItems = asArray(pick(pefin, ['pefinResponse', 'ppiResponse'], []));
   const refinItems = asArray(pick(refin, ['refinResponse', 'rpiResponse'], []));
