@@ -565,7 +565,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             <ul className="list-disc list-inside space-y-1 text-xs text-muted-foreground">
               <li>A pontuação enquadra-se na faixa de {scoreLow} a {scoreHigh} e representa {scoreValue >= 601 ? 'bons indicadores' : scoreValue >= 401 ? 'indicadores moderados' : scoreValue >= 201 ? 'sinais de vulnerabilidades' : 'sinais críticos de vulnerabilidades'} da sua capacidade de pagamento.</li>
               <li>Para empresas com este perfil de risco, é prática de mercado {scoreValue >= 601 ? 'conceder crédito com políticas padrão de venda a prazo.' : scoreValue >= 401 ? 'conceder crédito com acompanhamento periódico do perfil de risco.' : 'conceder crédito com maior rigor na decisão, valendo-se de garantias adicionais e constantes monitoramentos do perfil de risco.'}</li>
-              {defaultRate && <li>Empresas com esta categoria de risco costumam honrar os compromissos de pagamentos assumidos em {(100 - parseFloat(String(defaultRate).replace(',', '.'))).toFixed(2).replace('.', ',')}% das operações</li>}
+              {!isNaN(defaultRateNumeric) && <li>Empresas com esta categoria de risco costumam honrar os compromissos de pagamentos assumidos em {(100 - defaultRateNumeric).toFixed(2).replace('.', ',')}% das operações</li>}
             </ul>
           </div>
 
