@@ -108,6 +108,14 @@ export function SerasaDetailView({ data, document: docNumber, hideExportButton, 
   const factsInquirySummary = (facts?.inquirySummary || {}) as GenericRecord;
   const factsStolenDocs = (facts?.stolenDocuments || stolenDocuments) as GenericRecord;
 
+  const judgements = (negativeData?.judgementFilingsResponse || negativeData?.judgementFilings || {}) as GenericRecord;
+  const bankrupts = (negativeData?.bankruptsResponse || negativeData?.bankrupts || {}) as GenericRecord;
+  const checkFilingsHistorical = (report?.checkFilingsHistorical || {}) as GenericRecord;
+
+  // Renda estimada from optionalFeatures attributes
+  const attributes = (optionalFeatures?.attributes || optionalFeatures?.attributesResponse || report?.attributes || {}) as GenericRecord;
+  const rendaEstimada = asArray(pick(attributes, ['attributesResponse'], []));
+
   const participation = asArray(
     pick(report, [
       'companyData.companyParticipationResponse',
@@ -115,6 +123,7 @@ export function SerasaDetailView({ data, document: docNumber, hideExportButton, 
       'partnerParticipation.participationResponse',
       'partnerParticipationResponse',
       'socialParticipation.socialParticipationResponse',
+      'partnershipResponse',
     ], []),
   );
 
@@ -125,6 +134,9 @@ export function SerasaDetailView({ data, document: docNumber, hideExportButton, 
   const protestItems = asArray(pick(protests, ['notaryResponse', 'notaryResponseDetail'], []));
   const stolenItems = asArray(pick(factsStolenDocs, ['stolenDocumentsResponse', 'documents'], []));
   const inquiryItems = asArray(pick(factsInquiry, ['inquiryResponse'], []));
+  const judgementItems = asArray(pick(judgements, ['judgementFilingsResponse'], []));
+  const bankruptItems = asArray(pick(bankrupts, ['bankruptsResponse'], []));
+  const checkFilingsItems = asArray(pick(checkFilingsHistorical, ['checkFilingsHistoricalResponse'], []));
 
   const totalNegativeValue =
     Number(pick(pefin, ['summary.balance'], 0)) +
@@ -424,9 +436,35 @@ export function SerasaDetailView({ data, document: docNumber, hideExportButton, 
             { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
             { header: 'Quantidade', render: (item) => item.checkCount || item.quantity || '-' },
             { header: 'Banco', render: (item) => item.bankName || '-' },
-            { header: 'Agência', render: (item) => item.branch || '-' },
+            { header: 'Agência', render: (item) => item.bankAgencyId || item.branch || '-' },
+            { header: 'Nº Cheque', render: (item) => item.checkNumber || '-' },
             { header: 'Cidade', render: (item) => item.city || '-' },
             { header: 'UF', render: (item) => item.federalUnit || '-' },
+          ]}
+        />
+
+        <NegDetailTable
+          title="Ações Judiciais"
+          rows={judgementItems}
+          columns={[
+            { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
+            { header: 'Valor', render: (item) => formatCurrency(item.amount) },
+            { header: 'Natureza', render: (item) => item.legalNature || '-' },
+            { header: 'Distribuidor', render: (item) => item.distributor || '-' },
+            { header: 'Vara', render: (item) => item.civilCourt || '-' },
+            { header: 'Cidade', render: (item) => item.city || '-' },
+            { header: 'UF', render: (item) => item.state || item.federalUnit || '-' },
+          ]}
+        />
+
+        <NegDetailTable
+          title="Participação em Falência"
+          rows={bankruptItems}
+          columns={[
+            { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
+            { header: 'CNPJ', render: (item) => item.companyDocumentId || '-' },
+            { header: 'Empresa', render: (item) => item.companyName || '-' },
+            { header: 'Tipo', render: (item) => item.companyLegalNature || '-' },
           ]}
         />
       </div>
@@ -472,7 +510,61 @@ export function SerasaDetailView({ data, document: docNumber, hideExportButton, 
         )}
       </div>
 
-      {/* ── Documentos Roubados ── */}
+      {/* ── Renda Estimada ── */}
+      {rendaEstimada.length > 0 && (
+        <div>
+          <p className="text-sm font-semibold text-primary mb-3">Renda Estimada</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {rendaEstimada.map((item: any, i: number) => (
+              <div key={i} className="border border-border rounded-lg p-3">
+                <p className="text-[11px] font-medium text-muted-foreground">Modelo: {item.attributeModel || '-'}</p>
+                <p className="text-lg font-bold text-foreground mt-1">
+                  {item.scoring ? formatCurrency(item.scoring) : '-'}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">{item.message || '-'}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Cheques Sustados ── */}
+      {checkFilingsItems.length > 0 && (
+        <div>
+          <p className="text-sm font-semibold text-primary mb-3">Cheques Sustados (Contumácia)</p>
+          <div className="overflow-x-auto border border-border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs font-medium">Banco</TableHead>
+                  <TableHead className="text-xs font-medium">Agência</TableHead>
+                  <TableHead className="text-xs font-medium">Conta</TableHead>
+                  <TableHead className="text-xs font-medium">Cheque Inicial</TableHead>
+                  <TableHead className="text-xs font-medium">Cheque Final</TableHead>
+                  <TableHead className="text-xs font-medium">Valor</TableHead>
+                  <TableHead className="text-xs font-medium">Motivo</TableHead>
+                  <TableHead className="text-xs font-medium">Data Inclusão</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {checkFilingsItems.map((item: any, i: number) => (
+                  <TableRow key={i}>
+                    <TableCell className="text-xs py-2">{item.bankName || item.bankNumber || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.agencyNumber || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.accountNumberCheck || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.initialCheckNumber || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.finalCheckNumber || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatCurrency(item.checkAmount)}</TableCell>
+                    <TableCell className="text-xs py-2">{item.briefDescriptionReason || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDate(item.dateTimeInclusion)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
+
       <div>
         <p className="text-sm font-semibold text-primary mb-1">Documentos Roubados</p>
 
