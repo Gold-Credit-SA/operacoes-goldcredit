@@ -829,6 +829,14 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             </div>
           </>
         )}
+
+        {/* Informações */}
+        <div className="border border-border rounded-lg p-3 mt-3">
+          <p className="text-xs font-bold text-foreground mb-1">Informações</p>
+          <p className="text-[10px] text-muted-foreground leading-relaxed">
+            Simples consulta ao CPF no cadastro da Serasa. Essa informação de consulta não significa negócio realizado, nem se confunde com anotação negativa no cadastro de inadimplentes. Quando houver consulta do CNPJ consultante, será apresentada a Razão Social.
+          </p>
+        </div>
       </div>
 
       {/* ── Histórico de Pagamento (Top Score only) ── */}
