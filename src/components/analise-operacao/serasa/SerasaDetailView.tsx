@@ -562,12 +562,142 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         );
       })()}
 
-      {/* ── Quadro Social e Administrativo ── */}
+      {/* ── Anotações Negativas PJ ── */}
       <div>
-        <p className="text-sm font-semibold text-primary mb-3">Quadro Social e Administrativo</p>
+        <p className="text-sm font-semibold text-primary mb-1">Anotações Negativas</p>
+        <p className="text-xs text-muted-foreground mb-4">
+          Detalhamento sobre as anotações negativas da empresa de acordo com diversas fontes.
+        </p>
 
-        {/* Sócios */}
-        <p className="text-xs font-medium text-muted-foreground mb-2">Sócios</p>
+        {/* Resumo */}
+        <div className="mb-4">
+          <p className="text-sm font-semibold text-primary mb-1">Resumo</p>
+          <p className="text-xs text-foreground mb-3">
+            Total de dívidas: <span className="font-bold">{formatCurrency(totalNegativeValue)}</span>
+          </p>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+            <NegSummaryBox label="PEFIN" value={pick(pefin, ['summary.balance'], 0)} count={pick(pefin, ['summary.count'], 0)} />
+            <NegSummaryBox label="REFIN" value={pick(refin, ['summary.balance'], 0)} count={pick(refin, ['summary.count'], 0)} />
+            <NegSummaryBox label="Dívidas vencidas" value={pick(convem, ['summary.balance'], 0)} count={pick(convem, ['summary.count'], 0)} />
+            <NegSummaryBox label="Falência / Rec. judicial" value={pick(bankrupts, ['summary.balance'], 0)} count={pick(bankrupts, ['summary.count'], bankruptItems.length)} />
+            <NegSummaryBox label="Ações Judiciais" value={pick(judgements, ['summary.balance'], 0)} count={pick(judgements, ['summary.count'], judgementItems.length)} />
+            <NegSummaryBox label="Protestos" value={pick(protests, ['summary.balance'], 0)} count={pick(protests, ['summary.count'], 0)} />
+            <NegSummaryBox label="Cheque" value={pick(checks, ['summary.balance'], 0)} count={pick(checks, ['summary.count'], 0)} />
+          </div>
+        </div>
+
+        {/* Tabelas individuais PJ */}
+        <NegDetailTable title="REFIN" rows={refinItems} columns={[
+          { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
+          { header: 'Valor', render: (item) => formatCurrency(item.amount) },
+          { header: 'Modalidade', render: (item) => item.legalNature || '-' },
+          { header: 'Contrato', render: (item) => item.contractId || '-' },
+          { header: 'Origem', render: (item) => item.creditorName || item.bankName || '-' },
+          { header: 'UF', render: (item) => item.federalUnit || '-' },
+        ]} />
+        <NegDetailTable title="PEFIN" rows={pefinItems} columns={[
+          { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
+          { header: 'Valor', render: (item) => formatCurrency(item.amount) },
+          { header: 'Modalidade', render: (item) => item.legalNature || '-' },
+          { header: 'Contrato', render: (item) => item.contractId || '-' },
+          { header: 'Origem', render: (item) => item.creditorName || item.bankName || '-' },
+          { header: 'UF', render: (item) => item.federalUnit || '-' },
+        ]} />
+        <NegDetailTable title="Dívidas vencidas" rows={convemItems} columns={[
+          { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
+          { header: 'Valor', render: (item) => formatCurrency(item.amount) },
+          { header: 'Modalidade', render: (item) => item.legalNature || '-' },
+          { header: 'Contrato', render: (item) => item.contractId || '-' },
+          { header: 'Origem', render: (item) => item.creditorName || item.bankName || '-' },
+          { header: 'UF', render: (item) => item.federalUnit || '-' },
+        ]} />
+        <NegDetailTable title="Protestos" rows={protestItems} columns={[
+          { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
+          { header: 'Valor', render: (item) => formatCurrency(item.amount) },
+          { header: 'Cidade', render: (item) => item.city || '-' },
+          { header: 'UF', render: (item) => item.federalUnit || '-' },
+          { header: 'N° do Cartório', render: (item) => item.notaryOfficeNumber || item.officeNumber || '-' },
+        ]} />
+        <NegDetailTable title="Cheques sem fundo" rows={checkItems} columns={[
+          { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
+          { header: 'Banco', render: (item) => item.bankName || '-' },
+          { header: 'Agência', render: (item) => item.bankAgencyId || item.branch || '-' },
+          { header: 'Nº Cheque', render: (item) => item.checkNumber || '-' },
+          { header: 'UF', render: (item) => item.federalUnit || '-' },
+        ]} />
+        {hasAdvancedNeg && (
+        <NegDetailTable title="Ações Judiciais" rows={judgementItems} columns={[
+          { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
+          { header: 'Valor', render: (item) => formatCurrency(item.amount) },
+          { header: 'Natureza', render: (item) => item.legalNature || '-' },
+          { header: 'Distribuidor', render: (item) => item.distributor || '-' },
+          { header: 'Vara', render: (item) => item.civilCourt || '-' },
+          { header: 'Cidade', render: (item) => item.city || '-' },
+          { header: 'UF', render: (item) => item.state || item.federalUnit || '-' },
+        ]} />
+        )}
+        {hasAdvancedNeg && (
+        <NegDetailTable title="Falências / Recuperação Judicial" rows={bankruptItems} columns={[
+          { header: 'Data', render: (item) => formatDate(item.eventDate || item.occurrenceDate) },
+          { header: 'Tipo', render: (item) => item.eventType || '-' },
+          { header: 'Origem', render: (item) => item.origin || '-' },
+          { header: 'Vara', render: (item) => item.varaCourt || '-' },
+          { header: 'Cidade', render: (item) => item.city || '-' },
+          { header: 'UF', render: (item) => item.state || '-' },
+        ]} />
+        )}
+      </div>
+
+      {/* ── Quadro Societário PJ ── */}
+      <div>
+        <p className="text-sm font-semibold text-primary mb-1">Quadro Societário</p>
+        <p className="text-xs text-muted-foreground mb-3">
+          Composição dos sócios e administradores da empresa. Atualizado em {statusDate}
+        </p>
+
+        {/* Capital info grid */}
+        {(() => {
+          const capitalSocialFmt = socialCapital ? formatCurrency(socialCapital) : '-';
+          const capitalRealizado = pick(companyData, ['capitalRealized', 'realizedCapitalValue']);
+          const capitalType = String(pick(companyData, ['capitalType', 'typeOfCapital']) || 'FECHADO');
+          const controlType = String(pick(companyData, ['controlType', 'typeOfControl']) || 'PRIVADO');
+          const origin = String(pick(companyData, ['origin', 'capitalOrigin']) || 'BRASIL');
+          const pAnnot = allPartners.filter((p: any) => p.hasNegative === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim').length;
+          const dAnnot = allDirectors.filter((d: any) => d.hasNegative === true || d.restrictionSign === true || String(d.annotations || '').toLowerCase() === 'sim').length;
+          return (
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-4">
+            <div className="border border-border rounded-lg p-3">
+              <p className="text-[11px] font-medium text-muted-foreground">Capital social</p>
+              <p className="text-xs font-bold text-foreground mt-1">{capitalSocialFmt}</p>
+            </div>
+            <div className="border border-border rounded-lg p-3">
+              <p className="text-[11px] font-medium text-muted-foreground">Capital realizado</p>
+              <p className="text-xs font-bold text-foreground mt-1">{capitalRealizado ? formatCurrency(capitalRealizado) : capitalSocialFmt}</p>
+            </div>
+            <div className="border border-border rounded-lg p-3">
+              <p className="text-[11px] font-medium text-muted-foreground">Tipo de capital</p>
+              <p className="text-xs font-bold text-foreground mt-1">{capitalType}</p>
+            </div>
+            <div className="border border-border rounded-lg p-3">
+              <p className="text-[11px] font-medium text-muted-foreground">Tipo de controle</p>
+              <p className="text-xs font-bold text-foreground mt-1">{controlType}</p>
+            </div>
+            <div className="border border-border rounded-lg p-3">
+              <p className="text-[11px] font-medium text-muted-foreground">Origem</p>
+              <p className="text-xs font-bold text-foreground mt-1">{origin}</p>
+            </div>
+            <div className="border border-border rounded-lg p-3">
+              <p className="text-[11px] font-medium text-muted-foreground">Ocorrência de anotações negativas</p>
+              <p className="text-xs font-bold text-foreground mt-1">{pAnnot} | {dAnnot}</p>
+              <p className="text-[10px] text-muted-foreground">Sócios | Administradores</p>
+            </div>
+          </div>
+          );
+        })()}
+
+        {/* Sócios e acionistas */}
+        <p className="text-xs font-medium text-muted-foreground mb-2">Sócios e acionistas</p>
         {allPartners.length === 0 ? (
           <p className="text-xs text-muted-foreground mb-4">Nenhum sócio encontrado.</p>
         ) : (
@@ -575,33 +705,34 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-xs font-medium">Nome</TableHead>
-                  <TableHead className="text-xs font-medium">Documento</TableHead>
-                  <TableHead className="text-xs font-medium">Participação</TableHead>
-                  <TableHead className="text-xs font-medium">Restritivos</TableHead>
+                  <TableHead className="text-xs font-medium">Capital</TableHead>
+                  <TableHead className="text-xs font-medium">Capital votante</TableHead>
+                  <TableHead className="text-xs font-medium">Sócio/Acionista</TableHead>
+                  <TableHead className="text-xs font-medium">CPF/CNPJ</TableHead>
+                  <TableHead className="text-xs font-medium">Entrada</TableHead>
+                  <TableHead className="text-xs font-medium">Nacionalidade</TableHead>
+                  <TableHead className="text-xs font-medium">Anotações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {allPartners.map((p: any, i: number) => (
+                {allPartners.map((p: any, i: number) => {
+                  const hasNeg = p.hasNegative === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim';
+                  return (
                   <TableRow key={i}>
-                    <TableCell className="text-xs py-2">{p.name || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{p.participationPercentage != null ? `${p.participationPercentage}%` : p.capitalTotalValue != null ? `${p.capitalTotalValue}%` : '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{p.votingCapitalPercentage != null ? `${p.votingCapitalPercentage}%` : '0%'}</TableCell>
+                    <TableCell className="text-xs py-2 font-medium">{p.name || '-'}</TableCell>
                     <TableCell className="text-xs py-2">{formatDocument(p.documentId || p.document || '')}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDate(p.entryDate || p.startDate)}</TableCell>
+                    <TableCell className="text-xs py-2">{p.nationality || 'BRASIL'}</TableCell>
                     <TableCell className="text-xs py-2">
-                      {p.participationPercentage != null
-                        ? `${p.participationPercentage}%`
-                        : p.capitalTotalValue != null
-                          ? `${p.capitalTotalValue}%`
-                          : '-'}
-                    </TableCell>
-                    <TableCell className="text-xs py-2">
-                      {p.hasNegative === true || p.restrictionSign === true ? (
-                        <Badge variant="destructive" className="text-[10px]">Sim</Badge>
-                      ) : p.hasNegative === false || p.restrictionSign === false ? (
-                        <Badge variant="outline" className="text-[10px] border-green-500 text-green-600">Não</Badge>
-                      ) : '-'}
+                      {hasNeg ? (
+                        <span className="flex items-center gap-1 text-amber-600 font-medium">Sim <AlertTriangle className="h-3.5 w-3.5" /></span>
+                      ) : <span className="text-muted-foreground">Não</span>}
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
@@ -612,76 +743,59 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         {allDirectors.length === 0 ? (
           <p className="text-xs text-muted-foreground">Nenhum administrador encontrado.</p>
         ) : (
-          <div className="overflow-x-auto border border-border rounded-lg">
+          <div className="overflow-x-auto border border-border rounded-lg mb-4">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="text-xs font-medium">Nome</TableHead>
-                  <TableHead className="text-xs font-medium">Documento</TableHead>
                   <TableHead className="text-xs font-medium">Cargo</TableHead>
-                  <TableHead className="text-xs font-medium">Restritivos</TableHead>
+                  <TableHead className="text-xs font-medium">CPF/CNPJ</TableHead>
+                  <TableHead className="text-xs font-medium">Entrada</TableHead>
+                  <TableHead className="text-xs font-medium">Mandato</TableHead>
+                  <TableHead className="text-xs font-medium">Nacionalidade</TableHead>
+                  <TableHead className="text-xs font-medium">Estado Civil</TableHead>
+                  <TableHead className="text-xs font-medium">Anotações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {allDirectors.map((d: any, i: number) => (
+                {allDirectors.map((d: any, i: number) => {
+                  const hasNeg = d.hasNegative === true || d.restrictionSign === true || String(d.annotations || '').toLowerCase() === 'sim';
+                  return (
                   <TableRow key={i}>
-                    <TableCell className="text-xs py-2">{d.name || '-'}</TableCell>
+                    <TableCell className="text-xs py-2 font-medium">{d.name || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{d.role || d.office || 'ADMINISTRADOR'}</TableCell>
                     <TableCell className="text-xs py-2">{formatDocument(d.documentId || d.document || '')}</TableCell>
-                    <TableCell className="text-xs py-2">{d.role || d.office || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDate(d.entryDate || d.startDate)}</TableCell>
+                    <TableCell className="text-xs py-2">{d.mandate || d.mandatePeriod || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{d.nationality || 'BRASIL'}</TableCell>
+                    <TableCell className="text-xs py-2">{d.maritalStatus || d.civilStatus || '-'}</TableCell>
                     <TableCell className="text-xs py-2">
-                      {d.hasNegative === true || d.restrictionSign === true ? (
-                        <Badge variant="destructive" className="text-[10px]">Sim</Badge>
-                      ) : d.hasNegative === false || d.restrictionSign === false ? (
-                        <Badge variant="outline" className="text-[10px] border-green-500 text-green-600">Não</Badge>
-                      ) : '-'}
+                      {hasNeg ? (
+                        <span className="flex items-center gap-1 text-amber-600 font-medium">Sim <AlertTriangle className="h-3.5 w-3.5" /></span>
+                      ) : <span className="text-muted-foreground">Não</span>}
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
         )}
-      </div>
 
-      {/* ── Score PJ ── */}
-      <div>
-        <p className="text-sm font-semibold text-primary mb-1">Score Positivo</p>
-        <p className="text-xs text-muted-foreground mb-3">
-          Classificação de risco de crédito da empresa com base em modelos estatísticos. Indica a probabilidade de inadimplência em 6 meses.
-        </p>
-        <div className="border border-border rounded-lg p-4 mb-3">
-          <div className="flex items-center gap-3 mb-3">
-            <span className="text-2xl font-bold text-foreground">{scoreValue || '-'}</span>
-            {scoreModel && (
-              <Badge variant="secondary" className="text-[10px]">
-                Modelo: {scoreModel}
-              </Badge>
-            )}
-            {defaultRate && (
-              <Badge variant="outline" className="border-amber-500 text-amber-600 text-[11px] px-2 py-0.5">
-                {defaultRate}
-              </Badge>
-            )}
+        {/* Warning if annotations exist */}
+        {(() => {
+          const hasAnyNeg = allPartners.some((p: any) => p.hasNegative === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim')
+            || allDirectors.some((d: any) => d.hasNegative === true || d.restrictionSign === true || String(d.annotations || '').toLowerCase() === 'sim');
+          if (!hasAnyNeg) return null;
+          return (
+          <div className="border border-amber-300 rounded-lg p-3 mt-2">
+            <p className="text-xs font-semibold text-foreground mb-1">Alguns sócios e administradores possuem anotações negativas</p>
+            <p className="text-[11px] text-muted-foreground">
+              A informação disponibilizada está de acordo com a última atualização do órgão emissor responsável, contudo, a somatória do percentual de participação do capital difere de 100%.
+            </p>
           </div>
-          <div className="relative h-2 bg-muted rounded-full overflow-hidden">
-            <div
-              className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all"
-              style={{ width: `${Math.min((scoreValue / 1000) * 100, 100)}%` }}
-            />
-          </div>
-          <div className="flex justify-between mt-1.5">
-            <span className="text-[10px] text-muted-foreground">0</span>
-            <span className="text-[10px] text-muted-foreground">500</span>
-            <span className="text-[10px] text-muted-foreground">1000</span>
-          </div>
-        </div>
-
-        <div className="border border-border rounded-lg p-3 border-dashed">
-          <p className="text-xs font-bold text-foreground mb-1">Atenção</p>
-          <p className="text-xs text-muted-foreground">
-            A decisão da aprovação ou não do crédito é de exclusiva responsabilidade do concedente. As informações prestadas pela Serasa Experian têm o objetivo de subsidiar essas decisões.
-          </p>
-        </div>
+          );
+        })()}
       </div>
       </>
       )}
@@ -891,7 +1005,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
 
       {/* ═══════════════════ SHARED SECTIONS ═══════════════════ */}
 
-      {/* ── Anotações Negativas ── */}
+      {/* ── Anotações Negativas (PF) ── */}
+      {isPF && (
       <div>
         <p className="text-sm font-semibold text-primary mb-1">Anotações Negativas</p>
         <p className="text-xs text-muted-foreground mb-4">
@@ -1026,6 +1141,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         />
         )}
       </div>
+      )}
 
       {/* ── Participações Societárias (PF only) ── */}
       {isPF && (
