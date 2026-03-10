@@ -118,6 +118,18 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const attributes = (optionalFeatures?.attributes || optionalFeatures?.attributesResponse || report?.attributes || {}) as GenericRecord;
   const rendaEstimada = asArray(pick(attributes, ['attributesResponse'], []));
 
+  // Phones & addresses from registration
+  const phones = asArray(pick(registration, ['phones', 'phoneList', 'phone'], []));
+  const addresses = asArray(pick(registration, ['addresses', 'addressList', 'address'], []));
+
+  // Complementary data
+  const complementaryData = (registration?.complementaryData || registration?.additionalData || {}) as GenericRecord;
+
+  // Payment history
+  const paymentHistory = (report?.paymentHistory || report?.historicoPagamento || optionalFeatures?.paymentHistory || {}) as GenericRecord;
+  const paymentItems = asArray(pick(paymentHistory, ['paymentHistoryResponse', 'payments', 'items'], []));
+  const paymentSummary = (paymentHistory?.summary || paymentHistory) as GenericRecord;
+
   const participation = asArray(
     pick(report, [
       'companyData.companyParticipationResponse',
@@ -167,6 +179,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const docFormatted = formatDocument(pick(registration, ['documentNumber', 'document']));
   const birthDateRaw = pick<string>(registration, ['birthDate'], '');
   const birthAge = calcAge(birthDateRaw);
+  const motherName = String(pick(registration, ['motherName']) || '-');
+  const gender = String(pick(registration, ['gender', 'sex']) || '-');
   const reportName = String(pick(report, ['reportName']) || 'RELATÓRIO BÁSICO').replace(/_/g, ' ');
 
   return (
@@ -275,13 +289,139 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             <p className="text-sm font-bold text-foreground mt-1">{joinLocation(pick(registration, ['city']), pick(registration, ['federalUnit']))}</p>
           </div>
         </div>
+        {/* Dados cadastrais completos (Top Score) */}
+        {isTopScore && (
+        <>
+        <p className="text-xs font-medium text-muted-foreground mt-4 mb-2">Dados cadastrais</p>
+        <div className="overflow-x-auto border border-border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs font-medium">Nome completo</TableHead>
+                <TableHead className="text-xs font-medium">CPF</TableHead>
+                <TableHead className="text-xs font-medium">Data de nascimento</TableHead>
+                <TableHead className="text-xs font-medium">Nome da mãe</TableHead>
+                <TableHead className="text-xs font-medium">Sexo</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow>
+                <TableCell className="text-xs py-2">{consumerName}</TableCell>
+                <TableCell className="text-xs py-2">{docFormatted}</TableCell>
+                <TableCell className="text-xs py-2">{formatDate(birthDateRaw)}</TableCell>
+                <TableCell className="text-xs py-2">{motherName}</TableCell>
+                <TableCell className="text-xs py-2">{gender}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+        </>
+        )}
+
+        {/* Dados cadastrais simples (Básico) */}
+        {!isTopScore && (
+        <>
         <p className="text-xs font-medium text-muted-foreground mt-4 mb-2">Outros Dados Cadastrais</p>
         <div className="border border-border rounded-lg p-3">
           <p className="text-sm text-foreground">
             <span className="font-bold">Nome da Mãe:</span>{' '}
-            {String(pick(registration, ['motherName']) || '-')}
+            {motherName}
           </p>
         </div>
+        </>
+        )}
+
+        {/* Telefones (Top Score) */}
+        {isTopScore && phones.length > 0 && (
+        <>
+        <p className="text-xs font-medium text-muted-foreground mt-4 mb-2">Telefones</p>
+        <div className="overflow-x-auto border border-border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs font-medium">Prioridade</TableHead>
+                <TableHead className="text-xs font-medium">Tipo</TableHead>
+                <TableHead className="text-xs font-medium">Telefone</TableHead>
+                <TableHead className="text-xs font-medium">Data de atualização</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {phones.map((phone: any, i: number) => (
+                <TableRow key={i}>
+                  <TableCell className="text-xs py-2">{phone.priority || phone.phonePriority || '-'}</TableCell>
+                  <TableCell className="text-xs py-2">{phone.type || phone.phoneType || '-'}</TableCell>
+                  <TableCell className="text-xs py-2">{phone.phoneNumber || phone.number || phone.areaCode ? `${phone.areaCode || ''}${phone.phoneNumber || phone.number || ''}` : '-'}</TableCell>
+                  <TableCell className="text-xs py-2">{formatDate(phone.updateDate || phone.date)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        </>
+        )}
+
+        {/* Endereços (Top Score) */}
+        {isTopScore && addresses.length > 0 && (
+        <>
+        <p className="text-xs font-medium text-muted-foreground mt-4 mb-2">Endereços</p>
+        <div className="overflow-x-auto border border-border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs font-medium">Prioridade</TableHead>
+                <TableHead className="text-xs font-medium">Endereço</TableHead>
+                <TableHead className="text-xs font-medium">Data de atualização</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {addresses.map((addr: any, i: number) => {
+                const fullAddr = [addr.streetTitle, addr.streetName, addr.houseNumber, addr.complement, addr.neighborhood ? `- ${addr.neighborhood}` : '', addr.city, addr.federalUnit ? `- ${addr.federalUnit}` : '', addr.zipCode].filter(Boolean).join(' ') || addr.address || addr.fullAddress || '-';
+                return (
+                <TableRow key={i}>
+                  <TableCell className="text-xs py-2">{addr.priority || addr.addressPriority || '-'}</TableCell>
+                  <TableCell className="text-xs py-2 max-w-md">{fullAddr}</TableCell>
+                  <TableCell className="text-xs py-2">{formatDate(addr.updateDate || addr.date)}</TableCell>
+                </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+        </>
+        )}
+
+        {/* Informações cadastrais complementares (Top Score) */}
+        {isTopScore && (
+        <>
+        <p className="text-xs font-medium text-muted-foreground mt-4 mb-2">Informações cadastrais complementares</p>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Estado civil</p>
+            <p className="text-sm font-bold text-foreground mt-1">{String(pick(registration, ['maritalStatus', 'civilStatus']) || pick(complementaryData, ['maritalStatus']) || '-')}</p>
+          </div>
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Escolaridade</p>
+            <p className="text-sm font-bold text-foreground mt-1">{String(pick(registration, ['educationLevel', 'education']) || pick(complementaryData, ['educationLevel']) || '-')}</p>
+          </div>
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Profissão</p>
+            <p className="text-sm font-bold text-foreground mt-1">{String(pick(registration, ['profession', 'occupation']) || pick(complementaryData, ['profession']) || '-')}</p>
+          </div>
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Dependentes</p>
+            <p className="text-sm font-bold text-foreground mt-1">{String(pick(registration, ['dependents', 'numberOfDependents']) || pick(complementaryData, ['dependents']) || '-')}</p>
+          </div>
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">UF de Nascimento</p>
+            <p className="text-sm font-bold text-foreground mt-1">{String(pick(registration, ['birthFederalUnit', 'birthState']) || pick(complementaryData, ['birthFederalUnit']) || '-')}</p>
+          </div>
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Cidade de nascimento</p>
+            <p className="text-sm font-bold text-foreground mt-1">{String(pick(registration, ['birthCity']) || pick(complementaryData, ['birthCity']) || '-')}</p>
+          </div>
+        </div>
+        </>
+        )}
       </div>
 
       {/* ── Serasa Score (Top Score only) ── */}
@@ -346,7 +486,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             Total de dívidas: <span className="font-bold">{formatCurrency(totalNegativeValue)}</span>
           </p>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          <div className={`grid grid-cols-2 md:grid-cols-3 gap-3 ${isTopScore ? 'xl:grid-cols-4' : 'xl:grid-cols-6'}`}>
             <NegSummaryBox
               label="Total em anotações negativas"
               value={totalNegativeValue}
@@ -377,6 +517,20 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
               value={pick(checks, ['summary.balance'], 0)}
               count={pick(checks, ['summary.count'], 0)}
             />
+            {isTopScore && (
+            <>
+            <NegSummaryBox
+              label="Participação em falências"
+              value={0}
+              count={bankruptItems.length}
+            />
+            <NegSummaryBox
+              label="Ações Judiciais"
+              value={pick(judgements, ['summary.balance'], 0)}
+              count={pick(judgements, ['summary.count'], judgementItems.length)}
+            />
+            </>
+            )}
           </div>
         </div>
 
@@ -667,6 +821,56 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           </>
         )}
       </div>
+
+      {/* ── Histórico de Pagamento (Top Score only) ── */}
+      {isTopScore && (
+      <div>
+        <p className="text-sm font-semibold text-primary mb-1">Histórico de pagamento</p>
+        <p className="text-xs text-muted-foreground mb-3">
+          Pontualidade de pagamento por período do documento consultado.
+        </p>
+
+        {paymentItems.length === 0 && !paymentSummary?.onTimePayment ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="border border-border rounded-lg p-3">
+              <p className="text-[11px] font-medium text-muted-foreground">Pontual até o vencimento</p>
+              <p className="text-sm font-bold text-foreground mt-1">{String(pick(paymentSummary, ['onTimeRate', 'punctualRate', 'onTimePayment']) || '-')}</p>
+            </div>
+            <div className="border border-border rounded-lg p-3">
+              <p className="text-[11px] font-medium text-muted-foreground">1 a 7 dias de atraso</p>
+              <p className="text-sm font-bold text-foreground mt-1">{String(pick(paymentSummary, ['lateRate', 'delayRate', 'latePayment']) || '-')}</p>
+            </div>
+          </div>
+        ) : paymentItems.length > 0 ? (
+          <div className="overflow-x-auto border border-border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs font-medium">Período</TableHead>
+                  <TableHead className="text-xs font-medium">Pontual</TableHead>
+                  <TableHead className="text-xs font-medium">Atraso</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paymentItems.map((item: any, i: number) => (
+                  <TableRow key={i}>
+                    <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.onTimeRate || item.punctualRate || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.lateRate || item.delayRate || '-'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">Nenhum registro para este documento.</p>
+        )}
+
+        <p className="text-[10px] text-muted-foreground mt-3 leading-relaxed">
+          Esse relatório contém informações históricas reais ocorridas nos últimos 12 meses e tem como objetivo demonstrar o comportamento de pagamento do consumidor nesse período.
+        </p>
+      </div>
+      )}
 
       {/* ── Disclaimer ── */}
       <div className="border-t border-border pt-4 mt-6">
