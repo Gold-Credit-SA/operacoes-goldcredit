@@ -208,7 +208,19 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
 
   // Common derived values
   const scoreValue = Number(pick(score, ['score'], 0));
-  const defaultRate = pick<string>(score, ['defaultRate', 'message'], '');
+  const rawDefaultRate = pick<string>(score, ['defaultRate'], '');
+  // Parse raw defaultRate: "01378" → "13,78%"
+  const defaultRate = (() => {
+    const raw = String(rawDefaultRate || '').replace(/\D/g, '');
+    if (!raw || raw.length < 3) return pick<string>(score, ['message'], '') || '';
+    const num = raw.slice(0, raw.length - 2) + ',' + raw.slice(raw.length - 2);
+    return num + '%';
+  })();
+  const defaultRateNumeric = (() => {
+    const raw = String(rawDefaultRate || '').replace(/\D/g, '');
+    if (!raw || raw.length < 3) return NaN;
+    return parseFloat(raw.slice(0, raw.length - 2) + '.' + raw.slice(raw.length - 2));
+  })();
   const scoreModel = pick<string>(score, ['scoreModel'], '');
 
   // PF values
