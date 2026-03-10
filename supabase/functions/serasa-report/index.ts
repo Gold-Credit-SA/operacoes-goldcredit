@@ -131,7 +131,7 @@ serve(async (req) => {
     // Step 2: Build report URL based on PF vs PJ
     const reportPath = isPF
       ? '/credit-services/person-information-report/v1/creditreport'
-      : '/credit-services/business-information-report/v1/creditreport';
+      : '/credit-services/business-information-report/v1/reports';
 
     let reportUrl = `${baseUrl}${reportPath}?reportName=${reportConfig.reportName}`;
 
