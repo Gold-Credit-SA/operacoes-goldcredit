@@ -122,9 +122,6 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const internalRef = useRef<HTMLDivElement>(null);
   const contentRef = externalRef || internalRef;
   const report = ((data as any)?.reports?.[0] || (data as any)?.data?.reports?.[0] || data) as GenericRecord;
-  // DEBUG: log report keys to find participation path
-  console.log('[SerasaDebug] report.partner:', JSON.stringify(report?.partner, null, 2));
-  console.log('[SerasaDebug] report.negativeSummary:', JSON.stringify(report?.negativeSummary, null, 2));
   const registration = (report?.registration || {}) as GenericRecord;
   const negativeData = (report?.negativeData || {}) as GenericRecord;
   const inquiry = (report?.inquiry || {}) as GenericRecord;
