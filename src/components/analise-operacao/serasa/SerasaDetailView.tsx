@@ -53,6 +53,11 @@ function formatCurrency(value: unknown): string {
 function formatDate(value: unknown): string {
   if (!value) return '-';
   const raw = String(value);
+  // Handle date-only strings (YYYY-MM-DD) without timezone shift
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [y, m, d] = raw.split('-');
+    return `${d}/${m}/${y}`;
+  }
   const parsed = new Date(raw);
   if (Number.isNaN(parsed.getTime())) return raw;
   return parsed.toLocaleDateString('pt-BR');
@@ -77,7 +82,15 @@ function formatCount(value: unknown, suffix = 'registros'): string {
 
 function calcAge(birthDate: unknown): number | null {
   if (!birthDate) return null;
-  const d = new Date(String(birthDate));
+  const raw = String(birthDate);
+  let d: Date;
+  // Parse date-only strings without timezone shift
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [y, m, day] = raw.split('-').map(Number);
+    d = new Date(y, m - 1, day);
+  } else {
+    d = new Date(raw);
+  }
   if (Number.isNaN(d.getTime())) return null;
   const now = new Date();
   let age = now.getFullYear() - d.getFullYear();
@@ -103,7 +116,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const isTopScore = consultaId === 'serasa_avancado_top_score_pf';
   const isAvancadoPJ = consultaId === 'serasa_avancado_pj';
   const isBasicoPJ = consultaId === 'serasa_basico_pj';
-  const hasScore = isTopScore || isPJ; // Both PJ PME reports include score
+  const hasScoreStatic = isTopScore || isPJ; // Both PJ PME reports include score
   const hasAdvancedNeg = isTopScore || isAvancadoPJ; // Ações judiciais + falências
 
   const internalRef = useRef<HTMLDivElement>(null);
@@ -227,6 +240,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
     return parseFloat(raw.slice(0, raw.length - 2) + '.' + raw.slice(raw.length - 2));
   })();
   const scoreModel = pick<string>(score, ['scoreModel'], '');
+  // Show score if statically expected OR if API returned score data
+  const hasScore = hasScoreStatic || scoreValue > 0;
 
   // PF values
   const consumerName = String(pick(registration, ['consumerName', 'name']) || '-');
@@ -254,6 +269,9 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const consultasAtual = isPJ
     ? Number(pjInquiryQuantity?.actual || 0)
     : Number(pick(factsInquirySummary, ['inquiryQuantity.actual'], 0));
+  const consultasMesAnterior = isPF
+    ? Number(pick(factsInquirySummary, ['inquiryQuantity.lastMonth', 'inquiryQuantity.previous'], 0))
+    : 0;
   const consultasBankAtual = isPJ ? Number(pjInquiryQuantity?.bankActual || 0) : 0;
   const inquiryCount = isPJ
     ? inquiryItems.length
@@ -289,10 +307,13 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
       <div>
         <p className="text-sm font-semibold text-primary mb-3">Informações fixadas</p>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {/* Situação Cadastral */}
+          {/* Situação na Receita Federal */}
           <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Situação Cadastral</p>
+            <p className="text-[11px] font-medium text-muted-foreground">Situação na Receita Federal</p>
             <p className="text-sm font-bold text-foreground mt-1">{statusRF}</p>
+            {statusDate && statusDate !== '-' && (
+              <p className="text-[11px] text-muted-foreground mt-0.5">Atualizado em {statusDate}</p>
+            )}
           </div>
           {/* Score with risk level */}
           {hasScore && (() => {
@@ -368,12 +389,14 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             </div>
             );
           })() : (
+          <>
           <div className="border border-border rounded-lg p-3">
             <p className="text-[11px] font-medium text-muted-foreground">
               {consultasAtual > 0 ? `${consultasAtual} consultas` : 'Sem consultas'}
             </p>
             <p className="text-[11px] text-muted-foreground mt-0.5">Consultas neste mês</p>
           </div>
+          </>
           )}
           {/* Capital social (PJ) / Participação societária (PF) */}
           {isPJ ? (
@@ -388,6 +411,20 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           </div>
           )}
         </div>
+        {/* Consultas no mês passado (PF only) */}
+        {isPF && consultasMesAnterior > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-3">
+            <div className="border border-border rounded-lg p-3">
+              <div className="flex items-center gap-1">
+                <p className="text-[11px] font-medium text-muted-foreground">
+                  {consultasMesAnterior} consulta{consultasMesAnterior !== 1 ? 's' : ''}
+                </p>
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Consultas no mês passado</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ═══════════════════ PJ-SPECIFIC SECTIONS ═══════════════════ */}
