@@ -9,9 +9,8 @@ const corsHeaders = {
 const REPORT_MAP: Record<string, { reportName: string; type: 'PF' | 'PJ'; defaultScoreModel?: string }> = {
   serasa_basico_pf: { reportName: 'RELATORIO_BASICO_PF_PME', type: 'PF' },
   serasa_avancado_top_score_pf: { reportName: 'RELATORIO_AVANCADO_TOP_SCORE_PF_PME', type: 'PF', defaultScoreModel: 'HRLD' },
-  serasa_basico_pj: { reportName: 'RELATORIO_BASICO_PJ_PME', type: 'PJ' },
-  serasa_avancado_pj: { reportName: 'RELATORIO_AVANCADO_PJ_PME', type: 'PJ' },
-  serasa_avancado_pj_analitico: { reportName: 'RELATORIO_AVANCADO_PJ_PME_ANALITICO', type: 'PJ' },
+  serasa_basico_pj: { reportName: 'RELATORIO_BASICO_PJ_PME', type: 'PJ', defaultScoreModel: 'H4PJ' },
+  serasa_avancado_pj: { reportName: 'RELATORIO_AVANCADO_PJ_PME', type: 'PJ', defaultScoreModel: 'H4PJ' },
 };
 
 /** Encode reportParameters as base64 for Serasa API */
@@ -132,7 +131,7 @@ serve(async (req) => {
     // Step 2: Build report URL based on PF vs PJ
     const reportPath = isPF
       ? '/credit-services/person-information-report/v1/creditreport'
-      : '/credit-services/business-information-report/v1/creditreport';
+      : '/credit-services/business-information-report/v1/reports';
 
     let reportUrl = `${baseUrl}${reportPath}?reportName=${reportConfig.reportName}`;
 
