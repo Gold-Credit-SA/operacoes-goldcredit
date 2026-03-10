@@ -116,7 +116,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const isTopScore = consultaId === 'serasa_avancado_top_score_pf';
   const isAvancadoPJ = consultaId === 'serasa_avancado_pj';
   const isBasicoPJ = consultaId === 'serasa_basico_pj';
-  const hasScore = isTopScore || isPJ; // Both PJ PME reports include score
+  const hasScoreStatic = isTopScore || isPJ; // Both PJ PME reports include score
   const hasAdvancedNeg = isTopScore || isAvancadoPJ; // Ações judiciais + falências
 
   const internalRef = useRef<HTMLDivElement>(null);
