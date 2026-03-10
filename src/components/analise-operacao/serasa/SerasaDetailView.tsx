@@ -240,6 +240,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
     return parseFloat(raw.slice(0, raw.length - 2) + '.' + raw.slice(raw.length - 2));
   })();
   const scoreModel = pick<string>(score, ['scoreModel'], '');
+  // Show score if statically expected OR if API returned score data
+  const hasScore = hasScoreStatic || scoreValue > 0;
 
   // PF values
   const consumerName = String(pick(registration, ['consumerName', 'name']) || '-');
