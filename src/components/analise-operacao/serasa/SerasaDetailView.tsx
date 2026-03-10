@@ -538,8 +538,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         </div>
       )}
 
-      {/* ── Cheques Sustados ── */}
-      {checkFilingsItems.length > 0 && (
+      {/* ── Cheques Sustados (Top Score only) ── */}
+      {isTopScore && checkFilingsItems.length > 0 && (
         <div>
           <p className="text-sm font-semibold text-primary mb-3">Cheques Sustados (Contumácia)</p>
           <div className="overflow-x-auto border border-border rounded-lg">
