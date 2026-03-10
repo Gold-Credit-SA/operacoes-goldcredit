@@ -1378,8 +1378,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         </div>
       </div>
 
-      {/* ── Informações Comportamentais (PJ only) ── */}
-      {isPJ && (() => {
+      {/* ── Informações Comportamentais (Avançado PJ only) ── */}
+      {isAvancadoPJ && (() => {
         const behavioralData = (report?.behavioralData || optionalFeatures?.behavioralData || report?.positiveData || optionalFeatures?.positiveData || {}) as GenericRecord;
         const marketRelationship = (behavioralData?.marketRelationship || report?.marketRelationship || optionalFeatures?.marketRelationship || {}) as GenericRecord;
         const paymentHistoryPJ = (behavioralData?.paymentHistory || report?.paymentHistoryCompany || optionalFeatures?.paymentHistoryCompany || {}) as GenericRecord;
