@@ -197,7 +197,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             <p className="text-sm font-bold text-foreground mt-1">{statusRF}</p>
             <p className="text-[11px] text-muted-foreground mt-0.5">Atualizado em {statusDate}</p>
           </div>
-          {/* Score */}
+          {/* Score - only for Top Score */}
+          {isTopScore && (
           <div className="border border-border rounded-lg p-3">
             <div className="flex items-center gap-2">
               <span className="text-2xl font-bold text-foreground">{scoreValue || '-'}</span>
@@ -219,6 +220,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
               <span className="text-[10px] text-muted-foreground">1000</span>
             </div>
           </div>
+          )}
           {/* Total negativas */}
           <div className="border border-border rounded-lg p-3">
             <p className="text-[11px] font-medium text-muted-foreground">Total em anotações negativas</p>
