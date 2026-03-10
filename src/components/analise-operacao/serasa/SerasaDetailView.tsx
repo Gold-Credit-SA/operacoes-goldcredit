@@ -117,7 +117,13 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const optionalFeatures = (report?.optionalFeatures || {}) as GenericRecord;
 
   // Score - PJ uses H4PJ model, PF uses HRLD
-  const score = (optionalFeatures?.scoreResponse || optionalFeatures?.score || {}) as GenericRecord;
+  const scoresSection = (report?.scores || optionalFeatures?.scores || {}) as GenericRecord;
+  const scoreResponseArr = asArray(scoresSection?.scoreResponse || optionalFeatures?.scoreResponse || []);
+  // Find the main score (H4PJ or HRLD) — exclude HLC1 which is credit limit
+  const mainScoreObj = scoreResponseArr.find((s: any) => s.scoreModel !== 'HLC1') || scoreResponseArr[0];
+  const score = (mainScoreObj || optionalFeatures?.scoreResponse || optionalFeatures?.score || {}) as GenericRecord;
+  // Find credit limit score (HLC1)
+  const creditLimitScore = scoreResponseArr.find((s: any) => s.scoreModel === 'HLC1') as GenericRecord | undefined;
   const pefin = (negativeData?.pefinResponse || negativeData?.pefin || {}) as GenericRecord;
   const refin = (negativeData?.refinResponse || negativeData?.refin || {}) as GenericRecord;
   const convem = (negativeData?.collectionRecordsResponse || negativeData?.collectionRecords || {}) as GenericRecord;
