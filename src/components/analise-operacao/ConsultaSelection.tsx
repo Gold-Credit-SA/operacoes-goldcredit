@@ -33,6 +33,7 @@ export const CONSULTA_GROUPS: ConsultaGroup[] = [
       { id: 'serasa_basico_pf', label: 'Relatório Básico PF (Serasa)' },
       { id: 'serasa_avancado_top_score_pf', label: 'Top Score PF (Serasa)' },
       { id: 'serasa_basico_pj', label: 'Relatório Básico PJ (Serasa)' },
+      { id: 'serasa_avancado_pj', label: 'Relatório Avançado PJ (Serasa)' },
       { id: 'serasa_avancado_pj_analitico', label: 'Relatório Analítico PJ (Serasa)' },
     ],
   },
@@ -73,7 +74,7 @@ export function ConsultaSelection({ cnpj, onExecute, onBack }: ConsultaSelection
       // PF-only reports require CPF
       if ((item.id === 'serasa_basico_pf' || item.id === 'serasa_avancado_top_score_pf') && !isCpf) return false;
       // PJ-only reports require CNPJ
-      if ((item.id === 'serasa_basico_pj' || item.id === 'serasa_avancado_pj_analitico') && isCpf) return false;
+      if ((item.id === 'serasa_basico_pj' || item.id === 'serasa_avancado_pj' || item.id === 'serasa_avancado_pj_analitico') && isCpf) return false;
       return true;
     }),
   })).filter(group => group.items.length > 0);
