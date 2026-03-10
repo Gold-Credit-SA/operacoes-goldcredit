@@ -486,7 +486,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             Total de dívidas: <span className="font-bold">{formatCurrency(totalNegativeValue)}</span>
           </p>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          <div className={`grid grid-cols-2 md:grid-cols-3 gap-3 ${isTopScore ? 'xl:grid-cols-4' : 'xl:grid-cols-6'}`}>
             <NegSummaryBox
               label="Total em anotações negativas"
               value={totalNegativeValue}
