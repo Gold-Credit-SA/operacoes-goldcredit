@@ -370,28 +370,26 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
       <>
       {/* ── Dados Cadastrais PJ ── */}
       <div>
-        <p className="text-sm font-semibold text-primary mb-3">Dados Cadastrais</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <p className="text-sm font-semibold text-primary mb-1">Dados Cadastrais</p>
+        <p className="text-[11px] text-muted-foreground mb-3">Atualizado em {statusDate}</p>
+
+        {/* Top summary grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-4">
           <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Razão Social</p>
-            <p className="text-sm font-bold text-foreground mt-1">{companyName}</p>
-          </div>
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Nome Fantasia</p>
-            <p className="text-sm font-bold text-foreground mt-1">{companyAlias}</p>
-          </div>
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">CNPJ</p>
-            <p className="text-sm font-bold text-foreground mt-1">{displayDoc}</p>
-          </div>
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Data de Fundação</p>
-            <p className="text-sm font-bold text-foreground mt-1">{formatDate(foundationDate)}</p>
-          </div>
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Situação na Receita Federal</p>
+            <p className="text-[11px] font-medium text-muted-foreground">Situação Cadastral</p>
             <p className="text-sm font-bold text-foreground mt-1">{statusRF}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Atualizado em {statusDate}</p>
+          </div>
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Fundação em</p>
+            <p className="text-sm font-bold text-foreground mt-1">{formatDate(foundationDate)}</p>
+            {foundationDate && (() => {
+              const fd = new Date(String(foundationDate));
+              if (!isNaN(fd.getTime())) {
+                const years = Math.floor((Date.now() - fd.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+                return <p className="text-[11px] text-muted-foreground mt-0.5">{years} anos</p>;
+              }
+              return null;
+            })()}
           </div>
           <div className="border border-border rounded-lg p-3">
             <p className="text-[11px] font-medium text-muted-foreground">Município/UF</p>
@@ -399,36 +397,92 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
               {joinLocation(companyAddress?.city || pick(registration, ['address.city']), companyAddress?.state || companyAddress?.federalUnit || pick(registration, ['address.state']))}
             </p>
           </div>
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Ramo de atividade</p>
+            <p className="text-sm font-bold text-foreground mt-1 text-xs leading-tight">{economicActivity}</p>
+          </div>
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Tipo de sociedade</p>
+            <p className="text-sm font-bold text-foreground mt-1 text-xs leading-tight">
+              {String(pick(identificationReport, ['companyType', 'socialObject', 'natureOfBusiness']) || 'Sem dados')}
+            </p>
+          </div>
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Número de funcionários</p>
+            <p className="text-sm font-bold text-foreground mt-1">{numberEmployees ?? 'Sem dados'}</p>
+          </div>
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Filiais</p>
+            <p className="text-sm font-bold text-foreground mt-1">
+              {String(pick(identificationReport, ['branchesQuantity', 'branches', 'filials']) || 'Sem dados')}
+            </p>
+          </div>
         </div>
 
-        {/* Additional PJ info for avançado */}
-        {isAvancadoPJ && (
-        <>
-        <p className="text-xs font-medium text-muted-foreground mt-4 mb-2">Informações Adicionais</p>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Atividade Econômica</p>
-            <p className="text-sm font-bold text-foreground mt-1">{economicActivity}</p>
+        {/* Detailed data - list format */}
+        <p className="text-xs font-medium text-muted-foreground mb-2">Dados cadastrais</p>
+        <div className="border border-border rounded-lg divide-y divide-border text-sm">
+          <div className="px-4 py-2 flex gap-2">
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Nome fantasia:</span>
+            <span className="text-xs text-foreground">{companyAlias !== '-' ? companyAlias : '-'}</span>
           </div>
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">CNAE</p>
-            <p className="text-sm font-bold text-foreground mt-1">{cnae}</p>
+          <div className="px-4 py-2 flex gap-2">
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Endereço:</span>
+            <span className="text-xs text-foreground">
+              {(() => {
+                const addr = companyAddress;
+                if (!addr || typeof addr !== 'object') return '-';
+                const parts = [addr.street, addr.number, addr.complement, addr.neighborhood ? `- ${addr.neighborhood}` : '', addr.city ? `${addr.city}` : '', addr.state ? `- ${addr.state}` : '', addr.zipCode].filter(Boolean);
+                return parts.join(', ') || '-';
+              })()}
+            </span>
           </div>
-          {numberEmployees !== undefined && numberEmployees !== null && (
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Nº Funcionários</p>
-            <p className="text-sm font-bold text-foreground mt-1">{numberEmployees}</p>
+          <div className="px-4 py-2 flex gap-2">
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Site:</span>
+            <span className="text-xs text-foreground">{String(pick(identificationReport, ['website', 'site']) || '-')}</span>
           </div>
-          )}
-          {socialCapital !== undefined && socialCapital !== null && (
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Capital Social</p>
-            <p className="text-sm font-bold text-foreground mt-1">{formatCurrency(socialCapital)}</p>
+          <div className="px-4 py-2 flex gap-2">
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Telefone:</span>
+            <span className="text-xs text-foreground">{String(pick(registration, ['phone', 'telephone']) || pick(identificationReport, ['phone', 'telephone']) || '-')}</span>
           </div>
-          )}
         </div>
-        </>
-        )}
+
+        {/* Outros dados */}
+        <p className="text-xs font-medium text-muted-foreground mt-4 mb-2">Outros dados</p>
+        <div className="border border-border rounded-lg divide-y divide-border text-sm">
+          <div className="px-4 py-2 flex gap-2">
+            <span className="text-muted-foreground text-xs font-medium shrink-0">CNAE:</span>
+            <span className="text-xs text-foreground">{cnae}</span>
+          </div>
+          <div className="px-4 py-2 flex gap-2">
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Ramo de atividade econômica:</span>
+            <span className="text-xs text-foreground">{economicActivity}</span>
+          </div>
+          <div className="px-4 py-2 flex gap-2">
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Inscrição estadual:</span>
+            <span className="text-xs text-foreground">{String(pick(identificationReport, ['stateRegistration', 'inscricaoEstadual']) || '-')}</span>
+          </div>
+          <div className="px-4 py-2 flex gap-2">
+            <span className="text-muted-foreground text-xs font-medium shrink-0">NIRE:</span>
+            <span className="text-xs text-foreground">{String(pick(identificationReport, ['nire', 'boardOfTradeRegistration']) || '-')}</span>
+          </div>
+          <div className="px-4 py-2 flex gap-2">
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Registro:</span>
+            <span className="text-xs text-foreground">{String(pick(identificationReport, ['registrationNumber', 'registro']) || '-')}</span>
+          </div>
+          <div className="px-4 py-2 flex gap-2">
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Data do registro:</span>
+            <span className="text-xs text-foreground">{formatDate(pick(identificationReport, ['registrationDate', 'dataRegistro']))}</span>
+          </div>
+          <div className="px-4 py-2 flex gap-2">
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Código de atividade Serasa:</span>
+            <span className="text-xs text-foreground">{String(pick(identificationReport, ['serasaActivityCode', 'activityCode']) || '-')}</span>
+          </div>
+          <div className="px-4 py-2 flex gap-2">
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Empresa antecessora:</span>
+            <span className="text-xs text-foreground">{String(pick(identificationReport, ['predecessorCompany', 'previousCompany', 'antecessora']) || '-')}</span>
+          </div>
+        </div>
       </div>
 
       {/* ── Quadro Social e Administrativo ── */}
