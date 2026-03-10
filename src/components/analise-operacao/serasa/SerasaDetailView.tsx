@@ -198,6 +198,18 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
       'socialParticipation.socialParticipationResponse',
       'partnershipResponse',
     ], []),
+  ) || [];
+  // Fallback: try optionalFeatures and facts
+  const participationFinal = participation.length > 0 ? participation : asArray(
+    pick(optionalFeatures, [
+      'companyParticipationResponse',
+      'companyParticipation.companyParticipationResponse',
+    ], []),
+  ) || asArray(
+    pick(facts, [
+      'companyParticipationResponse',
+      'companyParticipation.companyParticipationResponse',
+    ], []),
   );
 
   const pefinItems = asArray(pick(pefin, ['pefinResponse', 'ppiResponse'], []));
