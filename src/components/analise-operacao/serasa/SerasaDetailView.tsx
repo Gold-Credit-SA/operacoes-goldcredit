@@ -23,6 +23,7 @@ import {
 interface SerasaDetailViewProps {
   data: Record<string, unknown>;
   document?: string;
+  consultaId?: string;
   hideExportButton?: boolean;
   externalRef?: React.RefObject<HTMLDivElement>;
 }
@@ -87,7 +88,8 @@ function yesNo(value: unknown): string {
   return String(value ?? '-');
 }
 
-export function SerasaDetailView({ data, document: docNumber, hideExportButton, externalRef }: SerasaDetailViewProps) {
+export function SerasaDetailView({ data, document: docNumber, consultaId, hideExportButton, externalRef }: SerasaDetailViewProps) {
+  const isTopScore = consultaId === 'serasa_avancado_top_score_pf';
   const internalRef = useRef<HTMLDivElement>(null);
   const contentRef = externalRef || internalRef;
   const report = ((data as any)?.reports?.[0] || (data as any)?.data?.reports?.[0] || data) as GenericRecord;
@@ -195,7 +197,8 @@ export function SerasaDetailView({ data, document: docNumber, hideExportButton, 
             <p className="text-sm font-bold text-foreground mt-1">{statusRF}</p>
             <p className="text-[11px] text-muted-foreground mt-0.5">Atualizado em {statusDate}</p>
           </div>
-          {/* Score */}
+          {/* Score - only for Top Score */}
+          {isTopScore && (
           <div className="border border-border rounded-lg p-3">
             <div className="flex items-center gap-2">
               <span className="text-2xl font-bold text-foreground">{scoreValue || '-'}</span>
@@ -217,6 +220,7 @@ export function SerasaDetailView({ data, document: docNumber, hideExportButton, 
               <span className="text-[10px] text-muted-foreground">1000</span>
             </div>
           </div>
+          )}
           {/* Total negativas */}
           <div className="border border-border rounded-lg p-3">
             <p className="text-[11px] font-medium text-muted-foreground">Total em anotações negativas</p>
@@ -280,7 +284,8 @@ export function SerasaDetailView({ data, document: docNumber, hideExportButton, 
         </div>
       </div>
 
-      {/* ── Serasa Score ── */}
+      {/* ── Serasa Score (Top Score only) ── */}
+      {isTopScore && (
       <div>
         <p className="text-sm font-semibold text-primary mb-1">Serasa Score</p>
         <p className="text-xs text-muted-foreground mb-3">
@@ -325,6 +330,7 @@ export function SerasaDetailView({ data, document: docNumber, hideExportButton, 
           </p>
         </div>
       </div>
+      )}
 
       {/* ── Anotações Negativas ── */}
       <div>
@@ -443,6 +449,7 @@ export function SerasaDetailView({ data, document: docNumber, hideExportButton, 
           ]}
         />
 
+        {isTopScore && (
         <NegDetailTable
           title="Ações Judiciais"
           rows={judgementItems}
@@ -456,7 +463,9 @@ export function SerasaDetailView({ data, document: docNumber, hideExportButton, 
             { header: 'UF', render: (item) => item.state || item.federalUnit || '-' },
           ]}
         />
+        )}
 
+        {isTopScore && (
         <NegDetailTable
           title="Participação em Falência"
           rows={bankruptItems}
@@ -467,6 +476,7 @@ export function SerasaDetailView({ data, document: docNumber, hideExportButton, 
             { header: 'Tipo', render: (item) => item.companyLegalNature || '-' },
           ]}
         />
+        )}
       </div>
 
       {/* ── Participações Societárias ── */}
@@ -510,8 +520,8 @@ export function SerasaDetailView({ data, document: docNumber, hideExportButton, 
         )}
       </div>
 
-      {/* ── Renda Estimada ── */}
-      {rendaEstimada.length > 0 && (
+      {/* ── Renda Estimada (Top Score only) ── */}
+      {isTopScore && rendaEstimada.length > 0 && (
         <div>
           <p className="text-sm font-semibold text-primary mb-3">Renda Estimada</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -528,8 +538,8 @@ export function SerasaDetailView({ data, document: docNumber, hideExportButton, 
         </div>
       )}
 
-      {/* ── Cheques Sustados ── */}
-      {checkFilingsItems.length > 0 && (
+      {/* ── Cheques Sustados (Top Score only) ── */}
+      {isTopScore && checkFilingsItems.length > 0 && (
         <div>
           <p className="text-sm font-semibold text-primary mb-3">Cheques Sustados (Contumácia)</p>
           <div className="overflow-x-auto border border-border rounded-lg">

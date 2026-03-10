@@ -354,7 +354,7 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
               detailEntry.consulta_type === 'scr' ? (
                 <SCRDetailView data={detailEntry.result_data} />
               ) : detailEntry.platform === 'serasa' || detailEntry.consulta_type.startsWith('serasa') ? (
-                <SerasaDetailView data={detailEntry.result_data} document={detailEntry.cnpj} />
+                <SerasaDetailView data={detailEntry.result_data} document={detailEntry.cnpj} consultaId={detailEntry.consulta_type} />
               ) : (
                 <pre className="text-xs text-foreground whitespace-pre-wrap bg-muted p-4 rounded-lg">
                   {JSON.stringify(detailEntry.result_data, null, 2)}
@@ -377,6 +377,7 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
             <SerasaDetailView
               data={pdfEntry.result_data}
               document={pdfEntry.cnpj}
+              consultaId={pdfEntry.consulta_type}
               hideExportButton
               externalRef={pdfContentRef}
             />
