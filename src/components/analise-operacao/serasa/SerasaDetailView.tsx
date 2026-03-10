@@ -82,7 +82,15 @@ function formatCount(value: unknown, suffix = 'registros'): string {
 
 function calcAge(birthDate: unknown): number | null {
   if (!birthDate) return null;
-  const d = new Date(String(birthDate));
+  const raw = String(birthDate);
+  let d: Date;
+  // Parse date-only strings without timezone shift
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [y, m, day] = raw.split('-').map(Number);
+    d = new Date(y, m - 1, day);
+  } else {
+    d = new Date(raw);
+  }
   if (Number.isNaN(d.getTime())) return null;
   const now = new Date();
   let age = now.getFullYear() - d.getFullYear();
