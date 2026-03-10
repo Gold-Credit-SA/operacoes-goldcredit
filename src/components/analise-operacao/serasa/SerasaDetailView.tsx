@@ -1615,7 +1615,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         const limitValue = creditLimitDedicated?.value || creditLimitDedicated?.amount || creditLimitDedicated?.limitValue || creditLimitDedicated?.creditLimitValue
           || (creditLimitScore?.score ? Number(creditLimitScore.score) : undefined);
         const limitMessage = creditLimitDedicated?.message || creditLimitDedicated?.interpretation || creditLimitScore?.message || '';
-        const limitMessage = creditLimit?.message || creditLimit?.interpretation || '';
+        
         return (
         <div>
           <p className="text-sm font-semibold text-primary mb-1">Limite de Crédito PJ</p>
