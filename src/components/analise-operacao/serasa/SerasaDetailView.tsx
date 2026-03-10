@@ -284,7 +284,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         </div>
       </div>
 
-      {/* ── Serasa Score ── */}
+      {/* ── Serasa Score (Top Score only) ── */}
+      {isTopScore && (
       <div>
         <p className="text-sm font-semibold text-primary mb-1">Serasa Score</p>
         <p className="text-xs text-muted-foreground mb-3">
@@ -329,6 +330,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           </p>
         </div>
       </div>
+      )}
 
       {/* ── Anotações Negativas ── */}
       <div>
