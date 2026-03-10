@@ -243,7 +243,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const economicActivity = String(pick(identificationReport, ['economicActivity']) || '-');
   const cnae = String(pick(identificationReport, ['cnae']) || '-');
   const numberEmployees = pick(identificationReport, ['numberEmployees']);
-  const socialCapital = pick(companyData, ['socialCapitalValue', 'capitalValue']);
+  const socialCapital = pick(companyData, ['socialCapitalValue', 'capitalValue', 'accomplishedValue']);
   const companyAddress = pick(registration, ['address']) || pick(identificationReport, ['address']) || {} as GenericRecord;
 
   const statusRF = String(pick(registration, ['statusRegistration', 'documentStatus']) || pick(identificationReport, ['statusRegistration']) || '-');
