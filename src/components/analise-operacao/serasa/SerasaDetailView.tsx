@@ -449,6 +449,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           ]}
         />
 
+        {isTopScore && (
         <NegDetailTable
           title="Ações Judiciais"
           rows={judgementItems}
@@ -462,7 +463,9 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             { header: 'UF', render: (item) => item.state || item.federalUnit || '-' },
           ]}
         />
+        )}
 
+        {isTopScore && (
         <NegDetailTable
           title="Participação em Falência"
           rows={bankruptItems}
@@ -473,6 +476,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             { header: 'Tipo', render: (item) => item.companyLegalNature || '-' },
           ]}
         />
+        )}
       </div>
 
       {/* ── Participações Societárias ── */}
