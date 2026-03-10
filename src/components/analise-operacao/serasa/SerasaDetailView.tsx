@@ -116,14 +116,16 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const stolenDocuments = (report?.stolenDocuments || {}) as GenericRecord;
   const optionalFeatures = (report?.optionalFeatures || {}) as GenericRecord;
 
-  // Score - PJ uses H4PJ model, PF uses HRLD
+  // Score - PJ H4PJ is at report.score directly; PF HRLD at optionalFeatures.scoreResponse
+  // Credit limit HLC1 is at report.scores.scoreResponse[]
+  const directScore = (report?.score || {}) as GenericRecord;
   const scoresSection = (report?.scores || optionalFeatures?.scores || {}) as GenericRecord;
-  const scoreResponseArr = asArray(scoresSection?.scoreResponse || optionalFeatures?.scoreResponse || []);
-  // Find the main score (H4PJ or HRLD) — exclude HLC1 which is credit limit
-  const mainScoreObj = scoreResponseArr.find((s: any) => s.scoreModel !== 'HLC1') || scoreResponseArr[0];
-  const score = (mainScoreObj || optionalFeatures?.scoreResponse || optionalFeatures?.score || {}) as GenericRecord;
-  // Find credit limit score (HLC1)
+  const scoreResponseArr = asArray(scoresSection?.scoreResponse || []);
   const creditLimitScore = scoreResponseArr.find((s: any) => s.scoreModel === 'HLC1') as GenericRecord | undefined;
+  // Use direct score (H4PJ/HRLD) if available, otherwise fall back to scoreResponse array
+  const mainScoreFromArr = scoreResponseArr.find((s: any) => s.scoreModel !== 'HLC1');
+  const score = (directScore?.score ? directScore : mainScoreFromArr || optionalFeatures?.scoreResponse || optionalFeatures?.score || {}) as GenericRecord;
+
   const pefin = (negativeData?.pefinResponse || negativeData?.pefin || {}) as GenericRecord;
   const refin = (negativeData?.refinResponse || negativeData?.refin || {}) as GenericRecord;
   const convem = (negativeData?.collectionRecordsResponse || negativeData?.collectionRecords || {}) as GenericRecord;
@@ -134,13 +136,16 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
 
   // PJ specific - company data / QSA
   const identificationReport = (report?.identificationReport || {}) as GenericRecord;
-  const companyData = (report?.companyData || optionalFeatures?.companyData || {}) as GenericRecord;
+  const qsaReport = (report?.QSAReport || report?.qsaReport || {}) as GenericRecord;
+  const companyData = (qsaReport?.companyData || report?.companyData || optionalFeatures?.companyData || {}) as GenericRecord;
   const partnersList = asArray(companyData?.partnersList || companyData?.partners || []);
   const directorsList = asArray(companyData?.directorsList || companyData?.directors || []);
 
-  // QSA from basic report structure (PartnerResponse / DirectorResponse)
-  const qsaPartners = asArray(report?.qsa?.partnerResponse || report?.qsa?.partners || optionalFeatures?.qsa?.partnerResponse || []);
-  const qsaDirectors = asArray(report?.qsa?.directorResponse || report?.qsa?.directors || optionalFeatures?.qsa?.directorResponse || []);
+  // QSA partners/directors from QSAReport or fallback paths
+  const qsaPartnerReport = (qsaReport?.partnerCompleteReport || qsaReport?.partnerReport || {}) as GenericRecord;
+  const qsaDirectorReport = (qsaReport?.directorCompleteReport || qsaReport?.directorReport || {}) as GenericRecord;
+  const qsaPartners = asArray(qsaPartnerReport?.partnersList || qsaPartnerReport?.partners || report?.qsa?.partnerResponse || report?.qsa?.partners || optionalFeatures?.qsa?.partnerResponse || []);
+  const qsaDirectors = asArray(qsaDirectorReport?.directorsList || qsaDirectorReport?.directors || report?.qsa?.directorResponse || report?.qsa?.directors || optionalFeatures?.qsa?.directorResponse || []);
   const allPartners = partnersList.length > 0 ? partnersList : qsaPartners;
   const allDirectors = directorsList.length > 0 ? directorsList : qsaDirectors;
 
