@@ -436,9 +436,35 @@ export function SerasaDetailView({ data, document: docNumber, hideExportButton, 
             { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
             { header: 'Quantidade', render: (item) => item.checkCount || item.quantity || '-' },
             { header: 'Banco', render: (item) => item.bankName || '-' },
-            { header: 'Agência', render: (item) => item.branch || '-' },
+            { header: 'Agência', render: (item) => item.bankAgencyId || item.branch || '-' },
+            { header: 'Nº Cheque', render: (item) => item.checkNumber || '-' },
             { header: 'Cidade', render: (item) => item.city || '-' },
             { header: 'UF', render: (item) => item.federalUnit || '-' },
+          ]}
+        />
+
+        <NegDetailTable
+          title="Ações Judiciais"
+          rows={judgementItems}
+          columns={[
+            { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
+            { header: 'Valor', render: (item) => formatCurrency(item.amount) },
+            { header: 'Natureza', render: (item) => item.legalNature || '-' },
+            { header: 'Distribuidor', render: (item) => item.distributor || '-' },
+            { header: 'Vara', render: (item) => item.civilCourt || '-' },
+            { header: 'Cidade', render: (item) => item.city || '-' },
+            { header: 'UF', render: (item) => item.state || item.federalUnit || '-' },
+          ]}
+        />
+
+        <NegDetailTable
+          title="Participação em Falência"
+          rows={bankruptItems}
+          columns={[
+            { header: 'Data', render: (item) => formatDate(item.occurrenceDate) },
+            { header: 'CNPJ', render: (item) => item.companyDocumentId || '-' },
+            { header: 'Empresa', render: (item) => item.companyName || '-' },
+            { header: 'Tipo', render: (item) => item.companyLegalNature || '-' },
           ]}
         />
       </div>
