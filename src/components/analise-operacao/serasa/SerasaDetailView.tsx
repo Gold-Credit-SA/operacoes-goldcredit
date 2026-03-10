@@ -302,10 +302,13 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
       <div>
         <p className="text-sm font-semibold text-primary mb-3">Informações fixadas</p>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {/* Situação Cadastral */}
+          {/* Situação na Receita Federal */}
           <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Situação Cadastral</p>
+            <p className="text-[11px] font-medium text-muted-foreground">Situação na Receita Federal</p>
             <p className="text-sm font-bold text-foreground mt-1">{statusRF}</p>
+            {statusDate && statusDate !== '-' && (
+              <p className="text-[11px] text-muted-foreground mt-0.5">Atualizado em {statusDate}</p>
+            )}
           </div>
           {/* Score with risk level */}
           {hasScore && (() => {
