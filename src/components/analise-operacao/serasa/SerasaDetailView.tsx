@@ -922,6 +922,10 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         </>
         )}
 
+      {/* ═══════════════════ PF-SPECIFIC SECTIONS ═══════════════════ */}
+      {isPF && (
+      <>
+
         {!isTopScore && (
         <>
         <p className="text-xs font-medium text-muted-foreground mt-4 mb-2">Outros Dados Cadastrais</p>
