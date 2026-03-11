@@ -1,4 +1,4 @@
-import { useRef, type ComponentType, type ReactNode } from 'react';
+import React, { useRef, type ComponentType, type ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { SerasaPdfExport } from './SerasaPdfExport';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -328,7 +328,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
       {/* ── Informações fixadas ── */}
       <div>
         <p className="text-sm font-semibold text-primary mb-3">Informações fixadas</p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className={`grid gap-3 ${isAvancadoPJ ? 'grid-cols-2 md:grid-cols-5' : 'grid-cols-3'}`}>
           {/* Situação na Receita Federal */}
           <div className="border border-border rounded-lg p-3">
             <p className="text-[11px] font-medium text-muted-foreground">Situação na Receita Federal</p>
@@ -340,8 +340,11 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             const riskColor = scoreValue >= 601 ? 'border-green-500 text-green-600' : scoreValue >= 401 ? 'border-blue-500 text-blue-600' : scoreValue >= 201 ? 'border-amber-500 text-amber-600' : 'border-destructive text-destructive';
             return (
             <div className="border border-border rounded-lg p-3">
+              <p className="text-[11px] font-medium text-muted-foreground">{scoreValue > 0 ? (isPJ ? 'Serasa Score Empresas' : 'Score') : 'Score não calculado'}</p>
+              {scoreValue > 0 ? (
+              <>
               <div className="flex items-center gap-2">
-                <span className="text-2xl font-bold text-foreground">{scoreValue || '-'}</span>
+                <span className="text-2xl font-bold text-foreground">{scoreValue}</span>
                 {riskLabel && (
                   <Badge variant="outline" className={`${riskColor} text-[10px] px-1.5 py-0.5 whitespace-nowrap`}>
                     {riskLabel}
@@ -359,6 +362,10 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
                 <span className="text-[10px] text-muted-foreground">500</span>
                 <span className="text-[10px] text-muted-foreground">1000</span>
               </div>
+              </>
+              ) : (
+              <p className="text-sm font-bold text-foreground mt-1">{isPJ ? 'Serasa Score Empresas' : '-'}</p>
+              )}
             </div>
             );
           })()}
@@ -369,15 +376,11 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             const totalAnnotations = partnersWithAnnotations + directorsWithAnnotations;
             return (
             <div className="border border-border rounded-lg p-3">
-              <p className="text-[11px] font-medium text-muted-foreground">Ocorrência de anotações negativas</p>
+              <p className="text-[11px] font-medium text-muted-foreground">Sem ocorrências</p>
               <p className="text-sm font-bold text-foreground mt-1">
                 {allPartners.length} | {allDirectors.length}
               </p>
-              {totalAnnotations > 0 ? (
-                <p className="text-[11px] text-destructive mt-0.5">{totalAnnotations} ocorrência{totalAnnotations !== 1 ? 's' : ''}</p>
-              ) : (
-                <p className="text-[11px] text-muted-foreground mt-0.5">Sem ocorrências</p>
-              )}
+              <p className="text-[11px] text-muted-foreground mt-0.5">Sócios | Administradores</p>
             </div>
             );
           })() : (
@@ -393,6 +396,25 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             )}
           </div>
           )}
+          {/* Advanced PJ extra columns */}
+          {isAvancadoPJ && (
+          <>
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Consultas últimos 13 meses</p>
+            <p className="text-sm font-bold text-foreground mt-1">
+              {(() => {
+                const total13 = pjInquiryHistorical.reduce((sum: number, h: any) => sum + Number(h.occurrences || 0), 0);
+                return total13 > 0 ? `${total13} consultas` : 'Sem consultas';
+              })()}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Consultas nos últimos 13 meses</p>
+          </div>
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Capital social</p>
+            <p className="text-sm font-bold text-foreground mt-1">{socialCapital ? formatCurrency(socialCapital) : '-'}</p>
+          </div>
+          </>
+          )}
         </div>
       </div>
 
@@ -401,9 +423,96 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
       <>
       {/* ── Identificação Cadastral PJ ── */}
       <div>
-        <p className="text-sm font-semibold text-primary mb-3">Identificação Cadastral</p>
+        <p className="text-sm font-semibold text-primary mb-1">Dados Cadastrais</p>
+        <p className="text-xs text-muted-foreground mb-3">Atualizado em {statusDate}</p>
 
-        {/* 3 cards: Situação RF, Fundação, Município/UF */}
+        {isAvancadoPJ ? (
+        <>
+        {/* Advanced PJ: 8 header cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 mb-4">
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Situação Cadastral</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{statusRF}</p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Fundação em</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">
+              {formatDate(foundationDate)}
+              {foundationDate && (() => {
+                const raw = String(foundationDate);
+                let fd: Date;
+                if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) { const [y, m, d] = raw.split('-').map(Number); fd = new Date(y, m - 1, d); } else { fd = new Date(raw); }
+                if (!isNaN(fd.getTime())) { const years = Math.floor((Date.now() - fd.getTime()) / (365.25 * 24 * 60 * 60 * 1000)); return <span className="text-muted-foreground font-normal"> ({years} anos)</span>; }
+                return null;
+              })()}
+            </p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Município/UF</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{joinLocation(companyAddress?.city || pick(registration, ['address.city']), companyAddress?.state || companyAddress?.federalUnit || pick(registration, ['address.state']))}</p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Ramo de atividade</p>
+            <p className="text-xs font-bold text-foreground mt-0.5 break-words">{economicActivity}</p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Tipo de sociedade</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(identificationReport, ['legalNature', 'companyLegalNature', 'societyType']) || '-')}</p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Nº de funcionários</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{numberEmployees != null ? String(numberEmployees) : '-'}</p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Filiais</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(identificationReport, ['branches', 'branchCount', 'numberBranches']) || '-')}</p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Opção tributária</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(identificationReport, ['taxOption', 'tributaryOption', 'optionTributary']) || '-')}</p>
+          </div>
+        </div>
+
+        {/* Dados cadastrais - full detail for advanced */}
+        <p className="text-xs font-medium text-muted-foreground mb-2">Dados cadastrais</p>
+        <div className="border border-border rounded-lg text-sm divide-y divide-border">
+          {[
+            { label: 'Nome fantasia', value: companyAlias },
+            { label: 'Endereço', value: (() => { const addr = companyAddress; if (!addr || typeof addr !== 'object') return '-'; const parts = [addr.street, addr.number, addr.complement, addr.neighborhood ? `- ${addr.neighborhood}` : '', addr.city || '', addr.state ? `- ${addr.state},` : '', addr.zipCode].filter(Boolean); return parts.join(' ') || '-'; })() },
+            { label: 'Site', value: String(pick(identificationReport, ['website', 'site', 'webSite']) || '-') },
+            { label: 'Telefone', value: String(pick(identificationReport, ['phone', 'telephone', 'phoneNumber']) || pick(registration, ['phone', 'telephone']) || '-') },
+          ].map((row, i) => (
+            <div key={i} className="px-4 py-1.5 flex gap-2">
+              <span className="text-muted-foreground text-xs font-medium shrink-0 w-28">{row.label}:</span>
+              <span className="text-xs text-foreground">{row.value}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Outros dados */}
+        <p className="text-xs font-medium text-muted-foreground mt-3 mb-2">Outros dados</p>
+        <div className="border border-border rounded-lg text-sm divide-y divide-border">
+          {[
+            { label: 'CNAE', value: cnae },
+            { label: 'Inscrição estadual', value: String(pick(identificationReport, ['stateRegistration', 'inscricaoEstadual']) || '-') },
+            { label: 'NIRE', value: String(pick(identificationReport, ['nire', 'NIRE']) || '-') },
+            { label: 'Registro', value: String(pick(identificationReport, ['registration', 'registrationNumber']) || '-') },
+            { label: 'Data de registro', value: formatDate(pick(identificationReport, ['registrationDate'])) },
+            { label: 'Importação sobre compras', value: String(pick(identificationReport, ['importation', 'importOnPurchases']) || '-') },
+            { label: 'Exportação sobre vendas', value: String(pick(identificationReport, ['exportation', 'exportOnSales']) || '-') },
+            { label: 'Código de atividade Serasa', value: String(pick(identificationReport, ['activityCode', 'serasaActivityCode']) || '-') },
+            { label: 'Empresa antecessora', value: String(pick(identificationReport, ['predecessorCompany', 'antecessorCompany']) || '-') },
+          ].map((row, i) => (
+            <div key={i} className="px-4 py-1.5 flex gap-2">
+              <span className="text-muted-foreground text-xs font-medium shrink-0 w-44">{row.label}:</span>
+              <span className="text-xs text-foreground">{row.value}</span>
+            </div>
+          ))}
+        </div>
+        </>
+        ) : (
+        <>
+        {/* Basic PJ: 3 cards */}
         <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="border border-border rounded-lg p-4">
             <p className="text-[11px] font-medium text-muted-foreground">Situação na Receita Federal</p>
@@ -417,29 +526,19 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
               {foundationDate && (() => {
                 const raw = String(foundationDate);
                 let fd: Date;
-                if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-                  const [y, m, d] = raw.split('-').map(Number);
-                  fd = new Date(y, m - 1, d);
-                } else {
-                  fd = new Date(raw);
-                }
-                if (!isNaN(fd.getTime())) {
-                  const years = Math.floor((Date.now() - fd.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-                  return `${years} anos`;
-                }
+                if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) { const [y, m, d] = raw.split('-').map(Number); fd = new Date(y, m - 1, d); } else { fd = new Date(raw); }
+                if (!isNaN(fd.getTime())) { const years = Math.floor((Date.now() - fd.getTime()) / (365.25 * 24 * 60 * 60 * 1000)); return `${years} anos`; }
                 return '-';
               })()}
             </p>
           </div>
           <div className="border border-border rounded-lg p-4">
             <p className="text-[11px] font-medium text-muted-foreground">Município/UF</p>
-            <p className="text-sm font-bold text-foreground mt-1">
-              {joinLocation(companyAddress?.city || pick(registration, ['address.city']), companyAddress?.state || companyAddress?.federalUnit || pick(registration, ['address.state']))}
-            </p>
+            <p className="text-sm font-bold text-foreground mt-1">{joinLocation(companyAddress?.city || pick(registration, ['address.city']), companyAddress?.state || companyAddress?.federalUnit || pick(registration, ['address.state']))}</p>
           </div>
         </div>
 
-        {/* Dados cadastrais - only address like Serasa reference */}
+        {/* Dados cadastrais - only address for basic */}
         <p className="text-xs font-medium text-muted-foreground mb-2">Dados cadastrais</p>
         <div className="border border-border rounded-lg text-sm">
           <div className="px-4 py-2 flex gap-2">
@@ -448,12 +547,14 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
               {(() => {
                 const addr = companyAddress;
                 if (!addr || typeof addr !== 'object') return '-';
-                const parts = [addr.street, addr.number, addr.complement, addr.neighborhood ? `- ${addr.neighborhood}` : '', addr.city ? `${addr.city}` : '', addr.state ? `- ${addr.state},` : '', addr.zipCode].filter(Boolean);
+                const parts = [addr.street, addr.number, addr.complement, addr.neighborhood ? `- ${addr.neighborhood}` : '', addr.city || '', addr.state ? `- ${addr.state},` : '', addr.zipCode].filter(Boolean);
                 return parts.join(' ') || '-';
               })()}
             </span>
           </div>
         </div>
+        </>
+        )}
       </div>
 
       {/* ── Serasa Score Empresas ── */}
@@ -628,10 +729,133 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
       <div>
         <p className="text-sm font-semibold text-primary mb-1">Quadro Societário</p>
         <p className="text-xs text-muted-foreground mb-4">
-          Composição dos sócios e administradores da empresa
+          Composição dos sócios e administradores da empresa. Atualizado em {statusDate}
         </p>
 
-        {/* Ocorrência de anotações negativas - single card */}
+        {isAvancadoPJ ? (
+        <>
+        {/* Advanced PJ: Company capital summary */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Capital social</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{socialCapital ? formatCurrency(socialCapital) : '-'}</p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Capital realizado</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{pick(companyData, ['accomplishedValue', 'realizedCapital']) ? formatCurrency(pick(companyData, ['accomplishedValue', 'realizedCapital'])) : socialCapital ? formatCurrency(socialCapital) : '-'}</p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Tipo de capital</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(companyData, ['capitalType', 'typeCapital']) || '-')}</p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Tipo de controle</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(companyData, ['controlType', 'typeControl']) || '-')}</p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Origem</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(companyData, ['origin', 'companyOrigin']) || '-')}</p>
+          </div>
+        </div>
+
+        {/* Sem ocorrências summary */}
+        {(() => {
+          const pAnnot = allPartners.filter((p: any) => p.hasNegative === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim').length;
+          const dAnnot = allDirectors.filter((d: any) => d.hasNegative === true || d.restrictionSign === true || String(d.annotations || '').toLowerCase() === 'sim').length;
+          const totalAnnot = pAnnot + dAnnot;
+          return (
+          <div className="border border-border rounded-lg p-3 mb-4">
+            <p className="text-[11px] font-medium text-muted-foreground">Sem ocorrências</p>
+            <p className="text-sm font-bold text-foreground mt-0.5">
+              {allPartners.length} | {allDirectors.length}
+            </p>
+            <p className="text-[11px] text-muted-foreground">Sócios | Administradores</p>
+            {totalAnnot > 0 && <p className="text-[11px] text-destructive mt-0.5">{totalAnnot} com anotações negativas</p>}
+          </div>
+          );
+        })()}
+
+        {/* Sócios e acionistas - expanded */}
+        <p className="text-xs font-medium text-muted-foreground mb-2">Sócios e acionistas</p>
+        {allPartners.length === 0 ? (
+          <p className="text-xs text-muted-foreground mb-4">Nenhum registro encontrado.</p>
+        ) : (
+          <div className="overflow-x-auto border border-border rounded-lg mb-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs font-medium">Capital</TableHead>
+                  <TableHead className="text-xs font-medium">Capital votante</TableHead>
+                  <TableHead className="text-xs font-medium">Sócio/Acionista</TableHead>
+                  <TableHead className="text-xs font-medium">CPF/CNPJ</TableHead>
+                  <TableHead className="text-xs font-medium">Entrada</TableHead>
+                  <TableHead className="text-xs font-medium">Nacionalidade</TableHead>
+                  <TableHead className="text-xs font-medium">Anotações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {allPartners.map((p: any, i: number) => {
+                  const hasNeg = p.hasNegative === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim';
+                  return (
+                  <TableRow key={i}>
+                    <TableCell className="text-xs py-2">{p.participationPercentage != null ? `${p.participationPercentage}%` : p.percentage || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{p.votingPercentage != null ? `${p.votingPercentage}%` : p.votingCapital || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{p.name || p.partnerName || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDocument(p.documentId || p.documentNumber || p.cpf || p.cnpj)}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDate(p.admissionDate || p.entryDate || p.since)}</TableCell>
+                    <TableCell className="text-xs py-2">{p.nationality || '-'}</TableCell>
+                    <TableCell className={`text-xs py-2 ${hasNeg ? 'text-destructive font-medium' : ''}`}>{hasNeg ? 'Sim' : 'Não'}</TableCell>
+                  </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
+        {/* Administradores - expanded */}
+        <p className="text-xs font-medium text-muted-foreground mb-2">Administradores</p>
+        {allDirectors.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nenhum registro encontrado.</p>
+        ) : (
+          <div className="overflow-x-auto border border-border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs font-medium">Nome</TableHead>
+                  <TableHead className="text-xs font-medium">Cargo</TableHead>
+                  <TableHead className="text-xs font-medium">CPF/CNPJ</TableHead>
+                  <TableHead className="text-xs font-medium">Entrada</TableHead>
+                  <TableHead className="text-xs font-medium">Mandato</TableHead>
+                  <TableHead className="text-xs font-medium">Nacionalidade</TableHead>
+                  <TableHead className="text-xs font-medium">Estado Civil</TableHead>
+                  <TableHead className="text-xs font-medium">Anotações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {allDirectors.map((d: any, i: number) => {
+                  const hasNeg = d.hasNegative === true || d.restrictionSign === true || String(d.annotations || '').toLowerCase() === 'sim';
+                  return (
+                  <TableRow key={i}>
+                    <TableCell className="text-xs py-2">{d.name || d.directorName || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{d.position || d.role || d.office || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDocument(d.documentId || d.documentNumber || d.cpf || d.cnpj)}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDate(d.admissionDate || d.entryDate || d.since)}</TableCell>
+                    <TableCell className="text-xs py-2">{d.mandate || d.mandatePeriod || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{d.nationality || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{d.maritalStatus || d.civilStatus || '-'}</TableCell>
+                    <TableCell className={`text-xs py-2 ${hasNeg ? 'text-destructive font-medium' : ''}`}>{hasNeg ? 'Sim' : 'Não'}</TableCell>
+                  </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+        </>
+        ) : (
+        <>
+        {/* Basic PJ: Simplified QSA */}
         {(() => {
           const pAnnot = allPartners.filter((p: any) => p.hasNegative === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim').length;
           const dAnnot = allDirectors.filter((d: any) => d.hasNegative === true || d.restrictionSign === true || String(d.annotations || '').toLowerCase() === 'sim').length;
@@ -651,10 +875,10 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           );
         })()}
 
-        {/* Sócios e acionistas */}
+        {/* Sócios */}
         <p className="text-xs font-medium text-muted-foreground mb-2">Sócios e acionistas</p>
         {allPartners.length === 0 ? (
-          <p className="text-xs text-muted-foreground mb-4">Nenhum sócio encontrado.</p>
+          <p className="text-xs text-muted-foreground mb-4">Nenhum registro encontrado.</p>
         ) : (
           <div className="overflow-x-auto border border-border rounded-lg mb-4">
             <Table>
@@ -671,14 +895,10 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
                   const hasNeg = p.hasNegative === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim';
                   return (
                   <TableRow key={i}>
-                    <TableCell className="text-xs py-2">{p.participationPercentage != null ? `${p.participationPercentage}%` : '-'}</TableCell>
-                    <TableCell className="text-xs py-2 font-medium">{p.name || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{formatDocument(p.documentId || p.document || '')}</TableCell>
-                    <TableCell className="text-xs py-2">
-                      {hasNeg ? (
-                        <span className="flex items-center gap-1 text-amber-600 font-medium">Sim <AlertTriangle className="h-3.5 w-3.5" /></span>
-                      ) : <span className="text-muted-foreground">Não</span>}
-                    </TableCell>
+                    <TableCell className="text-xs py-2">{p.participationPercentage != null ? `${p.participationPercentage}%` : p.percentage || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{p.name || p.partnerName || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDocument(p.documentId || p.documentNumber || p.cpf || p.cnpj)}</TableCell>
+                    <TableCell className={`text-xs py-2 ${hasNeg ? 'text-destructive font-medium' : ''}`}>{hasNeg ? 'Sim' : 'Não'}</TableCell>
                   </TableRow>
                   );
                 })}
@@ -690,9 +910,9 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         {/* Administradores */}
         <p className="text-xs font-medium text-muted-foreground mb-2">Administradores</p>
         {allDirectors.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Nenhum administrador encontrado.</p>
+          <p className="text-xs text-muted-foreground">Nenhum registro encontrado.</p>
         ) : (
-          <div className="overflow-x-auto border border-border rounded-lg mb-4">
+          <div className="overflow-x-auto border border-border rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -707,14 +927,10 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
                   const hasNeg = d.hasNegative === true || d.restrictionSign === true || String(d.annotations || '').toLowerCase() === 'sim';
                   return (
                   <TableRow key={i}>
-                    <TableCell className="text-xs py-2 font-medium">{d.name || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{d.role || d.office || 'ADMINISTRADOR'}</TableCell>
-                    <TableCell className="text-xs py-2">{formatDocument(d.documentId || d.document || '')}</TableCell>
-                    <TableCell className="text-xs py-2">
-                      {hasNeg ? (
-                        <span className="flex items-center gap-1 text-amber-600 font-medium">Sim <AlertTriangle className="h-3.5 w-3.5" /></span>
-                      ) : <span className="text-muted-foreground">Não</span>}
-                    </TableCell>
+                    <TableCell className="text-xs py-2">{d.name || d.directorName || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{d.position || d.role || d.office || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDocument(d.documentId || d.documentNumber || d.cpf || d.cnpj)}</TableCell>
+                    <TableCell className={`text-xs py-2 ${hasNeg ? 'text-destructive font-medium' : ''}`}>{hasNeg ? 'Sim' : 'Não'}</TableCell>
                   </TableRow>
                   );
                 })}
@@ -722,60 +938,31 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             </Table>
           </div>
         )}
-      </div>
-      </>
-      )}
-
-      {/* ═══════════════════ PF-SPECIFIC SECTIONS ═══════════════════ */}
-      {isPF && (
-      <>
-      {/* ── Identificação Cadastral PF ── */}
-      <div>
-        <p className="text-sm font-semibold text-primary mb-3">Identificação Cadastral</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Situação na Receita Federal</p>
-            <p className="text-sm font-bold text-foreground mt-1">{statusRF}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Atualizado em {statusDate}</p>
-          </div>
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Data de Nascimento</p>
-            <p className="text-sm font-bold text-foreground mt-1">{birthAge !== null ? `${birthAge} anos` : '-'}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">{formatDate(birthDateRaw)}</p>
-          </div>
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Município/UF</p>
-            <p className="text-sm font-bold text-foreground mt-1">{joinLocation(pick(registration, ['city']), pick(registration, ['federalUnit']))}</p>
-          </div>
-        </div>
-
-        {isTopScore && (
-        <>
-        <p className="text-xs font-medium text-muted-foreground mt-4 mb-2">Dados cadastrais</p>
-        <div className="overflow-x-auto border border-border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-xs font-medium">Nome completo</TableHead>
-                <TableHead className="text-xs font-medium">CPF</TableHead>
-                <TableHead className="text-xs font-medium">Data de nascimento</TableHead>
-                <TableHead className="text-xs font-medium">Nome da mãe</TableHead>
-                <TableHead className="text-xs font-medium">Sexo</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow>
-                <TableCell className="text-xs py-2">{consumerName}</TableCell>
-                <TableCell className="text-xs py-2">{displayDoc}</TableCell>
-                <TableCell className="text-xs py-2">{formatDate(birthDateRaw)}</TableCell>
-                <TableCell className="text-xs py-2">{motherName}</TableCell>
-                <TableCell className="text-xs py-2">{gender}</TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </div>
         </>
         )}
+      </div>
+        </>
+        )}
+      {/* ── Identificação Cadastral PF ── */}
+      {isPF && (
+      <>
+      <div>
+        <p className="text-sm font-semibold text-primary mb-3">Identificação Cadastral</p>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+          <div className="border border-border rounded-lg p-4">
+            <p className="text-[11px] font-medium text-muted-foreground">Situação na Receita Federal</p>
+            <p className="text-sm font-bold text-foreground mt-1">{statusRF}</p>
+          </div>
+          <div className="border border-border rounded-lg p-4">
+            <p className="text-[11px] font-medium text-muted-foreground">Nome</p>
+            <p className="text-sm font-bold text-foreground mt-1">{consumerName}</p>
+          </div>
+          <div className="border border-border rounded-lg p-4">
+            <p className="text-[11px] font-medium text-muted-foreground">Nascimento</p>
+            <p className="text-sm font-bold text-foreground mt-1">{formatDate(birthDateRaw)}{birthAge !== null ? ` (${birthAge} anos)` : ''}</p>
+          </div>
+        </div>
 
         {!isTopScore && (
         <>
@@ -1327,169 +1514,376 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         const paymentHistoryPJ = (behavioralData?.paymentHistory || report?.paymentHistoryCompany || optionalFeatures?.paymentHistoryCompany || {}) as GenericRecord;
         const commitmentEvolution = (behavioralData?.commitmentEvolution || report?.commitmentEvolution || optionalFeatures?.commitmentEvolution || {}) as GenericRecord;
         const businessReferences = (behavioralData?.businessReferences || report?.businessReferences || optionalFeatures?.businessReferences || {}) as GenericRecord;
+        const suppliers = (behavioralData?.suppliers || behavioralData?.principalSuppliers || report?.suppliers || optionalFeatures?.suppliers || {}) as GenericRecord;
+        const comparativeAnalysis = (behavioralData?.comparativeAnalysis || report?.comparativeAnalysis || optionalFeatures?.comparativeAnalysis || {}) as GenericRecord;
 
         const marketItems = asArray(marketRelationship?.marketRelationshipResponse || marketRelationship?.results || marketRelationship?.items || []);
         const pjPayItems = asArray(paymentHistoryPJ?.paymentHistoryResponse || paymentHistoryPJ?.payments || paymentHistoryPJ?.items || paymentHistoryPJ?.results || []);
         const commitmentItems = asArray(commitmentEvolution?.commitmentEvolutionResponse || commitmentEvolution?.results || commitmentEvolution?.items || []);
         const businessRefItems = asArray(businessReferences?.businessReferencesResponse || businessReferences?.results || businessReferences?.items || []);
-        const pjPaySummary = (paymentHistoryPJ?.summary || paymentHistoryPJ) as GenericRecord;
+        const supplierItems = asArray(suppliers?.suppliersResponse || suppliers?.results || suppliers?.items || []);
+        const comparativeItems = asArray(comparativeAnalysis?.comparativeAnalysisResponse || comparativeAnalysis?.results || comparativeAnalysis?.items || []);
+
+        // Payment history may have market and factoring sub-sections
+        const payHistoryMarket = asArray(paymentHistoryPJ?.market?.paymentHistoryResponse || paymentHistoryPJ?.marketPaymentHistory || paymentHistoryPJ?.market?.results || []);
+        const payHistoryFactoring = asArray(paymentHistoryPJ?.factoring?.paymentHistoryResponse || paymentHistoryPJ?.factoringPaymentHistory || paymentHistoryPJ?.factoring?.results || []);
+        const payHistoryDelayMarket = asArray(paymentHistoryPJ?.market?.averageDelay || paymentHistoryPJ?.marketAverageDelay || []);
+        const payHistoryDelayFactoring = asArray(paymentHistoryPJ?.factoring?.averageDelay || paymentHistoryPJ?.factoringAverageDelay || []);
+
+        // Commitment evolution sub-sections
+        const commitmentMarket = asArray(commitmentEvolution?.market?.commitmentEvolutionResponse || commitmentEvolution?.marketCommitment || []);
+        const commitmentFactoring = asArray(commitmentEvolution?.factoring?.commitmentEvolutionResponse || commitmentEvolution?.factoringCommitment || []);
+        const commitmentComparative = asArray(commitmentEvolution?.comparative?.commitmentEvolutionResponse || commitmentEvolution?.comparativeCommitment || []);
+
+        // Business references sub-sections
+        const refMarket = asArray(businessReferences?.market?.businessReferencesResponse || businessReferences?.marketReferences || []);
+        const refFactoring = asArray(businessReferences?.factoring?.businessReferencesResponse || businessReferences?.factoringReferences || []);
 
         return (
         <div>
           <p className="text-sm font-semibold text-primary mb-1">Informações Comportamentais</p>
           <p className="text-xs text-muted-foreground mb-4">
-            Dados de comportamento de pagamento e relacionamento da empresa com o mercado.
+            Informações detalhadas sobre histórico de pagamentos, perfil de compras e compromissos a vencer.
           </p>
 
-          {/* Relacionamento com o Mercado */}
-          <div className="mb-4">
-            <p className="text-xs font-medium text-muted-foreground mb-2">Relacionamento com o Mercado</p>
-            {marketItems.length > 0 ? (
+          {/* Principais fornecedores */}
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-primary mb-1">Principais fornecedores</p>
+            <p className="text-[11px] text-muted-foreground mb-2">
+              Atualizado em {statusDate}{supplierItems.length > 0 ? `  Exibindo ${supplierItems.length} registros.` : ''}
+            </p>
+            <p className="text-[11px] text-muted-foreground mb-2">Visão de mercado{supplierItems.length > 0 ? `  Exibindo ${supplierItems.length} registros.` : ''}</p>
+            {supplierItems.length > 0 ? (
               <div className="overflow-x-auto border border-border rounded-lg">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-xs font-medium">Período</TableHead>
-                      <TableHead className="text-xs font-medium">Segmento</TableHead>
-                      <TableHead className="text-xs font-medium">Valor Total</TableHead>
-                      <TableHead className="text-xs font-medium">Qtd. Operações</TableHead>
+                      <TableHead className="text-xs font-medium">CNPJ do Fornecedor</TableHead>
+                      <TableHead className="text-xs font-medium">Razão Social do Fornecedor</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {supplierItems.map((item: any, i: number) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-xs py-2">{item.documentId ? formatDocument(item.documentId) : item.cnpj ? formatDocument(item.cnpj) : '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.companyName || item.name || item.razaoSocial || '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">Nenhum registro encontrado.</p>
+            )}
+          </div>
+
+          {/* Relacionamento com o Mercado */}
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-primary mb-2">Relacionamento com o mercado</p>
+            {marketItems.length > 0 ? (
+              <>
+              <p className="text-[11px] text-muted-foreground mb-2">Exibindo {marketItems.length} registros.</p>
+              <div className="overflow-x-auto border border-border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs font-medium">0 - 6 meses</TableHead>
+                      <TableHead className="text-xs font-medium">6 meses - 1 ano</TableHead>
+                      <TableHead className="text-xs font-medium">1 - 3 anos</TableHead>
+                      <TableHead className="text-xs font-medium">3 - 5 anos</TableHead>
+                      <TableHead className="text-xs font-medium">5 - 10 anos</TableHead>
+                      <TableHead className="text-xs font-medium">{'>'}10 anos</TableHead>
+                      <TableHead className="text-xs font-medium">Inativos</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {marketItems.map((item: any, i: number) => (
                       <TableRow key={i}>
-                        <TableCell className="text-xs py-2">{item.period || item.month || formatDate(item.date) || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.segment || item.type || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.totalAmount ? formatCurrency(item.totalAmount) : item.amount ? formatCurrency(item.amount) : '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.operationsCount || item.quantity || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.range0to6 || item.zeroToSix || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.range6to12 || item.sixToTwelve || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.range1to3 || item.oneToThree || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.range3to5 || item.threeToFive || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.range5to10 || item.fiveToTen || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.rangeOver10 || item.overTen || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.inactive || item.inactives || '-'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
+              </>
             ) : (
-              <div className="border border-border rounded-lg p-3">
-                <p className="text-xs text-muted-foreground">Sem dados de relacionamento com o mercado.</p>
-              </div>
+              <p className="text-xs text-muted-foreground">Sem dados de relacionamento com o mercado.</p>
             )}
           </div>
 
-          {/* Histórico de Pagamentos */}
-          <div className="mb-4">
-            <p className="text-xs font-medium text-muted-foreground mb-2">Histórico de Pagamentos</p>
-            {pjPayItems.length > 0 ? (
+          {/* Histórico de pagamento - Quantidade de títulos */}
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-primary mb-2">Histórico de pagamento - Quantidade de títulos</p>
+            {(pjPayItems.length > 0 || payHistoryMarket.length > 0) ? (
+              <>
+              <p className="text-[11px] text-muted-foreground mb-2">Exibindo registros.</p>
               <div className="overflow-x-auto border border-border rounded-lg">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-xs font-medium">Período</TableHead>
+                      <TableHead className="text-xs font-medium">Últimos 12 meses</TableHead>
+                      <TableHead className="text-xs font-medium">À vista</TableHead>
                       <TableHead className="text-xs font-medium">Pontual</TableHead>
-                      <TableHead className="text-xs font-medium">1-14 dias</TableHead>
-                      <TableHead className="text-xs font-medium">15-30 dias</TableHead>
-                      <TableHead className="text-xs font-medium">31-60 dias</TableHead>
-                      <TableHead className="text-xs font-medium">61-90 dias</TableHead>
-                      <TableHead className="text-xs font-medium">{'>'}90 dias</TableHead>
+                      <TableHead className="text-xs font-medium">8 a 15 dias</TableHead>
+                      <TableHead className="text-xs font-medium">16 a 30 dias</TableHead>
+                      <TableHead className="text-xs font-medium">31 a 60 dias</TableHead>
+                      <TableHead className="text-xs font-medium">{'>'}60 dias</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pjPayItems.map((item: any, i: number) => (
+                    {(payHistoryMarket.length > 0 ? payHistoryMarket : pjPayItems).map((item: any, i: number) => (
                       <TableRow key={i}>
-                        <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.period || item.month || item.label || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.cashPayment || item.atSight || item.aVista || '-'}</TableCell>
                         <TableCell className="text-xs py-2">{item.onTime || item.punctual || item.onTimePayment || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.delay1to14 || item.late1to14 || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.delay15to30 || item.late15to30 || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.delay8to15 || item.late8to15 || item.delay1to14 || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.delay16to30 || item.late16to30 || item.delay15to30 || '-'}</TableCell>
                         <TableCell className="text-xs py-2">{item.delay31to60 || item.late31to60 || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.delay61to90 || item.late61to90 || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.delayOver90 || item.lateOver90 || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.delayOver60 || item.lateOver60 || item.delayOver90 || '-'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
-            ) : pjPaySummary?.onTimePayment ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                <div className="border border-border rounded-lg p-3">
-                  <p className="text-[11px] font-medium text-muted-foreground">Pontual</p>
-                  <p className="text-sm font-bold text-foreground mt-1">{pjPaySummary.onTimePayment}</p>
-                </div>
-                <div className="border border-border rounded-lg p-3">
-                  <p className="text-[11px] font-medium text-muted-foreground">Com atraso</p>
-                  <p className="text-sm font-bold text-foreground mt-1">{pjPaySummary.latePayment || '-'}</p>
-                </div>
-              </div>
+              </>
             ) : (
-              <div className="border border-border rounded-lg p-3">
-                <p className="text-xs text-muted-foreground">Sem dados de histórico de pagamentos.</p>
-              </div>
+              <p className="text-xs text-muted-foreground">Sem dados de histórico de pagamentos.</p>
             )}
           </div>
+
+          {/* Histórico de pagamentos - Mercado (month-by-month) */}
+          {(payHistoryMarket.length > 0 || pjPayItems.length > 0) && (
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-primary mb-2">Histórico de pagamentos - Mercado</p>
+            <p className="text-[11px] text-muted-foreground mb-2">Exibindo {(payHistoryMarket.length || pjPayItems.length)} registros.</p>
+            <div className="overflow-x-auto border border-border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs font-medium">Mês / Ano</TableHead>
+                    <TableHead className="text-xs font-medium">À vista</TableHead>
+                    <TableHead className="text-xs font-medium">Pontual</TableHead>
+                    <TableHead className="text-xs font-medium">8 a 15 dias</TableHead>
+                    <TableHead className="text-xs font-medium">16 a 30 dias</TableHead>
+                    <TableHead className="text-xs font-medium">31 a 60 dias</TableHead>
+                    <TableHead className="text-xs font-medium">{'>'}60 dias</TableHead>
+                    <TableHead className="text-xs font-medium">Total / Mês</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(payHistoryMarket.length > 0 ? payHistoryMarket : pjPayItems).map((item: any, i: number) => (
+                    <TableRow key={i}>
+                      <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.cashPayment || item.atSight || item.aVista || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.onTime || item.punctual || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.delay8to15 || item.late8to15 || item.delay1to14 || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.delay16to30 || item.late16to30 || item.delay15to30 || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.delay31to60 || item.late31to60 || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.delayOver60 || item.lateOver60 || item.delayOver90 || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.total || item.totalMonth || '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+          )}
+
+          {/* Histórico de pagamentos - Factorings sacado */}
+          {payHistoryFactoring.length > 0 && (
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-primary mb-2">Histórico de pagamentos - Factorings sacado</p>
+            <p className="text-[11px] text-muted-foreground mb-2">Exibindo {payHistoryFactoring.length} registros.</p>
+            <div className="overflow-x-auto border border-border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs font-medium">Mês / Ano</TableHead>
+                    <TableHead className="text-xs font-medium">À vista</TableHead>
+                    <TableHead className="text-xs font-medium">Pontual</TableHead>
+                    <TableHead className="text-xs font-medium">8 a 15 dias</TableHead>
+                    <TableHead className="text-xs font-medium">16 a 30 dias</TableHead>
+                    <TableHead className="text-xs font-medium">31 a 60 dias</TableHead>
+                    <TableHead className="text-xs font-medium">{'>'}60 dias</TableHead>
+                    <TableHead className="text-xs font-medium">Total / Mês</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {payHistoryFactoring.map((item: any, i: number) => (
+                    <TableRow key={i}>
+                      <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.cashPayment || item.atSight || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.onTime || item.punctual || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.delay8to15 || item.late8to15 || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.delay16to30 || item.late16to30 || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.delay31to60 || item.late31to60 || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.delayOver60 || item.lateOver60 || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.total || item.totalMonth || '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+          )}
 
           {/* Evolução de Compromissos */}
-          <div className="mb-4">
-            <p className="text-xs font-medium text-muted-foreground mb-2">Evolução de Compromissos</p>
-            {commitmentItems.length > 0 ? (
-              <div className="overflow-x-auto border border-border rounded-lg">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs font-medium">Período</TableHead>
-                      <TableHead className="text-xs font-medium">Valor Assumido</TableHead>
-                      <TableHead className="text-xs font-medium">Valor Liquidado</TableHead>
-                      <TableHead className="text-xs font-medium">Valor a Vencer</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {commitmentItems.map((item: any, i: number) => (
-                      <TableRow key={i}>
-                        <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.assumedAmount ? formatCurrency(item.assumedAmount) : item.totalAmount ? formatCurrency(item.totalAmount) : '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.settledAmount ? formatCurrency(item.settledAmount) : item.paidAmount ? formatCurrency(item.paidAmount) : '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.toExpireAmount ? formatCurrency(item.toExpireAmount) : item.pendingAmount ? formatCurrency(item.pendingAmount) : '-'}</TableCell>
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-primary mb-2">Evolução de compromissos</p>
+            {commitmentItems.length > 0 || commitmentMarket.length > 0 ? (
+              <>
+              {/* Visão comparativa */}
+              {commitmentComparative.length > 0 && (
+              <div className="mb-3">
+                <p className="text-[11px] text-muted-foreground mb-2">Visão comparativa</p>
+                <div className="overflow-x-auto border border-border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs font-medium">Mês/ano</TableHead>
+                        <TableHead className="text-xs font-medium">Tipo de pagamento</TableHead>
+                        <TableHead className="text-xs font-medium">Factorings</TableHead>
+                        <TableHead className="text-xs font-medium">Mercado</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {commitmentComparative.map((item: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
+                          <TableCell className="text-xs py-2">{item.paymentType || item.type || '-'}</TableCell>
+                          <TableCell className="text-xs py-2">{item.factoring ? formatCurrency(item.factoring) : '-'}</TableCell>
+                          <TableCell className="text-xs py-2">{item.market ? formatCurrency(item.market) : '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
+              )}
+
+              {/* À vencer em */}
+              <div className="mb-3">
+                <p className="text-[11px] text-muted-foreground mb-2">Evolução de compromissos - Mercado</p>
+                <div className="overflow-x-auto border border-border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs font-medium">Período</TableHead>
+                        <TableHead className="text-xs font-medium">Factorings</TableHead>
+                        <TableHead className="text-xs font-medium">Mercado</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(commitmentMarket.length > 0 ? commitmentMarket : commitmentItems).map((item: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
+                          <TableCell className="text-xs py-2">{item.factoring ? formatCurrency(item.factoring) : item.factoringAmount ? formatCurrency(item.factoringAmount) : '-'}</TableCell>
+                          <TableCell className="text-xs py-2">{item.market ? formatCurrency(item.market) : item.marketAmount ? formatCurrency(item.marketAmount) : item.assumedAmount ? formatCurrency(item.assumedAmount) : '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+              </>
             ) : (
-              <div className="border border-border rounded-lg p-3">
-                <p className="text-xs text-muted-foreground">Sem dados de evolução de compromissos.</p>
-              </div>
+              <p className="text-xs text-muted-foreground">Sem dados de evolução de compromissos.</p>
             )}
           </div>
 
           {/* Referenciais de Negócio */}
-          <div className="mb-4">
-            <p className="text-xs font-medium text-muted-foreground mb-2">Referenciais de Negócio</p>
-            {businessRefItems.length > 0 ? (
-              <div className="overflow-x-auto border border-border rounded-lg">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs font-medium">Segmento</TableHead>
-                      <TableHead className="text-xs font-medium">Data Início</TableHead>
-                      <TableHead className="text-xs font-medium">Última Compra</TableHead>
-                      <TableHead className="text-xs font-medium">Maior Compra</TableHead>
-                      <TableHead className="text-xs font-medium">Maior Atraso</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {businessRefItems.map((item: any, i: number) => (
-                      <TableRow key={i}>
-                        <TableCell className="text-xs py-2">{item.segment || item.type || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{formatDate(item.startDate || item.firstPurchase)}</TableCell>
-                        <TableCell className="text-xs py-2">{formatDate(item.lastPurchase || item.lastDate)}</TableCell>
-                        <TableCell className="text-xs py-2">{item.highestPurchase ? formatCurrency(item.highestPurchase) : '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.longestDelay || item.maxDelay || '-'}</TableCell>
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-primary mb-2">Referenciais de negócio</p>
+            {(() => {
+              const refItems = refMarket.length > 0 ? refMarket : businessRefItems;
+              const hasRef = refItems.length > 0 || refFactoring.length > 0;
+              if (!hasRef) return <p className="text-xs text-muted-foreground">Sem dados de referenciais de negócio.</p>;
+              return (
+              <>
+              {/* Mercado */}
+              {refItems.length > 0 && (
+              <div className="mb-3">
+                <p className="text-[11px] text-muted-foreground mb-2">Referenciais de negócio - Mercado  Exibindo {refItems.length} registros.</p>
+                <div className="overflow-x-auto border border-border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs font-medium"></TableHead>
+                        <TableHead className="text-xs font-medium">Última compra</TableHead>
+                        <TableHead className="text-xs font-medium">Maior fatura</TableHead>
+                        <TableHead className="text-xs font-medium">Maior acúmulo</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {['Data', 'Valor', 'Média'].map((label) => (
+                        <TableRow key={label}>
+                          <TableCell className="text-xs py-2 font-medium">{label}</TableCell>
+                          {refItems.slice(0, 1).map((item: any, i: number) => {
+                            const lastPurchase = label === 'Data' ? (item.lastPurchaseDate || formatDate(item.lastPurchase) || '-') : label === 'Valor' ? (item.lastPurchaseValue ? formatCurrency(item.lastPurchaseValue) : '-') : (item.lastPurchaseAvg ? formatCurrency(item.lastPurchaseAvg) : '-');
+                            const highestInvoice = label === 'Data' ? (item.highestInvoiceDate || '-') : label === 'Valor' ? (item.highestInvoiceValue ? formatCurrency(item.highestInvoiceValue) : item.highestPurchase ? formatCurrency(item.highestPurchase) : '-') : (item.highestInvoiceAvg ? formatCurrency(item.highestInvoiceAvg) : '-');
+                            const highestAccumulated = label === 'Data' ? (item.highestAccumulatedDate || '-') : label === 'Valor' ? (item.highestAccumulatedValue ? formatCurrency(item.highestAccumulatedValue) : '-') : (item.highestAccumulatedAvg ? formatCurrency(item.highestAccumulatedAvg) : '-');
+                            return (
+                            <React.Fragment key={i}>
+                              <TableCell className="text-xs py-2">{lastPurchase}</TableCell>
+                              <TableCell className="text-xs py-2">{highestInvoice}</TableCell>
+                              <TableCell className="text-xs py-2">{highestAccumulated}</TableCell>
+                            </React.Fragment>
+                            );
+                          })}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
-            ) : (
-              <div className="border border-border rounded-lg p-3">
-                <p className="text-xs text-muted-foreground">Sem dados de referenciais de negócio.</p>
+              )}
+
+              {/* Factorings */}
+              {refFactoring.length > 0 && (
+              <div className="mb-3">
+                <p className="text-[11px] text-muted-foreground mb-2">Referenciais de negócio - Factorings  Exibindo {refFactoring.length} registros.</p>
+                <div className="overflow-x-auto border border-border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs font-medium"></TableHead>
+                        <TableHead className="text-xs font-medium">Última compra</TableHead>
+                        <TableHead className="text-xs font-medium">Maior fatura</TableHead>
+                        <TableHead className="text-xs font-medium">Maior acúmulo</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {['Data', 'Valor', 'Média'].map((label) => (
+                        <TableRow key={label}>
+                          <TableCell className="text-xs py-2 font-medium">{label}</TableCell>
+                          {refFactoring.slice(0, 1).map((item: any, i: number) => {
+                            const lastPurchase = label === 'Data' ? (item.lastPurchaseDate || '-') : label === 'Valor' ? (item.lastPurchaseValue ? formatCurrency(item.lastPurchaseValue) : '-') : (item.lastPurchaseAvg ? formatCurrency(item.lastPurchaseAvg) : '-');
+                            const highestInvoice = label === 'Data' ? (item.highestInvoiceDate || '-') : label === 'Valor' ? (item.highestInvoiceValue ? formatCurrency(item.highestInvoiceValue) : '-') : (item.highestInvoiceAvg ? formatCurrency(item.highestInvoiceAvg) : '-');
+                            const highestAccumulated = label === 'Data' ? (item.highestAccumulatedDate || '-') : label === 'Valor' ? (item.highestAccumulatedValue ? formatCurrency(item.highestAccumulatedValue) : '-') : (item.highestAccumulatedAvg ? formatCurrency(item.highestAccumulatedAvg) : '-');
+                            return (
+                            <React.Fragment key={i}>
+                              <TableCell className="text-xs py-2">{lastPurchase}</TableCell>
+                              <TableCell className="text-xs py-2">{highestInvoice}</TableCell>
+                              <TableCell className="text-xs py-2">{highestAccumulated}</TableCell>
+                            </React.Fragment>
+                            );
+                          })}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
-            )}
+              )}
+              </>
+              );
+            })()}
           </div>
 
           <p className="text-[10px] text-muted-foreground mt-3 leading-relaxed">
