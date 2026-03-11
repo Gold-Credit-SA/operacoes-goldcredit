@@ -921,10 +921,24 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
       </div>
         </>
         )}
+      {/* ── Identificação Cadastral PF ── */}
+      <div>
+        <p className="text-sm font-semibold text-primary mb-3">Identificação Cadastral</p>
 
-      {/* ═══════════════════ PF-SPECIFIC SECTIONS ═══════════════════ */}
-      {isPF && (
-      <>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+          <div className="border border-border rounded-lg p-4">
+            <p className="text-[11px] font-medium text-muted-foreground">Situação na Receita Federal</p>
+            <p className="text-sm font-bold text-foreground mt-1">{statusRF}</p>
+          </div>
+          <div className="border border-border rounded-lg p-4">
+            <p className="text-[11px] font-medium text-muted-foreground">Nome</p>
+            <p className="text-sm font-bold text-foreground mt-1">{consumerName}</p>
+          </div>
+          <div className="border border-border rounded-lg p-4">
+            <p className="text-[11px] font-medium text-muted-foreground">Nascimento</p>
+            <p className="text-sm font-bold text-foreground mt-1">{formatDate(birthDateRaw)}{birthAge !== null ? ` (${birthAge} anos)` : ''}</p>
+          </div>
+        </div>
 
         {!isTopScore && (
         <>
