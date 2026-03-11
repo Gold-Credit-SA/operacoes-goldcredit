@@ -627,46 +627,26 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
       {/* ── Quadro Societário PJ ── */}
       <div>
         <p className="text-sm font-semibold text-primary mb-1">Quadro Societário</p>
-        <p className="text-xs text-muted-foreground mb-3">
-          Composição dos sócios e administradores da empresa. Atualizado em {statusDate}
+        <p className="text-xs text-muted-foreground mb-4">
+          Composição dos sócios e administradores da empresa
         </p>
 
-        {/* Capital info grid */}
+        {/* Ocorrência de anotações negativas - single card */}
         {(() => {
-          const capitalSocialFmt = socialCapital ? formatCurrency(socialCapital) : '-';
-          const capitalRealizado = pick(companyData, ['capitalRealized', 'realizedCapitalValue']);
-          const capitalType = String(pick(companyData, ['capitalType', 'typeOfCapital']) || 'FECHADO');
-          const controlType = String(pick(companyData, ['controlType', 'typeOfControl']) || 'PRIVADO');
-          const origin = String(pick(companyData, ['origin', 'capitalOrigin']) || 'BRASIL');
           const pAnnot = allPartners.filter((p: any) => p.hasNegative === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim').length;
           const dAnnot = allDirectors.filter((d: any) => d.hasNegative === true || d.restrictionSign === true || String(d.annotations || '').toLowerCase() === 'sim').length;
+          const totalAnnot = pAnnot + dAnnot;
           return (
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-4">
-            <div className="border border-border rounded-lg p-3">
-              <p className="text-[11px] font-medium text-muted-foreground">Capital social</p>
-              <p className="text-xs font-bold text-foreground mt-1">{capitalSocialFmt}</p>
-            </div>
-            <div className="border border-border rounded-lg p-3">
-              <p className="text-[11px] font-medium text-muted-foreground">Capital realizado</p>
-              <p className="text-xs font-bold text-foreground mt-1">{capitalRealizado ? formatCurrency(capitalRealizado) : capitalSocialFmt}</p>
-            </div>
-            <div className="border border-border rounded-lg p-3">
-              <p className="text-[11px] font-medium text-muted-foreground">Tipo de capital</p>
-              <p className="text-xs font-bold text-foreground mt-1">{capitalType}</p>
-            </div>
-            <div className="border border-border rounded-lg p-3">
-              <p className="text-[11px] font-medium text-muted-foreground">Tipo de controle</p>
-              <p className="text-xs font-bold text-foreground mt-1">{controlType}</p>
-            </div>
-            <div className="border border-border rounded-lg p-3">
-              <p className="text-[11px] font-medium text-muted-foreground">Origem</p>
-              <p className="text-xs font-bold text-foreground mt-1">{origin}</p>
-            </div>
-            <div className="border border-border rounded-lg p-3">
-              <p className="text-[11px] font-medium text-muted-foreground">Ocorrência de anotações negativas</p>
-              <p className="text-xs font-bold text-foreground mt-1">{pAnnot} | {dAnnot}</p>
-              <p className="text-[10px] text-muted-foreground">Sócios | Administradores</p>
-            </div>
+          <div className="border border-border rounded-lg p-4 mb-4">
+            <p className="text-[11px] font-medium text-muted-foreground">Ocorrência de anotações negativas</p>
+            <p className="text-sm font-bold text-foreground mt-1">
+              {allPartners.length} | {allDirectors.length}
+            </p>
+            {totalAnnot > 0 ? (
+              <p className="text-[11px] text-destructive mt-0.5">{totalAnnot} ocorrência{totalAnnot !== 1 ? 's' : ''}</p>
+            ) : (
+              <p className="text-[11px] text-muted-foreground mt-0.5">Sem ocorrências</p>
+            )}
           </div>
           );
         })()}
@@ -681,11 +661,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
               <TableHeader>
                 <TableRow>
                   <TableHead className="text-xs font-medium">Capital</TableHead>
-                  <TableHead className="text-xs font-medium">Capital votante</TableHead>
                   <TableHead className="text-xs font-medium">Sócio/Acionista</TableHead>
                   <TableHead className="text-xs font-medium">CPF/CNPJ</TableHead>
-                  <TableHead className="text-xs font-medium">Entrada</TableHead>
-                  <TableHead className="text-xs font-medium">Nacionalidade</TableHead>
                   <TableHead className="text-xs font-medium">Anotações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -694,12 +671,9 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
                   const hasNeg = p.hasNegative === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim';
                   return (
                   <TableRow key={i}>
-                    <TableCell className="text-xs py-2">{p.participationPercentage != null ? `${p.participationPercentage}%` : p.capitalTotalValue != null ? `${p.capitalTotalValue}%` : '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{p.votingCapitalPercentage != null ? `${p.votingCapitalPercentage}%` : '0%'}</TableCell>
+                    <TableCell className="text-xs py-2">{p.participationPercentage != null ? `${p.participationPercentage}%` : '-'}</TableCell>
                     <TableCell className="text-xs py-2 font-medium">{p.name || '-'}</TableCell>
                     <TableCell className="text-xs py-2">{formatDocument(p.documentId || p.document || '')}</TableCell>
-                    <TableCell className="text-xs py-2">{formatDate(p.entryDate || p.startDate)}</TableCell>
-                    <TableCell className="text-xs py-2">{p.nationality || 'BRASIL'}</TableCell>
                     <TableCell className="text-xs py-2">
                       {hasNeg ? (
                         <span className="flex items-center gap-1 text-amber-600 font-medium">Sim <AlertTriangle className="h-3.5 w-3.5" /></span>
@@ -725,10 +699,6 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
                   <TableHead className="text-xs font-medium">Nome</TableHead>
                   <TableHead className="text-xs font-medium">Cargo</TableHead>
                   <TableHead className="text-xs font-medium">CPF/CNPJ</TableHead>
-                  <TableHead className="text-xs font-medium">Entrada</TableHead>
-                  <TableHead className="text-xs font-medium">Mandato</TableHead>
-                  <TableHead className="text-xs font-medium">Nacionalidade</TableHead>
-                  <TableHead className="text-xs font-medium">Estado Civil</TableHead>
                   <TableHead className="text-xs font-medium">Anotações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -740,10 +710,6 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
                     <TableCell className="text-xs py-2 font-medium">{d.name || '-'}</TableCell>
                     <TableCell className="text-xs py-2">{d.role || d.office || 'ADMINISTRADOR'}</TableCell>
                     <TableCell className="text-xs py-2">{formatDocument(d.documentId || d.document || '')}</TableCell>
-                    <TableCell className="text-xs py-2">{formatDate(d.entryDate || d.startDate)}</TableCell>
-                    <TableCell className="text-xs py-2">{d.mandate || d.mandatePeriod || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{d.nationality || 'BRASIL'}</TableCell>
-                    <TableCell className="text-xs py-2">{d.maritalStatus || d.civilStatus || '-'}</TableCell>
                     <TableCell className="text-xs py-2">
                       {hasNeg ? (
                         <span className="flex items-center gap-1 text-amber-600 font-medium">Sim <AlertTriangle className="h-3.5 w-3.5" /></span>
@@ -756,21 +722,6 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             </Table>
           </div>
         )}
-
-        {/* Warning if annotations exist */}
-        {(() => {
-          const hasAnyNeg = allPartners.some((p: any) => p.hasNegative === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim')
-            || allDirectors.some((d: any) => d.hasNegative === true || d.restrictionSign === true || String(d.annotations || '').toLowerCase() === 'sim');
-          if (!hasAnyNeg) return null;
-          return (
-          <div className="border border-amber-300 rounded-lg p-3 mt-2">
-            <p className="text-xs font-semibold text-foreground mb-1">Alguns sócios e administradores possuem anotações negativas</p>
-            <p className="text-[11px] text-muted-foreground">
-              A informação disponibilizada está de acordo com a última atualização do órgão emissor responsável, contudo, a somatória do percentual de participação do capital difere de 100%.
-            </p>
-          </div>
-          );
-        })()}
       </div>
       </>
       )}
