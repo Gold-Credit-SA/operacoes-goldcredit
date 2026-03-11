@@ -317,17 +317,14 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
       {/* ── Informações fixadas ── */}
       <div>
         <p className="text-sm font-semibold text-primary mb-3">Informações fixadas</p>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           {/* Situação na Receita Federal */}
           <div className="border border-border rounded-lg p-3">
             <p className="text-[11px] font-medium text-muted-foreground">Situação na Receita Federal</p>
             <p className="text-sm font-bold text-foreground mt-1">{statusRF}</p>
-            {statusDate && statusDate !== '-' && (
-              <p className="text-[11px] text-muted-foreground mt-0.5">Atualizado em {statusDate}</p>
-            )}
           </div>
           {/* Score with risk level */}
-          {hasScore && (() => {
+          {(() => {
             const riskLabel = scoreValue >= 801 ? 'Risco mínimo' : scoreValue >= 601 ? 'Risco muito baixo' : scoreValue >= 401 ? 'Risco baixo' : scoreValue >= 201 ? 'Risco médio' : scoreValue > 0 ? 'Risco alto' : '';
             const riskColor = scoreValue >= 601 ? 'border-green-500 text-green-600' : scoreValue >= 401 ? 'border-blue-500 text-blue-600' : scoreValue >= 201 ? 'border-amber-500 text-amber-600' : 'border-destructive text-destructive';
             return (
@@ -362,80 +359,30 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             return (
             <div className="border border-border rounded-lg p-3">
               <p className="text-[11px] font-medium text-muted-foreground">Ocorrência de anotações negativas</p>
+              <p className="text-sm font-bold text-foreground mt-1">
+                {allPartners.length} | {allDirectors.length}
+              </p>
               {totalAnnotations > 0 ? (
-                <>
-                  <p className="text-sm font-bold text-foreground mt-1">
-                    {partnersWithAnnotations} | {directorsWithAnnotations}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Sócios | Administradores</p>
-                </>
+                <p className="text-[11px] text-destructive mt-0.5">{totalAnnotations} ocorrência{totalAnnotations !== 1 ? 's' : ''}</p>
               ) : (
-                <p className="text-sm font-bold text-foreground mt-1">Sem registros</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Sem ocorrências</p>
               )}
             </div>
             );
           })() : (
           <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Total em anotações negativas</p>
+            <p className="text-[11px] font-medium text-muted-foreground">Ocorrência de anotações negativas</p>
             <p className={`text-sm font-bold mt-1 ${totalNegativeCount > 0 ? 'text-destructive' : 'text-foreground'}`}>
-              {totalNegativeValue > 0 ? formatCurrency(totalNegativeValue) : 'Sem registros'}
+              {totalNegativeCount > 0 ? `${totalNegativeCount} registro${totalNegativeCount !== 1 ? 's' : ''}` : '0'}
             </p>
-            {totalNegativeCount > 0 && (
-              <p className="text-[11px] text-muted-foreground mt-0.5">{totalNegativeCount} registros</p>
+            {totalNegativeCount > 0 ? (
+              <p className="text-[11px] text-destructive mt-0.5">{formatCurrency(totalNegativeValue)}</p>
+            ) : (
+              <p className="text-[11px] text-muted-foreground mt-0.5">Sem ocorrências</p>
             )}
           </div>
           )}
-          {/* Consultas últimos 13 meses (PJ) / Consultas mês (PF) */}
-          {isPJ ? (() => {
-            const total13Months = pjInquiryHistorical.reduce((sum: number, item: any) => sum + Number(item?.occurrences || item?.quantity || item?.count || 0), 0) + consultasAtual;
-            return (
-            <div className="border border-border rounded-lg p-3">
-              <div className="flex items-center gap-1">
-                <p className="text-[11px] font-medium text-muted-foreground">
-                  {total13Months > 0 ? `${total13Months} consultas` : 'Sem consultas'}
-                </p>
-                {total13Months > 0 && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Consultas nos últimos 13 meses</p>
-            </div>
-            );
-          })() : (
-          <>
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">
-              {consultasAtual > 0 ? `${consultasAtual} consultas` : 'Sem consultas'}
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Consultas neste mês</p>
-          </div>
-          </>
-          )}
-          {/* Capital social (PJ) / Participação societária (PF) */}
-          {isPJ ? (
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Capital social</p>
-            <p className="text-sm font-bold text-foreground mt-1">{socialCapital ? formatCurrency(socialCapital) : 'Sem dados'}</p>
-          </div>
-          ) : (
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Participação societária</p>
-            <p className="text-sm font-bold text-foreground mt-1">{participationFinal.length}</p>
-          </div>
-          )}
         </div>
-        {/* Consultas no mês passado (PF only) */}
-        {isPF && consultasMesAnterior > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-3">
-            <div className="border border-border rounded-lg p-3">
-              <div className="flex items-center gap-1">
-                <p className="text-[11px] font-medium text-muted-foreground">
-                  {consultasMesAnterior} consulta{consultasMesAnterior !== 1 ? 's' : ''}
-                </p>
-                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Consultas no mês passado</p>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ═══════════════════ PJ-SPECIFIC SECTIONS ═══════════════════ */}
