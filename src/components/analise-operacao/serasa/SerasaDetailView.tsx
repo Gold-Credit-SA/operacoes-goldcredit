@@ -439,57 +439,19 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           </div>
         </div>
 
-        {/* Dados cadastrais */}
+        {/* Dados cadastrais - only address like Serasa reference */}
         <p className="text-xs font-medium text-muted-foreground mb-2">Dados cadastrais</p>
-        <div className="border border-border rounded-lg divide-y divide-border text-sm">
+        <div className="border border-border rounded-lg text-sm">
           <div className="px-4 py-2 flex gap-2">
             <span className="text-muted-foreground text-xs font-medium shrink-0">Endereço:</span>
             <span className="text-xs text-foreground">
               {(() => {
                 const addr = companyAddress;
                 if (!addr || typeof addr !== 'object') return '-';
-                const parts = [addr.street, addr.number, addr.complement, addr.neighborhood ? `- ${addr.neighborhood}` : '', addr.city ? `${addr.city}` : '', addr.state ? `- ${addr.state}` : '', addr.zipCode].filter(Boolean);
-                return parts.join(', ') || '-';
+                const parts = [addr.street, addr.number, addr.complement, addr.neighborhood ? `- ${addr.neighborhood}` : '', addr.city ? `${addr.city}` : '', addr.state ? `- ${addr.state},` : '', addr.zipCode].filter(Boolean);
+                return parts.join(' ') || '-';
               })()}
             </span>
-          </div>
-          {companyAlias !== '-' && (
-          <div className="px-4 py-2 flex gap-2">
-            <span className="text-muted-foreground text-xs font-medium shrink-0">Nome fantasia:</span>
-            <span className="text-xs text-foreground">{companyAlias}</span>
-          </div>
-          )}
-          <div className="px-4 py-2 flex gap-2">
-            <span className="text-muted-foreground text-xs font-medium shrink-0">CNAE:</span>
-            <span className="text-xs text-foreground">{cnae}</span>
-          </div>
-          <div className="px-4 py-2 flex gap-2">
-            <span className="text-muted-foreground text-xs font-medium shrink-0">Ramo de atividade:</span>
-            <span className="text-xs text-foreground">{economicActivity}</span>
-          </div>
-          <div className="px-4 py-2 flex gap-2">
-            <span className="text-muted-foreground text-xs font-medium shrink-0">Tipo de sociedade:</span>
-            <span className="text-xs text-foreground">{String(pick(identificationReport, ['companyType', 'socialObject', 'natureOfBusiness']) || '-')}</span>
-          </div>
-          <div className="px-4 py-2 flex gap-2">
-            <span className="text-muted-foreground text-xs font-medium shrink-0">Nº funcionários:</span>
-            <span className="text-xs text-foreground">{numberEmployees ?? '-'}</span>
-          </div>
-          <div className="px-4 py-2 flex gap-2">
-            <span className="text-muted-foreground text-xs font-medium shrink-0">Filiais:</span>
-            <span className="text-xs text-foreground">{String(pick(identificationReport, ['branchesQuantity', 'branches', 'filials']) || '-')}</span>
-          </div>
-          <div className="px-4 py-2 flex gap-2">
-            <span className="text-muted-foreground text-xs font-medium shrink-0">Opção Tributária:</span>
-            <span className="text-xs text-foreground">{String(pick(identificationReport, ['taxOption', 'tributaryOption', 'opcaoTributaria', 'taxRegime']) || '-')}</span>
-          </div>
-          <div className="px-4 py-2 flex gap-2">
-            <span className="text-muted-foreground text-xs font-medium shrink-0">Capital social:</span>
-            <span className="text-xs text-foreground">{socialCapital ? formatCurrency(socialCapital) : '-'}</span>
-          </div>
-          <div className="px-4 py-2 flex gap-2">
-            <span className="text-muted-foreground text-xs font-medium shrink-0">Telefone:</span>
-            <span className="text-xs text-foreground">{String(pick(registration, ['phone', 'telephone']) || pick(identificationReport, ['phone', 'telephone']) || '-')}</span>
           </div>
         </div>
       </div>
