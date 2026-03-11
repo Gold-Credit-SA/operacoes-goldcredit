@@ -328,7 +328,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
       {/* ── Informações fixadas ── */}
       <div>
         <p className="text-sm font-semibold text-primary mb-3">Informações fixadas</p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className={`grid gap-3 ${isAvancadoPJ ? 'grid-cols-2 md:grid-cols-5' : 'grid-cols-3'}`}>
           {/* Situação na Receita Federal */}
           <div className="border border-border rounded-lg p-3">
             <p className="text-[11px] font-medium text-muted-foreground">Situação na Receita Federal</p>
@@ -340,8 +340,11 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             const riskColor = scoreValue >= 601 ? 'border-green-500 text-green-600' : scoreValue >= 401 ? 'border-blue-500 text-blue-600' : scoreValue >= 201 ? 'border-amber-500 text-amber-600' : 'border-destructive text-destructive';
             return (
             <div className="border border-border rounded-lg p-3">
+              <p className="text-[11px] font-medium text-muted-foreground">{scoreValue > 0 ? (isPJ ? 'Serasa Score Empresas' : 'Score') : 'Score não calculado'}</p>
+              {scoreValue > 0 ? (
+              <>
               <div className="flex items-center gap-2">
-                <span className="text-2xl font-bold text-foreground">{scoreValue || '-'}</span>
+                <span className="text-2xl font-bold text-foreground">{scoreValue}</span>
                 {riskLabel && (
                   <Badge variant="outline" className={`${riskColor} text-[10px] px-1.5 py-0.5 whitespace-nowrap`}>
                     {riskLabel}
@@ -359,6 +362,10 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
                 <span className="text-[10px] text-muted-foreground">500</span>
                 <span className="text-[10px] text-muted-foreground">1000</span>
               </div>
+              </>
+              ) : (
+              <p className="text-sm font-bold text-foreground mt-1">{isPJ ? 'Serasa Score Empresas' : '-'}</p>
+              )}
             </div>
             );
           })()}
@@ -369,15 +376,11 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             const totalAnnotations = partnersWithAnnotations + directorsWithAnnotations;
             return (
             <div className="border border-border rounded-lg p-3">
-              <p className="text-[11px] font-medium text-muted-foreground">Ocorrência de anotações negativas</p>
+              <p className="text-[11px] font-medium text-muted-foreground">Sem ocorrências</p>
               <p className="text-sm font-bold text-foreground mt-1">
                 {allPartners.length} | {allDirectors.length}
               </p>
-              {totalAnnotations > 0 ? (
-                <p className="text-[11px] text-destructive mt-0.5">{totalAnnotations} ocorrência{totalAnnotations !== 1 ? 's' : ''}</p>
-              ) : (
-                <p className="text-[11px] text-muted-foreground mt-0.5">Sem ocorrências</p>
-              )}
+              <p className="text-[11px] text-muted-foreground mt-0.5">Sócios | Administradores</p>
             </div>
             );
           })() : (
@@ -392,6 +395,25 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
               <p className="text-[11px] text-muted-foreground mt-0.5">Sem ocorrências</p>
             )}
           </div>
+          )}
+          {/* Advanced PJ extra columns */}
+          {isAvancadoPJ && (
+          <>
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Consultas últimos 13 meses</p>
+            <p className="text-sm font-bold text-foreground mt-1">
+              {(() => {
+                const total13 = pjInquiryHistorical.reduce((sum: number, h: any) => sum + Number(h.occurrences || 0), 0);
+                return total13 > 0 ? `${total13} consultas` : 'Sem consultas';
+              })()}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Consultas nos últimos 13 meses</p>
+          </div>
+          <div className="border border-border rounded-lg p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Capital social</p>
+            <p className="text-sm font-bold text-foreground mt-1">{socialCapital ? formatCurrency(socialCapital) : '-'}</p>
+          </div>
+          </>
           )}
         </div>
       </div>
