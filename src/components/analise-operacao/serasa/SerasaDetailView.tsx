@@ -364,8 +364,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           })()}
           {/* Ocorrência de anotações negativas */}
           {isPJ ? (() => {
-            const partnersWithAnnotations = allPartners.filter((p: any) => p.hasNegativeData === true || p.negativeData === true || p.hasAnnotations === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim').length;
-            const directorsWithAnnotations = allDirectors.filter((d: any) => d.hasNegativeData === true || d.negativeData === true || d.hasAnnotations === true || d.restrictionSign === true || String(d.annotations || '').toLowerCase() === 'sim').length;
+            const partnersWithAnnotations = allPartners.filter((p: any) => p.hasNegative === true || p.hasNegativeData === true || p.negativeData === true || p.hasAnnotations === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim').length;
+            const directorsWithAnnotations = allDirectors.filter((d: any) => d.hasNegative === true || d.hasNegativeData === true || d.negativeData === true || d.hasAnnotations === true || d.restrictionSign === true || String(d.annotations || '').toLowerCase() === 'sim').length;
             const totalAnnotations = partnersWithAnnotations + directorsWithAnnotations;
             return (
             <div className="border border-border rounded-lg p-3">
