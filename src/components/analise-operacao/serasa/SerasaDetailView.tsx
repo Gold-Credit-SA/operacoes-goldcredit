@@ -399,70 +399,49 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
       {/* ═══════════════════ PJ-SPECIFIC SECTIONS ═══════════════════ */}
       {isPJ && (
       <>
-      {/* ── Dados Cadastrais PJ ── */}
+      {/* ── Identificação Cadastral PJ ── */}
       <div>
-        <p className="text-sm font-semibold text-primary mb-1">Dados Cadastrais</p>
-        <p className="text-[11px] text-muted-foreground mb-3">Atualizado em {statusDate}</p>
+        <p className="text-sm font-semibold text-primary mb-3">Identificação Cadastral</p>
 
-        {/* Top summary grid */}
-        <div className="grid grid-cols-4 md:grid-cols-8 gap-2 mb-4">
-          <div className="border border-border rounded-lg p-2 aspect-square flex flex-col justify-center">
-            <p className="text-[10px] font-medium text-muted-foreground">Situação Cadastral</p>
-            <p className="text-xs font-bold text-foreground mt-1">{statusRF}</p>
+        {/* 3 cards: Situação RF, Fundação, Município/UF */}
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="border border-border rounded-lg p-4">
+            <p className="text-[11px] font-medium text-muted-foreground">Situação na Receita Federal</p>
+            <p className="text-sm font-bold text-foreground mt-1">{statusRF}</p>
           </div>
-          <div className="border border-border rounded-lg p-2 aspect-square flex flex-col justify-center">
-            <p className="text-[10px] font-medium text-muted-foreground">Fundação em</p>
-            <p className="text-xs font-bold text-foreground mt-1">{formatDate(foundationDate)}</p>
-            {foundationDate && (() => {
-              const fd = new Date(String(foundationDate));
-              if (!isNaN(fd.getTime())) {
-                const years = Math.floor((Date.now() - fd.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-                return <p className="text-[10px] text-muted-foreground">{years} anos</p>;
-              }
-              return null;
-            })()}
+          <div className="border border-border rounded-lg p-4">
+            <p className="text-[11px] font-medium text-muted-foreground">
+              Fundação em {formatDate(foundationDate)}
+            </p>
+            <p className="text-sm font-bold text-foreground mt-1">
+              {foundationDate && (() => {
+                const raw = String(foundationDate);
+                let fd: Date;
+                if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+                  const [y, m, d] = raw.split('-').map(Number);
+                  fd = new Date(y, m - 1, d);
+                } else {
+                  fd = new Date(raw);
+                }
+                if (!isNaN(fd.getTime())) {
+                  const years = Math.floor((Date.now() - fd.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+                  return `${years} anos`;
+                }
+                return '-';
+              })()}
+            </p>
           </div>
-          <div className="border border-border rounded-lg p-2 aspect-square flex flex-col justify-center">
-            <p className="text-[10px] font-medium text-muted-foreground">Município/UF</p>
-            <p className="text-xs font-bold text-foreground mt-1">
+          <div className="border border-border rounded-lg p-4">
+            <p className="text-[11px] font-medium text-muted-foreground">Município/UF</p>
+            <p className="text-sm font-bold text-foreground mt-1">
               {joinLocation(companyAddress?.city || pick(registration, ['address.city']), companyAddress?.state || companyAddress?.federalUnit || pick(registration, ['address.state']))}
-            </p>
-          </div>
-          <div className="border border-border rounded-lg p-2 aspect-square flex flex-col justify-center">
-            <p className="text-[10px] font-medium text-muted-foreground">Ramo de atividade</p>
-            <p className="text-xs font-bold text-foreground mt-1 leading-tight">{economicActivity}</p>
-          </div>
-          <div className="border border-border rounded-lg p-2 aspect-square flex flex-col justify-center">
-            <p className="text-[10px] font-medium text-muted-foreground">Tipo de sociedade</p>
-            <p className="text-xs font-bold text-foreground mt-1 leading-tight">
-              {String(pick(identificationReport, ['companyType', 'socialObject', 'natureOfBusiness']) || 'Sem dados')}
-            </p>
-          </div>
-          <div className="border border-border rounded-lg p-2 aspect-square flex flex-col justify-center">
-            <p className="text-[10px] font-medium text-muted-foreground">Nº funcionários</p>
-            <p className="text-xs font-bold text-foreground mt-1">{numberEmployees ?? 'Sem dados'}</p>
-          </div>
-          <div className="border border-border rounded-lg p-2 aspect-square flex flex-col justify-center">
-            <p className="text-[10px] font-medium text-muted-foreground">Filiais</p>
-            <p className="text-xs font-bold text-foreground mt-1">
-              {String(pick(identificationReport, ['branchesQuantity', 'branches', 'filials']) || 'Sem dados')}
-            </p>
-          </div>
-          <div className="border border-border rounded-lg p-2 aspect-square flex flex-col justify-center">
-            <p className="text-[10px] font-medium text-muted-foreground">Opção Tributária</p>
-            <p className="text-xs font-bold text-foreground mt-1">
-              {String(pick(identificationReport, ['taxOption', 'tributaryOption', 'opcaoTributaria', 'taxRegime']) || 'Sem dados')}
             </p>
           </div>
         </div>
 
-        {/* Detailed data - list format */}
+        {/* Dados cadastrais */}
         <p className="text-xs font-medium text-muted-foreground mb-2">Dados cadastrais</p>
         <div className="border border-border rounded-lg divide-y divide-border text-sm">
-          <div className="px-4 py-2 flex gap-2">
-            <span className="text-muted-foreground text-xs font-medium shrink-0">Nome fantasia:</span>
-            <span className="text-xs text-foreground">{companyAlias !== '-' ? companyAlias : '-'}</span>
-          </div>
           <div className="px-4 py-2 flex gap-2">
             <span className="text-muted-foreground text-xs font-medium shrink-0">Endereço:</span>
             <span className="text-xs text-foreground">
@@ -474,69 +453,43 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
               })()}
             </span>
           </div>
+          {companyAlias !== '-' && (
           <div className="px-4 py-2 flex gap-2">
-            <span className="text-muted-foreground text-xs font-medium shrink-0">Site:</span>
-            <span className="text-xs text-foreground">{String(pick(identificationReport, ['website', 'site']) || '-')}</span>
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Nome fantasia:</span>
+            <span className="text-xs text-foreground">{companyAlias}</span>
           </div>
-          <div className="px-4 py-2 flex gap-2">
-            <span className="text-muted-foreground text-xs font-medium shrink-0">Telefone:</span>
-            <span className="text-xs text-foreground">{String(pick(registration, ['phone', 'telephone']) || pick(identificationReport, ['phone', 'telephone']) || '-')}</span>
-          </div>
-        </div>
-
-        {/* Outros dados */}
-        <p className="text-xs font-medium text-muted-foreground mt-4 mb-2">Outros dados</p>
-        <div className="border border-border rounded-lg divide-y divide-border text-sm">
+          )}
           <div className="px-4 py-2 flex gap-2">
             <span className="text-muted-foreground text-xs font-medium shrink-0">CNAE:</span>
             <span className="text-xs text-foreground">{cnae}</span>
           </div>
           <div className="px-4 py-2 flex gap-2">
-            <span className="text-muted-foreground text-xs font-medium shrink-0">Ramo de atividade econômica:</span>
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Ramo de atividade:</span>
             <span className="text-xs text-foreground">{economicActivity}</span>
           </div>
           <div className="px-4 py-2 flex gap-2">
-            <span className="text-muted-foreground text-xs font-medium shrink-0">Inscrição estadual:</span>
-            <span className="text-xs text-foreground">{String(pick(identificationReport, ['stateRegistration', 'inscricaoEstadual']) || '-')}</span>
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Tipo de sociedade:</span>
+            <span className="text-xs text-foreground">{String(pick(identificationReport, ['companyType', 'socialObject', 'natureOfBusiness']) || '-')}</span>
           </div>
           <div className="px-4 py-2 flex gap-2">
-            <span className="text-muted-foreground text-xs font-medium shrink-0">NIRE:</span>
-            <span className="text-xs text-foreground">{String(pick(identificationReport, ['nire', 'boardOfTradeRegistration']) || '-')}</span>
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Nº funcionários:</span>
+            <span className="text-xs text-foreground">{numberEmployees ?? '-'}</span>
           </div>
           <div className="px-4 py-2 flex gap-2">
-            <span className="text-muted-foreground text-xs font-medium shrink-0">Registro:</span>
-            <span className="text-xs text-foreground">{String(pick(identificationReport, ['registrationNumber', 'registro']) || '-')}</span>
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Filiais:</span>
+            <span className="text-xs text-foreground">{String(pick(identificationReport, ['branchesQuantity', 'branches', 'filials']) || '-')}</span>
           </div>
           <div className="px-4 py-2 flex gap-2">
-            <span className="text-muted-foreground text-xs font-medium shrink-0">Data do registro:</span>
-            <span className="text-xs text-foreground">{formatDate(pick(identificationReport, ['registrationDate', 'dataRegistro']))}</span>
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Opção Tributária:</span>
+            <span className="text-xs text-foreground">{String(pick(identificationReport, ['taxOption', 'tributaryOption', 'opcaoTributaria', 'taxRegime']) || '-')}</span>
           </div>
           <div className="px-4 py-2 flex gap-2">
-            <span className="text-muted-foreground text-xs font-medium shrink-0">Código de atividade Serasa:</span>
-            <span className="text-xs text-foreground">{String(pick(identificationReport, ['serasaActivityCode', 'activityCode']) || '-')}</span>
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Capital social:</span>
+            <span className="text-xs text-foreground">{socialCapital ? formatCurrency(socialCapital) : '-'}</span>
           </div>
           <div className="px-4 py-2 flex gap-2">
-            <span className="text-muted-foreground text-xs font-medium shrink-0">Empresa antecessora:</span>
-            <span className="text-xs text-foreground">
-              {(() => {
-                const predecessors = asArray(pick(identificationReport, ['predecessorList', 'predecessorCompany'], []));
-                if (predecessors.length > 0) {
-                  return predecessors.map((p: any, i: number) => (
-                    <span key={i}>{typeof p === 'string' ? p : (p.companyName || p.name || '-')}{p.documentId ? ` (${formatDocument(p.documentId)})` : ''}{i < predecessors.length - 1 ? '; ' : ''}</span>
-                  ));
-                }
-                const single = pick(identificationReport, ['predecessorCompany', 'previousCompany', 'antecessora']);
-                return String(single || '-');
-              })()}
-            </span>
-          </div>
-          <div className="px-4 py-2 flex gap-2">
-            <span className="text-muted-foreground text-xs font-medium shrink-0">Importação sobre compras:</span>
-            <span className="text-xs text-foreground">{String(pick(identificationReport, ['importPercentage', 'importOnPurchases', 'importacaoCompras']) || '-')}</span>
-          </div>
-          <div className="px-4 py-2 flex gap-2">
-            <span className="text-muted-foreground text-xs font-medium shrink-0">Exportação sobre vendas:</span>
-            <span className="text-xs text-foreground">{String(pick(identificationReport, ['exportPercentage', 'exportOnSales', 'exportacaoVendas']) || '-')}</span>
+            <span className="text-muted-foreground text-xs font-medium shrink-0">Telefone:</span>
+            <span className="text-xs text-foreground">{String(pick(registration, ['phone', 'telephone']) || pick(identificationReport, ['phone', 'telephone']) || '-')}</span>
           </div>
         </div>
       </div>
