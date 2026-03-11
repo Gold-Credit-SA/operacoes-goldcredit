@@ -401,9 +401,96 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
       <>
       {/* ── Identificação Cadastral PJ ── */}
       <div>
-        <p className="text-sm font-semibold text-primary mb-3">Identificação Cadastral</p>
+        <p className="text-sm font-semibold text-primary mb-1">Dados Cadastrais</p>
+        <p className="text-xs text-muted-foreground mb-3">Atualizado em {statusDate}</p>
 
-        {/* 3 cards: Situação RF, Fundação, Município/UF */}
+        {isAvancadoPJ ? (
+        <>
+        {/* Advanced PJ: 8 header cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 mb-4">
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Situação Cadastral</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{statusRF}</p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Fundação em</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">
+              {formatDate(foundationDate)}
+              {foundationDate && (() => {
+                const raw = String(foundationDate);
+                let fd: Date;
+                if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) { const [y, m, d] = raw.split('-').map(Number); fd = new Date(y, m - 1, d); } else { fd = new Date(raw); }
+                if (!isNaN(fd.getTime())) { const years = Math.floor((Date.now() - fd.getTime()) / (365.25 * 24 * 60 * 60 * 1000)); return <span className="text-muted-foreground font-normal"> ({years} anos)</span>; }
+                return null;
+              })()}
+            </p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Município/UF</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{joinLocation(companyAddress?.city || pick(registration, ['address.city']), companyAddress?.state || companyAddress?.federalUnit || pick(registration, ['address.state']))}</p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Ramo de atividade</p>
+            <p className="text-xs font-bold text-foreground mt-0.5 break-words">{economicActivity}</p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Tipo de sociedade</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(identificationReport, ['legalNature', 'companyLegalNature', 'societyType']) || '-')}</p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Nº de funcionários</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{numberEmployees != null ? String(numberEmployees) : '-'}</p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Filiais</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(identificationReport, ['branches', 'branchCount', 'numberBranches']) || '-')}</p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Opção tributária</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(identificationReport, ['taxOption', 'tributaryOption', 'optionTributary']) || '-')}</p>
+          </div>
+        </div>
+
+        {/* Dados cadastrais - full detail for advanced */}
+        <p className="text-xs font-medium text-muted-foreground mb-2">Dados cadastrais</p>
+        <div className="border border-border rounded-lg text-sm divide-y divide-border">
+          {[
+            { label: 'Nome fantasia', value: companyAlias },
+            { label: 'Endereço', value: (() => { const addr = companyAddress; if (!addr || typeof addr !== 'object') return '-'; const parts = [addr.street, addr.number, addr.complement, addr.neighborhood ? `- ${addr.neighborhood}` : '', addr.city || '', addr.state ? `- ${addr.state},` : '', addr.zipCode].filter(Boolean); return parts.join(' ') || '-'; })() },
+            { label: 'Site', value: String(pick(identificationReport, ['website', 'site', 'webSite']) || '-') },
+            { label: 'Telefone', value: String(pick(identificationReport, ['phone', 'telephone', 'phoneNumber']) || pick(registration, ['phone', 'telephone']) || '-') },
+          ].map((row, i) => (
+            <div key={i} className="px-4 py-1.5 flex gap-2">
+              <span className="text-muted-foreground text-xs font-medium shrink-0 w-28">{row.label}:</span>
+              <span className="text-xs text-foreground">{row.value}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Outros dados */}
+        <p className="text-xs font-medium text-muted-foreground mt-3 mb-2">Outros dados</p>
+        <div className="border border-border rounded-lg text-sm divide-y divide-border">
+          {[
+            { label: 'CNAE', value: cnae },
+            { label: 'Inscrição estadual', value: String(pick(identificationReport, ['stateRegistration', 'inscricaoEstadual']) || '-') },
+            { label: 'NIRE', value: String(pick(identificationReport, ['nire', 'NIRE']) || '-') },
+            { label: 'Registro', value: String(pick(identificationReport, ['registration', 'registrationNumber']) || '-') },
+            { label: 'Data de registro', value: formatDate(pick(identificationReport, ['registrationDate'])) },
+            { label: 'Importação sobre compras', value: String(pick(identificationReport, ['importation', 'importOnPurchases']) || '-') },
+            { label: 'Exportação sobre vendas', value: String(pick(identificationReport, ['exportation', 'exportOnSales']) || '-') },
+            { label: 'Código de atividade Serasa', value: String(pick(identificationReport, ['activityCode', 'serasaActivityCode']) || '-') },
+            { label: 'Empresa antecessora', value: String(pick(identificationReport, ['predecessorCompany', 'antecessorCompany']) || '-') },
+          ].map((row, i) => (
+            <div key={i} className="px-4 py-1.5 flex gap-2">
+              <span className="text-muted-foreground text-xs font-medium shrink-0 w-44">{row.label}:</span>
+              <span className="text-xs text-foreground">{row.value}</span>
+            </div>
+          ))}
+        </div>
+        </>
+        ) : (
+        <>
+        {/* Basic PJ: 3 cards */}
         <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="border border-border rounded-lg p-4">
             <p className="text-[11px] font-medium text-muted-foreground">Situação na Receita Federal</p>
@@ -417,29 +504,19 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
               {foundationDate && (() => {
                 const raw = String(foundationDate);
                 let fd: Date;
-                if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-                  const [y, m, d] = raw.split('-').map(Number);
-                  fd = new Date(y, m - 1, d);
-                } else {
-                  fd = new Date(raw);
-                }
-                if (!isNaN(fd.getTime())) {
-                  const years = Math.floor((Date.now() - fd.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-                  return `${years} anos`;
-                }
+                if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) { const [y, m, d] = raw.split('-').map(Number); fd = new Date(y, m - 1, d); } else { fd = new Date(raw); }
+                if (!isNaN(fd.getTime())) { const years = Math.floor((Date.now() - fd.getTime()) / (365.25 * 24 * 60 * 60 * 1000)); return `${years} anos`; }
                 return '-';
               })()}
             </p>
           </div>
           <div className="border border-border rounded-lg p-4">
             <p className="text-[11px] font-medium text-muted-foreground">Município/UF</p>
-            <p className="text-sm font-bold text-foreground mt-1">
-              {joinLocation(companyAddress?.city || pick(registration, ['address.city']), companyAddress?.state || companyAddress?.federalUnit || pick(registration, ['address.state']))}
-            </p>
+            <p className="text-sm font-bold text-foreground mt-1">{joinLocation(companyAddress?.city || pick(registration, ['address.city']), companyAddress?.state || companyAddress?.federalUnit || pick(registration, ['address.state']))}</p>
           </div>
         </div>
 
-        {/* Dados cadastrais - only address like Serasa reference */}
+        {/* Dados cadastrais - only address for basic */}
         <p className="text-xs font-medium text-muted-foreground mb-2">Dados cadastrais</p>
         <div className="border border-border rounded-lg text-sm">
           <div className="px-4 py-2 flex gap-2">
@@ -448,12 +525,14 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
               {(() => {
                 const addr = companyAddress;
                 if (!addr || typeof addr !== 'object') return '-';
-                const parts = [addr.street, addr.number, addr.complement, addr.neighborhood ? `- ${addr.neighborhood}` : '', addr.city ? `${addr.city}` : '', addr.state ? `- ${addr.state},` : '', addr.zipCode].filter(Boolean);
+                const parts = [addr.street, addr.number, addr.complement, addr.neighborhood ? `- ${addr.neighborhood}` : '', addr.city || '', addr.state ? `- ${addr.state},` : '', addr.zipCode].filter(Boolean);
                 return parts.join(' ') || '-';
               })()}
             </span>
           </div>
         </div>
+        </>
+        )}
       </div>
 
       {/* ── Serasa Score Empresas ── */}
