@@ -707,10 +707,133 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
       <div>
         <p className="text-sm font-semibold text-primary mb-1">Quadro Societário</p>
         <p className="text-xs text-muted-foreground mb-4">
-          Composição dos sócios e administradores da empresa
+          Composição dos sócios e administradores da empresa. Atualizado em {statusDate}
         </p>
 
-        {/* Ocorrência de anotações negativas - single card */}
+        {isAvancadoPJ ? (
+        <>
+        {/* Advanced PJ: Company capital summary */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Capital social</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{socialCapital ? formatCurrency(socialCapital) : '-'}</p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Capital realizado</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{pick(companyData, ['accomplishedValue', 'realizedCapital']) ? formatCurrency(pick(companyData, ['accomplishedValue', 'realizedCapital'])) : socialCapital ? formatCurrency(socialCapital) : '-'}</p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Tipo de capital</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(companyData, ['capitalType', 'typeCapital']) || '-')}</p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Tipo de controle</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(companyData, ['controlType', 'typeControl']) || '-')}</p>
+          </div>
+          <div className="border border-border rounded-lg p-2.5">
+            <p className="text-[10px] font-medium text-muted-foreground">Origem</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(companyData, ['origin', 'companyOrigin']) || '-')}</p>
+          </div>
+        </div>
+
+        {/* Sem ocorrências summary */}
+        {(() => {
+          const pAnnot = allPartners.filter((p: any) => p.hasNegative === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim').length;
+          const dAnnot = allDirectors.filter((d: any) => d.hasNegative === true || d.restrictionSign === true || String(d.annotations || '').toLowerCase() === 'sim').length;
+          const totalAnnot = pAnnot + dAnnot;
+          return (
+          <div className="border border-border rounded-lg p-3 mb-4">
+            <p className="text-[11px] font-medium text-muted-foreground">Sem ocorrências</p>
+            <p className="text-sm font-bold text-foreground mt-0.5">
+              {allPartners.length} | {allDirectors.length}
+            </p>
+            <p className="text-[11px] text-muted-foreground">Sócios | Administradores</p>
+            {totalAnnot > 0 && <p className="text-[11px] text-destructive mt-0.5">{totalAnnot} com anotações negativas</p>}
+          </div>
+          );
+        })()}
+
+        {/* Sócios e acionistas - expanded */}
+        <p className="text-xs font-medium text-muted-foreground mb-2">Sócios e acionistas</p>
+        {allPartners.length === 0 ? (
+          <p className="text-xs text-muted-foreground mb-4">Nenhum registro encontrado.</p>
+        ) : (
+          <div className="overflow-x-auto border border-border rounded-lg mb-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs font-medium">Capital</TableHead>
+                  <TableHead className="text-xs font-medium">Capital votante</TableHead>
+                  <TableHead className="text-xs font-medium">Sócio/Acionista</TableHead>
+                  <TableHead className="text-xs font-medium">CPF/CNPJ</TableHead>
+                  <TableHead className="text-xs font-medium">Entrada</TableHead>
+                  <TableHead className="text-xs font-medium">Nacionalidade</TableHead>
+                  <TableHead className="text-xs font-medium">Anotações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {allPartners.map((p: any, i: number) => {
+                  const hasNeg = p.hasNegative === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim';
+                  return (
+                  <TableRow key={i}>
+                    <TableCell className="text-xs py-2">{p.participationPercentage != null ? `${p.participationPercentage}%` : p.percentage || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{p.votingPercentage != null ? `${p.votingPercentage}%` : p.votingCapital || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{p.name || p.partnerName || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDocument(p.documentId || p.documentNumber || p.cpf || p.cnpj)}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDate(p.admissionDate || p.entryDate || p.since)}</TableCell>
+                    <TableCell className="text-xs py-2">{p.nationality || '-'}</TableCell>
+                    <TableCell className={`text-xs py-2 ${hasNeg ? 'text-destructive font-medium' : ''}`}>{hasNeg ? 'Sim' : 'Não'}</TableCell>
+                  </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
+        {/* Administradores - expanded */}
+        <p className="text-xs font-medium text-muted-foreground mb-2">Administradores</p>
+        {allDirectors.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nenhum registro encontrado.</p>
+        ) : (
+          <div className="overflow-x-auto border border-border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs font-medium">Nome</TableHead>
+                  <TableHead className="text-xs font-medium">Cargo</TableHead>
+                  <TableHead className="text-xs font-medium">CPF/CNPJ</TableHead>
+                  <TableHead className="text-xs font-medium">Entrada</TableHead>
+                  <TableHead className="text-xs font-medium">Mandato</TableHead>
+                  <TableHead className="text-xs font-medium">Nacionalidade</TableHead>
+                  <TableHead className="text-xs font-medium">Estado Civil</TableHead>
+                  <TableHead className="text-xs font-medium">Anotações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {allDirectors.map((d: any, i: number) => {
+                  const hasNeg = d.hasNegative === true || d.restrictionSign === true || String(d.annotations || '').toLowerCase() === 'sim';
+                  return (
+                  <TableRow key={i}>
+                    <TableCell className="text-xs py-2">{d.name || d.directorName || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{d.position || d.role || d.office || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDocument(d.documentId || d.documentNumber || d.cpf || d.cnpj)}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDate(d.admissionDate || d.entryDate || d.since)}</TableCell>
+                    <TableCell className="text-xs py-2">{d.mandate || d.mandatePeriod || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{d.nationality || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{d.maritalStatus || d.civilStatus || '-'}</TableCell>
+                    <TableCell className={`text-xs py-2 ${hasNeg ? 'text-destructive font-medium' : ''}`}>{hasNeg ? 'Sim' : 'Não'}</TableCell>
+                  </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+        </>
+        ) : (
+        <>
+        {/* Basic PJ: Simplified QSA */}
         {(() => {
           const pAnnot = allPartners.filter((p: any) => p.hasNegative === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim').length;
           const dAnnot = allDirectors.filter((d: any) => d.hasNegative === true || d.restrictionSign === true || String(d.annotations || '').toLowerCase() === 'sim').length;
@@ -730,10 +853,10 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           );
         })()}
 
-        {/* Sócios e acionistas */}
+        {/* Sócios */}
         <p className="text-xs font-medium text-muted-foreground mb-2">Sócios e acionistas</p>
         {allPartners.length === 0 ? (
-          <p className="text-xs text-muted-foreground mb-4">Nenhum sócio encontrado.</p>
+          <p className="text-xs text-muted-foreground mb-4">Nenhum registro encontrado.</p>
         ) : (
           <div className="overflow-x-auto border border-border rounded-lg mb-4">
             <Table>
@@ -750,14 +873,10 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
                   const hasNeg = p.hasNegative === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim';
                   return (
                   <TableRow key={i}>
-                    <TableCell className="text-xs py-2">{p.participationPercentage != null ? `${p.participationPercentage}%` : '-'}</TableCell>
-                    <TableCell className="text-xs py-2 font-medium">{p.name || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{formatDocument(p.documentId || p.document || '')}</TableCell>
-                    <TableCell className="text-xs py-2">
-                      {hasNeg ? (
-                        <span className="flex items-center gap-1 text-amber-600 font-medium">Sim <AlertTriangle className="h-3.5 w-3.5" /></span>
-                      ) : <span className="text-muted-foreground">Não</span>}
-                    </TableCell>
+                    <TableCell className="text-xs py-2">{p.participationPercentage != null ? `${p.participationPercentage}%` : p.percentage || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{p.name || p.partnerName || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDocument(p.documentId || p.documentNumber || p.cpf || p.cnpj)}</TableCell>
+                    <TableCell className={`text-xs py-2 ${hasNeg ? 'text-destructive font-medium' : ''}`}>{hasNeg ? 'Sim' : 'Não'}</TableCell>
                   </TableRow>
                   );
                 })}
@@ -769,9 +888,9 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         {/* Administradores */}
         <p className="text-xs font-medium text-muted-foreground mb-2">Administradores</p>
         {allDirectors.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Nenhum administrador encontrado.</p>
+          <p className="text-xs text-muted-foreground">Nenhum registro encontrado.</p>
         ) : (
-          <div className="overflow-x-auto border border-border rounded-lg mb-4">
+          <div className="overflow-x-auto border border-border rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -786,14 +905,10 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
                   const hasNeg = d.hasNegative === true || d.restrictionSign === true || String(d.annotations || '').toLowerCase() === 'sim';
                   return (
                   <TableRow key={i}>
-                    <TableCell className="text-xs py-2 font-medium">{d.name || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{d.role || d.office || 'ADMINISTRADOR'}</TableCell>
-                    <TableCell className="text-xs py-2">{formatDocument(d.documentId || d.document || '')}</TableCell>
-                    <TableCell className="text-xs py-2">
-                      {hasNeg ? (
-                        <span className="flex items-center gap-1 text-amber-600 font-medium">Sim <AlertTriangle className="h-3.5 w-3.5" /></span>
-                      ) : <span className="text-muted-foreground">Não</span>}
-                    </TableCell>
+                    <TableCell className="text-xs py-2">{d.name || d.directorName || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{d.position || d.role || d.office || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDocument(d.documentId || d.documentNumber || d.cpf || d.cnpj)}</TableCell>
+                    <TableCell className={`text-xs py-2 ${hasNeg ? 'text-destructive font-medium' : ''}`}>{hasNeg ? 'Sim' : 'Não'}</TableCell>
                   </TableRow>
                   );
                 })}
@@ -801,58 +916,9 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             </Table>
           </div>
         )}
+        </>
+        )}
       </div>
-      </>
-      )}
-
-      {/* ═══════════════════ PF-SPECIFIC SECTIONS ═══════════════════ */}
-      {isPF && (
-      <>
-      {/* ── Identificação Cadastral PF ── */}
-      <div>
-        <p className="text-sm font-semibold text-primary mb-3">Identificação Cadastral</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Situação na Receita Federal</p>
-            <p className="text-sm font-bold text-foreground mt-1">{statusRF}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Atualizado em {statusDate}</p>
-          </div>
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Data de Nascimento</p>
-            <p className="text-sm font-bold text-foreground mt-1">{birthAge !== null ? `${birthAge} anos` : '-'}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">{formatDate(birthDateRaw)}</p>
-          </div>
-          <div className="border border-border rounded-lg p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Município/UF</p>
-            <p className="text-sm font-bold text-foreground mt-1">{joinLocation(pick(registration, ['city']), pick(registration, ['federalUnit']))}</p>
-          </div>
-        </div>
-
-        {isTopScore && (
-        <>
-        <p className="text-xs font-medium text-muted-foreground mt-4 mb-2">Dados cadastrais</p>
-        <div className="overflow-x-auto border border-border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-xs font-medium">Nome completo</TableHead>
-                <TableHead className="text-xs font-medium">CPF</TableHead>
-                <TableHead className="text-xs font-medium">Data de nascimento</TableHead>
-                <TableHead className="text-xs font-medium">Nome da mãe</TableHead>
-                <TableHead className="text-xs font-medium">Sexo</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow>
-                <TableCell className="text-xs py-2">{consumerName}</TableCell>
-                <TableCell className="text-xs py-2">{displayDoc}</TableCell>
-                <TableCell className="text-xs py-2">{formatDate(birthDateRaw)}</TableCell>
-                <TableCell className="text-xs py-2">{motherName}</TableCell>
-                <TableCell className="text-xs py-2">{gender}</TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </div>
         </>
         )}
 
