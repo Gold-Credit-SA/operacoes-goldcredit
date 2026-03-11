@@ -547,15 +547,19 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             Total de dívidas: <span className="font-bold">{formatCurrency(totalNegativeValue)}</span>
           </p>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <NegSummaryBox label="PEFIN" value={pick(pefin, ['summary.balance'], 0)} count={pick(pefin, ['summary.count'], 0)} />
             <NegSummaryBox label="REFIN" value={pick(refin, ['summary.balance'], 0)} count={pick(refin, ['summary.count'], 0)} />
             <NegSummaryBox label="Dívidas vencidas" value={pick(convem, ['summary.balance'], 0)} count={pick(convem, ['summary.count'], 0)} />
-            <NegSummaryBox label="Falência / Rec. judicial" value={pick(bankrupts, ['summary.balance'], 0)} count={pick(bankrupts, ['summary.count'], bankruptItems.length)} />
-            <NegSummaryBox label="Ações Judiciais" value={pick(judgements, ['summary.balance'], 0)} count={pick(judgements, ['summary.count'], judgementItems.length)} />
             <NegSummaryBox label="Protestos" value={pick(protests, ['summary.balance'], 0)} count={pick(protests, ['summary.count'], 0)} />
             <NegSummaryBox label="Cheque" value={pick(checks, ['summary.balance'], 0)} count={pick(checks, ['summary.count'], 0)} />
           </div>
+          {hasAdvancedNeg && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-3">
+            <NegSummaryBox label="Falência / Rec. judicial" value={pick(bankrupts, ['summary.balance'], 0)} count={pick(bankrupts, ['summary.count'], bankruptItems.length)} />
+            <NegSummaryBox label="Ações Judiciais" value={pick(judgements, ['summary.balance'], 0)} count={pick(judgements, ['summary.count'], judgementItems.length)} />
+          </div>
+          )}
         </div>
 
         {/* Tabelas individuais PJ */}
