@@ -1492,169 +1492,376 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         const paymentHistoryPJ = (behavioralData?.paymentHistory || report?.paymentHistoryCompany || optionalFeatures?.paymentHistoryCompany || {}) as GenericRecord;
         const commitmentEvolution = (behavioralData?.commitmentEvolution || report?.commitmentEvolution || optionalFeatures?.commitmentEvolution || {}) as GenericRecord;
         const businessReferences = (behavioralData?.businessReferences || report?.businessReferences || optionalFeatures?.businessReferences || {}) as GenericRecord;
+        const suppliers = (behavioralData?.suppliers || behavioralData?.principalSuppliers || report?.suppliers || optionalFeatures?.suppliers || {}) as GenericRecord;
+        const comparativeAnalysis = (behavioralData?.comparativeAnalysis || report?.comparativeAnalysis || optionalFeatures?.comparativeAnalysis || {}) as GenericRecord;
 
         const marketItems = asArray(marketRelationship?.marketRelationshipResponse || marketRelationship?.results || marketRelationship?.items || []);
         const pjPayItems = asArray(paymentHistoryPJ?.paymentHistoryResponse || paymentHistoryPJ?.payments || paymentHistoryPJ?.items || paymentHistoryPJ?.results || []);
         const commitmentItems = asArray(commitmentEvolution?.commitmentEvolutionResponse || commitmentEvolution?.results || commitmentEvolution?.items || []);
         const businessRefItems = asArray(businessReferences?.businessReferencesResponse || businessReferences?.results || businessReferences?.items || []);
-        const pjPaySummary = (paymentHistoryPJ?.summary || paymentHistoryPJ) as GenericRecord;
+        const supplierItems = asArray(suppliers?.suppliersResponse || suppliers?.results || suppliers?.items || []);
+        const comparativeItems = asArray(comparativeAnalysis?.comparativeAnalysisResponse || comparativeAnalysis?.results || comparativeAnalysis?.items || []);
+
+        // Payment history may have market and factoring sub-sections
+        const payHistoryMarket = asArray(paymentHistoryPJ?.market?.paymentHistoryResponse || paymentHistoryPJ?.marketPaymentHistory || paymentHistoryPJ?.market?.results || []);
+        const payHistoryFactoring = asArray(paymentHistoryPJ?.factoring?.paymentHistoryResponse || paymentHistoryPJ?.factoringPaymentHistory || paymentHistoryPJ?.factoring?.results || []);
+        const payHistoryDelayMarket = asArray(paymentHistoryPJ?.market?.averageDelay || paymentHistoryPJ?.marketAverageDelay || []);
+        const payHistoryDelayFactoring = asArray(paymentHistoryPJ?.factoring?.averageDelay || paymentHistoryPJ?.factoringAverageDelay || []);
+
+        // Commitment evolution sub-sections
+        const commitmentMarket = asArray(commitmentEvolution?.market?.commitmentEvolutionResponse || commitmentEvolution?.marketCommitment || []);
+        const commitmentFactoring = asArray(commitmentEvolution?.factoring?.commitmentEvolutionResponse || commitmentEvolution?.factoringCommitment || []);
+        const commitmentComparative = asArray(commitmentEvolution?.comparative?.commitmentEvolutionResponse || commitmentEvolution?.comparativeCommitment || []);
+
+        // Business references sub-sections
+        const refMarket = asArray(businessReferences?.market?.businessReferencesResponse || businessReferences?.marketReferences || []);
+        const refFactoring = asArray(businessReferences?.factoring?.businessReferencesResponse || businessReferences?.factoringReferences || []);
 
         return (
         <div>
           <p className="text-sm font-semibold text-primary mb-1">Informações Comportamentais</p>
           <p className="text-xs text-muted-foreground mb-4">
-            Dados de comportamento de pagamento e relacionamento da empresa com o mercado.
+            Informações detalhadas sobre histórico de pagamentos, perfil de compras e compromissos a vencer.
           </p>
 
-          {/* Relacionamento com o Mercado */}
-          <div className="mb-4">
-            <p className="text-xs font-medium text-muted-foreground mb-2">Relacionamento com o Mercado</p>
-            {marketItems.length > 0 ? (
+          {/* Principais fornecedores */}
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-primary mb-1">Principais fornecedores</p>
+            <p className="text-[11px] text-muted-foreground mb-2">
+              Atualizado em {statusDate}{supplierItems.length > 0 ? `  Exibindo ${supplierItems.length} registros.` : ''}
+            </p>
+            <p className="text-[11px] text-muted-foreground mb-2">Visão de mercado{supplierItems.length > 0 ? `  Exibindo ${supplierItems.length} registros.` : ''}</p>
+            {supplierItems.length > 0 ? (
               <div className="overflow-x-auto border border-border rounded-lg">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-xs font-medium">Período</TableHead>
-                      <TableHead className="text-xs font-medium">Segmento</TableHead>
-                      <TableHead className="text-xs font-medium">Valor Total</TableHead>
-                      <TableHead className="text-xs font-medium">Qtd. Operações</TableHead>
+                      <TableHead className="text-xs font-medium">CNPJ do Fornecedor</TableHead>
+                      <TableHead className="text-xs font-medium">Razão Social do Fornecedor</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {supplierItems.map((item: any, i: number) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-xs py-2">{item.documentId ? formatDocument(item.documentId) : item.cnpj ? formatDocument(item.cnpj) : '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.companyName || item.name || item.razaoSocial || '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">Nenhum registro encontrado.</p>
+            )}
+          </div>
+
+          {/* Relacionamento com o Mercado */}
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-primary mb-2">Relacionamento com o mercado</p>
+            {marketItems.length > 0 ? (
+              <>
+              <p className="text-[11px] text-muted-foreground mb-2">Exibindo {marketItems.length} registros.</p>
+              <div className="overflow-x-auto border border-border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs font-medium">0 - 6 meses</TableHead>
+                      <TableHead className="text-xs font-medium">6 meses - 1 ano</TableHead>
+                      <TableHead className="text-xs font-medium">1 - 3 anos</TableHead>
+                      <TableHead className="text-xs font-medium">3 - 5 anos</TableHead>
+                      <TableHead className="text-xs font-medium">5 - 10 anos</TableHead>
+                      <TableHead className="text-xs font-medium">{'>'}10 anos</TableHead>
+                      <TableHead className="text-xs font-medium">Inativos</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {marketItems.map((item: any, i: number) => (
                       <TableRow key={i}>
-                        <TableCell className="text-xs py-2">{item.period || item.month || formatDate(item.date) || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.segment || item.type || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.totalAmount ? formatCurrency(item.totalAmount) : item.amount ? formatCurrency(item.amount) : '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.operationsCount || item.quantity || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.range0to6 || item.zeroToSix || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.range6to12 || item.sixToTwelve || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.range1to3 || item.oneToThree || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.range3to5 || item.threeToFive || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.range5to10 || item.fiveToTen || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.rangeOver10 || item.overTen || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.inactive || item.inactives || '-'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
+              </>
             ) : (
-              <div className="border border-border rounded-lg p-3">
-                <p className="text-xs text-muted-foreground">Sem dados de relacionamento com o mercado.</p>
-              </div>
+              <p className="text-xs text-muted-foreground">Sem dados de relacionamento com o mercado.</p>
             )}
           </div>
 
-          {/* Histórico de Pagamentos */}
-          <div className="mb-4">
-            <p className="text-xs font-medium text-muted-foreground mb-2">Histórico de Pagamentos</p>
-            {pjPayItems.length > 0 ? (
+          {/* Histórico de pagamento - Quantidade de títulos */}
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-primary mb-2">Histórico de pagamento - Quantidade de títulos</p>
+            {(pjPayItems.length > 0 || payHistoryMarket.length > 0) ? (
+              <>
+              <p className="text-[11px] text-muted-foreground mb-2">Exibindo registros.</p>
               <div className="overflow-x-auto border border-border rounded-lg">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-xs font-medium">Período</TableHead>
+                      <TableHead className="text-xs font-medium">Últimos 12 meses</TableHead>
+                      <TableHead className="text-xs font-medium">À vista</TableHead>
                       <TableHead className="text-xs font-medium">Pontual</TableHead>
-                      <TableHead className="text-xs font-medium">1-14 dias</TableHead>
-                      <TableHead className="text-xs font-medium">15-30 dias</TableHead>
-                      <TableHead className="text-xs font-medium">31-60 dias</TableHead>
-                      <TableHead className="text-xs font-medium">61-90 dias</TableHead>
-                      <TableHead className="text-xs font-medium">{'>'}90 dias</TableHead>
+                      <TableHead className="text-xs font-medium">8 a 15 dias</TableHead>
+                      <TableHead className="text-xs font-medium">16 a 30 dias</TableHead>
+                      <TableHead className="text-xs font-medium">31 a 60 dias</TableHead>
+                      <TableHead className="text-xs font-medium">{'>'}60 dias</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pjPayItems.map((item: any, i: number) => (
+                    {(payHistoryMarket.length > 0 ? payHistoryMarket : pjPayItems).map((item: any, i: number) => (
                       <TableRow key={i}>
-                        <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.period || item.month || item.label || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.cashPayment || item.atSight || item.aVista || '-'}</TableCell>
                         <TableCell className="text-xs py-2">{item.onTime || item.punctual || item.onTimePayment || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.delay1to14 || item.late1to14 || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.delay15to30 || item.late15to30 || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.delay8to15 || item.late8to15 || item.delay1to14 || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.delay16to30 || item.late16to30 || item.delay15to30 || '-'}</TableCell>
                         <TableCell className="text-xs py-2">{item.delay31to60 || item.late31to60 || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.delay61to90 || item.late61to90 || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.delayOver90 || item.lateOver90 || '-'}</TableCell>
+                        <TableCell className="text-xs py-2">{item.delayOver60 || item.lateOver60 || item.delayOver90 || '-'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
-            ) : pjPaySummary?.onTimePayment ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                <div className="border border-border rounded-lg p-3">
-                  <p className="text-[11px] font-medium text-muted-foreground">Pontual</p>
-                  <p className="text-sm font-bold text-foreground mt-1">{pjPaySummary.onTimePayment}</p>
-                </div>
-                <div className="border border-border rounded-lg p-3">
-                  <p className="text-[11px] font-medium text-muted-foreground">Com atraso</p>
-                  <p className="text-sm font-bold text-foreground mt-1">{pjPaySummary.latePayment || '-'}</p>
-                </div>
-              </div>
+              </>
             ) : (
-              <div className="border border-border rounded-lg p-3">
-                <p className="text-xs text-muted-foreground">Sem dados de histórico de pagamentos.</p>
-              </div>
+              <p className="text-xs text-muted-foreground">Sem dados de histórico de pagamentos.</p>
             )}
           </div>
+
+          {/* Histórico de pagamentos - Mercado (month-by-month) */}
+          {(payHistoryMarket.length > 0 || pjPayItems.length > 0) && (
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-primary mb-2">Histórico de pagamentos - Mercado</p>
+            <p className="text-[11px] text-muted-foreground mb-2">Exibindo {(payHistoryMarket.length || pjPayItems.length)} registros.</p>
+            <div className="overflow-x-auto border border-border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs font-medium">Mês / Ano</TableHead>
+                    <TableHead className="text-xs font-medium">À vista</TableHead>
+                    <TableHead className="text-xs font-medium">Pontual</TableHead>
+                    <TableHead className="text-xs font-medium">8 a 15 dias</TableHead>
+                    <TableHead className="text-xs font-medium">16 a 30 dias</TableHead>
+                    <TableHead className="text-xs font-medium">31 a 60 dias</TableHead>
+                    <TableHead className="text-xs font-medium">{'>'}60 dias</TableHead>
+                    <TableHead className="text-xs font-medium">Total / Mês</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(payHistoryMarket.length > 0 ? payHistoryMarket : pjPayItems).map((item: any, i: number) => (
+                    <TableRow key={i}>
+                      <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.cashPayment || item.atSight || item.aVista || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.onTime || item.punctual || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.delay8to15 || item.late8to15 || item.delay1to14 || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.delay16to30 || item.late16to30 || item.delay15to30 || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.delay31to60 || item.late31to60 || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.delayOver60 || item.lateOver60 || item.delayOver90 || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.total || item.totalMonth || '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+          )}
+
+          {/* Histórico de pagamentos - Factorings sacado */}
+          {payHistoryFactoring.length > 0 && (
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-primary mb-2">Histórico de pagamentos - Factorings sacado</p>
+            <p className="text-[11px] text-muted-foreground mb-2">Exibindo {payHistoryFactoring.length} registros.</p>
+            <div className="overflow-x-auto border border-border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs font-medium">Mês / Ano</TableHead>
+                    <TableHead className="text-xs font-medium">À vista</TableHead>
+                    <TableHead className="text-xs font-medium">Pontual</TableHead>
+                    <TableHead className="text-xs font-medium">8 a 15 dias</TableHead>
+                    <TableHead className="text-xs font-medium">16 a 30 dias</TableHead>
+                    <TableHead className="text-xs font-medium">31 a 60 dias</TableHead>
+                    <TableHead className="text-xs font-medium">{'>'}60 dias</TableHead>
+                    <TableHead className="text-xs font-medium">Total / Mês</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {payHistoryFactoring.map((item: any, i: number) => (
+                    <TableRow key={i}>
+                      <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.cashPayment || item.atSight || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.onTime || item.punctual || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.delay8to15 || item.late8to15 || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.delay16to30 || item.late16to30 || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.delay31to60 || item.late31to60 || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.delayOver60 || item.lateOver60 || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.total || item.totalMonth || '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+          )}
 
           {/* Evolução de Compromissos */}
-          <div className="mb-4">
-            <p className="text-xs font-medium text-muted-foreground mb-2">Evolução de Compromissos</p>
-            {commitmentItems.length > 0 ? (
-              <div className="overflow-x-auto border border-border rounded-lg">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs font-medium">Período</TableHead>
-                      <TableHead className="text-xs font-medium">Valor Assumido</TableHead>
-                      <TableHead className="text-xs font-medium">Valor Liquidado</TableHead>
-                      <TableHead className="text-xs font-medium">Valor a Vencer</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {commitmentItems.map((item: any, i: number) => (
-                      <TableRow key={i}>
-                        <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.assumedAmount ? formatCurrency(item.assumedAmount) : item.totalAmount ? formatCurrency(item.totalAmount) : '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.settledAmount ? formatCurrency(item.settledAmount) : item.paidAmount ? formatCurrency(item.paidAmount) : '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.toExpireAmount ? formatCurrency(item.toExpireAmount) : item.pendingAmount ? formatCurrency(item.pendingAmount) : '-'}</TableCell>
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-primary mb-2">Evolução de compromissos</p>
+            {commitmentItems.length > 0 || commitmentMarket.length > 0 ? (
+              <>
+              {/* Visão comparativa */}
+              {commitmentComparative.length > 0 && (
+              <div className="mb-3">
+                <p className="text-[11px] text-muted-foreground mb-2">Visão comparativa</p>
+                <div className="overflow-x-auto border border-border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs font-medium">Mês/ano</TableHead>
+                        <TableHead className="text-xs font-medium">Tipo de pagamento</TableHead>
+                        <TableHead className="text-xs font-medium">Factorings</TableHead>
+                        <TableHead className="text-xs font-medium">Mercado</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {commitmentComparative.map((item: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
+                          <TableCell className="text-xs py-2">{item.paymentType || item.type || '-'}</TableCell>
+                          <TableCell className="text-xs py-2">{item.factoring ? formatCurrency(item.factoring) : '-'}</TableCell>
+                          <TableCell className="text-xs py-2">{item.market ? formatCurrency(item.market) : '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
+              )}
+
+              {/* À vencer em */}
+              <div className="mb-3">
+                <p className="text-[11px] text-muted-foreground mb-2">Evolução de compromissos - Mercado</p>
+                <div className="overflow-x-auto border border-border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs font-medium">Período</TableHead>
+                        <TableHead className="text-xs font-medium">Factorings</TableHead>
+                        <TableHead className="text-xs font-medium">Mercado</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(commitmentMarket.length > 0 ? commitmentMarket : commitmentItems).map((item: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
+                          <TableCell className="text-xs py-2">{item.factoring ? formatCurrency(item.factoring) : item.factoringAmount ? formatCurrency(item.factoringAmount) : '-'}</TableCell>
+                          <TableCell className="text-xs py-2">{item.market ? formatCurrency(item.market) : item.marketAmount ? formatCurrency(item.marketAmount) : item.assumedAmount ? formatCurrency(item.assumedAmount) : '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+              </>
             ) : (
-              <div className="border border-border rounded-lg p-3">
-                <p className="text-xs text-muted-foreground">Sem dados de evolução de compromissos.</p>
-              </div>
+              <p className="text-xs text-muted-foreground">Sem dados de evolução de compromissos.</p>
             )}
           </div>
 
           {/* Referenciais de Negócio */}
-          <div className="mb-4">
-            <p className="text-xs font-medium text-muted-foreground mb-2">Referenciais de Negócio</p>
-            {businessRefItems.length > 0 ? (
-              <div className="overflow-x-auto border border-border rounded-lg">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs font-medium">Segmento</TableHead>
-                      <TableHead className="text-xs font-medium">Data Início</TableHead>
-                      <TableHead className="text-xs font-medium">Última Compra</TableHead>
-                      <TableHead className="text-xs font-medium">Maior Compra</TableHead>
-                      <TableHead className="text-xs font-medium">Maior Atraso</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {businessRefItems.map((item: any, i: number) => (
-                      <TableRow key={i}>
-                        <TableCell className="text-xs py-2">{item.segment || item.type || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{formatDate(item.startDate || item.firstPurchase)}</TableCell>
-                        <TableCell className="text-xs py-2">{formatDate(item.lastPurchase || item.lastDate)}</TableCell>
-                        <TableCell className="text-xs py-2">{item.highestPurchase ? formatCurrency(item.highestPurchase) : '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.longestDelay || item.maxDelay || '-'}</TableCell>
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-primary mb-2">Referenciais de negócio</p>
+            {(() => {
+              const refItems = refMarket.length > 0 ? refMarket : businessRefItems;
+              const hasRef = refItems.length > 0 || refFactoring.length > 0;
+              if (!hasRef) return <p className="text-xs text-muted-foreground">Sem dados de referenciais de negócio.</p>;
+              return (
+              <>
+              {/* Mercado */}
+              {refItems.length > 0 && (
+              <div className="mb-3">
+                <p className="text-[11px] text-muted-foreground mb-2">Referenciais de negócio - Mercado  Exibindo {refItems.length} registros.</p>
+                <div className="overflow-x-auto border border-border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs font-medium"></TableHead>
+                        <TableHead className="text-xs font-medium">Última compra</TableHead>
+                        <TableHead className="text-xs font-medium">Maior fatura</TableHead>
+                        <TableHead className="text-xs font-medium">Maior acúmulo</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {['Data', 'Valor', 'Média'].map((label) => (
+                        <TableRow key={label}>
+                          <TableCell className="text-xs py-2 font-medium">{label}</TableCell>
+                          {refItems.slice(0, 1).map((item: any, i: number) => {
+                            const lastPurchase = label === 'Data' ? (item.lastPurchaseDate || formatDate(item.lastPurchase) || '-') : label === 'Valor' ? (item.lastPurchaseValue ? formatCurrency(item.lastPurchaseValue) : '-') : (item.lastPurchaseAvg ? formatCurrency(item.lastPurchaseAvg) : '-');
+                            const highestInvoice = label === 'Data' ? (item.highestInvoiceDate || '-') : label === 'Valor' ? (item.highestInvoiceValue ? formatCurrency(item.highestInvoiceValue) : item.highestPurchase ? formatCurrency(item.highestPurchase) : '-') : (item.highestInvoiceAvg ? formatCurrency(item.highestInvoiceAvg) : '-');
+                            const highestAccumulated = label === 'Data' ? (item.highestAccumulatedDate || '-') : label === 'Valor' ? (item.highestAccumulatedValue ? formatCurrency(item.highestAccumulatedValue) : '-') : (item.highestAccumulatedAvg ? formatCurrency(item.highestAccumulatedAvg) : '-');
+                            return (
+                            <React.Fragment key={i}>
+                              <TableCell className="text-xs py-2">{lastPurchase}</TableCell>
+                              <TableCell className="text-xs py-2">{highestInvoice}</TableCell>
+                              <TableCell className="text-xs py-2">{highestAccumulated}</TableCell>
+                            </React.Fragment>
+                            );
+                          })}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
-            ) : (
-              <div className="border border-border rounded-lg p-3">
-                <p className="text-xs text-muted-foreground">Sem dados de referenciais de negócio.</p>
+              )}
+
+              {/* Factorings */}
+              {refFactoring.length > 0 && (
+              <div className="mb-3">
+                <p className="text-[11px] text-muted-foreground mb-2">Referenciais de negócio - Factorings  Exibindo {refFactoring.length} registros.</p>
+                <div className="overflow-x-auto border border-border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs font-medium"></TableHead>
+                        <TableHead className="text-xs font-medium">Última compra</TableHead>
+                        <TableHead className="text-xs font-medium">Maior fatura</TableHead>
+                        <TableHead className="text-xs font-medium">Maior acúmulo</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {['Data', 'Valor', 'Média'].map((label) => (
+                        <TableRow key={label}>
+                          <TableCell className="text-xs py-2 font-medium">{label}</TableCell>
+                          {refFactoring.slice(0, 1).map((item: any, i: number) => {
+                            const lastPurchase = label === 'Data' ? (item.lastPurchaseDate || '-') : label === 'Valor' ? (item.lastPurchaseValue ? formatCurrency(item.lastPurchaseValue) : '-') : (item.lastPurchaseAvg ? formatCurrency(item.lastPurchaseAvg) : '-');
+                            const highestInvoice = label === 'Data' ? (item.highestInvoiceDate || '-') : label === 'Valor' ? (item.highestInvoiceValue ? formatCurrency(item.highestInvoiceValue) : '-') : (item.highestInvoiceAvg ? formatCurrency(item.highestInvoiceAvg) : '-');
+                            const highestAccumulated = label === 'Data' ? (item.highestAccumulatedDate || '-') : label === 'Valor' ? (item.highestAccumulatedValue ? formatCurrency(item.highestAccumulatedValue) : '-') : (item.highestAccumulatedAvg ? formatCurrency(item.highestAccumulatedAvg) : '-');
+                            return (
+                            <React.Fragment key={i}>
+                              <TableCell className="text-xs py-2">{lastPurchase}</TableCell>
+                              <TableCell className="text-xs py-2">{highestInvoice}</TableCell>
+                              <TableCell className="text-xs py-2">{highestAccumulated}</TableCell>
+                            </React.Fragment>
+                            );
+                          })}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
-            )}
+              )}
+              </>
+              );
+            })()}
           </div>
 
           <p className="text-[10px] text-muted-foreground mt-3 leading-relaxed">
