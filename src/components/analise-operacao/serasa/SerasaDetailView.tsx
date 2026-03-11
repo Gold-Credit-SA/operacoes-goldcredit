@@ -922,6 +922,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         </>
         )}
       {/* ── Identificação Cadastral PF ── */}
+      {isPF && (
+      <>
       <div>
         <p className="text-sm font-semibold text-primary mb-3">Identificação Cadastral</p>
 
