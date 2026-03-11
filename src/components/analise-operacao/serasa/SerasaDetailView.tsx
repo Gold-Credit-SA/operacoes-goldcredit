@@ -129,15 +129,6 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const stolenDocuments = (report?.stolenDocuments || {}) as GenericRecord;
   const optionalFeatures = (report?.optionalFeatures || {}) as GenericRecord;
 
-  // DEBUG: log raw score and QSA data
-  console.log('[SerasaDebug] report.score:', JSON.stringify(report?.score, null, 2));
-  console.log('[SerasaDebug] report.scores:', JSON.stringify(report?.scores, null, 2));
-  console.log('[SerasaDebug] optionalFeatures.scores:', JSON.stringify(optionalFeatures?.scores, null, 2));
-  console.log('[SerasaDebug] report.QSAReport keys:', report?.QSAReport ? Object.keys(report.QSAReport) : 'N/A');
-  console.log('[SerasaDebug] report.qsaReport keys:', report?.qsaReport ? Object.keys(report.qsaReport) : 'N/A');
-  console.log('[SerasaDebug] allPartners count will use partnersList:', JSON.stringify(report?.QSAReport?.companyData?.partnersList?.length || 'N/A'));
-  console.log('[SerasaDebug] allDirectors count will use directorsList:', JSON.stringify(report?.QSAReport?.companyData?.directorsList?.length || 'N/A'));
-
   // Score - PJ H4PJ is at report.score directly; PF HRLD at optionalFeatures.scoreResponse
   // Credit limit HLC1 is at report.scores.scoreResponse[]
   const directScore = (report?.score || {}) as GenericRecord;
@@ -147,7 +138,6 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   // Use direct score (H4PJ/HRLD) if available, otherwise fall back to scoreResponse array
   const mainScoreFromArr = scoreResponseArr.find((s: any) => s.scoreModel !== 'HLC1');
   const score = (directScore?.score ? directScore : mainScoreFromArr || optionalFeatures?.scoreResponse || optionalFeatures?.score || {}) as GenericRecord;
-  console.log('[SerasaDebug] resolved score:', JSON.stringify(score, null, 2));
 
   const pefin = (negativeData?.pefinResponse || negativeData?.pefin || {}) as GenericRecord;
   const refin = (negativeData?.refinResponse || negativeData?.refin || {}) as GenericRecord;
@@ -161,8 +151,19 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const identificationReport = (report?.identificationReport || {}) as GenericRecord;
   const qsaReport = (report?.QSAReport || report?.qsaReport || {}) as GenericRecord;
   const companyData = (qsaReport?.companyData || report?.companyData || optionalFeatures?.companyData || {}) as GenericRecord;
-  const partnersList = asArray(companyData?.partnersList || companyData?.partners || []);
-  const directorsList = asArray(companyData?.directorsList || companyData?.directors || []);
+
+  // Partners: try report.partner.PartnerResponse.results first (PJ basic), then QSA paths
+  const partnerSection = (report?.partner || {}) as GenericRecord;
+  const directorSection = (report?.director || {}) as GenericRecord;
+  const partnerResponseResults = asArray(partnerSection?.PartnerResponse?.results || partnerSection?.partnerResponse?.results || partnerSection?.partnershipResponse || []);
+  const directorResponseResults = asArray(directorSection?.DirectorResponse?.results || directorSection?.directorResponse?.results || []);
+  
+  const partnersList = partnerResponseResults.length > 0 
+    ? partnerResponseResults 
+    : asArray(companyData?.partnersList || companyData?.partners || []);
+  const directorsList = directorResponseResults.length > 0 
+    ? directorResponseResults 
+    : asArray(companyData?.directorsList || companyData?.directors || []);
 
   // QSA partners/directors from QSAReport or fallback paths
   const qsaPartnerReport = (qsaReport?.partnerCompleteReport || qsaReport?.partnerReport || {}) as GenericRecord;
@@ -363,8 +364,8 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           })()}
           {/* Ocorrência de anotações negativas */}
           {isPJ ? (() => {
-            const partnersWithAnnotations = allPartners.filter((p: any) => p.hasNegativeData === true || p.negativeData === true || p.hasAnnotations === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim').length;
-            const directorsWithAnnotations = allDirectors.filter((d: any) => d.hasNegativeData === true || d.negativeData === true || d.hasAnnotations === true || d.restrictionSign === true || String(d.annotations || '').toLowerCase() === 'sim').length;
+            const partnersWithAnnotations = allPartners.filter((p: any) => p.hasNegative === true || p.hasNegativeData === true || p.negativeData === true || p.hasAnnotations === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim').length;
+            const directorsWithAnnotations = allDirectors.filter((d: any) => d.hasNegative === true || d.hasNegativeData === true || d.negativeData === true || d.hasAnnotations === true || d.restrictionSign === true || String(d.annotations || '').toLowerCase() === 'sim').length;
             const totalAnnotations = partnersWithAnnotations + directorsWithAnnotations;
             return (
             <div className="border border-border rounded-lg p-3">
