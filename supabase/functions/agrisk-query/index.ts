@@ -140,7 +140,7 @@ async function fetchResultByType(
   queryItems: any[]
 ): Promise<any> {
   // Find the relevant query item for this product
-  const productCode = PRODUCT_MAP[consultaType];
+  const productCode = PRODUCT_MAP[consultaType]?.code;
 
   // Try to find queryId in the polling results
   const relevantItem = queryItems.find(
