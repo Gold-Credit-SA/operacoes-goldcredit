@@ -26,10 +26,11 @@ const CHART_COLORS: Record<CategoryKey, string> = {
   limite: 'hsl(var(--chart-5))',
 };
 
-const BUCKET_ORDER = ['v110', 'v120', 'v130', 'v140', 'v150', 'v160', 'v165', 'v170', 'v180', 'v190', 'v200'];
+const BUCKET_ORDER = ['v110', 'v120', 'v130', 'v140', 'v150', 'v160', 'v165', 'v170', 'v175', 'v180', 'v190', 'v200', 'v250', 'v255', 'v260'];
 const BUCKET_SHORT: Record<string, string> = {
   v110: '30', v120: '60', v130: '90', v140: '180', v150: '360',
-  v160: '720', v165: '+720', v170: '1080', v180: '1440', v190: '1800', v200: '+1800',
+  v160: '720', v165: '+720', v170: '1080', v175: '1440', v180: '1800', v190: '5400', v200: '+5400',
+  v250: 'Indet.', v255: 'Indet.C', v260: 'Indet.L',
 };
 
 function formatCompact(value: number): string {

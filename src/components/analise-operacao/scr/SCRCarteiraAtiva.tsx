@@ -22,9 +22,13 @@ const SHORT_LABELS: Record<string, string> = {
   'v160': '720',
   'v165': '+720',
   'v170': '1080',
-  'v180': '1440',
-  'v190': '1800',
-  'v200': '+1800',
+  'v175': '1440',
+  'v180': '1800',
+  'v190': '5400',
+  'v200': '+5400',
+  'v250': 'Indet.',
+  'v255': 'Indet.C',
+  'v260': 'Indet.L',
 };
 
 const SHORT_VENCIDO_LABELS: Record<string, string> = {
