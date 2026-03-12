@@ -105,7 +105,6 @@ function normalizeResponseData(rawData: Record<string, any>): Record<string, Sub
       }
       if (ibama.assessments) {
         details_ibama['Autuações'] = ibama.assessments.content?.length === 0 ? 'Nenhuma autuação' : `${ibama.assessments.content?.length} autuação(ões)`;
-        if (ibama.assessments.fileUrl) details_ibama['Autuações Arquivo'] = ibama.assessments.fileUrl;
       }
 
       ambientalItems.push({ key: 'ibama', label: 'IBAMA', status: 'DONE', data: details_ibama });
