@@ -218,8 +218,8 @@ serve(async (req) => {
       });
     }
 
-    const productCode = PRODUCT_MAP[consultaType];
-    if (!productCode) {
+    const productInfo = PRODUCT_MAP[consultaType];
+    if (!productInfo) {
       return new Response(JSON.stringify({ error: `Tipo de consulta '${consultaType}' não suportado.` }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -232,18 +232,8 @@ serve(async (req) => {
     // 2. Get or create client
     const clientId = await getOrCreateClient(token, taxId.replace(/\D/g, ""));
 
-    // 3. Get available products to find the product ID
-    const products = await getProducts(token);
-    const product = products.find((p: any) => p.code === productCode);
-    if (!product) {
-      return new Response(
-        JSON.stringify({ error: `Produto '${productCode}' não encontrado na lista de produtos AgRisk.` }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // 4. Request query
-    const queryResult = await requestQuery(token, clientId, [product._id]);
+    // 3. Request query with hardcoded product ID
+    const queryResult = await requestQuery(token, clientId, [productInfo._id]);
 
     // 5. Poll for results
     const pollResults = await pollForResults(token, clientId);
