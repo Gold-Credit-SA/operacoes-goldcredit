@@ -14,6 +14,7 @@ import { ptBR } from 'date-fns/locale';
 import { SCRDetailView } from '@/components/analise-operacao/SCRDetailView';
 import { SerasaDetailView } from '@/components/analise-operacao/serasa/SerasaDetailView';
 import { ConsultaModal } from '@/components/clientes/ConsultaModal';
+import { ConsultaClienteDetailView } from '@/components/clientes/ConsultaClienteDetailView';
 
 interface ClientRecord {
   id: string;
@@ -498,6 +499,8 @@ export default function ClienteDetail() {
                   <SCRDetailView data={detailEntry.result_data} />
                 ) : detailEntry.platform === 'serasa' || detailEntry.consulta_type.startsWith('serasa') ? (
                   <SerasaDetailView data={detailEntry.result_data} document={detailEntry.cnpj} consultaId={detailEntry.consulta_type} />
+                ) : detailEntry.consulta_type === 'consulta_cliente' ? (
+                  <ConsultaClienteDetailView data={detailEntry.result_data as Record<string, any>} />
                 ) : (
                   <pre className="text-xs text-foreground whitespace-pre-wrap bg-muted p-4 rounded-lg">
                     {JSON.stringify(detailEntry.result_data, null, 2)}
