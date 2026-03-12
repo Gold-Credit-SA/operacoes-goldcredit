@@ -42,7 +42,7 @@ interface SubItem {
 function normalizeResponseData(rawData: Record<string, any>): Record<string, SubItem[]> {
   const result: Record<string, SubItem[]> = {};
 
-  // Handle new format: { details: { compliance, bvs, lawsuits, ... } }
+  // Handle formats: { details: { ... } } OR flat { compliance, bvs, lawsuits, ... }
   const details = rawData?.details || rawData;
   if (!details || typeof details !== 'object') return result;
 
