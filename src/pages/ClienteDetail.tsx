@@ -444,7 +444,13 @@ export default function ClienteDetail() {
                                 addr.state || addr.estado,
                                 addr.zip_code || addr.zipCode || addr.cep
                               ].filter(Boolean).join(', ') || '—';
-                              const addrType = addr.address_type || addr.type || addr.tipo || '—';
+                              const addrTypeMap: Record<string, string> = {
+                                'WORK': 'Trabalho', 'HOME': 'Residencial', 'COMMERCIAL': 'Comercial',
+                                'work': 'Trabalho', 'home': 'Residencial', 'commercial': 'Comercial',
+                                'RURAL': 'Rural', 'rural': 'Rural',
+                              };
+                              const rawAddrType = addr.address_type || addr.type || addr.tipo || '';
+                              const addrType = addrTypeMap[rawAddrType] || rawAddrType || '—';
                               const info = addr.information || {};
                               const totalPassages = info.total_passages ?? addr.passagem ?? addr.count ?? '—';
                               const lastPassage = info.last_passage || addr.ultimaPassagem || addr.lastSeen || addr.updatedAt || null;
@@ -492,10 +498,27 @@ export default function ClienteDetail() {
                           </TableHeader>
                           <TableBody>
                             {phones.map((ph: any, i: number) => {
-                              const num = ph.area_code && ph.number
+                              const rawNum = ph.area_code && ph.number
                                 ? `(${ph.area_code}) ${ph.number}`
-                                : ph.number || ph.numero || ph.phone || (typeof ph === 'string' ? ph : JSON.stringify(ph));
-                              const phType = ph.phone_type || ph.type || ph.tipo || '—';
+                                : ph.number || ph.numero || ph.phone || (typeof ph === 'string' ? ph : '');
+                              // Format phone: (XX) XXXXX-XXXX or (XX) XXXX-XXXX
+                              const digits = String(rawNum).replace(/\D/g, '');
+                              let formattedNum = rawNum;
+                              if (digits.length === 11) {
+                                formattedNum = `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`;
+                              } else if (digits.length === 10) {
+                                formattedNum = `(${digits.slice(0,2)}) ${digits.slice(2,6)}-${digits.slice(6)}`;
+                              } else if (digits.length >= 8) {
+                                formattedNum = `(${digits.slice(0,2)}) ${digits.slice(2)}`;
+                              }
+                              const typeMap: Record<string, string> = {
+                                'MOBILE': 'Celular', 'LANDLINE': 'Fixo', 'WORK': 'Trabalho',
+                                'HOME': 'Residencial', 'FAX': 'Fax', 'COMMERCIAL': 'Comercial',
+                                'mobile': 'Celular', 'landline': 'Fixo', 'work': 'Trabalho',
+                                'home': 'Residencial', 'fax': 'Fax', 'commercial': 'Comercial',
+                              };
+                              const rawType = ph.phone_type || ph.type || ph.tipo || '';
+                              const phType = typeMap[rawType] || rawType || '—';
                               const phInfo = ph.information || {};
                               const lastSeen = phInfo.last_passage || ph.ultimaPassagem || ph.lastSeen || null;
                               const lastSeenFmt = lastSeen
@@ -503,7 +526,7 @@ export default function ClienteDetail() {
                                 : '—';
                               return (
                                 <TableRow key={i}>
-                                  <TableCell className="text-xs font-mono">{num}</TableCell>
+                                  <TableCell className="text-xs font-mono">{formattedNum || '—'}</TableCell>
                                   <TableCell className="text-xs">{phType}</TableCell>
                                   <TableCell className="text-xs text-right">{lastSeenFmt}</TableCell>
                                 </TableRow>
@@ -533,15 +556,22 @@ export default function ClienteDetail() {
                       <div className="overflow-auto">
                         <Table>
                           <TableHeader>
-                            <TableRow>
+                             <TableRow>
                               <TableHead>E-mail</TableHead>
+                              <TableHead className="w-[100px]">Tipo</TableHead>
                               <TableHead className="w-[120px] text-right">Última Passagem</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {emails.map((em: any, i: number) => {
-                              const emailAddr = em.email || em.address || (typeof em === 'string' ? em : JSON.stringify(em));
+                              const emailAddr = em.email || em.address || em.email_address || (typeof em === 'string' ? em : '—');
                               const emInfo = em.information || {};
+                              const emailTypeMap: Record<string, string> = {
+                                'PERSONAL': 'Pessoal', 'WORK': 'Trabalho', 'COMMERCIAL': 'Comercial',
+                                'personal': 'Pessoal', 'work': 'Trabalho', 'commercial': 'Comercial',
+                              };
+                              const rawEType = em.email_type || em.type || em.tipo || '';
+                              const eType = emailTypeMap[rawEType] || rawEType || '—';
                               const lastSeen = emInfo.last_passage || em.ultimaPassagem || em.lastSeen || null;
                               const lastSeenFmt = lastSeen
                                 ? (() => { try { return format(new Date(lastSeen), 'dd/MM/yyyy'); } catch { return lastSeen; } })()
@@ -549,6 +579,7 @@ export default function ClienteDetail() {
                               return (
                                 <TableRow key={i}>
                                   <TableCell className="text-xs">{emailAddr}</TableCell>
+                                  <TableCell className="text-xs">{eType}</TableCell>
                                   <TableCell className="text-xs text-right">{lastSeenFmt}</TableCell>
                                 </TableRow>
                               );
