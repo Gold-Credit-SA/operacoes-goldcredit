@@ -795,7 +795,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           </div>
           <div className="border border-border rounded-lg p-2.5">
             <p className="text-[10px] font-medium text-muted-foreground">Origem</p>
-            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(companyData, ['origin', 'companyOrigin']) || '-')}</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(companyData, ['countryOrigin', 'origin', 'companyOrigin']) || '-')}</p>
           </div>
         </div>
 
