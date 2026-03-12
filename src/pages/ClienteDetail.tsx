@@ -530,6 +530,61 @@ export default function ClienteDetail() {
                 </Card>
               </TabsContent>
             </Tabs>
+
+            {/* Consultas realizadas - inline */}
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-primary" />
+                  Consultas Realizadas
+                  {history.length > 0 && (
+                    <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{history.length}</Badge>
+                  )}
+                </h3>
+              </div>
+              {history.length === 0 ? (
+                <Card>
+                  <CardContent className="py-10 text-center">
+                    <Clock className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+                    <p className="text-sm text-muted-foreground">Nenhuma consulta realizada.</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-2">
+                  {history.map(entry => (
+                    <Card
+                      key={entry.id}
+                      className="hover:border-primary/30 transition-colors cursor-pointer"
+                      onClick={() => setDetailEntry(entry)}
+                    >
+                      <CardContent className="py-3 px-4 flex items-center gap-3">
+                        <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-foreground">{entry.consulta_label}</span>
+                            <PlatformBadge
+                              platform={entry.platform}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const routes: Record<string, string> = { serasa: '/historico-serasa', scr: '/historico-scr', agrisk: '/historico-agrisk' };
+                                if (routes[entry.platform]) navigate(routes[entry.platform]);
+                              }}
+                            />
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(entry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                            {entry.consulted_by_name && <> · <span className="italic">por {entry.consulted_by_name}</span></>}
+                          </p>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setDetailEntry(entry); }}>
+                          <FileText className="h-3.5 w-3.5" />
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
