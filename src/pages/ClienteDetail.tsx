@@ -209,7 +209,7 @@ export default function ClienteDetail() {
                     {birthDate && (
                       <div>
                         <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Nascimento</p>
-                        <p className="text-sm text-foreground">{birthDate}</p>
+                        <p className="text-sm text-foreground">{(() => { try { return format(new Date(birthDate), 'dd/MM/yyyy'); } catch { return birthDate; } })()}</p>
                       </div>
                     )}
                     {age !== null && (
