@@ -60,8 +60,8 @@ function subLabel(key: string): string {
 }
 
 function normalizeStatus(status: string | undefined): string {
-  const s = (status || '').toUpperCase().trim();
-  if (['FILA','PENDING','PROCESSING','QUEUED'].includes(s)) return 'FILA';
+  const s = (status || '').toUpperCase().trim().replace(/\s+/g, '_');
+  if (['FILA','PENDING','PROCESSING','QUEUED','EM_PROGRESSO'].includes(s)) return 'FILA';
   if (['DONE','SUCCESS','COMPLETED','OK','FINALIZADO'].includes(s)) return 'DONE';
   if (['ERROR','FAILED','ERRO'].includes(s)) return 'ERROR';
   if (['NOT_FOUND','EMPTY'].includes(s)) return 'NOT_FOUND';
@@ -344,11 +344,15 @@ function GenericSubContent({ item }: { item: SubItem }) {
 
   if (entries.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <Ban className="h-12 w-12 text-muted-foreground/20 mb-3" />
-        <p className="text-base font-semibold text-foreground mb-1">Sem dados</p>
-        <p className="text-sm text-muted-foreground">Nenhum registro encontrado para {subLabel(item.key)}.</p>
-      </div>
+      <Card>
+        <CardContent className="py-6 flex items-center gap-3">
+          <CheckCircle2 className="h-5 w-5 text-green-600" />
+          <div>
+            <p className="text-sm font-medium text-foreground">{subLabel(item.key)}</p>
+            <p className="text-xs text-muted-foreground">Consulta finalizada — nenhuma pendência encontrada.</p>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
