@@ -247,13 +247,13 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
     Number(pick(checks, ['summary.count'], 0)) +
     Number(pick(protests, ['summary.count'], 0));
 
-  // Check for explicit "NADA CONSTA" message from the API (liminar or clean record)
+  // Check for explicit "NADA CONSTA" message from Serasa API (liminar judicial)
+  // This is a WARNING: means a court order is hiding negative records — only show when API explicitly says so
   const nadaConstaMessage = pick<string>(negativeData, [
     'message', 'summary.message', 'annotationMessage', 'nadaConsta',
     'pefinResponse.message', 'refinResponse.message',
   ], '') || '';
-  const hasNadaConsta = totalNegativeCount === 0 || 
-    nadaConstaMessage.toUpperCase().includes('NADA CONSTA');
+  const hasNadaConsta = nadaConstaMessage.toUpperCase().includes('NADA CONSTA');
 
   const scoreValue = Number(pick(score, ['score'], 0));
   const rawDefaultRate = pick<string>(score, ['defaultRate'], '');
@@ -711,14 +711,14 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           )}
         </div>
 
-        {/* NADA CONSTA - highlight when no negative records */}
+        {/* NADA CONSTA - liminar judicial impedindo exibição de restrições */}
         {hasNadaConsta && (
-          <div className="border-2 border-green-500/30 bg-green-500/5 rounded-lg p-4 mb-4">
+          <div className="border-2 border-amber-500/30 bg-amber-500/5 rounded-lg p-4 mb-4">
             <div className="flex items-center gap-2">
-              <ShieldAlert className="h-5 w-5 text-green-600" />
+              <ShieldAlert className="h-5 w-5 text-amber-600" />
               <div>
-                <p className="text-sm font-semibold text-foreground">Anotações negativas</p>
-                <p className="text-base font-bold text-green-600">NADA CONSTA</p>
+                <p className="text-sm font-semibold text-foreground">⚠️ NADA CONSTA — Liminar Judicial</p>
+                <p className="text-xs text-muted-foreground">Existe uma decisão judicial impedindo a exibição de anotações negativas para este documento.</p>
               </div>
             </div>
           </div>
@@ -1212,14 +1212,14 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           </div>
         </div>
 
-        {/* NADA CONSTA - highlight when no negative records */}
+        {/* NADA CONSTA - liminar judicial impedindo exibição de restrições */}
         {hasNadaConsta && (
-          <div className="border-2 border-green-500/30 bg-green-500/5 rounded-lg p-4 mb-4">
+          <div className="border-2 border-amber-500/30 bg-amber-500/5 rounded-lg p-4 mb-4">
             <div className="flex items-center gap-2">
-              <ShieldAlert className="h-5 w-5 text-green-600" />
+              <ShieldAlert className="h-5 w-5 text-amber-600" />
               <div>
-                <p className="text-sm font-semibold text-foreground">Anotações negativas</p>
-                <p className="text-base font-bold text-green-600">NADA CONSTA</p>
+                <p className="text-sm font-semibold text-foreground">⚠️ NADA CONSTA — Liminar Judicial</p>
+                <p className="text-xs text-muted-foreground">Existe uma decisão judicial impedindo a exibição de anotações negativas para este documento.</p>
               </div>
             </div>
           </div>
