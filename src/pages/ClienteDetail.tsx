@@ -71,7 +71,7 @@ export default function ClienteDetail() {
   const [loading, setLoading] = useState(true);
   const [consultaOpen, setConsultaOpen] = useState(false);
   const [detailEntry, setDetailEntry] = useState<HistoryEntry | null>(null);
-  
+  const [filterPlatform, setFilterPlatform] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (!id) return;
@@ -191,7 +191,64 @@ export default function ClienteDetail() {
     );
   }
 
-  // When showHistory is true, show full history list inline
+  // When filterPlatform is set, show filtered history inline
+  if (filterPlatform) {
+    const filtered = history.filter(h => h.platform === filterPlatform);
+    const platformLabels: Record<string, string> = { serasa: 'Serasa', scr: 'SCR (HBI)', agrisk: 'AgRisk' };
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border">
+          <div className="px-6 py-3 flex items-center justify-between">
+            <Button variant="ghost" size="sm" onClick={() => setFilterPlatform(null)}>
+              <ArrowLeft className="h-4 w-4 mr-1.5" />
+              Voltar ao cliente
+            </Button>
+            <div className="flex items-center gap-2">
+              <PlatformBadge platform={filterPlatform} />
+              <span className="text-xs text-muted-foreground">{filtered.length} consulta(s)</span>
+            </div>
+          </div>
+        </div>
+        <div className="p-6 max-w-4xl mx-auto">
+          <h2 className="text-lg font-bold text-foreground mb-4">
+            Histórico {platformLabels[filterPlatform] || filterPlatform}
+          </h2>
+          {filtered.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Clock className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+                <p className="text-sm text-muted-foreground">Nenhuma consulta {platformLabels[filterPlatform]} realizada.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {filtered.map(entry => (
+                <Card
+                  key={entry.id}
+                  className="hover:border-primary/30 transition-colors cursor-pointer"
+                  onClick={() => setDetailEntry(entry)}
+                >
+                  <CardContent className="py-3 px-4 flex items-center gap-3">
+                    <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground">{entry.consulta_label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(entry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        {entry.consulted_by_name && <> · <span className="italic">por {entry.consulted_by_name}</span></>}
+                      </p>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setDetailEntry(entry); }}>
+                      <FileText className="h-3.5 w-3.5" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -319,6 +376,57 @@ export default function ClienteDetail() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Últimas Consultas */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-primary" />
+                  Últimas Consultas
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {history.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Nenhuma consulta realizada.</p>
+                ) : (
+                  history.slice(0, 3).map(entry => (
+                    <div
+                      key={entry.id}
+                      className="flex items-center gap-2 p-2 rounded-md border border-border hover:border-primary/30 cursor-pointer transition-colors"
+                      onClick={() => setDetailEntry(entry)}
+                    >
+                      <PlatformBadge platform={entry.platform} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-foreground truncate">{entry.consulta_label}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {format(new Date(entry.created_at), "dd/MM/yy HH:mm")}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Platform cards */}
+            <div className="grid grid-cols-3 gap-2">
+              {(['serasa', 'scr', 'agrisk'] as const).map(platform => {
+                const count = history.filter(h => h.platform === platform).length;
+                return (
+                  <Card
+                    key={platform}
+                    className="hover:border-primary/30 cursor-pointer transition-colors"
+                    onClick={() => setFilterPlatform(platform)}
+                  >
+                    <CardContent className="py-3 px-2 flex flex-col items-center gap-1.5">
+                      <PlatformBadge platform={platform} />
+                      <p className="text-lg font-bold text-foreground">{count}</p>
+                      <p className="text-[10px] text-muted-foreground">consulta(s)</p>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
           </div>
 
           {/* Right content */}
@@ -456,60 +564,6 @@ export default function ClienteDetail() {
               </TabsContent>
             </Tabs>
 
-            {/* Consultas realizadas - inline */}
-            <div className="mt-6">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-primary" />
-                  Consultas Realizadas
-                  {history.length > 0 && (
-                    <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{history.length}</Badge>
-                  )}
-                </h3>
-              </div>
-              {history.length === 0 ? (
-                <Card>
-                  <CardContent className="py-10 text-center">
-                    <Clock className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
-                    <p className="text-sm text-muted-foreground">Nenhuma consulta realizada.</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="space-y-2">
-                  {history.map(entry => (
-                    <Card
-                      key={entry.id}
-                      className="hover:border-primary/30 transition-colors cursor-pointer"
-                      onClick={() => setDetailEntry(entry)}
-                    >
-                      <CardContent className="py-3 px-4 flex items-center gap-3">
-                        <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-foreground">{entry.consulta_label}</span>
-                            <PlatformBadge
-                              platform={entry.platform}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const routes: Record<string, string> = { serasa: '/historico-serasa', scr: '/historico-scr', agrisk: '/historico-agrisk' };
-                                if (routes[entry.platform]) navigate(routes[entry.platform]);
-                              }}
-                            />
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {format(new Date(entry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                            {entry.consulted_by_name && <> · <span className="italic">por {entry.consulted_by_name}</span></>}
-                          </p>
-                        </div>
-                        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setDetailEntry(entry); }}>
-                          <FileText className="h-3.5 w-3.5" />
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
         </div>
       </div>
