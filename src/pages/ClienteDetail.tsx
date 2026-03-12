@@ -252,16 +252,16 @@ export default function ClienteDetail() {
               <CardContent>
                 {Object.keys(validations).length > 0 ? (
                   <div className="grid grid-cols-2 gap-3">
-                    {receitaFederal && (
+                    {validations.receitaFederal && (
                       <div>
                         <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Receita Federal</p>
-                        <p className="text-sm text-foreground">{receitaFederal}</p>
+                        <p className="text-sm text-foreground">{validations.receitaFederal}</p>
                       </div>
                     )}
-                    {obito !== undefined && obito !== null && (
+                    {validations.obito !== undefined && validations.obito !== null && (
                       <div>
                         <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Óbito</p>
-                        <p className="text-sm text-foreground">{typeof obito === 'boolean' ? (obito ? 'Positivo' : 'Negativo') : String(obito)}</p>
+                        <p className="text-sm text-foreground">{typeof validations.obito === 'boolean' ? (validations.obito ? 'Positivo' : 'Negativo') : String(validations.obito)}</p>
                       </div>
                     )}
                     {Object.entries(validations).filter(([k]) => k !== 'receitaFederal' && k !== 'receita' && k !== 'obito' && k !== 'death').map(([key, val]) => (
