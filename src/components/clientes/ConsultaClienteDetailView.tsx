@@ -358,7 +358,7 @@ function CNDsContent({ items }: { items: SubItem[] }) {
                     </TableCell>
                     <TableCell>
                       {cnd.fileUrl && (
-                        <a href={cnd.fileUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
+                        <a href={buildPdfProxyUrl(cnd.fileUrl)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
                           <ExternalLink className="h-3 w-3" /> PDF
                         </a>
                       )}
