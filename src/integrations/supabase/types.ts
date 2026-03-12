@@ -41,6 +41,39 @@ export type Database = {
         }
         Relationships: []
       }
+      consulta_clients: {
+        Row: {
+          agrisk_client_id: string | null
+          basic_data: Json | null
+          cpf_cnpj: string
+          created_at: string
+          created_by: string
+          id: string
+          name: string | null
+          updated_at: string
+        }
+        Insert: {
+          agrisk_client_id?: string | null
+          basic_data?: Json | null
+          cpf_cnpj: string
+          created_at?: string
+          created_by: string
+          id?: string
+          name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agrisk_client_id?: string | null
+          basic_data?: Json | null
+          cpf_cnpj?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       consulta_history: {
         Row: {
           cnpj: string

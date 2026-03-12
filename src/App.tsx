@@ -21,6 +21,8 @@ import Consultas from "./pages/Consultas";
 import HistoricoSerasa from "./pages/HistoricoSerasa";
 import HistoricoSCR from "./pages/HistoricoSCR";
 import HistoricoAgrisk from "./pages/HistoricoAgrisk";
+import Clientes from "./pages/Clientes";
+import ClienteDetail from "./pages/ClienteDetail";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -59,6 +61,8 @@ function App() {
               <Route path="/carteira/giro" element={<ProtectedRoute><AppLayout><CarteiraGiro /></AppLayout></ProtectedRoute>} />
               <Route path="/carteira/metricas" element={<ProtectedRoute><AppLayout><CarteiraMetricas /></AppLayout></ProtectedRoute>} />
               <Route path="/carteira/gestao" element={<ProtectedRoute><AppLayout><CarteiraGestao /></AppLayout></ProtectedRoute>} />
+              <Route path="/clientes" element={<ProtectedRoute><AppLayout><Clientes /></AppLayout></ProtectedRoute>} />
+              <Route path="/clientes/:id" element={<ProtectedRoute><AppLayout><ClienteDetail /></AppLayout></ProtectedRoute>} />
               <Route path="/consultas" element={<ProtectedRoute><AppLayout><Consultas /></AppLayout></ProtectedRoute>} />
               <Route path="/historico-serasa" element={<ProtectedRoute><AppLayout><HistoricoSerasa /></AppLayout></ProtectedRoute>} />
               <Route path="/historico-scr" element={<ProtectedRoute><AppLayout><HistoricoSCR /></AppLayout></ProtectedRoute>} />

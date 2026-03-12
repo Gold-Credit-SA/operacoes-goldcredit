@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, LogOut, ClipboardList, Settings, Briefcase, ChevronDown, RefreshCw, BarChart3, Settings2, UserCircle, LayoutDashboard, FileText } from 'lucide-react';
+import { Search, LogOut, ClipboardList, Settings, Briefcase, ChevronDown, RefreshCw, BarChart3, Settings2, UserCircle, LayoutDashboard, FileText, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import logoGoldCredit from '@/assets/logo-gold-credit.png';
@@ -12,24 +12,14 @@ export function AppSidebar() {
   const [carteiraOpen, setCarteiraOpen] = useState(
     location.pathname.startsWith('/carteira')
   );
-  const [consultasOpen, setConsultasOpen] = useState(
-    location.pathname.startsWith('/consultas') || location.pathname.startsWith('/historico-')
-  );
-
   const carteiraItems = [
     { path: '/carteira/giro', label: 'Giro de Carteira', icon: RefreshCw },
     { path: '/carteira/metricas', label: 'Métricas da Carteira', icon: BarChart3 },
     { path: '/carteira/gestao', label: 'Gestão de Carteira', icon: Settings2 },
   ];
 
-  const consultasItems = [
-    { path: '/consultas', label: 'Nova Consulta', icon: Search },
-    { path: '/historico-serasa', label: 'Serasa', icon: FileText },
-    { path: '/historico-scr', label: 'SCR', icon: FileText },
-    { path: '/historico-agrisk', label: 'Agrisk', icon: FileText },
-  ];
-
   const navItemsAfter = [
+    { path: '/clientes', label: 'Clientes', icon: Users },
     { path: '/consulta', label: 'Cedentes', icon: Search },
     ...(isMaster ? [{ path: '/admin', label: 'Configurações', icon: Settings }] : []),
   ];
@@ -41,7 +31,6 @@ export function AppSidebar() {
 
   const userInitial = profile?.name?.charAt(0).toUpperCase() || 'U';
   const isCarteiraActive = location.pathname.startsWith('/carteira');
-  const isConsultasActive = location.pathname.startsWith('/consultas') || location.pathname.startsWith('/historico-');
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar flex flex-col border-r border-sidebar-border">
@@ -104,49 +93,8 @@ export function AppSidebar() {
           </div>
         )}
 
-        <div className="pt-1" />
 
-        {/* Consultas dropdown */}
-        <button
-          onClick={() => setConsultasOpen(!consultasOpen)}
-          className={cn(
-            "flex items-center justify-between w-full px-4 py-3 rounded-lg text-sm font-medium transition-all duration-150",
-            isConsultasActive
-              ? "text-sidebar-foreground bg-sidebar-accent"
-              : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
-          )}
-        >
-          <span className="flex items-center gap-3">
-            <ClipboardList className={cn("h-5 w-5", isConsultasActive ? "text-primary" : "text-sidebar-foreground/50")} />
-            Consultas
-          </span>
-          <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", consultasOpen ? "rotate-180" : "")} />
-        </button>
 
-        {consultasOpen && (
-          <div className="ml-4 pl-4 border-l border-sidebar-border space-y-1">
-            {consultasItems.map((item) => {
-              const isActive = location.pathname === item.path;
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150",
-                    isActive
-                      ? "text-sidebar-foreground bg-sidebar-accent font-medium"
-                      : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/40"
-                  )}
-                >
-                  <item.icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-sidebar-foreground/40")} />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="pt-1" />
 
         {navItemsAfter.map((item) => {
           const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');

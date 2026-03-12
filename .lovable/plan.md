@@ -1,66 +1,72 @@
 
 
-## Remodelagem: Cadastro de Clientes com Consultas Integradas
+## Integração AgRisk - Plano
 
-### Conceito
-Trocar o fluxo atual (wizard linear CPF → selecionar → executar) por um modelo centrado no cliente, similar ao AgRisk: cada CPF/CNPJ consultado vira um cadastro no sistema, com perfil próprio e histórico de consultas vinculado.
+### Resumo
 
-### Novo Fluxo
+Criar uma Edge Function `agrisk-query` que se autentica na API de produção do AgRisk (`https://api.agrisk.digital`) e executa o fluxo completo: login → cadastro do cliente por CPF/CNPJ → solicitação de consulta com produtos → polling dos resultados. No frontend, conectar as consultas Agrisk existentes (Restritivos, Endividamento, Imóveis) a esta função real, substituindo a simulação atual.
+
+### 1. Configuração de Secrets
+
+Serão necessários dois secrets:
+- `AGRISK_CREDENTIAL` — e-mail ou CPF de acesso à API
+- `AGRISK_PASSWORD` — senha de acesso
+
+### 2. Edge Function `agrisk-query`
+
+**Arquivo:** `supabase/functions/agrisk-query/index.ts`
+
+Fluxo da função:
+1. Recebe `{ taxId, products }` no body (taxId = CPF/CNPJ sem máscara, products = array de IDs de produto)
+2. **Login** — `POST /login` com `credential` e `password` → obtém `token`
+3. **Cadastrar cliente** — `POST /clients` com `{ taxId }`. Se retornar 400 com `clientId` (já cadastrado), usa esse ID
+4. **Solicitar consulta** — `POST /queries` com `{ clients: [clientId], products }` → retorna items com queryIds e status
+5. **Polling** — Aguarda até 30s fazendo polling em `GET /queries/clients/{clientId}` checando se os status mudaram de `pending` para `completed`/`error`
+6. **Buscar resultados** — Dependendo do produto, busca dados nos endpoints específicos:
+   - Restritivos: `/queries/clients/{clientId}/bvs/{queryId}` (contém judicial, fiscal, criminal, etc.)
+   - Endividamento: `/queries/clients/{clientId}/bndes`
+   - Imóveis CAR: dados no campo `check_bioma` ou endpoint de CAR
+   - Imóveis Simples: via endpoint de veicular/imóveis
+
+Retorna os dados consolidados ao frontend.
+
+### 3. Mapeamento de Produtos
+
+A API do AgRisk usa IDs de produto (obtidos via `GET /v2/products`). A função buscará dinamicamente os produtos disponíveis e mapeará os IDs selecionados no frontend para os IDs reais da API.
+
+Mapeamento frontend → AgRisk:
+- `restritivos` → produto "Restritivo Nacional" (credit-restrictives-fif-pf, antecedentes, protestos, etc.)
+- `endividamento` → produto "Endividamento" (BNDES, Boa Vista)
+- `imoveis_simples` → produto "Imóveis Rurais - Simples"
+- `imoveis_car` → produto "Imóveis Rurais - CAR"
+
+### 4. Alterações no Frontend
+
+**`ConsultaExecution.tsx`** — Na função `executeConsulta`, adicionar cases para os IDs Agrisk que chamam a Edge Function:
 ```text
-┌─────────────────────┐     ┌──────────────────────────────┐
-│  /clientes           │     │  /clientes/:id               │
-│                     │     │                              │
-│  Lista de clientes  │────▶│  Dados cadastrais (AgRisk)   │
-│  + Busca/Filtro     │     │  Nome, CPF, Nascimento, etc  │
-│  + Botão "Novo"     │     │                              │
-│  (digita CPF/CNPJ)  │     │  [Consultar] ← abre modal   │
-│                     │     │                              │
-└─────────────────────┘     │  Histórico de consultas      │
-                            │  (Serasa, SCR, AgRisk...)    │
-                            └──────────────────────────────┘
+if (['restritivos', 'endividamento', 'imoveis_simples', 'imoveis_car', ...].includes(id)) {
+  → supabase.functions.invoke('agrisk-query', { body: { taxId: cnpj, consultaType: id } })
+}
 ```
 
-### Banco de Dados
+**`ConsultaSelection.tsx`** — As consultas Agrisk já existem na lista. Nenhuma alteração necessária, exceto eventualmente remover `patrimonio_veicular` e `cpr` se não forem integrados nesta fase.
 
-Nova tabela `consulta_clients`:
-- `id` (uuid, PK)
-- `cpf_cnpj` (text, unique)
-- `name` (text, nullable)
-- `agrisk_client_id` (text, nullable) — ID do cliente no AgRisk
-- `basic_data` (jsonb, nullable) — dados cadastrais do AgRisk (nascimento, gênero, estado civil, validações, endereços, etc.)
-- `created_by` (uuid, ref auth.users)
-- `created_at`, `updated_at`
+### 5. Tratamento de Erros
 
-RLS: autenticados podem ler todos; inserir/atualizar se `created_by = auth.uid()` ou admin.
+- **401 Unauthorized** — Credenciais inválidas, mensagem clara ao usuário
+- **400 Bad Request** — Cliente não encontrado/CPF inválido, retornar mensagem do AgRisk
+- **Timeout no polling** — Após 30s sem resultado, retornar status parcial informando que a consulta está em processamento
+- Respostas com status não-OK da API retornam erro descritivo sem expor detalhes técnicos
 
-A tabela `consulta_history` existente já possui `cnpj` — será usada como histórico por cliente sem alterações.
+### 6. Arquivos Envolvidos
 
-### Arquivos Novos
+| Arquivo | Ação |
+|---------|------|
+| `supabase/functions/agrisk-query/index.ts` | Criar — nova Edge Function |
+| `src/components/analise-operacao/ConsultaExecution.tsx` | Editar — conectar consultas Agrisk à função real |
+| `supabase/config.toml` | Verificar — `verify_jwt = false` para nova função |
 
-1. **`src/pages/Clientes.tsx`** — Lista de clientes cadastrados com busca, e botão "Novo Cliente" que abre input de CPF/CNPJ. Ao confirmar, chama AgRisk `consulta_cliente` para dados básicos e salva na tabela `consulta_clients`.
+### Próximo Passo
 
-2. **`src/pages/ClienteDetail.tsx`** — Perfil do cliente:
-   - Card com dados cadastrais (nome, CPF, nascimento, gênero, estado civil, validações)
-   - Botão "Consultar" que abre modal com as opções de consulta (Serasa, SCR, AgRisk patrimônio, etc.)
-   - Seção de histórico de consultas (filtra `consulta_history` pelo `cnpj` do cliente)
-   - Cada item do histórico permite ver detalhes e gerar PDF (reusa componentes existentes)
-
-3. **`src/components/clientes/ConsultaModal.tsx`** — Modal com checkbox dos tipos de consulta disponíveis (reusa lógica do `ConsultaSelection` atual), executa e salva resultados.
-
-### Arquivos Editados
-
-| Arquivo | Mudança |
-|---|---|
-| `src/App.tsx` | Adicionar rotas `/clientes` e `/clientes/:id` |
-| `src/components/layout/AppSidebar.tsx` | Substituir menu "Consultas" (dropdown com históricos separados) por item "Clientes" que aponta para `/clientes`. Manter sub-item "Nova Consulta" apontando para `/clientes` |
-| `src/components/analise-operacao/ConsultaExecution.tsx` | Reutilizado internamente pelo `ConsultaModal` |
-
-### Sidebar Simplificada
-
-O menu lateral perde os sub-itens de histórico separados (Serasa, SCR, Agrisk) e ganha:
-- **Clientes** → `/clientes` (lista + cadastro + consultas + histórico, tudo em um só lugar)
-
-### Edge Function
-
-A edge function `agrisk-query` existente já funciona para `consulta_cliente`. Será chamada automaticamente ao cadastrar um novo cliente para buscar dados básicos.
+Antes de implementar, preciso configurar os dois secrets (`AGRISK_CREDENTIAL` e `AGRISK_PASSWORD`) com suas credenciais reais.
 
