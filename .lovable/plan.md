@@ -1,72 +1,61 @@
 
 
-## Integração AgRisk - Plano
+## Integração AgRisk — Consulta Cliente + Patrimônio
 
-### Resumo
+### Escopo
+Integrar 4 consultas reais da API AgRisk:
+1. **Consulta Cliente** (`consulta-cliente`) — dados cadastrais do cliente
+2. **Pesquisa de Imóveis - Simples** (`pesquisa-imoveis`)
+3. **Pesquisa Imóveis - CAR** (`car`)
+4. **Patrimônio Veicular** (`vehicle-assets`)
 
-Criar uma Edge Function `agrisk-query` que se autentica na API de produção do AgRisk (`https://api.agrisk.digital`) e executa o fluxo completo: login → cadastro do cliente por CPF/CNPJ → solicitação de consulta com produtos → polling dos resultados. No frontend, conectar as consultas Agrisk existentes (Restritivos, Endividamento, Imóveis) a esta função real, substituindo a simulação atual.
+### Pré-requisitos
+Adicionar 2 secrets no backend:
+- `AGRISK_CREDENTIAL` → `api-agrisk@goldcreditsa.com.br`
+- `AGRISK_PASSWORD` → `@CB9W0AkYRkvFfx`
 
-### 1. Configuração de Secrets
+### Implementação
 
-Serão necessários dois secrets:
-- `AGRISK_CREDENTIAL` — e-mail ou CPF de acesso à API
-- `AGRISK_PASSWORD` — senha de acesso
+#### 1. Edge Function `agrisk-query` (criar)
+`supabase/functions/agrisk-query/index.ts`
 
-### 2. Edge Function `agrisk-query`
+Fluxo:
+1. Recebe `{ taxId, consultaType }` no body
+2. **POST** `/login` com credential/password → obtém JWT token
+3. **POST** `/clients` com `{ taxId }` → obtém `clientId` (se 400 = já existe, busca na listagem)
+4. Mapeia `consultaType` para o código do produto AgRisk:
 
-**Arquivo:** `supabase/functions/agrisk-query/index.ts`
+| Frontend ID | Code AgRisk |
+|---|---|
+| `consulta_cliente` | `consulta-cliente` |
+| `imoveis_simples` | `pesquisa-imoveis` |
+| `imoveis_car` | `car` |
+| `patrimonio_veicular` | `vehicle-assets` |
 
-Fluxo da função:
-1. Recebe `{ taxId, products }` no body (taxId = CPF/CNPJ sem máscara, products = array de IDs de produto)
-2. **Login** — `POST /login` com `credential` e `password` → obtém `token`
-3. **Cadastrar cliente** — `POST /clients` com `{ taxId }`. Se retornar 400 com `clientId` (já cadastrado), usa esse ID
-4. **Solicitar consulta** — `POST /queries` com `{ clients: [clientId], products }` → retorna items com queryIds e status
-5. **Polling** — Aguarda até 30s fazendo polling em `GET /queries/clients/{clientId}` checando se os status mudaram de `pending` para `completed`/`error`
-6. **Buscar resultados** — Dependendo do produto, busca dados nos endpoints específicos:
-   - Restritivos: `/queries/clients/{clientId}/bvs/{queryId}` (contém judicial, fiscal, criminal, etc.)
-   - Endividamento: `/queries/clients/{clientId}/bndes`
-   - Imóveis CAR: dados no campo `check_bioma` ou endpoint de CAR
-   - Imóveis Simples: via endpoint de veicular/imóveis
+5. Solicita a consulta para o cliente e produto
+6. Polling até 45s aguardando resultado
+7. Retorna dados consolidados
 
-Retorna os dados consolidados ao frontend.
+#### 2. ConsultaSelection.tsx — adicionar "Consulta Cliente"
+Adicionar novo item `{ id: 'consulta_cliente', label: 'Consulta Cliente' }` no grupo Agrisk.
 
-### 3. Mapeamento de Produtos
-
-A API do AgRisk usa IDs de produto (obtidos via `GET /v2/products`). A função buscará dinamicamente os produtos disponíveis e mapeará os IDs selecionados no frontend para os IDs reais da API.
-
-Mapeamento frontend → AgRisk:
-- `restritivos` → produto "Restritivo Nacional" (credit-restrictives-fif-pf, antecedentes, protestos, etc.)
-- `endividamento` → produto "Endividamento" (BNDES, Boa Vista)
-- `imoveis_simples` → produto "Imóveis Rurais - Simples"
-- `imoveis_car` → produto "Imóveis Rurais - CAR"
-
-### 4. Alterações no Frontend
-
-**`ConsultaExecution.tsx`** — Na função `executeConsulta`, adicionar cases para os IDs Agrisk que chamam a Edge Function:
-```text
-if (['restritivos', 'endividamento', 'imoveis_simples', 'imoveis_car', ...].includes(id)) {
-  → supabase.functions.invoke('agrisk-query', { body: { taxId: cnpj, consultaType: id } })
+#### 3. ConsultaExecution.tsx — conectar ao backend
+Adicionar bloco antes da simulação para IDs AgRisk:
+```typescript
+const AGRISK_IDS = ['consulta_cliente', 'imoveis_simples', 'imoveis_car', 'patrimonio_veicular'];
+if (AGRISK_IDS.includes(id)) {
+  const { data, error } = await supabase.functions.invoke('agrisk-query', {
+    body: { taxId: cnpj.replace(/\D/g, ''), consultaType: id },
+  });
+  // handle response...
 }
 ```
 
-**`ConsultaSelection.tsx`** — As consultas Agrisk já existem na lista. Nenhuma alteração necessária, exceto eventualmente remover `patrimonio_veicular` e `cpr` se não forem integrados nesta fase.
-
-### 5. Tratamento de Erros
-
-- **401 Unauthorized** — Credenciais inválidas, mensagem clara ao usuário
-- **400 Bad Request** — Cliente não encontrado/CPF inválido, retornar mensagem do AgRisk
-- **Timeout no polling** — Após 30s sem resultado, retornar status parcial informando que a consulta está em processamento
-- Respostas com status não-OK da API retornam erro descritivo sem expor detalhes técnicos
-
-### 6. Arquivos Envolvidos
+#### 4. Arquivos
 
 | Arquivo | Ação |
-|---------|------|
-| `supabase/functions/agrisk-query/index.ts` | Criar — nova Edge Function |
-| `src/components/analise-operacao/ConsultaExecution.tsx` | Editar — conectar consultas Agrisk à função real |
-| `supabase/config.toml` | Verificar — `verify_jwt = false` para nova função |
-
-### Próximo Passo
-
-Antes de implementar, preciso configurar os dois secrets (`AGRISK_CREDENTIAL` e `AGRISK_PASSWORD`) com suas credenciais reais.
+|---|---|
+| `supabase/functions/agrisk-query/index.ts` | Criar |
+| `src/components/analise-operacao/ConsultaSelection.tsx` | Editar — add Consulta Cliente |
+| `src/components/analise-operacao/ConsultaExecution.tsx` | Editar — add case AgRisk |
 
