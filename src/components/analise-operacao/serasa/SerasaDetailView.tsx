@@ -152,14 +152,6 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const qsaReport = (report?.QSAReport || report?.qsaReport || {}) as GenericRecord;
   const companyData = (qsaReport?.companyData || report?.companyData || optionalFeatures?.companyData || {}) as GenericRecord;
 
-  // Debug: log actual API structure for PJ reports
-  if (isPJ) {
-    console.log('[SerasaDebug] report keys:', Object.keys(report));
-    console.log('[SerasaDebug] identificationReport:', JSON.stringify(identificationReport, null, 2));
-    console.log('[SerasaDebug] registration:', JSON.stringify(registration, null, 2));
-    console.log('[SerasaDebug] registration.address:', JSON.stringify(registration?.address, null, 2));
-  }
-
   // Partners: try report.partner.PartnerResponse.results first (PJ basic), then QSA paths
   const partnerSection = (report?.partner || {}) as GenericRecord;
   const directorSection = (report?.director || {}) as GenericRecord;
