@@ -50,13 +50,16 @@ export function calcCarteiraAtiva(dtbEntry: DtbEntry): number {
 }
 
 // Separate vencido (overdue) buckets from a-vencer (upcoming) buckets
+// Vencidos: v10-v100 (overdue periods) + v250/v255/v260 (prazo indeterminado = overdue)
+// A vencer: v110-v200 (upcoming maturity periods)
 export function separateVencBuckets(resVenc: ResVenc): { vencidos: Record<string, number>; aVencer: Record<string, number> } {
   const vencidos: Record<string, number> = {};
   const aVencer: Record<string, number> = {};
+  const INDETERMINATE_BUCKETS = ['v250', 'v255', 'v260'];
   
   Object.entries(resVenc).forEach(([key, val]) => {
     const num = parseInt(key.replace('v', ''));
-    if (num <= 100) {
+    if (num <= 100 || INDETERMINATE_BUCKETS.includes(key)) {
       vencidos[key] = val;
     } else {
       aVencer[key] = val;
