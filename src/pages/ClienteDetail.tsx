@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search as SearchIcon, FileText, Loader2, User, MapPin, Shield, Clock, Phone, Mail, RefreshCw } from 'lucide-react';
+import { PlatformBadge } from '@/components/ui/PlatformBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -44,15 +45,6 @@ function formatDoc(doc: string): string {
   if (d.length === 11) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`;
   if (d.length === 14) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`;
   return doc;
-}
-
-function getPlatformColor(platform: string) {
-  switch (platform) {
-    case 'serasa': return 'bg-blue-500/10 text-blue-700 border-blue-200';
-    case 'scr': return 'bg-green-500/10 text-green-700 border-green-200';
-    case 'agrisk': return 'bg-amber-500/10 text-amber-700 border-amber-200';
-    default: return 'bg-muted text-muted-foreground';
-  }
 }
 
 function calcAge(birthDate: string): number | null {
@@ -167,9 +159,7 @@ export default function ClienteDetail() {
               Voltar ao cliente
             </Button>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className={`text-[10px] ${getPlatformColor(detailEntry.platform)}`}>
-                {detailEntry.platform.toUpperCase()}
-              </Badge>
+              <PlatformBadge platform={detailEntry.platform} />
               <span className="text-xs text-muted-foreground">
                 {format(new Date(detailEntry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
               </span>
@@ -241,17 +231,14 @@ export default function ClienteDetail() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-foreground">{entry.consulta_label}</span>
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] cursor-pointer hover:opacity-80 ${getPlatformColor(entry.platform)}`}
+                        <PlatformBadge
+                          platform={entry.platform}
                           onClick={(e) => {
                             e.stopPropagation();
                             const routes: Record<string, string> = { serasa: '/historico-serasa', scr: '/historico-scr', agrisk: '/historico-agrisk' };
                             if (routes[entry.platform]) navigate(routes[entry.platform]);
                           }}
-                        >
-                          {entry.platform.toUpperCase()}
-                        </Badge>
+                        />
                       </div>
                       <p className="text-xs text-muted-foreground">
                         {format(new Date(entry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
