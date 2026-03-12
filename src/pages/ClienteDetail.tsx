@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search as SearchIcon, FileText, Loader2, User, MapPin, Calendar, Shield, Clock, FileDown } from 'lucide-react';
+import { ArrowLeft, Search as SearchIcon, FileText, Loader2, User, MapPin, Shield, Clock, Phone, Mail, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
@@ -21,6 +22,7 @@ interface ClientRecord {
   agrisk_client_id: string | null;
   basic_data: Record<string, unknown> | null;
   created_at: string;
+  updated_at: string;
 }
 
 interface HistoryEntry {
@@ -52,6 +54,21 @@ function getPlatformColor(platform: string) {
   }
 }
 
+function calcAge(birthDate: string): number | null {
+  try {
+    const parts = birthDate.includes('/') ? birthDate.split('/') : null;
+    let date: Date;
+    if (parts && parts.length === 3) {
+      date = new Date(+parts[2], +parts[1] - 1, +parts[0]);
+    } else {
+      date = new Date(birthDate);
+    }
+    if (isNaN(date.getTime())) return null;
+    const diff = Date.now() - date.getTime();
+    return Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000));
+  } catch { return null; }
+}
+
 export default function ClienteDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -65,16 +82,10 @@ export default function ClienteDetail() {
   const loadData = useCallback(async () => {
     if (!id) return;
     setLoading(true);
-    const [clientRes, historyRes] = await Promise.all([
-      supabase.from('consulta_clients').select('*').eq('id', id).single(),
-      // We'll load history after we have the client's cpf_cnpj
-      Promise.resolve(null),
-    ]);
-
-    if (clientRes.data) {
-      const c = clientRes.data as unknown as ClientRecord;
+    const { data: clientRes } = await supabase.from('consulta_clients').select('*').eq('id', id).single();
+    if (clientRes) {
+      const c = clientRes as unknown as ClientRecord;
       setClient(c);
-      // Load history by cpf_cnpj
       const { data: hData } = await supabase
         .from('consulta_history')
         .select('*')
@@ -91,7 +102,7 @@ export default function ClienteDetail() {
 
   const handleConsultaDone = () => {
     setConsultaOpen(false);
-    loadData(); // Refresh history
+    loadData();
   };
 
   if (loading) {
@@ -113,136 +124,335 @@ export default function ClienteDetail() {
     );
   }
 
-  const basicData = client.basic_data as any;
+  const bd = client.basic_data as any || {};
   const isCpf = client.cpf_cnpj.length === 11;
+  const birthDate = bd.birthDate || bd.dataNascimento || bd.nascimento || null;
+  const age = birthDate ? calcAge(birthDate) : null;
+  const gender = bd.gender || bd.genero || bd.sexo || null;
+  const maritalStatus = bd.maritalStatus || bd.estadoCivil || null;
+  const motherName = bd.motherName || bd.nomeMae || null;
+
+  // Validations
+  const validations = bd.validations || bd.validacoes || {};
+  const receitaFederal = validations.receitaFederal || validations.receita || null;
+  const obito = validations.obito || validations.death || null;
+
+  // Addresses, phones, emails from basic_data
+  const addresses: any[] = bd.addresses || bd.enderecos || [];
+  const phones: any[] = bd.phones || bd.telefones || [];
+  const emails: any[] = bd.emails || [];
+
+  const lastUpdate = client.updated_at || client.created_at;
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
+      {/* Top bar */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border">
-        <div className="px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/clientes')}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary font-bold">
-              {client.name?.charAt(0)?.toUpperCase() || '#'}
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-foreground">
-                {client.name || 'Nome não disponível'}
-              </h1>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground font-mono">{formatDoc(client.cpf_cnpj)}</span>
-                <Badge variant="outline" className="text-[10px]">{isCpf ? 'PF' : 'PJ'}</Badge>
-              </div>
-            </div>
-          </div>
-          <Button onClick={() => setConsultaOpen(true)}>
-            <SearchIcon className="h-4 w-4 mr-2" />
-            Consultar
+        <div className="px-6 py-3 flex items-center justify-between">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/clientes')}>
+            <ArrowLeft className="h-4 w-4 mr-1.5" />
+            Voltar
           </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="default" onClick={() => setConsultaOpen(true)}>
+              <SearchIcon className="h-4 w-4 mr-2" />
+              Consultar
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="p-6 max-w-5xl mx-auto space-y-6">
-        {/* Cadastral Data */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <User className="h-4 w-4 text-primary" />
-                Dados Cadastrais
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <InfoRow label="Nome" value={client.name} />
-              <InfoRow label="Documento" value={formatDoc(client.cpf_cnpj)} />
-              <InfoRow label="Tipo" value={isCpf ? 'Pessoa Física' : 'Pessoa Jurídica'} />
-              {basicData?.birthDate && <InfoRow label="Nascimento" value={basicData.birthDate} />}
-              {basicData?.gender && <InfoRow label="Gênero" value={basicData.gender === 'M' ? 'Masculino' : basicData.gender === 'F' ? 'Feminino' : basicData.gender} />}
-              {basicData?.maritalStatus && <InfoRow label="Estado Civil" value={basicData.maritalStatus} />}
-              {basicData?.motherName && <InfoRow label="Nome da Mãe" value={basicData.motherName} />}
-              <InfoRow label="Cadastrado em" value={format(new Date(client.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })} />
-            </CardContent>
-          </Card>
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Left sidebar */}
+          <div className="lg:w-[340px] shrink-0 space-y-4">
+            {/* Update badge */}
+            <div className="flex items-center gap-3">
+              <Badge variant="outline" className="text-xs border-primary/40 text-primary">
+                Última Atualização {format(new Date(lastUpdate), 'dd/MM/yyyy')}
+              </Badge>
+              <Button variant="outline" size="sm" className="text-xs h-7">
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Atualizar
+              </Button>
+            </div>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Shield className="h-4 w-4 text-primary" />
-                Validações
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              {basicData?.validations ? (
-                Object.entries(basicData.validations as Record<string, unknown>).map(([key, val]) => (
-                  <InfoRow key={key} label={formatLabel(key)} value={String(val)} />
-                ))
-              ) : (
-                <p className="text-muted-foreground text-xs">Nenhuma validação disponível.</p>
-              )}
-              {basicData?.addresses && Array.isArray(basicData.addresses) && basicData.addresses.length > 0 && (
-                <div className="pt-2 border-t border-border">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-xs font-medium text-muted-foreground">Endereço</span>
-                  </div>
-                  {basicData.addresses.map((addr: any, i: number) => (
-                    <p key={i} className="text-xs text-foreground">
-                      {[addr.street, addr.number, addr.complement, addr.neighborhood, addr.city, addr.state, addr.zipCode].filter(Boolean).join(', ')}
-                    </p>
-                  ))}
+            {/* Informações Cadastrais */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <User className="h-4 w-4 text-primary" />
+                  Informações Cadastrais
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Nome</p>
+                  <p className="text-sm font-semibold text-foreground">{client.name || '—'}</p>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* History */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Clock className="h-4 w-4 text-primary" />
-              Histórico de Consultas
-              <Badge variant="secondary" className="text-[10px] ml-auto">{history.length}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {history.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                Nenhuma consulta realizada ainda.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {history.map(entry => (
-                  <div
-                    key={entry.id}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary/30 transition-colors cursor-pointer"
-                    onClick={() => setDetailEntry(entry)}
-                  >
-                    <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-foreground">{entry.consulta_label}</span>
-                        <Badge variant="outline" className={`text-[10px] ${getPlatformColor(entry.platform)}`}>
-                          {entry.platform.toUpperCase()}
-                        </Badge>
+                <div>
+                  <p className="text-[10px] uppercase text-muted-foreground tracking-wider">{isCpf ? 'CPF' : 'CNPJ'}</p>
+                  <p className="text-sm text-foreground">{formatDoc(client.cpf_cnpj)}</p>
+                </div>
+                {(birthDate || age || gender) && (
+                  <div className="grid grid-cols-3 gap-3">
+                    {birthDate && (
+                      <div>
+                        <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Nascimento</p>
+                        <p className="text-sm text-foreground">{birthDate}</p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(entry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                        {entry.consulted_by_name && <> · <span className="italic">por {entry.consulted_by_name}</span></>}
-                      </p>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); setDetailEntry(entry); }}>
-                      <FileText className="h-3.5 w-3.5" />
-                    </Button>
+                    )}
+                    {age !== null && (
+                      <div>
+                        <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Idade</p>
+                        <p className="text-sm text-foreground">{age} Anos</p>
+                      </div>
+                    )}
+                    {gender && (
+                      <div>
+                        <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Gênero</p>
+                        <p className="text-sm text-foreground">{gender}</p>
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                )}
+                {maritalStatus && (
+                  <div>
+                    <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Estado Civil</p>
+                    <p className="text-sm text-foreground">{maritalStatus}</p>
+                  </div>
+                )}
+                {motherName && (
+                  <div>
+                    <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Nome da Mãe</p>
+                    <p className="text-sm text-foreground">{motherName}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Validações */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-primary" />
+                  Validações
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {Object.keys(validations).length > 0 ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    {receitaFederal && (
+                      <div>
+                        <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Receita Federal</p>
+                        <p className="text-sm text-foreground">{receitaFederal}</p>
+                      </div>
+                    )}
+                    {obito !== undefined && obito !== null && (
+                      <div>
+                        <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Óbito</p>
+                        <p className="text-sm text-foreground">{typeof obito === 'boolean' ? (obito ? 'Positivo' : 'Negativo') : String(obito)}</p>
+                      </div>
+                    )}
+                    {Object.entries(validations).filter(([k]) => k !== 'receitaFederal' && k !== 'receita' && k !== 'obito' && k !== 'death').map(([key, val]) => (
+                      <div key={key}>
+                        <p className="text-[10px] uppercase text-muted-foreground tracking-wider">{formatLabel(key)}</p>
+                        <p className="text-sm text-foreground">{String(val)}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Faça uma consulta completa para ver as validações.</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right content */}
+          <div className="flex-1 min-w-0 space-y-4">
+            {/* Tabs: Endereços, Telefones, Emails, Histórico */}
+            <Tabs defaultValue="historico" className="w-full">
+              <TabsList className="bg-muted/50">
+                <TabsTrigger value="historico" className="text-xs gap-1.5">
+                  Consultas <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{history.length}</Badge>
+                </TabsTrigger>
+                <TabsTrigger value="enderecos" className="text-xs gap-1.5">
+                  Endereços <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{addresses.length}</Badge>
+                </TabsTrigger>
+                <TabsTrigger value="telefones" className="text-xs gap-1.5">
+                  Telefones <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{phones.length}</Badge>
+                </TabsTrigger>
+                <TabsTrigger value="emails" className="text-xs gap-1.5">
+                  Emails <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{emails.length}</Badge>
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Histórico de consultas */}
+              <TabsContent value="historico">
+                <Card>
+                  <CardContent className="pt-4">
+                    {history.length === 0 ? (
+                      <div className="text-center py-12">
+                        <Clock className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
+                        <p className="text-sm text-muted-foreground">Nenhuma consulta realizada.</p>
+                        <Button variant="outline" size="sm" className="mt-3" onClick={() => setConsultaOpen(true)}>
+                          <SearchIcon className="h-3.5 w-3.5 mr-1.5" />
+                          Fazer primeira consulta
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {history.map(entry => (
+                          <div
+                            key={entry.id}
+                            className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary/30 transition-colors cursor-pointer"
+                            onClick={() => setDetailEntry(entry)}
+                          >
+                            <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-foreground">{entry.consulta_label}</span>
+                                <Badge variant="outline" className={`text-[10px] ${getPlatformColor(entry.platform)}`}>
+                                  {entry.platform.toUpperCase()}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {format(new Date(entry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                                {entry.consulted_by_name && <> · <span className="italic">por {entry.consulted_by_name}</span></>}
+                              </p>
+                            </div>
+                            <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); setDetailEntry(entry); }}>
+                              <FileText className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Endereços */}
+              <TabsContent value="enderecos">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-primary" />
+                      Endereços
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {addresses.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-8">Nenhum endereço disponível.</p>
+                    ) : (
+                      <div className="overflow-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Logradouro</TableHead>
+                              <TableHead className="w-[100px]">Tipo</TableHead>
+                              <TableHead className="w-[90px] text-center">Passagem</TableHead>
+                              <TableHead className="w-[120px] text-right">Última Passagem</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {addresses.map((addr: any, i: number) => {
+                              const logradouro = addr.logradouro || addr.street
+                                ? [addr.street || addr.logradouro, addr.number || addr.numero, addr.complement || addr.complemento, addr.neighborhood || addr.bairro, addr.zipCode || addr.cep, addr.city || addr.cidade, addr.state || addr.estado].filter(Boolean).join(', ')
+                                : JSON.stringify(addr);
+                              return (
+                                <TableRow key={i}>
+                                  <TableCell className="text-xs">{logradouro}</TableCell>
+                                  <TableCell className="text-xs font-medium">{addr.type || addr.tipo || '—'}</TableCell>
+                                  <TableCell className="text-xs text-center">{addr.passagem ?? addr.count ?? '—'}</TableCell>
+                                  <TableCell className="text-xs text-right">{addr.ultimaPassagem || addr.lastSeen || addr.updatedAt || '—'}</TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Telefones */}
+              <TabsContent value="telefones">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-primary" />
+                      Telefones
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {phones.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-8">Nenhum telefone disponível.</p>
+                    ) : (
+                      <div className="overflow-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Número</TableHead>
+                              <TableHead className="w-[100px]">Tipo</TableHead>
+                              <TableHead className="w-[120px] text-right">Última Passagem</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {phones.map((ph: any, i: number) => (
+                              <TableRow key={i}>
+                                <TableCell className="text-xs font-mono">{ph.number || ph.numero || ph.phone || String(ph)}</TableCell>
+                                <TableCell className="text-xs">{ph.type || ph.tipo || '—'}</TableCell>
+                                <TableCell className="text-xs text-right">{ph.ultimaPassagem || ph.lastSeen || '—'}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Emails */}
+              <TabsContent value="emails">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-primary" />
+                      Emails
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {emails.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-8">Nenhum e-mail disponível.</p>
+                    ) : (
+                      <div className="overflow-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>E-mail</TableHead>
+                              <TableHead className="w-[120px] text-right">Última Passagem</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {emails.map((em: any, i: number) => (
+                              <TableRow key={i}>
+                                <TableCell className="text-xs">{em.email || em.address || String(em)}</TableCell>
+                                <TableCell className="text-xs text-right">{em.ultimaPassagem || em.lastSeen || '—'}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
       </div>
 
       {/* Consulta Modal */}
@@ -282,16 +492,6 @@ export default function ClienteDetail() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
-  if (!value) return null;
-  return (
-    <div className="flex items-baseline justify-between gap-2">
-      <span className="text-xs text-muted-foreground shrink-0">{label}</span>
-      <span className="text-sm text-foreground text-right truncate">{value}</span>
     </div>
   );
 }

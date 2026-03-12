@@ -100,7 +100,7 @@ export default function Clientes() {
         || agriskData?.name
         || null;
 
-      const agriskClientId = agriskData?.agriskClientId || null;
+      const agriskClientId = agriskData?.data?._id || agriskData?.data?.id || agriskData?._id || null;
 
       // Insert into consulta_clients
       const { data: inserted, error: insertError } = await supabase
