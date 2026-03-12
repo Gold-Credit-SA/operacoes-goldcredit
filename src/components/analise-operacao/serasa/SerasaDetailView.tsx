@@ -173,6 +173,16 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const allPartners = partnersList.length > 0 ? partnersList : qsaPartners;
   const allDirectors = directorsList.length > 0 ? directorsList : qsaDirectors;
 
+  // Debug QSA data
+  if (isPJ) {
+    console.log('[QSA Debug] companyData:', JSON.stringify(companyData, null, 2));
+    console.log('[QSA Debug] qsaReport keys:', Object.keys(qsaReport));
+    console.log('[QSA Debug] allPartners[0]:', JSON.stringify(allPartners[0], null, 2));
+    console.log('[QSA Debug] allDirectors[0]:', JSON.stringify(allDirectors[0], null, 2));
+    console.log('[QSA Debug] partnerSection:', JSON.stringify(partnerSection, null, 2));
+    console.log('[QSA Debug] report.partner:', JSON.stringify(report?.partner, null, 2));
+  }
+
   // PJ inquiry uses inquiryCompanyResponse
   const factsInquiry = (facts?.inquiry || facts?.inquiryCompanyResponse || inquiry) as GenericRecord;
   const factsInquirySummary = (facts?.inquirySummary || {}) as GenericRecord;
