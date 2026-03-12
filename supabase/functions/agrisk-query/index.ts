@@ -144,7 +144,7 @@ async function pollForResults(token: string, clientId: string, maxWaitMs = 45000
   throw new Error("Timeout aguardando resultado da consulta AgRisk. Tente novamente em alguns minutos.");
 }
 
-// For consulta_cliente: poll a specific queryId and fetch categorized sub-query results
+// For consulta_cliente: poll status then fetch detailed results for each completed sub-query
 async function pollConsultaCliente(token: string, clientId: string, queryId: string, maxWaitMs = 60000): Promise<any> {
   const start = Date.now();
   const interval = 4000;
@@ -152,12 +152,14 @@ async function pollConsultaCliente(token: string, clientId: string, queryId: str
   // Wait a bit for initial processing
   await new Promise((r) => setTimeout(r, 5000));
 
+  let statusData: any = null;
+
+  // Phase 1: Poll until sub-queries move past FILA
   while (Date.now() - start < maxWaitMs) {
-    // Try fetching the query result by queryId
     const endpoints = [
       `/queries/clients/${clientId}/consulta-cliente/${queryId}`,
+      `/queries/clients/${clientId}/bvs/${queryId}`,
       `/queries/clients/${clientId}/${queryId}`,
-      `/queries/${queryId}`,
     ];
 
     for (const path of endpoints) {
@@ -167,48 +169,102 @@ async function pollConsultaCliente(token: string, clientId: string, queryId: str
         });
         if (res.ok) {
           const data = await res.json();
-          // Check if there are sub-queries and if any have moved past FILA
-          const keys = Object.keys(data).filter(k => !['queryId', 'status', 'id', '_id'].includes(k));
+          const keys = Object.keys(data).filter(k => !['queryId', 'status', 'id', '_id', 'message'].includes(k));
           if (keys.length > 0) {
-            const hasResults = keys.some(k => {
+            const doneCount = keys.filter(k => {
               const val = data[k];
-              if (Array.isArray(val) && val.length > 0) {
-                return val[0]?.status !== 'FILA';
-              }
-              return val?.status !== 'FILA';
-            });
-            if (hasResults) {
-              console.log(`Consulta cliente results ready from ${path}`);
-              return data;
+              const item = Array.isArray(val) ? val[0] : val;
+              const s = (item?.status || '').toUpperCase();
+              return ['DONE', 'SUCCESS', 'COMPLETED', 'FINALIZADO'].includes(s);
+            }).length;
+            
+            // If at least 30% are done, proceed to fetch results
+            if (doneCount >= Math.floor(keys.length * 0.3)) {
+              console.log(`Consulta cliente: ${doneCount}/${keys.length} done from ${path}`);
+              statusData = data;
+              break;
             }
           }
         }
       } catch (e) {
-        console.log(`Poll endpoint ${path} failed:`, e);
+        console.log(`Poll endpoint failed:`, e);
       }
     }
 
+    if (statusData) break;
     await new Promise((r) => setTimeout(r, interval));
   }
 
-  // Timeout — return whatever we can get
-  console.log("Consulta cliente polling timeout, fetching last state...");
-  try {
-    const res = await fetch(`${AGRISK_BASE}/queries/clients/${clientId}/consulta-cliente/${queryId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) return await res.json();
-  } catch {}
+  // Fallback: get whatever state we can
+  if (!statusData) {
+    console.log("Polling timeout, fetching last state...");
+    for (const path of [
+      `/queries/clients/${clientId}/consulta-cliente/${queryId}`,
+      `/queries/clients/${clientId}/bvs/${queryId}`,
+      `/queries/clients/${clientId}`,
+    ]) {
+      try {
+        const res = await fetch(`${AGRISK_BASE}${path}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) { statusData = await res.json(); break; }
+      } catch {}
+    }
+  }
 
-  // Fallback to generic endpoint
-  try {
-    const res = await fetch(`${AGRISK_BASE}/queries/clients/${clientId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) return await res.json();
-  } catch {}
+  if (!statusData) {
+    return { message: "Consulta enviada. Os resultados podem demorar para serem processados." };
+  }
 
-  return { message: "Consulta enviada. Os resultados podem demorar para serem processados." };
+  // Phase 2: For each FINALIZADO sub-query, try to fetch its detailed results
+  const subKeys = Object.keys(statusData).filter(k => !['queryId', 'status', 'id', '_id', 'message'].includes(k));
+  const enrichedData: Record<string, any> = {};
+
+  // Batch fetch in parallel (max 10 concurrent)
+  const batchSize = 10;
+  for (let i = 0; i < subKeys.length; i += batchSize) {
+    const batch = subKeys.slice(i, i + batchSize);
+    const promises = batch.map(async (key) => {
+      const val = statusData[key];
+      const item = Array.isArray(val) ? val[0] : val;
+      const s = (item?.status || '').toUpperCase();
+      const isDone = ['DONE', 'SUCCESS', 'COMPLETED', 'FINALIZADO'].includes(s);
+
+      if (!isDone) {
+        enrichedData[key] = val; // Keep status-only data for pending items
+        return;
+      }
+
+      // Try to fetch detailed results for this sub-query
+      const detailPaths = [
+        `/queries/clients/${clientId}/consulta-cliente/${queryId}/${key}`,
+        `/queries/clients/${clientId}/bvs/${queryId}/${key}`,
+      ];
+
+      for (const path of detailPaths) {
+        try {
+          const res = await fetch(`${AGRISK_BASE}${path}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const detail = await res.json();
+            // Merge status metadata with actual result data
+            const merged = Array.isArray(val) ? [{ ...val[0], result: detail }] : { ...val, result: detail };
+            enrichedData[key] = merged;
+            console.log(`Fetched detail for ${key}: ${JSON.stringify(detail).slice(0, 200)}`);
+            return;
+          }
+        } catch {}
+      }
+
+      // If no detail endpoint works, keep original
+      enrichedData[key] = val;
+    });
+
+    await Promise.all(promises);
+  }
+
+  return enrichedData;
 }
 
 async function fetchResultByType(

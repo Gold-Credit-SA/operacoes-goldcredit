@@ -16,9 +16,11 @@ import { format } from 'date-fns';
 const CATEGORIES: { key: string; label: string; icon: any; keys: string[] }[] = [
   { key: 'dados_basicos', label: 'Cadastro', icon: Database, keys: ['dados-basicos', 'emails', 'telefones', 'enderecos'] },
   { key: 'sintegra', label: 'Sintegras', icon: Building2, keys: [
-    'sintegra-ac','sintegra-al','sintegra-am','sintegra-ba','sintegra-df','sintegra-es',
-    'sintegra-mg','sintegra-ms','sintegra-pa','sintegra-pb','sintegra-pe','sintegra-rj',
-    'sintegra-ro','sintegra-rr','sintegra-rs','sintegra-se','sintegra-sp','sintegra-to',
+    'sintegra-ac','sintegra-al','sintegra-am','sintegra-ap','sintegra-ba','sintegra-ce',
+    'sintegra-df','sintegra-es','sintegra-go','sintegra-ma','sintegra-mg','sintegra-ms',
+    'sintegra-mt','sintegra-pa','sintegra-pb','sintegra-pe','sintegra-pi','sintegra-pr',
+    'sintegra-rj','sintegra-rn','sintegra-ro','sintegra-rr','sintegra-rs','sintegra-sc',
+    'sintegra-se','sintegra-sp','sintegra-to',
   ]},
   { key: 'grupos', label: 'Grupos', icon: Users, keys: ['grupo-familiar', 'grupo-economico'] },
   { key: 'compliance', label: 'Compliance', icon: Shield, keys: ['kyc', 'antecedentes', 'mandados', 'trabalho-escravo'] },
@@ -34,7 +36,7 @@ const CATEGORIES: { key: string; label: string; icon: any; keys: string[] }[] = 
 
 const METADATA_KEYS = new Set([
   'queryId','status','createdAt','completedAt','requestedBy','taxId',
-  '_id','id','message','updatedAt','productId','clientId','type',
+  '_id','id','message','updatedAt','productId','clientId','type','result',
 ]);
 
 // ─── Helpers ───
@@ -109,7 +111,14 @@ function renderValue(val: unknown): string {
 function getPayload(raw: any): any {
   const item = Array.isArray(raw) ? raw[0] : raw;
   if (!item || typeof item !== 'object') return null;
-  return item.result || item.data || item;
+  // The enriched data has result field with actual data
+  const result = item.result || item.data;
+  if (result && typeof result === 'object') return result;
+  // Fallback: filter out metadata from the item itself
+  const filtered = Object.fromEntries(
+    Object.entries(item).filter(([k]) => !METADATA_KEYS.has(k))
+  );
+  return Object.keys(filtered).length > 0 ? filtered : null;
 }
 
 function getPayloadEntries(payload: any): [string, unknown][] {
