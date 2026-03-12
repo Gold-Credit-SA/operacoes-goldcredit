@@ -156,6 +156,123 @@ export default function ClienteDetail() {
 
   const lastUpdate = client.updated_at || client.created_at;
 
+  // When a detail entry is selected, show it inline
+  if (detailEntry) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border">
+          <div className="px-6 py-3 flex items-center justify-between">
+            <Button variant="ghost" size="sm" onClick={() => setDetailEntry(null)}>
+              <ArrowLeft className="h-4 w-4 mr-1.5" />
+              Voltar ao cliente
+            </Button>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className={`text-[10px] ${getPlatformColor(detailEntry.platform)}`}>
+                {detailEntry.platform.toUpperCase()}
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                {format(new Date(detailEntry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="p-6 max-w-7xl mx-auto">
+          <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary" />
+            {detailEntry.consulta_label}
+          </h2>
+          <div className="min-w-0">
+            {detailEntry.result_data && (
+              detailEntry.consulta_type === 'scr' ? (
+                <SCRDetailView data={detailEntry.result_data} />
+              ) : detailEntry.platform === 'serasa' || detailEntry.consulta_type.startsWith('serasa') ? (
+                <SerasaDetailView data={detailEntry.result_data} document={detailEntry.cnpj} consultaId={detailEntry.consulta_type} />
+              ) : detailEntry.consulta_type === 'consulta_cliente' ? (
+                <ConsultaClienteDetailView data={detailEntry.result_data as Record<string, any>} />
+              ) : (
+                <pre className="text-xs text-foreground whitespace-pre-wrap bg-muted p-4 rounded-lg">
+                  {JSON.stringify(detailEntry.result_data, null, 2)}
+                </pre>
+              )
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // When showHistory is true, show full history list inline
+  if (showHistory) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border">
+          <div className="px-6 py-3 flex items-center justify-between">
+            <Button variant="ghost" size="sm" onClick={() => setShowHistory(false)}>
+              <ArrowLeft className="h-4 w-4 mr-1.5" />
+              Voltar ao cliente
+            </Button>
+            <Button variant="default" onClick={() => { setShowHistory(false); setConsultaOpen(true); }}>
+              <SearchIcon className="h-4 w-4 mr-2" />
+              Nova Consulta
+            </Button>
+          </div>
+        </div>
+        <div className="p-6 max-w-7xl mx-auto">
+          <h2 className="text-lg font-bold text-foreground mb-1">Consultas Realizadas</h2>
+          <p className="text-sm text-muted-foreground mb-4">{client.name || formatDoc(client.cpf_cnpj)} · {history.length} consulta(s)</p>
+
+          {history.length === 0 ? (
+            <Card>
+              <CardContent className="py-16 text-center">
+                <Clock className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
+                <p className="text-sm text-muted-foreground">Nenhuma consulta realizada.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {history.map(entry => (
+                <Card
+                  key={entry.id}
+                  className="hover:border-primary/30 transition-colors cursor-pointer"
+                  onClick={() => setDetailEntry(entry)}
+                >
+                  <CardContent className="py-3 px-4 flex items-center gap-3">
+                    <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-foreground">{entry.consulta_label}</span>
+                        <Badge variant="outline" className={`text-[10px] ${getPlatformColor(entry.platform)}`}>
+                          {entry.platform.toUpperCase()}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(entry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        {entry.consulted_by_name && <> · <span className="italic">por {entry.consulted_by_name}</span></>}
+                      </p>
+                    </div>
+                    <Button variant="ghost" size="sm">
+                      <FileText className="h-3.5 w-3.5" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {consultaOpen && (
+          <ConsultaModal
+            cpfCnpj={client.cpf_cnpj}
+            clientName={client.name}
+            open={consultaOpen}
+            onClose={() => setConsultaOpen(false)}
+            onDone={handleConsultaDone}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Top bar */}
@@ -166,6 +283,13 @@ export default function ClienteDetail() {
             Voltar
           </Button>
           <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setShowHistory(true)}>
+              <Clock className="h-4 w-4 mr-2" />
+              Consultas Feitas
+              {history.length > 0 && (
+                <Badge variant="secondary" className="ml-1.5 text-[10px] h-5 px-1.5">{history.length}</Badge>
+              )}
+            </Button>
             <Button variant="default" onClick={() => setConsultaOpen(true)}>
               <SearchIcon className="h-4 w-4 mr-2" />
               Consultar
@@ -288,12 +412,8 @@ export default function ClienteDetail() {
 
           {/* Right content */}
           <div className="flex-1 min-w-0 space-y-4">
-            {/* Tabs: Endereços, Telefones, Emails, Histórico */}
-            <Tabs defaultValue="historico" className="w-full">
+            <Tabs defaultValue="enderecos" className="w-full">
               <TabsList className="bg-muted/50">
-                <TabsTrigger value="historico" className="text-xs gap-1.5">
-                  Consultas <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{history.length}</Badge>
-                </TabsTrigger>
                 <TabsTrigger value="enderecos" className="text-xs gap-1.5">
                   Endereços <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{addresses.length}</Badge>
                 </TabsTrigger>
@@ -304,51 +424,6 @@ export default function ClienteDetail() {
                   Emails <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{emails.length}</Badge>
                 </TabsTrigger>
               </TabsList>
-
-              {/* Histórico de consultas */}
-              <TabsContent value="historico">
-                <Card>
-                  <CardContent className="pt-4">
-                    {history.length === 0 ? (
-                      <div className="text-center py-12">
-                        <Clock className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
-                        <p className="text-sm text-muted-foreground">Nenhuma consulta realizada.</p>
-                        <Button variant="outline" size="sm" className="mt-3" onClick={() => setConsultaOpen(true)}>
-                          <SearchIcon className="h-3.5 w-3.5 mr-1.5" />
-                          Fazer primeira consulta
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {history.map(entry => (
-                          <div
-                            key={entry.id}
-                            className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary/30 transition-colors cursor-pointer"
-                            onClick={() => setDetailEntry(entry)}
-                          >
-                            <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-foreground">{entry.consulta_label}</span>
-                                <Badge variant="outline" className={`text-[10px] ${getPlatformColor(entry.platform)}`}>
-                                  {entry.platform.toUpperCase()}
-                                </Badge>
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                {format(new Date(entry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                                {entry.consulted_by_name && <> · <span className="italic">por {entry.consulted_by_name}</span></>}
-                              </p>
-                            </div>
-                            <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); setDetailEntry(entry); }}>
-                              <FileText className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
 
               {/* Endereços */}
               <TabsContent value="enderecos">
@@ -483,35 +558,6 @@ export default function ClienteDetail() {
           onDone={handleConsultaDone}
         />
       )}
-
-      {/* Detail Dialog */}
-      <Dialog open={!!detailEntry} onOpenChange={(open) => !open && setDetailEntry(null)}>
-        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] flex flex-col">
-          <DialogHeader className="shrink-0">
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              {detailEntry?.consulta_label}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 min-h-0 overflow-auto pr-2">
-            <div className="pb-4 min-w-0">
-              {detailEntry?.result_data && (
-                detailEntry.consulta_type === 'scr' ? (
-                  <SCRDetailView data={detailEntry.result_data} />
-                ) : detailEntry.platform === 'serasa' || detailEntry.consulta_type.startsWith('serasa') ? (
-                  <SerasaDetailView data={detailEntry.result_data} document={detailEntry.cnpj} consultaId={detailEntry.consulta_type} />
-                ) : detailEntry.consulta_type === 'consulta_cliente' ? (
-                  <ConsultaClienteDetailView data={detailEntry.result_data as Record<string, any>} />
-                ) : (
-                  <pre className="text-xs text-foreground whitespace-pre-wrap bg-muted p-4 rounded-lg">
-                    {JSON.stringify(detailEntry.result_data, null, 2)}
-                  </pre>
-                )
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
