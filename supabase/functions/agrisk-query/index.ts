@@ -15,6 +15,24 @@ const PRODUCT_MAP: Record<string, { code: string; _id: string }> = {
   patrimonio_veicular: { code: "vehicle-assets", _id: "8a6dd886-902c-4745-a8e0-e81db1e10e93" },
 };
 
+async function fetchJsonWithTimeout(url: string, token: string, timeoutMs = 2500): Promise<any | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function agriskLogin(): Promise<string> {
   const credential = Deno.env.get("AGRISK_CREDENTIAL");
   const password = Deno.env.get("AGRISK_PASSWORD");
@@ -163,15 +181,16 @@ function extractSubQueries(data: any): Record<string, any> | null {
 }
 
 // For consulta_cliente: poll status then fetch detailed results for each completed sub-query
-async function pollConsultaCliente(token: string, clientId: string, queryId: string, maxWaitMs = 60000): Promise<any> {
+async function pollConsultaCliente(token: string, clientId: string, queryId: string, maxWaitMs = 25000): Promise<any> {
   const start = Date.now();
-  const interval = 4000;
+  const hardDeadline = start + maxWaitMs;
+  const interval = 2500;
 
-  await new Promise((r) => setTimeout(r, 5000));
+  await new Promise((r) => setTimeout(r, 1500));
 
   let subQueries: Record<string, any> | null = null;
 
-  while (Date.now() - start < maxWaitMs) {
+  while (Date.now() < hardDeadline) {
     const endpoints = [
       `/queries/clients/${clientId}/consulta-cliente/${queryId}`,
       `/queries/clients/${clientId}/bvs/${queryId}`,
@@ -179,32 +198,28 @@ async function pollConsultaCliente(token: string, clientId: string, queryId: str
     ];
 
     for (const path of endpoints) {
-      try {
-        const res = await fetch(`${AGRISK_BASE}${path}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const sq = extractSubQueries(data);
-          if (sq) {
-            const keys = Object.keys(sq);
-            const doneCount = keys.filter(k => {
-              const val = sq[k];
-              const item = Array.isArray(val) ? val[0] : val;
-              const s = (item?.status || '').toUpperCase();
-              return ['DONE', 'SUCCESS', 'COMPLETED', 'FINALIZADO'].includes(s);
-            }).length;
+      const data = await fetchJsonWithTimeout(`${AGRISK_BASE}${path}`, token, 3000);
+      if (!data) continue;
 
-            console.log(`Consulta cliente: ${doneCount}/${keys.length} done from ${path}`);
+      const sq = extractSubQueries(data);
+      if (!sq) continue;
 
-            if (doneCount >= Math.floor(keys.length * 0.3) || (Date.now() - start > 40000)) {
-              subQueries = sq;
-              break;
-            }
-          }
-        }
-      } catch (e) {
-        console.log(`Poll endpoint failed:`, e);
+      const keys = Object.keys(sq);
+      if (keys.length === 0) continue;
+
+      const doneCount = keys.filter((k) => {
+        const val = sq[k];
+        const item = Array.isArray(val) ? val[0] : val;
+        const s = (item?.status || "").toUpperCase();
+        return ["DONE", "SUCCESS", "COMPLETED", "FINALIZADO"].includes(s);
+      }).length;
+
+      const pendingCount = keys.length - doneCount;
+      console.log(`Consulta cliente: ${doneCount}/${keys.length} done from ${path}`);
+
+      if (doneCount > 0 || pendingCount === 0 || Date.now() - start > 16000) {
+        subQueries = sq;
+        break;
       }
     }
 
@@ -219,16 +234,10 @@ async function pollConsultaCliente(token: string, clientId: string, queryId: str
       `/queries/clients/${clientId}/bvs/${queryId}`,
       `/queries/clients/${clientId}`,
     ]) {
-      try {
-        const res = await fetch(`${AGRISK_BASE}${path}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          subQueries = extractSubQueries(data);
-          if (subQueries) break;
-        }
-      } catch {}
+      const data = await fetchJsonWithTimeout(`${AGRISK_BASE}${path}`, token, 2500);
+      if (!data) continue;
+      subQueries = extractSubQueries(data);
+      if (subQueries) break;
     }
   }
 
@@ -236,18 +245,20 @@ async function pollConsultaCliente(token: string, clientId: string, queryId: str
     return { message: "Consulta enviada. Os resultados podem demorar para serem processados." };
   }
 
-  // Phase 2: For each FINALIZADO sub-query, try to fetch its detailed results
   const subKeys = Object.keys(subQueries);
   const enrichedData: Record<string, any> = {};
+  const detailDeadline = Date.now() + 12000;
 
-  const batchSize = 10;
+  const batchSize = 6;
   for (let i = 0; i < subKeys.length; i += batchSize) {
+    if (Date.now() > detailDeadline) break;
+
     const batch = subKeys.slice(i, i + batchSize);
-    const promises = batch.map(async (key) => {
+    await Promise.all(batch.map(async (key) => {
       const val = subQueries![key];
       const item = Array.isArray(val) ? val[0] : val;
-      const s = (item?.status || '').toUpperCase();
-      const isDone = ['DONE', 'SUCCESS', 'COMPLETED', 'FINALIZADO'].includes(s);
+      const s = (item?.status || "").toUpperCase();
+      const isDone = ["DONE", "SUCCESS", "COMPLETED", "FINALIZADO"].includes(s);
 
       if (!isDone) {
         enrichedData[key] = val;
@@ -260,24 +271,23 @@ async function pollConsultaCliente(token: string, clientId: string, queryId: str
       ];
 
       for (const path of detailPaths) {
-        try {
-          const res = await fetch(`${AGRISK_BASE}${path}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (res.ok) {
-            const detail = await res.json();
-            const merged = Array.isArray(val) ? [{ ...val[0], result: detail }] : { ...val, result: detail };
-            enrichedData[key] = merged;
-            console.log(`Detail for ${key}: ${JSON.stringify(detail).slice(0, 200)}`);
-            return;
-          }
-        } catch {}
+        if (Date.now() > detailDeadline) break;
+
+        const detail = await fetchJsonWithTimeout(`${AGRISK_BASE}${path}`, token, 2000);
+        if (detail) {
+          enrichedData[key] = Array.isArray(val)
+            ? [{ ...val[0], result: detail }]
+            : { ...val, result: detail };
+          return;
+        }
       }
 
       enrichedData[key] = val;
-    });
+    }));
+  }
 
-    await Promise.all(promises);
+  for (const key of subKeys) {
+    if (!(key in enrichedData)) enrichedData[key] = subQueries[key];
   }
 
   return enrichedData;
@@ -466,7 +476,7 @@ serve(async (req) => {
 
       if (effectiveQueryId) {
         console.log(`Using consulta_cliente polling with queryId: ${effectiveQueryId}`);
-        const resultData = await pollConsultaCliente(token, clientId, effectiveQueryId, 60000);
+        const resultData = await pollConsultaCliente(token, clientId, effectiveQueryId, 25000);
         return new Response(JSON.stringify({ data: resultData }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
