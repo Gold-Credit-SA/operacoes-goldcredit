@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   CheckCircle2, XCircle, Clock, AlertTriangle, Shield, Scale, Leaf,
-  Building2, FileText, Users, Database, Ban, ExternalLink
+  Building2, FileText, Users, Database, Ban
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
