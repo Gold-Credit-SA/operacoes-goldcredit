@@ -467,7 +467,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
           <div className="border border-border rounded-lg p-3">
             <p className="text-[10px] font-medium text-muted-foreground">Tipo de sociedade</p>
-            <p className="text-xs font-bold text-foreground mt-0.5 line-clamp-2">{String(pick(identificationReport, ['legalNature', 'companyLegalNature', 'societyType']) || '-')}</p>
+            <p className="text-xs font-bold text-foreground mt-0.5 line-clamp-2">{String(pick(identificationReport, ['partnership', 'legalNature', 'companyLegalNature', 'societyType']) || '-')}</p>
           </div>
           <div className="border border-border rounded-lg p-3">
             <p className="text-[10px] font-medium text-muted-foreground">Funcionários</p>
