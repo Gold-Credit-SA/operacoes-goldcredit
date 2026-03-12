@@ -247,7 +247,14 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
     Number(pick(checks, ['summary.count'], 0)) +
     Number(pick(protests, ['summary.count'], 0));
 
-  // Common derived values
+  // Check for explicit "NADA CONSTA" message from the API (liminar or clean record)
+  const nadaConstaMessage = pick<string>(negativeData, [
+    'message', 'summary.message', 'annotationMessage', 'nadaConsta',
+    'pefinResponse.message', 'refinResponse.message',
+  ], '') || '';
+  const hasNadaConsta = totalNegativeCount === 0 || 
+    nadaConstaMessage.toUpperCase().includes('NADA CONSTA');
+
   const scoreValue = Number(pick(score, ['score'], 0));
   const rawDefaultRate = pick<string>(score, ['defaultRate'], '');
   // Parse raw defaultRate: "01378" → "13,78%"
