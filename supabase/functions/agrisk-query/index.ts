@@ -377,6 +377,25 @@ serve(async (req) => {
     const queryResult = await requestQuery(token, clientId, [productInfo._id]);
 
     console.log("Query result:", JSON.stringify(queryResult).slice(0, 500));
+
+    // For consulta_cliente, use specific polling with queryId
+    if (consultaType === "consulta_cliente") {
+      // Extract queryId from the query result
+      const queryId = queryResult?.queryId || queryResult?.id || queryResult?._id;
+      // Also check nested structures
+      const firstKey = Object.keys(queryResult || {}).find(k => Array.isArray(queryResult[k]));
+      const nestedQueryId = firstKey ? queryResult[firstKey]?.[0]?.queryId : null;
+      const effectiveQueryId = queryId || nestedQueryId;
+
+      if (effectiveQueryId) {
+        console.log(`Using consulta_cliente specific polling with queryId: ${effectiveQueryId}`);
+        const resultData = await pollConsultaCliente(token, clientId, effectiveQueryId, 60000);
+        return new Response(JSON.stringify({ data: resultData }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const pollResults = await pollForResults(token, clientId);
     console.log("Poll results:", JSON.stringify(pollResults).slice(0, 500));
 
