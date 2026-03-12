@@ -434,16 +434,29 @@ export default function ClienteDetail() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {addresses.map((addr: any, i: number) => {
-                              const logradouro = addr.logradouro || addr.street
-                                ? [addr.street || addr.logradouro, addr.number || addr.numero, addr.complement || addr.complemento, addr.neighborhood || addr.bairro, addr.zipCode || addr.cep, addr.city || addr.cidade, addr.state || addr.estado].filter(Boolean).join(', ')
-                                : JSON.stringify(addr);
+                          {addresses.map((addr: any, i: number) => {
+                              const logradouro = [
+                                addr.address || addr.logradouro || addr.street,
+                                addr.number || addr.numero,
+                                addr.complement || addr.complemento,
+                                addr.neighborhood || addr.bairro,
+                                addr.city || addr.cidade,
+                                addr.state || addr.estado,
+                                addr.zip_code || addr.zipCode || addr.cep
+                              ].filter(Boolean).join(', ') || '—';
+                              const addrType = addr.address_type || addr.type || addr.tipo || '—';
+                              const info = addr.information || {};
+                              const totalPassages = info.total_passages ?? addr.passagem ?? addr.count ?? '—';
+                              const lastPassage = info.last_passage || addr.ultimaPassagem || addr.lastSeen || addr.updatedAt || null;
+                              const lastPassageFormatted = lastPassage
+                                ? (() => { try { return format(new Date(lastPassage), 'dd/MM/yyyy'); } catch { return lastPassage; } })()
+                                : '—';
                               return (
                                 <TableRow key={i}>
                                   <TableCell className="text-xs">{logradouro}</TableCell>
-                                  <TableCell className="text-xs font-medium">{addr.type || addr.tipo || '—'}</TableCell>
-                                  <TableCell className="text-xs text-center">{addr.passagem ?? addr.count ?? '—'}</TableCell>
-                                  <TableCell className="text-xs text-right">{addr.ultimaPassagem || addr.lastSeen || addr.updatedAt || '—'}</TableCell>
+                                  <TableCell className="text-xs font-medium">{addrType}</TableCell>
+                                  <TableCell className="text-xs text-center">{totalPassages}</TableCell>
+                                  <TableCell className="text-xs text-right">{lastPassageFormatted}</TableCell>
                                 </TableRow>
                               );
                             })}
@@ -478,13 +491,24 @@ export default function ClienteDetail() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {phones.map((ph: any, i: number) => (
-                              <TableRow key={i}>
-                                <TableCell className="text-xs font-mono">{ph.number || ph.numero || ph.phone || String(ph)}</TableCell>
-                                <TableCell className="text-xs">{ph.type || ph.tipo || '—'}</TableCell>
-                                <TableCell className="text-xs text-right">{ph.ultimaPassagem || ph.lastSeen || '—'}</TableCell>
-                              </TableRow>
-                            ))}
+                            {phones.map((ph: any, i: number) => {
+                              const num = ph.area_code && ph.number
+                                ? `(${ph.area_code}) ${ph.number}`
+                                : ph.number || ph.numero || ph.phone || (typeof ph === 'string' ? ph : JSON.stringify(ph));
+                              const phType = ph.phone_type || ph.type || ph.tipo || '—';
+                              const phInfo = ph.information || {};
+                              const lastSeen = phInfo.last_passage || ph.ultimaPassagem || ph.lastSeen || null;
+                              const lastSeenFmt = lastSeen
+                                ? (() => { try { return format(new Date(lastSeen), 'dd/MM/yyyy'); } catch { return lastSeen; } })()
+                                : '—';
+                              return (
+                                <TableRow key={i}>
+                                  <TableCell className="text-xs font-mono">{num}</TableCell>
+                                  <TableCell className="text-xs">{phType}</TableCell>
+                                  <TableCell className="text-xs text-right">{lastSeenFmt}</TableCell>
+                                </TableRow>
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       </div>
@@ -515,12 +539,20 @@ export default function ClienteDetail() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {emails.map((em: any, i: number) => (
-                              <TableRow key={i}>
-                                <TableCell className="text-xs">{em.email || em.address || String(em)}</TableCell>
-                                <TableCell className="text-xs text-right">{em.ultimaPassagem || em.lastSeen || '—'}</TableCell>
-                              </TableRow>
-                            ))}
+                            {emails.map((em: any, i: number) => {
+                              const emailAddr = em.email || em.address || (typeof em === 'string' ? em : JSON.stringify(em));
+                              const emInfo = em.information || {};
+                              const lastSeen = emInfo.last_passage || em.ultimaPassagem || em.lastSeen || null;
+                              const lastSeenFmt = lastSeen
+                                ? (() => { try { return format(new Date(lastSeen), 'dd/MM/yyyy'); } catch { return lastSeen; } })()
+                                : '—';
+                              return (
+                                <TableRow key={i}>
+                                  <TableCell className="text-xs">{emailAddr}</TableCell>
+                                  <TableCell className="text-xs text-right">{lastSeenFmt}</TableCell>
+                                </TableRow>
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       </div>
