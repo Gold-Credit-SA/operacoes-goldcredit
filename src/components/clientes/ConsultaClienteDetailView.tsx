@@ -109,7 +109,14 @@ function renderValue(val: unknown): string {
 function getPayload(raw: any): any {
   const item = Array.isArray(raw) ? raw[0] : raw;
   if (!item || typeof item !== 'object') return null;
-  return item.result || item.data || item;
+  // The enriched data has result field with actual data
+  const result = item.result || item.data;
+  if (result && typeof result === 'object') return result;
+  // Fallback: filter out metadata from the item itself
+  const filtered = Object.fromEntries(
+    Object.entries(item).filter(([k]) => !METADATA_KEYS.has(k))
+  );
+  return Object.keys(filtered).length > 0 ? filtered : null;
 }
 
 function getPayloadEntries(payload: any): [string, unknown][] {
