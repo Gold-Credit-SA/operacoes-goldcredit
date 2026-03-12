@@ -491,13 +491,24 @@ export default function ClienteDetail() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {phones.map((ph: any, i: number) => (
-                              <TableRow key={i}>
-                                <TableCell className="text-xs font-mono">{ph.number || ph.numero || ph.phone || String(ph)}</TableCell>
-                                <TableCell className="text-xs">{ph.type || ph.tipo || '—'}</TableCell>
-                                <TableCell className="text-xs text-right">{ph.ultimaPassagem || ph.lastSeen || '—'}</TableCell>
-                              </TableRow>
-                            ))}
+                            {phones.map((ph: any, i: number) => {
+                              const num = ph.area_code && ph.number
+                                ? `(${ph.area_code}) ${ph.number}`
+                                : ph.number || ph.numero || ph.phone || (typeof ph === 'string' ? ph : JSON.stringify(ph));
+                              const phType = ph.phone_type || ph.type || ph.tipo || '—';
+                              const phInfo = ph.information || {};
+                              const lastSeen = phInfo.last_passage || ph.ultimaPassagem || ph.lastSeen || null;
+                              const lastSeenFmt = lastSeen
+                                ? (() => { try { return format(new Date(lastSeen), 'dd/MM/yyyy'); } catch { return lastSeen; } })()
+                                : '—';
+                              return (
+                                <TableRow key={i}>
+                                  <TableCell className="text-xs font-mono">{num}</TableCell>
+                                  <TableCell className="text-xs">{phType}</TableCell>
+                                  <TableCell className="text-xs text-right">{lastSeenFmt}</TableCell>
+                                </TableRow>
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       </div>
