@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, LogOut, ClipboardList, Settings, Briefcase, ChevronDown, RefreshCw, BarChart3, Settings2, UserCircle, LayoutDashboard, FileText } from 'lucide-react';
+import { Search, LogOut, ClipboardList, Settings, Briefcase, ChevronDown, RefreshCw, BarChart3, Settings2, UserCircle, LayoutDashboard, FileText, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import logoGoldCredit from '@/assets/logo-gold-credit.png';
