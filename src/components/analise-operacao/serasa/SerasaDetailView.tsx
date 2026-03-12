@@ -1580,140 +1580,82 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         const refMarket = asArray(businessReferences?.market?.businessReferencesResponse || businessReferences?.marketReferences || []);
         const refFactoring = asArray(businessReferences?.factoring?.businessReferencesResponse || businessReferences?.factoringReferences || []);
 
-        console.log('[Behavioral Debug] behavioralData keys:', Object.keys(behavioralData));
-        console.log('[Behavioral Debug] behavioralData:', JSON.stringify(behavioralData, null, 2).substring(0, 5000));
-        console.log('[Behavioral Debug] marketRelationship:', JSON.stringify(marketRelationship, null, 2).substring(0, 2000));
-        console.log('[Behavioral Debug] paymentHistoryPJ:', JSON.stringify(paymentHistoryPJ, null, 2).substring(0, 3000));
-        console.log('[Behavioral Debug] commitmentEvolution:', JSON.stringify(commitmentEvolution, null, 2).substring(0, 3000));
-        console.log('[Behavioral Debug] businessReferences:', JSON.stringify(businessReferences, null, 2).substring(0, 2000));
-        console.log('[Behavioral Debug] suppliers:', JSON.stringify(suppliers, null, 2).substring(0, 2000));
-        console.log('[Behavioral Debug] comparativeAnalysis:', JSON.stringify(comparativeAnalysis, null, 2).substring(0, 2000));
-        console.log('[Behavioral Debug] report keys for behavioral:', JSON.stringify(Object.keys(report || {})));
-        console.log('[Behavioral Debug] optionalFeatures keys:', JSON.stringify(Object.keys(optionalFeatures || {})));
+        const hasBehavioral = Object.keys(behavioralData).length > 0 || marketItems.length > 0 || pjPayItems.length > 0 || payHistoryMarket.length > 0 || commitmentItems.length > 0 || commitmentMarket.length > 0 || businessRefItems.length > 0;
 
-        return (
-        <div>
-          <p className="text-sm font-semibold text-primary mb-1">Informações Comportamentais</p>
-          <p className="text-xs text-muted-foreground mb-4">
-            Informações detalhadas sobre histórico de pagamentos, perfil de compras e compromissos a vencer.
-          </p>
-
-          {/* Principais fornecedores */}
-          <div className="mb-6">
-            <p className="text-xs font-semibold text-primary mb-1">Principais fornecedores</p>
-            <p className="text-[11px] text-muted-foreground mb-2">
-              Atualizado em {statusDate}{supplierItems.length > 0 ? `  Exibindo ${supplierItems.length} registros.` : ''}
-            </p>
-            <p className="text-[11px] text-muted-foreground mb-2">Visão de mercado{supplierItems.length > 0 ? `  Exibindo ${supplierItems.length} registros.` : ''}</p>
-            {supplierItems.length > 0 ? (
-              <div className="overflow-x-auto border border-border rounded-lg">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs font-medium">CNPJ do Fornecedor</TableHead>
-                      <TableHead className="text-xs font-medium">Razão Social do Fornecedor</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {supplierItems.map((item: any, i: number) => (
-                      <TableRow key={i}>
-                        <TableCell className="text-xs py-2">{item.documentId ? formatDocument(item.documentId) : item.cnpj ? formatDocument(item.cnpj) : '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.companyName || item.name || item.razaoSocial || '-'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">Nenhum registro encontrado.</p>
-            )}
+        // Helper to render a horizontal grid table (like Relacionamento com mercado)
+        const GridRow = ({ headers, values }: { headers: string[]; values: (string | number)[] }) => (
+          <div className="overflow-x-auto border border-border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {headers.map((h, i) => (
+                    <TableHead key={i} className="text-xs font-medium">{h}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  {values.map((v, i) => (
+                    <TableCell key={i} className="text-xs py-2">{v ?? '-'}</TableCell>
+                  ))}
+                </TableRow>
+              </TableBody>
+            </Table>
           </div>
+        );
 
-          {/* Relacionamento com o Mercado */}
-          <div className="mb-6">
-            <p className="text-xs font-semibold text-primary mb-2">Relacionamento com o mercado</p>
-            {marketItems.length > 0 ? (
-              <>
-              <p className="text-[11px] text-muted-foreground mb-2">Exibindo {marketItems.length} registros.</p>
-              <div className="overflow-x-auto border border-border rounded-lg">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs font-medium">0 - 6 meses</TableHead>
-                      <TableHead className="text-xs font-medium">6 meses - 1 ano</TableHead>
-                      <TableHead className="text-xs font-medium">1 - 3 anos</TableHead>
-                      <TableHead className="text-xs font-medium">3 - 5 anos</TableHead>
-                      <TableHead className="text-xs font-medium">5 - 10 anos</TableHead>
-                      <TableHead className="text-xs font-medium">{'>'}10 anos</TableHead>
-                      <TableHead className="text-xs font-medium">Inativos</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {marketItems.map((item: any, i: number) => (
-                      <TableRow key={i}>
-                        <TableCell className="text-xs py-2">{item.range0to6 || item.zeroToSix || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.range6to12 || item.sixToTwelve || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.range1to3 || item.oneToThree || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.range3to5 || item.threeToFive || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.range5to10 || item.fiveToTen || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.rangeOver10 || item.overTen || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.inactive || item.inactives || '-'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              </>
-            ) : (
-              <p className="text-xs text-muted-foreground">Sem dados de relacionamento com o mercado.</p>
-            )}
-          </div>
+        // Extract market relationship data
+        const mktItem = marketItems[0] || {} as any;
+        const mktHeaders = ['0 - 6 meses', '6 meses - 1 ano', '1 - 3 anos', '3 - 5 anos', '5 - 10 anos', '+10 anos', 'Inativas'];
+        const mktValues = [
+          mktItem.range0to6 ?? mktItem.zeroToSix ?? 0,
+          mktItem.range6to12 ?? mktItem.sixToTwelve ?? 0,
+          mktItem.range1to3 ?? mktItem.oneToThree ?? 0,
+          mktItem.range3to5 ?? mktItem.threeToFive ?? 0,
+          mktItem.range5to10 ?? mktItem.fiveToTen ?? 0,
+          mktItem.rangeOver10 ?? mktItem.overTen ?? 0,
+          mktItem.inactive ?? mktItem.inactives ?? 0,
+        ];
+        const mktSources = mktItem.sourcesConsulted ?? mktItem.consultedSources ?? '';
+        const mktTotal = mktItem.total ?? marketItems.length ?? 0;
 
-          {/* Histórico de pagamento - Quantidade de títulos */}
-          <div className="mb-6">
-            <p className="text-xs font-semibold text-primary mb-2">Histórico de pagamento - Quantidade de títulos</p>
-            {(pjPayItems.length > 0 || payHistoryMarket.length > 0) ? (
-              <>
-              <p className="text-[11px] text-muted-foreground mb-2">Exibindo registros.</p>
-              <div className="overflow-x-auto border border-border rounded-lg">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs font-medium">Últimos 12 meses</TableHead>
-                      <TableHead className="text-xs font-medium">À vista</TableHead>
-                      <TableHead className="text-xs font-medium">Pontual</TableHead>
-                      <TableHead className="text-xs font-medium">8 a 15 dias</TableHead>
-                      <TableHead className="text-xs font-medium">16 a 30 dias</TableHead>
-                      <TableHead className="text-xs font-medium">31 a 60 dias</TableHead>
-                      <TableHead className="text-xs font-medium">{'>'}60 dias</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(payHistoryMarket.length > 0 ? payHistoryMarket : pjPayItems).map((item: any, i: number) => (
-                      <TableRow key={i}>
-                        <TableCell className="text-xs py-2">{item.period || item.month || item.label || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.cashPayment || item.atSight || item.aVista || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.onTime || item.punctual || item.onTimePayment || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.delay8to15 || item.late8to15 || item.delay1to14 || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.delay16to30 || item.late16to30 || item.delay15to30 || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.delay31to60 || item.late31to60 || '-'}</TableCell>
-                        <TableCell className="text-xs py-2">{item.delayOver60 || item.lateOver60 || item.delayOver90 || '-'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              </>
-            ) : (
-              <p className="text-xs text-muted-foreground">Sem dados de histórico de pagamentos.</p>
-            )}
-          </div>
+        // Extract factoring relationship data
+        const factoringRelationship = (behavioralData?.factoringRelationship || report?.factoringRelationship || {}) as GenericRecord;
+        const factoringRelItems = asArray(factoringRelationship?.factoringRelationshipResponse || factoringRelationship?.results || factoringRelationship?.items || []);
+        const fctItem = factoringRelItems[0] || {} as any;
+        const fctValues = [
+          fctItem.range0to6 ?? fctItem.zeroToSix ?? 0,
+          fctItem.range6to12 ?? fctItem.sixToTwelve ?? 0,
+          fctItem.range1to3 ?? fctItem.oneToThree ?? 0,
+          fctItem.range3to5 ?? fctItem.threeToFive ?? 0,
+          fctItem.range5to10 ?? fctItem.fiveToTen ?? 0,
+          fctItem.rangeOver10 ?? fctItem.overTen ?? 0,
+          fctItem.inactive ?? fctItem.inactives ?? 0,
+        ];
+        const fctSources = fctItem.sourcesConsulted ?? fctItem.consultedSources ?? '';
+        const fctTotal = fctItem.total ?? factoringRelItems.length ?? 0;
 
-          {/* Histórico de pagamentos - Mercado (month-by-month) */}
-          {(payHistoryMarket.length > 0 || pjPayItems.length > 0) && (
-          <div className="mb-6">
-            <p className="text-xs font-semibold text-primary mb-2">Histórico de pagamentos - Mercado</p>
-            <p className="text-[11px] text-muted-foreground mb-2">Exibindo {(payHistoryMarket.length || pjPayItems.length)} registros.</p>
+        // Payment history title quantities
+        const payTitleItem = (behavioralData?.paymentTitleQuantity || paymentHistoryPJ?.titleQuantity || {}) as GenericRecord;
+        const titleHeaders = ['À vista', 'Pontual', '8 - 15', '16 - 30', '31 - 60', '+60'];
+        const titleValues = [
+          payTitleItem.atSight ?? payTitleItem.cashPayment ?? '-',
+          payTitleItem.punctual ?? payTitleItem.onTime ?? '-',
+          payTitleItem.delay8to15 ?? '-',
+          payTitleItem.delay16to30 ?? '-',
+          payTitleItem.delay31to60 ?? '-',
+          payTitleItem.delayOver60 ?? '-',
+        ];
+        const titleTotal = payTitleItem.total ?? pjPayItems.length ?? 0;
+        const titleSources = payTitleItem.sourcesConsulted ?? '';
+
+        // Visão comparativa for payment
+        const payComparative = asArray(paymentHistoryPJ?.comparative?.comparativeResponse || paymentHistoryPJ?.comparativePayment || behavioralData?.paymentComparative || []);
+
+        // Generic payment history table renderer
+        const PayHistoryTable = ({ title, items, count }: { title: string; items: any[]; count: number }) => (
+          <div className="mb-4">
+            <p className="text-xs font-medium text-muted-foreground mb-1">{title}  Exibindo {count || items.length} registros.</p>
             <div className="overflow-x-auto border border-border rounded-lg">
               <Table>
                 <TableHeader>
@@ -1724,215 +1666,404 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
                     <TableHead className="text-xs font-medium">8 a 15 dias</TableHead>
                     <TableHead className="text-xs font-medium">16 a 30 dias</TableHead>
                     <TableHead className="text-xs font-medium">31 a 60 dias</TableHead>
-                    <TableHead className="text-xs font-medium">{'>'}60 dias</TableHead>
+                    <TableHead className="text-xs font-medium">+ de 60 dias</TableHead>
                     <TableHead className="text-xs font-medium">Total / Mês</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(payHistoryMarket.length > 0 ? payHistoryMarket : pjPayItems).map((item: any, i: number) => (
+                  {items.length > 0 ? items.map((item: any, i: number) => (
                     <TableRow key={i}>
                       <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
                       <TableCell className="text-xs py-2">{item.cashPayment || item.atSight || item.aVista || '-'}</TableCell>
-                      <TableCell className="text-xs py-2">{item.onTime || item.punctual || '-'}</TableCell>
-                      <TableCell className="text-xs py-2">{item.delay8to15 || item.late8to15 || item.delay1to14 || '-'}</TableCell>
-                      <TableCell className="text-xs py-2">{item.delay16to30 || item.late16to30 || item.delay15to30 || '-'}</TableCell>
-                      <TableCell className="text-xs py-2">{item.delay31to60 || item.late31to60 || '-'}</TableCell>
-                      <TableCell className="text-xs py-2">{item.delayOver60 || item.lateOver60 || item.delayOver90 || '-'}</TableCell>
-                      <TableCell className="text-xs py-2">{item.total || item.totalMonth || '-'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-          )}
-
-          {/* Histórico de pagamentos - Factorings sacado */}
-          {payHistoryFactoring.length > 0 && (
-          <div className="mb-6">
-            <p className="text-xs font-semibold text-primary mb-2">Histórico de pagamentos - Factorings sacado</p>
-            <p className="text-[11px] text-muted-foreground mb-2">Exibindo {payHistoryFactoring.length} registros.</p>
-            <div className="overflow-x-auto border border-border rounded-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs font-medium">Mês / Ano</TableHead>
-                    <TableHead className="text-xs font-medium">À vista</TableHead>
-                    <TableHead className="text-xs font-medium">Pontual</TableHead>
-                    <TableHead className="text-xs font-medium">8 a 15 dias</TableHead>
-                    <TableHead className="text-xs font-medium">16 a 30 dias</TableHead>
-                    <TableHead className="text-xs font-medium">31 a 60 dias</TableHead>
-                    <TableHead className="text-xs font-medium">{'>'}60 dias</TableHead>
-                    <TableHead className="text-xs font-medium">Total / Mês</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payHistoryFactoring.map((item: any, i: number) => (
-                    <TableRow key={i}>
-                      <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
-                      <TableCell className="text-xs py-2">{item.cashPayment || item.atSight || '-'}</TableCell>
-                      <TableCell className="text-xs py-2">{item.onTime || item.punctual || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.onTime || item.punctual || item.onTimePayment || '-'}</TableCell>
                       <TableCell className="text-xs py-2">{item.delay8to15 || item.late8to15 || '-'}</TableCell>
                       <TableCell className="text-xs py-2">{item.delay16to30 || item.late16to30 || '-'}</TableCell>
                       <TableCell className="text-xs py-2">{item.delay31to60 || item.late31to60 || '-'}</TableCell>
                       <TableCell className="text-xs py-2">{item.delayOver60 || item.lateOver60 || '-'}</TableCell>
                       <TableCell className="text-xs py-2">{item.total || item.totalMonth || '-'}</TableCell>
                     </TableRow>
-                  ))}
+                  )) : (
+                    <TableRow>
+                      <TableCell className="text-xs py-2" colSpan={8}>Sem registros.</TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>
           </div>
-          )}
+        );
 
-          {/* Evolução de Compromissos */}
+        // Delay average tables
+        const DelayTable = ({ title, items, count }: { title: string; items: any[]; count: number }) => {
+          if (items.length === 0 && count === 0) return null;
+          return (
+          <div className="mb-4">
+            <p className="text-xs font-medium text-muted-foreground mb-1">{title}  Exibindo {count || items.length} registros.</p>
+            <div className="overflow-x-auto border border-border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {items.map((item: any, i: number) => (
+                      <TableHead key={i} className="text-xs font-medium">{item.period || item.month || '-'}</TableHead>
+                    ))}
+                    <TableHead className="text-xs font-medium">Média</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    {items.map((item: any, i: number) => (
+                      <TableCell key={i} className="text-xs py-2">{item.value || item.averageDelay || item.delay || '0 a 0'}</TableCell>
+                    ))}
+                    <TableCell className="text-xs py-2">{items[items.length - 1]?.average || items[items.length - 1]?.value || '-'}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+          );
+        };
+
+        // Summary row for payment history
+        const PaySummaryRow = ({ title, item }: { title: string; item: any }) => {
+          if (!item || Object.keys(item).length === 0) return null;
+          return (
+          <div className="mb-2">
+            <p className="text-xs font-medium text-muted-foreground mb-1">{title}</p>
+            <div className="overflow-x-auto border border-border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs font-medium">Últimos 12 meses</TableHead>
+                    <TableHead className="text-xs font-medium">À vista</TableHead>
+                    <TableHead className="text-xs font-medium">Pontual</TableHead>
+                    <TableHead className="text-xs font-medium">8 a 15 dias</TableHead>
+                    <TableHead className="text-xs font-medium">16 a 30 dias</TableHead>
+                    <TableHead className="text-xs font-medium">31 a 60 dias</TableHead>
+                    <TableHead className="text-xs font-medium">+60 dias</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="text-xs py-2">{item.last12Months || item.total || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.atSight || item.cashPayment || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.punctual || item.onTime || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.delay8to15 || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.delay16to30 || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.delay31to60 || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{item.delayOver60 || '-'}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+          );
+        };
+
+        // Payment history summary items
+        const payMarketSummary = (paymentHistoryPJ?.market?.summary || paymentHistoryPJ?.marketSummary || {}) as GenericRecord;
+        const payFactoringSummary = (paymentHistoryPJ?.factoring?.summary || paymentHistoryPJ?.factoringSummary || {}) as GenericRecord;
+
+        return (
+        <div>
+          <p className="text-sm font-semibold text-primary mb-1">Informações Comportamentais</p>
+          <p className="text-xs text-muted-foreground mb-4">
+            Informações detalhadas sobre hábitos de pagamentos, perfil de compras e compromissos a vencer.
+          </p>
+
+          {/* Relacionamento com o mercado */}
           <div className="mb-6">
-            <p className="text-xs font-semibold text-primary mb-2">Evolução de compromissos</p>
-            {commitmentItems.length > 0 || commitmentMarket.length > 0 ? (
-              <>
-              {/* Visão comparativa */}
-              {commitmentComparative.length > 0 && (
-              <div className="mb-3">
-                <p className="text-[11px] text-muted-foreground mb-2">Visão comparativa</p>
-                <div className="overflow-x-auto border border-border rounded-lg">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-xs font-medium">Mês/ano</TableHead>
-                        <TableHead className="text-xs font-medium">Tipo de pagamento</TableHead>
-                        <TableHead className="text-xs font-medium">Factorings</TableHead>
-                        <TableHead className="text-xs font-medium">Mercado</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {commitmentComparative.map((item: any, i: number) => (
-                        <TableRow key={i}>
-                          <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
-                          <TableCell className="text-xs py-2">{item.paymentType || item.type || '-'}</TableCell>
-                          <TableCell className="text-xs py-2">{item.factoring ? formatCurrency(item.factoring) : '-'}</TableCell>
-                          <TableCell className="text-xs py-2">{item.market ? formatCurrency(item.market) : '-'}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-              )}
-
-              {/* À vencer em */}
-              <div className="mb-3">
-                <p className="text-[11px] text-muted-foreground mb-2">Evolução de compromissos - Mercado</p>
-                <div className="overflow-x-auto border border-border rounded-lg">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-xs font-medium">Período</TableHead>
-                        <TableHead className="text-xs font-medium">Factorings</TableHead>
-                        <TableHead className="text-xs font-medium">Mercado</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(commitmentMarket.length > 0 ? commitmentMarket : commitmentItems).map((item: any, i: number) => (
-                        <TableRow key={i}>
-                          <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
-                          <TableCell className="text-xs py-2">{item.factoring ? formatCurrency(item.factoring) : item.factoringAmount ? formatCurrency(item.factoringAmount) : '-'}</TableCell>
-                          <TableCell className="text-xs py-2">{item.market ? formatCurrency(item.market) : item.marketAmount ? formatCurrency(item.marketAmount) : item.assumedAmount ? formatCurrency(item.assumedAmount) : '-'}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-              </>
-            ) : (
-              <p className="text-xs text-muted-foreground">Sem dados de evolução de compromissos.</p>
-            )}
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-medium text-muted-foreground">
+                Relacionamento com o mercado  Exibindo {mktTotal} registros.  Atualizado em {statusDate}
+              </p>
+              {mktSources && <p className="text-xs text-muted-foreground">Fontes Consultadas: {mktSources}</p>}
+            </div>
+            <GridRow headers={mktHeaders} values={mktValues} />
           </div>
 
-          {/* Referenciais de Negócio */}
+          {/* Relacionamento com Factorings */}
           <div className="mb-6">
-            <p className="text-xs font-semibold text-primary mb-2">Referenciais de negócio</p>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-medium text-muted-foreground">
+                Relacionamento com Factorings  Exibindo {fctTotal} registros.  Atualizado em {statusDate}
+              </p>
+              {fctSources && <p className="text-xs text-muted-foreground">Fontes Consultadas: {fctSources}</p>}
+            </div>
+            <GridRow headers={mktHeaders} values={fctValues} />
+          </div>
+
+          {/* Histórico de pagamentos - Quantidade de títulos */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-medium text-muted-foreground">
+                Histórico de pagamentos - Quantidade de títulos  Exibindo {titleTotal} registros.
+              </p>
+              {titleSources && <p className="text-xs text-muted-foreground">Fontes Consultadas: {titleSources}</p>}
+            </div>
+            <GridRow headers={titleHeaders} values={titleValues} />
+          </div>
+
+          {/* Visão comparativa */}
+          <div className="mb-6">
+            <p className="text-xs font-medium text-muted-foreground mb-1">
+              Visão comparativa  Exibindo {payComparative.length} registros.
+            </p>
+            <div className="overflow-x-auto border border-border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs font-medium">Mês/ano</TableHead>
+                    <TableHead className="text-xs font-medium">Tipo de pagamento</TableHead>
+                    <TableHead className="text-xs font-medium">Factorings</TableHead>
+                    <TableHead className="text-xs font-medium">Mercado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {payComparative.length > 0 ? payComparative.map((item: any, i: number) => (
+                    <TableRow key={i}>
+                      <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.paymentType || item.type || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.factoring != null ? formatCurrency(item.factoring) : '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.market != null ? formatCurrency(item.market) : '-'}</TableCell>
+                    </TableRow>
+                  )) : (
+                    <TableRow>
+                      <TableCell className="text-xs py-2" colSpan={4}>Sem registros.</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          {/* Histórico de pagamentos - Mercado */}
+          <div className="mb-6">
+            <PaySummaryRow title="Histórico de pagamentos - Mercado" item={payMarketSummary} />
+            <PayHistoryTable title="Histórico de pagamentos - Mercado" items={payHistoryMarket.length > 0 ? payHistoryMarket : pjPayItems} count={payHistoryMarket.length || pjPayItems.length} />
+            <DelayTable title="Prazo médio de atraso (dias)" items={payHistoryDelayMarket} count={payHistoryDelayMarket.length} />
+          </div>
+
+          {/* Histórico de pagamentos - Factorings sacado */}
+          <div className="mb-6">
+            <PaySummaryRow title="Histórico de pagamentos - Factorings sacado" item={payFactoringSummary} />
+            <PayHistoryTable title="Histórico de pagamentos - Factorings sacado" items={payHistoryFactoring} count={payHistoryFactoring.length} />
+            <DelayTable title="Prazo médio de atraso (dias) - Factorings sacado" items={payHistoryDelayFactoring} count={payHistoryDelayFactoring.length} />
+          </div>
+
+          {/* Evolução de compromissos - Visão comparativa */}
+          <div className="mb-6">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Evolução de compromissos - Visão comparativa</p>
+            <div className="overflow-x-auto border border-border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs font-medium">À vencer em</TableHead>
+                    <TableHead className="text-xs font-medium">Factorings</TableHead>
+                    <TableHead className="text-xs font-medium">Mercado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {commitmentComparative.length > 0 ? commitmentComparative.map((item: any, i: number) => (
+                    <TableRow key={i}>
+                      <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.factoring != null ? formatCurrency(item.factoring) : item.factoringAmount != null ? formatCurrency(item.factoringAmount) : '-'}</TableCell>
+                      <TableCell className="text-xs py-2">{item.market != null ? formatCurrency(item.market) : item.marketAmount != null ? formatCurrency(item.marketAmount) : '-'}</TableCell>
+                    </TableRow>
+                  )) : (
+                    <TableRow>
+                      <TableCell className="text-xs py-2" colSpan={3}>Sem registros.</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          {/* Evolução de compromissos - Mercado */}
+          <div className="mb-6">
+            <p className="text-xs font-medium text-muted-foreground mb-1">
+              Evolução de compromissos - Mercado  Exibindo {commitmentMarket.length || commitmentItems.length} registros.
+            </p>
+            <div className="overflow-x-auto border border-border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {(commitmentMarket.length > 0 ? commitmentMarket : commitmentItems).map((item: any, i: number) => (
+                      <TableHead key={i} className="text-xs font-medium">{item.period || item.month || '-'}</TableHead>
+                    ))}
+                    {(commitmentMarket.length > 0 || commitmentItems.length > 0) && <TableHead className="text-xs font-medium">Total</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(commitmentMarket.length > 0 || commitmentItems.length > 0) ? (
+                  <TableRow>
+                    {(commitmentMarket.length > 0 ? commitmentMarket : commitmentItems).map((item: any, i: number) => (
+                      <TableCell key={i} className="text-xs py-2">{item.value != null ? formatCurrency(item.value) : item.market != null ? formatCurrency(item.market) : item.amount != null ? formatCurrency(item.amount) : '-'}</TableCell>
+                    ))}
+                    <TableCell className="text-xs py-2">
+                      {(() => {
+                        const items = commitmentMarket.length > 0 ? commitmentMarket : commitmentItems;
+                        const total = items.reduce((s: number, it: any) => s + (Number(it.value || it.market || it.amount || 0)), 0);
+                        return total > 0 ? formatCurrency(total) : '-';
+                      })()}
+                    </TableCell>
+                  </TableRow>
+                  ) : (
+                  <TableRow><TableCell className="text-xs py-2">Sem registros.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          {/* Evolução de compromissos - Factorings */}
+          <div className="mb-6">
+            <p className="text-xs font-medium text-muted-foreground mb-1">
+              Evolução de compromissos - Factorings  Exibindo {commitmentFactoring.length} registros.
+            </p>
+            <div className="overflow-x-auto border border-border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {commitmentFactoring.map((item: any, i: number) => (
+                      <TableHead key={i} className="text-xs font-medium">{item.period || item.month || '-'}</TableHead>
+                    ))}
+                    {commitmentFactoring.length > 0 && <TableHead className="text-xs font-medium">Total</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {commitmentFactoring.length > 0 ? (
+                  <TableRow>
+                    {commitmentFactoring.map((item: any, i: number) => (
+                      <TableCell key={i} className="text-xs py-2">{item.value != null ? formatCurrency(item.value) : item.factoring != null ? formatCurrency(item.factoring) : '-'}</TableCell>
+                    ))}
+                    <TableCell className="text-xs py-2">
+                      {(() => {
+                        const total = commitmentFactoring.reduce((s: number, it: any) => s + (Number(it.value || it.factoring || 0)), 0);
+                        return total > 0 ? formatCurrency(total) : '-';
+                      })()}
+                    </TableCell>
+                  </TableRow>
+                  ) : (
+                  <TableRow><TableCell className="text-xs py-2">Sem registros.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          {/* Referenciais de negócio - Mercado */}
+          <div className="mb-6">
             {(() => {
               const refItems = refMarket.length > 0 ? refMarket : businessRefItems;
-              const hasRef = refItems.length > 0 || refFactoring.length > 0;
-              if (!hasRef) return <p className="text-xs text-muted-foreground">Sem dados de referenciais de negócio.</p>;
               return (
               <>
-              {/* Mercado */}
-              {refItems.length > 0 && (
-              <div className="mb-3">
-                <p className="text-[11px] text-muted-foreground mb-2">Referenciais de negócio - Mercado  Exibindo {refItems.length} registros.</p>
-                <div className="overflow-x-auto border border-border rounded-lg">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-xs font-medium"></TableHead>
-                        <TableHead className="text-xs font-medium">Última compra</TableHead>
-                        <TableHead className="text-xs font-medium">Maior fatura</TableHead>
-                        <TableHead className="text-xs font-medium">Maior acúmulo</TableHead>
+              <p className="text-xs font-medium text-muted-foreground mb-1">
+                Referenciais de negócio - Mercado  Exibindo {refItems.length} registros.
+              </p>
+              <div className="overflow-x-auto border border-border rounded-lg mb-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs font-medium"></TableHead>
+                      <TableHead className="text-xs font-medium">Última compra</TableHead>
+                      <TableHead className="text-xs font-medium">Maior fatura</TableHead>
+                      <TableHead className="text-xs font-medium">Maior acúmulo</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {['Data', 'Valor', 'Média'].map((label) => {
+                      const item = refItems[0] || {} as any;
+                      const lastPurchase = label === 'Data' ? (item.lastPurchaseDate || '-') : label === 'Valor' ? (item.lastPurchaseValue ? formatCurrency(item.lastPurchaseValue) : '-') : (item.lastPurchaseAvg ? formatCurrency(item.lastPurchaseAvg) : '-');
+                      const highestInvoice = label === 'Data' ? (item.highestInvoiceDate || '-') : label === 'Valor' ? (item.highestInvoiceValue ? formatCurrency(item.highestInvoiceValue) : item.highestPurchase ? formatCurrency(item.highestPurchase) : '-') : (item.highestInvoiceAvg ? formatCurrency(item.highestInvoiceAvg) : '-');
+                      const highestAccumulated = label === 'Data' ? (item.highestAccumulatedDate || '-') : label === 'Valor' ? (item.highestAccumulatedValue ? formatCurrency(item.highestAccumulatedValue) : '-') : (item.highestAccumulatedAvg ? formatCurrency(item.highestAccumulatedAvg) : '-');
+                      return (
+                      <TableRow key={label}>
+                        <TableCell className="text-xs py-2 font-medium">{label}</TableCell>
+                        <TableCell className="text-xs py-2">{lastPurchase}</TableCell>
+                        <TableCell className="text-xs py-2">{highestInvoice}</TableCell>
+                        <TableCell className="text-xs py-2">{highestAccumulated}</TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {['Data', 'Valor', 'Média'].map((label) => (
-                        <TableRow key={label}>
-                          <TableCell className="text-xs py-2 font-medium">{label}</TableCell>
-                          {refItems.slice(0, 1).map((item: any, i: number) => {
-                            const lastPurchase = label === 'Data' ? (item.lastPurchaseDate || formatDate(item.lastPurchase) || '-') : label === 'Valor' ? (item.lastPurchaseValue ? formatCurrency(item.lastPurchaseValue) : '-') : (item.lastPurchaseAvg ? formatCurrency(item.lastPurchaseAvg) : '-');
-                            const highestInvoice = label === 'Data' ? (item.highestInvoiceDate || '-') : label === 'Valor' ? (item.highestInvoiceValue ? formatCurrency(item.highestInvoiceValue) : item.highestPurchase ? formatCurrency(item.highestPurchase) : '-') : (item.highestInvoiceAvg ? formatCurrency(item.highestInvoiceAvg) : '-');
-                            const highestAccumulated = label === 'Data' ? (item.highestAccumulatedDate || '-') : label === 'Valor' ? (item.highestAccumulatedValue ? formatCurrency(item.highestAccumulatedValue) : '-') : (item.highestAccumulatedAvg ? formatCurrency(item.highestAccumulatedAvg) : '-');
-                            return (
-                            <React.Fragment key={i}>
-                              <TableCell className="text-xs py-2">{lastPurchase}</TableCell>
-                              <TableCell className="text-xs py-2">{highestInvoice}</TableCell>
-                              <TableCell className="text-xs py-2">{highestAccumulated}</TableCell>
-                            </React.Fragment>
-                            );
-                          })}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </div>
-              )}
 
-              {/* Factorings */}
-              {refFactoring.length > 0 && (
-              <div className="mb-3">
-                <p className="text-[11px] text-muted-foreground mb-2">Referenciais de negócio - Factorings  Exibindo {refFactoring.length} registros.</p>
-                <div className="overflow-x-auto border border-border rounded-lg">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-xs font-medium"></TableHead>
-                        <TableHead className="text-xs font-medium">Última compra</TableHead>
-                        <TableHead className="text-xs font-medium">Maior fatura</TableHead>
-                        <TableHead className="text-xs font-medium">Maior acúmulo</TableHead>
+              {/* Referenciais de negócio - Factorings */}
+              <p className="text-xs font-medium text-muted-foreground mb-1">
+                Referenciais de negócio - Factorings  Exibindo {refFactoring.length} registros.
+              </p>
+              <div className="overflow-x-auto border border-border rounded-lg mb-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs font-medium"></TableHead>
+                      <TableHead className="text-xs font-medium">Última compra</TableHead>
+                      <TableHead className="text-xs font-medium">Maior fatura</TableHead>
+                      <TableHead className="text-xs font-medium">Maior acúmulo</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {['Data', 'Valor', 'Média'].map((label) => {
+                      const item = refFactoring[0] || {} as any;
+                      const lastPurchase = label === 'Data' ? (item.lastPurchaseDate || '-') : label === 'Valor' ? (item.lastPurchaseValue ? formatCurrency(item.lastPurchaseValue) : '-') : (item.lastPurchaseAvg ? formatCurrency(item.lastPurchaseAvg) : '-');
+                      const highestInvoice = label === 'Data' ? (item.highestInvoiceDate || '-') : label === 'Valor' ? (item.highestInvoiceValue ? formatCurrency(item.highestInvoiceValue) : '-') : (item.highestInvoiceAvg ? formatCurrency(item.highestInvoiceAvg) : '-');
+                      const highestAccumulated = label === 'Data' ? (item.highestAccumulatedDate || '-') : label === 'Valor' ? (item.highestAccumulatedValue ? formatCurrency(item.highestAccumulatedValue) : '-') : (item.highestAccumulatedAvg ? formatCurrency(item.highestAccumulatedAvg) : '-');
+                      return (
+                      <TableRow key={label}>
+                        <TableCell className="text-xs py-2 font-medium">{label}</TableCell>
+                        <TableCell className="text-xs py-2">{lastPurchase}</TableCell>
+                        <TableCell className="text-xs py-2">{highestInvoice}</TableCell>
+                        <TableCell className="text-xs py-2">{highestAccumulated}</TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {['Data', 'Valor', 'Média'].map((label) => (
-                        <TableRow key={label}>
-                          <TableCell className="text-xs py-2 font-medium">{label}</TableCell>
-                          {refFactoring.slice(0, 1).map((item: any, i: number) => {
-                            const lastPurchase = label === 'Data' ? (item.lastPurchaseDate || '-') : label === 'Valor' ? (item.lastPurchaseValue ? formatCurrency(item.lastPurchaseValue) : '-') : (item.lastPurchaseAvg ? formatCurrency(item.lastPurchaseAvg) : '-');
-                            const highestInvoice = label === 'Data' ? (item.highestInvoiceDate || '-') : label === 'Valor' ? (item.highestInvoiceValue ? formatCurrency(item.highestInvoiceValue) : '-') : (item.highestInvoiceAvg ? formatCurrency(item.highestInvoiceAvg) : '-');
-                            const highestAccumulated = label === 'Data' ? (item.highestAccumulatedDate || '-') : label === 'Valor' ? (item.highestAccumulatedValue ? formatCurrency(item.highestAccumulatedValue) : '-') : (item.highestAccumulatedAvg ? formatCurrency(item.highestAccumulatedAvg) : '-');
-                            return (
-                            <React.Fragment key={i}>
-                              <TableCell className="text-xs py-2">{lastPurchase}</TableCell>
-                              <TableCell className="text-xs py-2">{highestInvoice}</TableCell>
-                              <TableCell className="text-xs py-2">{highestAccumulated}</TableCell>
-                            </React.Fragment>
-                            );
-                          })}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </div>
-              )}
+
+              {/* Análise comparativa Mercado/Factorings */}
+              <p className="text-xs font-medium text-muted-foreground mb-1">
+                Análise comparativa Mercado/Factorings  Exibindo {Math.max(refItems.length, refFactoring.length)} registros.
+              </p>
+              <div className="overflow-x-auto border border-border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs font-medium"></TableHead>
+                      <TableHead className="text-xs font-medium">Última Compra - Mercado</TableHead>
+                      <TableHead className="text-xs font-medium">Última Compra - Factorings</TableHead>
+                      <TableHead className="text-xs font-medium">Maior Fatura - Mercado</TableHead>
+                      <TableHead className="text-xs font-medium">Maior Fatura - Factorings</TableHead>
+                      <TableHead className="text-xs font-medium">Maior Acúmulo - Mercado</TableHead>
+                      <TableHead className="text-xs font-medium">Maior Acúmulo - Factorings</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {['Data', 'Valor', 'Média'].map((label) => {
+                      const mktRef = refItems[0] || {} as any;
+                      const fctRef = refFactoring[0] || {} as any;
+                      const getVal = (item: any, prefix: string) => {
+                        if (label === 'Data') return item[`${prefix}Date`] || '-';
+                        if (label === 'Valor') return item[`${prefix}Value`] ? formatCurrency(item[`${prefix}Value`]) : '-';
+                        return item[`${prefix}Avg`] ? formatCurrency(item[`${prefix}Avg`]) : '-';
+                      };
+                      return (
+                      <TableRow key={label}>
+                        <TableCell className="text-xs py-2 font-medium">{label}</TableCell>
+                        <TableCell className="text-xs py-2">{getVal(mktRef, 'lastPurchase')}</TableCell>
+                        <TableCell className="text-xs py-2">{getVal(fctRef, 'lastPurchase')}</TableCell>
+                        <TableCell className="text-xs py-2">{getVal(mktRef, 'highestInvoice')}</TableCell>
+                        <TableCell className="text-xs py-2">{getVal(fctRef, 'highestInvoice')}</TableCell>
+                        <TableCell className="text-xs py-2">{getVal(mktRef, 'highestAccumulated')}</TableCell>
+                        <TableCell className="text-xs py-2">{getVal(fctRef, 'highestAccumulated')}</TableCell>
+                      </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
               </>
               );
             })()}
