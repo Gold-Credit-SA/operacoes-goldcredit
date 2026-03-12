@@ -12,10 +12,6 @@ export function AppSidebar() {
   const [carteiraOpen, setCarteiraOpen] = useState(
     location.pathname.startsWith('/carteira')
   );
-  const [consultasOpen, setConsultasOpen] = useState(
-    location.pathname.startsWith('/consultas') || location.pathname.startsWith('/historico-')
-  );
-
   const carteiraItems = [
     { path: '/carteira/giro', label: 'Giro de Carteira', icon: RefreshCw },
     { path: '/carteira/metricas', label: 'Métricas da Carteira', icon: BarChart3 },
