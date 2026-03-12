@@ -277,19 +277,10 @@ export default function ClienteDetail() {
             <ArrowLeft className="h-4 w-4 mr-1.5" />
             Voltar
           </Button>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setShowHistory(true)}>
-              <Clock className="h-4 w-4 mr-2" />
-              Consultas Feitas
-              {history.length > 0 && (
-                <Badge variant="secondary" className="ml-1.5 text-[10px] h-5 px-1.5">{history.length}</Badge>
-              )}
-            </Button>
-            <Button variant="default" onClick={() => setConsultaOpen(true)}>
+           <Button variant="default" onClick={() => setConsultaOpen(true)}>
               <SearchIcon className="h-4 w-4 mr-2" />
               Consultar
             </Button>
-          </div>
         </div>
       </div>
 
