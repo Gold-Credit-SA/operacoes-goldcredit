@@ -238,6 +238,12 @@ export default function ClienteDetail() {
                     <p className="text-sm text-foreground">{motherName}</p>
                   </div>
                 )}
+                {fatherName && (
+                  <div>
+                    <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Nome do Pai</p>
+                    <p className="text-sm text-foreground">{fatherName}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
