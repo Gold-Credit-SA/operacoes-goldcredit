@@ -444,7 +444,13 @@ export default function ClienteDetail() {
                                 addr.state || addr.estado,
                                 addr.zip_code || addr.zipCode || addr.cep
                               ].filter(Boolean).join(', ') || '—';
-                              const addrType = addr.address_type || addr.type || addr.tipo || '—';
+                              const addrTypeMap: Record<string, string> = {
+                                'WORK': 'Trabalho', 'HOME': 'Residencial', 'COMMERCIAL': 'Comercial',
+                                'work': 'Trabalho', 'home': 'Residencial', 'commercial': 'Comercial',
+                                'RURAL': 'Rural', 'rural': 'Rural',
+                              };
+                              const rawAddrType = addr.address_type || addr.type || addr.tipo || '';
+                              const addrType = addrTypeMap[rawAddrType] || rawAddrType || '—';
                               const info = addr.information || {};
                               const totalPassages = info.total_passages ?? addr.passagem ?? addr.count ?? '—';
                               const lastPassage = info.last_passage || addr.ultimaPassagem || addr.lastSeen || addr.updatedAt || null;
