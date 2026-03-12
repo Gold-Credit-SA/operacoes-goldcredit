@@ -31,6 +31,11 @@ function formatCurrency(val: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 }
 
+function buildPdfProxyUrl(relativePath: string): string {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  return `${supabaseUrl}/functions/v1/agrisk-query?file=${encodeURIComponent(relativePath)}`;
+}
+
 // ─── Transform new API format ───
 interface SubItem {
   key: string;
