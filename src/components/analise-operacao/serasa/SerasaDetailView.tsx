@@ -1213,7 +1213,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         </div>
 
         {/* NADA CONSTA - highlight when no negative records */}
-        {totalNegativeCount === 0 && (
+        {hasNadaConsta && (
           <div className="border-2 border-green-500/30 bg-green-500/5 rounded-lg p-4 mb-4">
             <div className="flex items-center gap-2">
               <ShieldAlert className="h-5 w-5 text-green-600" />
