@@ -37,9 +37,14 @@ export function SCRDetailView({ data }: SCRDetailViewProps) {
     );
   }
 
-  const latestDtb = response.lsDtb[response.lsDtb.length - 1];
+  const validDtbEntries = response.lsDtb.filter(entry => Array.isArray(entry?.lsOp) && entry.lsOp.length > 0);
+  const latestDtb = (validDtbEntries.length > 0
+    ? validDtbEntries[validDtbEntries.length - 1]
+    : response.lsDtb[response.lsDtb.length - 1]);
+  const historicoDtb = validDtbEntries.length > 0 ? validDtbEntries : response.lsDtb;
+
   const entityName = (data as any)?.data?.name || (data as any)?.name || response.name || '';
-  const totalOperacoes = latestDtb.lsOp?.length ?? 0;
+  const totalOperacoes = Array.isArray(latestDtb?.lsOp) ? latestDtb.lsOp.length : 0;
   const riskClassification = (data as any)?.data?.riskClassification || (data as any)?.riskClassification;
 
   return (
@@ -60,7 +65,7 @@ export function SCRDetailView({ data }: SCRDetailViewProps) {
         <SCRCarteiraAtivaTable latestDtb={latestDtb} />
         <SCRLimitesCredito latestDtb={latestDtb} />
         <SCRDetalhamento latestDtb={latestDtb} />
-        <SCRHistorico lsDtb={response.lsDtb} />
+        <SCRHistorico lsDtb={historicoDtb} />
       </div>
     </div>
   );
