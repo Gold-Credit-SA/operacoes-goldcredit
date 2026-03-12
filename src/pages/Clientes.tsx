@@ -1,17 +1,17 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Users, Loader2, X } from 'lucide-react';
+import { Plus, Search, Users, Loader2, X, LayoutGrid, List, MoreVertical, Building2, User, Trash2, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 
 interface ClientRecord {
   id: string;
@@ -47,6 +47,9 @@ export default function Clientes() {
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [orderBy, setOrderBy] = useState('lastRegistered');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newDoc, setNewDoc] = useState('');
   const [creating, setCreating] = useState(false);
@@ -63,14 +66,38 @@ export default function Clientes() {
 
   useEffect(() => { loadClients(); }, [loadClients]);
 
+  const counts = useMemo(() => {
+    const pf = clients.filter(c => c.cpf_cnpj.length === 11).length;
+    const pj = clients.filter(c => c.cpf_cnpj.length === 14).length;
+    return { total: clients.length, pf, pj };
+  }, [clients]);
+
   const filtered = useMemo(() => {
-    if (!searchTerm) return clients;
-    const term = searchTerm.toLowerCase();
-    return clients.filter(c =>
-      c.name?.toLowerCase().includes(term) ||
-      c.cpf_cnpj.includes(searchTerm.replace(/\D/g, ''))
-    );
-  }, [clients, searchTerm]);
+    let result = clients;
+
+    // Filter by type
+    if (filterType === 'pf') result = result.filter(c => c.cpf_cnpj.length === 11);
+    if (filterType === 'pj') result = result.filter(c => c.cpf_cnpj.length === 14);
+
+    // Search
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(c =>
+        c.name?.toLowerCase().includes(term) ||
+        c.cpf_cnpj.includes(searchTerm.replace(/\D/g, ''))
+      );
+    }
+
+    // Sort
+    if (orderBy === 'crescentOrder') {
+      result = [...result].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    } else if (orderBy === 'descendingOrder') {
+      result = [...result].sort((a, b) => (b.name || '').localeCompare(a.name || ''));
+    }
+    // lastRegistered is default (already sorted by created_at desc)
+
+    return result;
+  }, [clients, searchTerm, filterType, orderBy]);
 
   const handleCreate = async () => {
     const cleanDoc = newDoc.replace(/\D/g, '');
@@ -79,7 +106,6 @@ export default function Clientes() {
       return;
     }
 
-    // Check if already exists
     const existing = clients.find(c => c.cpf_cnpj === cleanDoc);
     if (existing) {
       toast.info('Cliente já cadastrado.');
@@ -90,19 +116,13 @@ export default function Clientes() {
 
     setCreating(true);
     try {
-      // Call AgRisk to get basic client data
       const { data: agriskData, error: agriskError } = await supabase.functions.invoke('agrisk-query', {
         body: { taxId: cleanDoc, consultaType: 'consulta_cliente' },
       });
 
-      const clientName = agriskData?.data?.name
-        || agriskData?.data?.response?.name
-        || agriskData?.name
-        || null;
-
+      const clientName = agriskData?.data?.name || agriskData?.name || null;
       const agriskClientId = agriskData?.data?._id || agriskData?.data?.id || agriskData?._id || null;
 
-      // Insert into consulta_clients
       const { data: inserted, error: insertError } = await supabase
         .from('consulta_clients')
         .insert({
@@ -123,7 +143,6 @@ export default function Clientes() {
           throw insertError;
         }
       } else if (inserted) {
-        // Also save to consulta_history
         await supabase.from('consulta_history').insert({
           user_id: user!.id,
           cnpj: cleanDoc,
@@ -147,47 +166,92 @@ export default function Clientes() {
     }
   };
 
+  const handleDelete = async (client: ClientRecord, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`Remover ${client.name || formatDoc(client.cpf_cnpj)}?`)) return;
+    await supabase.from('consulta_clients').delete().eq('id', client.id);
+    toast.success('Cliente removido.');
+    loadClients();
+  };
+
   return (
     <div className="min-h-screen bg-background">
+      {/* Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border">
         <div className="px-6 py-4 flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-foreground">Clientes</h1>
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Users className="h-6 w-6 text-primary" />
+            {/* Counters */}
+            <div className="flex items-center gap-3 mr-2">
+              <div className="flex items-center gap-1.5 text-sm">
+                <Building2 className="h-4 w-4 text-primary" />
+                <span className="font-semibold text-primary">{counts.pj}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-sm">
+                <User className="h-4 w-4 text-primary" />
+                <span className="font-semibold text-primary">{counts.pf}</span>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">Clientes</h1>
-              <p className="text-sm text-muted-foreground">Cadastro e consultas de CPF/CNPJ</p>
-            </div>
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Novo cliente
+            </Button>
           </div>
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Cliente
-          </Button>
         </div>
       </div>
 
-      <div className="p-6 max-w-4xl mx-auto space-y-4">
-        {/* Search */}
-        <Card>
-          <CardContent className="py-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Buscar por nome ou CPF/CNPJ..."
-                className="pl-10"
-              />
-              {searchTerm && (
-                <Button variant="ghost" size="sm" className="absolute right-1 top-1/2 -translate-y-1/2" onClick={() => setSearchTerm('')}>
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="p-6 max-w-7xl mx-auto space-y-5">
+        {/* Filters row */}
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Pesquisar"
+              className="pl-10"
+            />
+          </div>
 
+          <Select value={filterType} onValueChange={setFilterType}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Filtrar" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="pf">Pessoa Física</SelectItem>
+              <SelectItem value="pj">Pessoa Jurídica</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={orderBy} onValueChange={setOrderBy}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Ordenar por" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="lastRegistered">Últimos cadastrados</SelectItem>
+              <SelectItem value="crescentOrder">Nome A-Z</SelectItem>
+              <SelectItem value="descendingOrder">Nome Z-A</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <div className="flex items-center border border-border rounded-lg overflow-hidden ml-auto">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <List className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
         {loading ? (
           <div className="flex justify-center py-16">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -197,47 +261,131 @@ export default function Clientes() {
             <CardContent className="py-16 text-center">
               <Users className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
               <p className="text-muted-foreground text-lg">
-                {searchTerm ? 'Nenhum cliente encontrado.' : 'Nenhum cliente cadastrado.'}
+                {searchTerm || filterType !== 'all' ? 'Nenhum cliente encontrado.' : 'Nenhum cliente cadastrado.'}
               </p>
-              {!searchTerm && (
+              {!searchTerm && filterType === 'all' && (
                 <p className="text-sm text-muted-foreground/60 mt-1">
-                  Clique em "Novo Cliente" para adicionar um CPF/CNPJ.
+                  Clique em "Novo cliente" para adicionar.
                 </p>
               )}
             </CardContent>
           </Card>
+        ) : viewMode === 'grid' ? (
+          /* Grid View */
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filtered.map(client => {
+              const isPJ = client.cpf_cnpj.length === 14;
+              return (
+                <Card key={client.id} className="hover:border-primary/30 transition-colors group">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-foreground truncate uppercase">
+                          {client.name || 'NOME NÃO DISPONÍVEL'}
+                        </p>
+                        <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                          {formatDoc(client.cpf_cnpj)}
+                        </p>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-1 rounded hover:bg-muted text-muted-foreground">
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => navigate(`/clientes/${client.id}`)}>
+                            <Eye className="h-3.5 w-3.5 mr-2" /> Ver detalhes
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={(e) => handleDelete(client, e)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 mr-2" /> Remover
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-4">
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] gap-1 ${
+                          isPJ
+                            ? 'border-primary/30 text-primary bg-primary/5'
+                            : 'border-primary/30 text-primary bg-primary/5'
+                        }`}
+                      >
+                        {isPJ ? <Building2 className="h-3 w-3" /> : <User className="h-3 w-3" />}
+                        {isPJ ? 'Jurídica' : 'Física'}
+                      </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs h-7 border-primary/30 text-primary hover:bg-primary/5"
+                        onClick={() => navigate(`/clientes/${client.id}`)}
+                      >
+                        Ver
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         ) : (
+          /* List View */
           <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">{filtered.length} cliente(s)</p>
-            {filtered.map(client => (
-              <Card
-                key={client.id}
-                className="hover:border-primary/30 transition-colors cursor-pointer"
-                onClick={() => navigate(`/clientes/${client.id}`)}
-              >
-                <CardContent className="py-3 flex items-center gap-3">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary text-sm font-bold shrink-0">
-                    {client.name?.charAt(0)?.toUpperCase() || '#'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {client.name || 'Nome não disponível'}
-                    </p>
-                    <p className="text-xs text-muted-foreground font-mono">
-                      {formatDoc(client.cpf_cnpj)}
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <Badge variant="outline" className="text-[10px]">
-                      {client.cpf_cnpj.length === 11 ? 'PF' : 'PJ'}
+            {filtered.map(client => {
+              const isPJ = client.cpf_cnpj.length === 14;
+              return (
+                <Card
+                  key={client.id}
+                  className="hover:border-primary/30 transition-colors cursor-pointer"
+                  onClick={() => navigate(`/clientes/${client.id}`)}
+                >
+                  <CardContent className="py-3 px-4 flex items-center gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-foreground truncate uppercase">
+                        {client.name || 'NOME NÃO DISPONÍVEL'}
+                      </p>
+                      <p className="text-xs text-muted-foreground font-mono">
+                        {formatDoc(client.cpf_cnpj)}
+                      </p>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] gap-1 border-primary/30 text-primary bg-primary/5 shrink-0"
+                    >
+                      {isPJ ? <Building2 className="h-3 w-3" /> : <User className="h-3 w-3" />}
+                      {isPJ ? 'Jurídica' : 'Física'}
                     </Badge>
-                    <p className="text-[10px] text-muted-foreground mt-1">
-                      {format(new Date(client.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-7 border-primary/30 text-primary hover:bg-primary/5 shrink-0"
+                    >
+                      Ver
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="p-1 rounded hover:bg-muted text-muted-foreground shrink-0" onClick={e => e.stopPropagation()}>
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={(e) => handleDelete(client, e)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 mr-2" /> Remover
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
