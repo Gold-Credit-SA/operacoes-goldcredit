@@ -54,7 +54,7 @@ function useBuckets(latestDtb: DtbEntry) {
   const aVencerBuckets: Record<string, number> = {};
   const vencidoBuckets: Record<string, number> = {};
 
-  latestDtb.lsOp.filter(op => !isLimiteOp(op)).forEach(op => {
+  (latestDtb.lsOp || []).filter(op => !isLimiteOp(op)).forEach(op => {
     const { aVencer, vencidos } = separateVencBuckets(op.resVenc);
     Object.entries(aVencer).forEach(([k, v]) => { aVencerBuckets[k] = (aVencerBuckets[k] || 0) + v; });
     Object.entries(vencidos).forEach(([k, v]) => { vencidoBuckets[k] = (vencidoBuckets[k] || 0) + v; });
