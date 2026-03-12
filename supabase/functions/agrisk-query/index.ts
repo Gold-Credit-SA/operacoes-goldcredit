@@ -270,6 +270,62 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // ── GET: proxy file download ──
+  if (req.method === "GET") {
+    const url = new URL(req.url);
+    const filePath = url.searchParams.get("file");
+    if (!filePath) {
+      return new Response("Missing file parameter", { status: 400, headers: corsHeaders });
+    }
+    try {
+      const token = await agriskLogin();
+      // Try multiple possible base URLs for AgRisk file storage
+      const possibleUrls = [
+        `${AGRISK_BASE}/files/${filePath}`,
+        `${AGRISK_BASE}/certificates/${filePath}`,
+        `${AGRISK_BASE}/v2/files/${filePath}`,
+        `https://storage.googleapis.com/agrisk-prod.appspot.com/${filePath}`,
+      ];
+      
+      let pdfRes: Response | null = null;
+      for (const tryUrl of possibleUrls) {
+        try {
+          const res = await fetch(tryUrl, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            pdfRes = res;
+            console.log(`File found at: ${tryUrl}`);
+            break;
+          }
+          console.log(`File not at: ${tryUrl} (${res.status})`);
+        } catch {}
+      }
+
+      if (!pdfRes) {
+        return new Response(JSON.stringify({ error: "Arquivo não encontrado" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const pdfBuffer = await pdfRes.arrayBuffer();
+      return new Response(pdfBuffer, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="certificado.pdf"`,
+        },
+      });
+    } catch (err) {
+      console.error("File proxy error:", err);
+      return new Response(JSON.stringify({ error: "Erro ao buscar arquivo" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
+
   try {
     const body = await req.json();
     const { action, taxId, consultaType } = body;

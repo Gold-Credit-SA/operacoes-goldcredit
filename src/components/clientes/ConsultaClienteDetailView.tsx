@@ -31,6 +31,11 @@ function formatCurrency(val: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 }
 
+function buildPdfProxyUrl(relativePath: string): string {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  return `${supabaseUrl}/functions/v1/agrisk-query?file=${encodeURIComponent(relativePath)}`;
+}
+
 // ─── Transform new API format ───
 interface SubItem {
   key: string;
@@ -235,7 +240,7 @@ function ComplianceContent({ items }: { items: SubItem[] }) {
                     return (
                       <div key={key} className="flex gap-3 text-sm items-center">
                         <span className="text-muted-foreground min-w-[180px] shrink-0">{key}</span>
-                        <a href={val} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
+                        <a href={buildPdfProxyUrl(val)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
                           <ExternalLink className="h-3 w-3" /> Abrir PDF
                         </a>
                       </div>
@@ -277,7 +282,7 @@ function AmbientalContent({ items }: { items: SubItem[] }) {
                     return (
                       <div key={key} className="flex gap-3 text-sm items-center">
                         <span className="text-muted-foreground min-w-[160px] shrink-0">{key}</span>
-                        <a href={val} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
+                        <a href={buildPdfProxyUrl(val)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
                           <ExternalLink className="h-3 w-3" /> Abrir PDF
                         </a>
                       </div>
@@ -353,7 +358,7 @@ function CNDsContent({ items }: { items: SubItem[] }) {
                     </TableCell>
                     <TableCell>
                       {cnd.fileUrl && (
-                        <a href={cnd.fileUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
+                        <a href={buildPdfProxyUrl(cnd.fileUrl)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
                           <ExternalLink className="h-3 w-3" /> PDF
                         </a>
                       )}
