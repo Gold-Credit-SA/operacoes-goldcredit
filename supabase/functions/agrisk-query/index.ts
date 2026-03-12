@@ -277,7 +277,7 @@ async function pollConsultaCliente(token: string, clientId: string, queryId: str
     const batch = subKeys.slice(i, i + batchSize);
     await Promise.all(batch.map(async (key) => {
       const val = subQueries![key];
-      const item = Array.isArray(val) ? val[0] : val;
+      const item = pickBestSubQueryEntry(val);
       const s = (item?.status || "").toUpperCase();
       const isDone = ["DONE", "SUCCESS", "COMPLETED", "FINALIZADO"].includes(s);
 
@@ -286,20 +286,34 @@ async function pollConsultaCliente(token: string, clientId: string, queryId: str
         return;
       }
 
-      const detailPaths = [
-        `/queries/clients/${clientId}/consulta-cliente/${queryId}/${key}`,
-        `/queries/clients/${clientId}/bvs/${queryId}/${key}`,
-      ];
+      const queryIdCandidates = getQueryIdCandidates(val, queryId);
 
-      for (const path of detailPaths) {
-        if (Date.now() > detailDeadline) break;
+      for (const currentQueryId of queryIdCandidates) {
+        const detailPaths = [
+          `/queries/clients/${clientId}/consulta-cliente/${currentQueryId}/${key}`,
+          `/queries/clients/${clientId}/bvs/${currentQueryId}/${key}`,
+          `/queries/clients/${clientId}/${currentQueryId}/${key}`,
+        ];
 
-        const detail = await fetchJsonWithTimeout(`${AGRISK_BASE}${path}`, token, 2000);
-        if (detail) {
-          enrichedData[key] = Array.isArray(val)
-            ? [{ ...val[0], result: detail }]
-            : { ...val, result: detail };
-          return;
+        for (const path of detailPaths) {
+          if (Date.now() > detailDeadline) break;
+
+          const detail = await fetchJsonWithTimeout(`${AGRISK_BASE}${path}`, token, 2000);
+          if (detail) {
+            if (Array.isArray(val)) {
+              const idx = val.findIndex((entry: any) => (entry?.queryId || entry?.id || entry?._id) === currentQueryId);
+              if (idx >= 0) {
+                const merged = [...val];
+                merged[idx] = { ...merged[idx], result: detail };
+                enrichedData[key] = merged;
+              } else {
+                enrichedData[key] = [{ ...item, result: detail }];
+              }
+            } else {
+              enrichedData[key] = { ...item, result: detail };
+            }
+            return;
+          }
         }
       }
 
