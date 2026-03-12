@@ -516,6 +516,32 @@ export default function ClienteDetail() {
 
           </div>
         </div>
+
+        {/* Platform history cards - full width */}
+        <div className="grid grid-cols-3 gap-4 mt-6">
+          {(['serasa', 'scr', 'agrisk'] as const).map(platform => {
+            const count = history.filter(h => h.platform === platform).length;
+            const logos: Record<string, { src: string; label: string }> = {
+              serasa: { src: logoSerasa, label: 'Serasa' },
+              scr: { src: logoHbi, label: 'SCR (HBI)' },
+              agrisk: { src: logoAgrisk, label: 'AgRisk' },
+            };
+            const { src, label } = logos[platform];
+            return (
+              <div
+                key={platform}
+                className="flex items-center gap-4 rounded-xl border border-border bg-card p-4 hover:border-primary/40 hover:shadow-md cursor-pointer transition-all"
+                onClick={() => setFilterPlatform(platform)}
+              >
+                <img src={src} alt={label} className="h-10 w-10 object-contain shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">{label}</p>
+                  <p className="text-xs text-muted-foreground">{count} consulta(s)</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Consulta Modal */}
