@@ -436,9 +436,103 @@ interface Props {
   data: Record<string, any>;
 }
 
+// ─── Transform new API format to legacy format for rendering ───
+function normalizeResponseData(data: Record<string, any>): Record<string, any> {
+  // New format: { details: { compliance: {...}, bvs: {...}, lawsuits: {...}, ... } }
+  if (data?.details && typeof data.details === 'object') {
+    const details = data.details;
+    const normalized: Record<string, any> = {};
+
+    // Compliance → individual sub-items with status DONE
+    if (details.compliance) {
+      const c = details.compliance;
+      if (c.environmental) {
+        for (const item of (Array.isArray(c.environmental) ? c.environmental : [])) {
+          const name = item.name || 'ambiental';
+          // Map compliance items to known keys
+          const keyMap: Record<string, string> = {
+            'IBAMA - CND': 'ibama-cnd',
+            'IBAMA - Embargos': 'ibama-embargos',
+            'IBAMA - Autuações': 'ibama-autuacoes',
+            'IBAMA - Regularidade': 'ibama-regularidade',
+            'ICMBIO - Embargos': 'icmbio-embargos',
+            'ICMBIO - Infração': 'icmbio-infracao',
+            'SEMA': 'sema',
+            'Amazônia Protege': 'amazonia-protege',
+          };
+          const k = keyMap[name] || `ambiental-${name.toLowerCase().replace(/\s+/g, '-')}`;
+          normalized[k] = [{ status: 'FINALIZADO', result: item }];
+        }
+      }
+      if (c.fiscal && Array.isArray(c.fiscal)) {
+        for (const item of c.fiscal) {
+          const uf = (item.uf || 'br').toLowerCase();
+          normalized[`cnd-${uf}`] = [{ status: item.status === 'processed' ? 'FINALIZADO' : (item.status || 'FINALIZADO'), result: item }];
+        }
+      }
+      if (c.criminal) {
+        normalized['antecedentes'] = [{ status: 'FINALIZADO', result: c.criminal }];
+      }
+      if (c.labour) {
+        normalized['tst'] = [{ status: 'FINALIZADO', result: c.labour }];
+      }
+      if (c.pep) {
+        normalized['kyc'] = [{ status: 'FINALIZADO', result: c.pep }];
+      }
+      if (c.check_bioma) {
+        normalized['check-bioma'] = [{ status: 'FINALIZADO', result: c.check_bioma }];
+      }
+    }
+
+    // BVS
+    if (details.bvs) {
+      normalized['bvs-detail'] = [{ status: 'FINALIZADO', result: details.bvs }];
+    }
+
+    // Lawsuits → processos-base
+    if (details.lawsuits) {
+      normalized['processos-base'] = [{ status: 'FINALIZADO', result: details.lawsuits }];
+    }
+
+    // Groups
+    if (details.groups_family) {
+      normalized['grupo-familiar'] = [{ status: 'FINALIZADO', result: details.groups_family }];
+    }
+    if (details.groups_economic) {
+      normalized['grupo-economico'] = [{ status: 'FINALIZADO', result: details.groups_economic }];
+    }
+
+    // BNDES
+    if (details.bndes) {
+      normalized['bndes'] = [{ status: 'FINALIZADO', result: details.bndes }];
+    }
+
+    // Contacts
+    if (details.contacts) {
+      const contacts = details.contacts;
+      if (contacts.phones || contacts.telefones) {
+        normalized['telefones'] = [{ status: 'FINALIZADO', result: contacts.phones || contacts.telefones }];
+      }
+      if (contacts.emails) {
+        normalized['emails'] = [{ status: 'FINALIZADO', result: contacts.emails }];
+      }
+      if (contacts.addresses || contacts.enderecos) {
+        normalized['enderecos'] = [{ status: 'FINALIZADO', result: contacts.addresses || contacts.enderecos }];
+      }
+    }
+
+    return normalized;
+  }
+
+  // Legacy format: already has sub-query keys at top level
+  return data;
+}
+
 // ─── Main component ───
-export function ConsultaClienteDetailView({ data }: Props) {
+export function ConsultaClienteDetailView({ data: rawData }: Props) {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+
+  const data = normalizeResponseData(rawData);
 
   // Build categorized data
   const categorizedData = CATEGORIES.map(cat => {
