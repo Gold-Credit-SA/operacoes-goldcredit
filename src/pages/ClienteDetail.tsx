@@ -191,7 +191,64 @@ export default function ClienteDetail() {
     );
   }
 
-  // When showHistory is true, show full history list inline
+  // When filterPlatform is set, show filtered history inline
+  if (filterPlatform) {
+    const filtered = history.filter(h => h.platform === filterPlatform);
+    const platformLabels: Record<string, string> = { serasa: 'Serasa', scr: 'SCR (HBI)', agrisk: 'AgRisk' };
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border">
+          <div className="px-6 py-3 flex items-center justify-between">
+            <Button variant="ghost" size="sm" onClick={() => setFilterPlatform(null)}>
+              <ArrowLeft className="h-4 w-4 mr-1.5" />
+              Voltar ao cliente
+            </Button>
+            <div className="flex items-center gap-2">
+              <PlatformBadge platform={filterPlatform} />
+              <span className="text-xs text-muted-foreground">{filtered.length} consulta(s)</span>
+            </div>
+          </div>
+        </div>
+        <div className="p-6 max-w-4xl mx-auto">
+          <h2 className="text-lg font-bold text-foreground mb-4">
+            Histórico {platformLabels[filterPlatform] || filterPlatform}
+          </h2>
+          {filtered.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Clock className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+                <p className="text-sm text-muted-foreground">Nenhuma consulta {platformLabels[filterPlatform]} realizada.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {filtered.map(entry => (
+                <Card
+                  key={entry.id}
+                  className="hover:border-primary/30 transition-colors cursor-pointer"
+                  onClick={() => setDetailEntry(entry)}
+                >
+                  <CardContent className="py-3 px-4 flex items-center gap-3">
+                    <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground">{entry.consulta_label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(entry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        {entry.consulted_by_name && <> · <span className="italic">por {entry.consulted_by_name}</span></>}
+                      </p>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setDetailEntry(entry); }}>
+                      <FileText className="h-3.5 w-3.5" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
