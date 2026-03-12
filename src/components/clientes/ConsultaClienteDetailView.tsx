@@ -446,7 +446,7 @@ export function ConsultaClienteDetailView({ data }: Props) {
       .filter(k => data[k] !== undefined)
       .map(k => {
         const raw = data[k];
-        const item = Array.isArray(raw) ? raw[0] : raw;
+        const item = pickBestItem(raw);
         return { key: k, data: raw, status: item?.status || '', completedAt: item?.completedAt };
       });
     return { ...cat, items };
