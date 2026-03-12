@@ -16,9 +16,11 @@ import { format } from 'date-fns';
 const CATEGORIES: { key: string; label: string; icon: any; keys: string[] }[] = [
   { key: 'dados_basicos', label: 'Cadastro', icon: Database, keys: ['dados-basicos', 'emails', 'telefones', 'enderecos'] },
   { key: 'sintegra', label: 'Sintegras', icon: Building2, keys: [
-    'sintegra-ac','sintegra-al','sintegra-am','sintegra-ba','sintegra-df','sintegra-es',
-    'sintegra-mg','sintegra-ms','sintegra-pa','sintegra-pb','sintegra-pe','sintegra-rj',
-    'sintegra-ro','sintegra-rr','sintegra-rs','sintegra-se','sintegra-sp','sintegra-to',
+    'sintegra-ac','sintegra-al','sintegra-am','sintegra-ap','sintegra-ba','sintegra-ce',
+    'sintegra-df','sintegra-es','sintegra-go','sintegra-ma','sintegra-mg','sintegra-ms',
+    'sintegra-mt','sintegra-pa','sintegra-pb','sintegra-pe','sintegra-pi','sintegra-pr',
+    'sintegra-rj','sintegra-rn','sintegra-ro','sintegra-rr','sintegra-rs','sintegra-sc',
+    'sintegra-se','sintegra-sp','sintegra-to',
   ]},
   { key: 'grupos', label: 'Grupos', icon: Users, keys: ['grupo-familiar', 'grupo-economico'] },
   { key: 'compliance', label: 'Compliance', icon: Shield, keys: ['kyc', 'antecedentes', 'mandados', 'trabalho-escravo'] },
