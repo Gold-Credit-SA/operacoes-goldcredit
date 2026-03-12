@@ -452,15 +452,20 @@ serve(async (req) => {
 
     // For consulta_cliente, use specific polling with queryId
     if (consultaType === "consulta_cliente") {
-      // Extract queryId from the query result
-      const queryId = queryResult?.queryId || queryResult?.id || queryResult?._id;
-      // Also check nested structures
-      const firstKey = Object.keys(queryResult || {}).find(k => Array.isArray(queryResult[k]));
-      const nestedQueryId = firstKey ? queryResult[firstKey]?.[0]?.queryId : null;
-      const effectiveQueryId = queryId || nestedQueryId;
+      // Extract queryId from various response shapes
+      let effectiveQueryId = queryResult?.queryId || queryResult?.id || queryResult?._id;
+      // Check items array: { items: [{ queryId: "..." }] }
+      if (!effectiveQueryId && queryResult?.items?.[0]?.queryId) {
+        effectiveQueryId = queryResult.items[0].queryId;
+      }
+      // Check nested arrays
+      if (!effectiveQueryId) {
+        const firstKey = Object.keys(queryResult || {}).find(k => Array.isArray(queryResult[k]));
+        effectiveQueryId = firstKey ? queryResult[firstKey]?.[0]?.queryId : null;
+      }
 
       if (effectiveQueryId) {
-        console.log(`Using consulta_cliente specific polling with queryId: ${effectiveQueryId}`);
+        console.log(`Using consulta_cliente polling with queryId: ${effectiveQueryId}`);
         const resultData = await pollConsultaCliente(token, clientId, effectiveQueryId, 60000);
         return new Response(JSON.stringify({ data: resultData }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
