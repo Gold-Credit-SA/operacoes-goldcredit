@@ -116,9 +116,9 @@ export default function Clientes() {
 
     setCreating(true);
     try {
-      // Run free queries automatically on registration
-      const { data: agriskData, error: agriskError } = await supabase.functions.invoke('agrisk-query', {
-        body: { action: 'run-free-queries', taxId: cleanDoc },
+      // Register client on AgRisk and fetch free cadastral data
+      const { data: agriskData } = await supabase.functions.invoke('agrisk-query', {
+        body: { action: 'register-client', taxId: cleanDoc },
       });
 
       const resultData = agriskData?.data || agriskData || {};
@@ -145,22 +145,6 @@ export default function Clientes() {
           throw insertError;
         }
       } else if (inserted) {
-        // Save free queries to history
-        const freeProducts = resultData?.freeProducts || [];
-        const historyLabel = freeProducts.length > 0
-          ? `Cadastro + ${freeProducts.length} consulta(s) gratuita(s)`
-          : 'Cadastro Cliente';
-
-        await supabase.from('consulta_history').insert({
-          user_id: user!.id,
-          cnpj: cleanDoc,
-          platform: 'agrisk',
-          consulta_type: 'cadastro_free',
-          consulta_label: historyLabel,
-          result_data: resultData,
-          status: agriskError ? 'error' : 'success',
-          entity_name: clientName,
-        } as any);
 
         toast.success('Cliente cadastrado com sucesso!');
         navigate(`/clientes/${(inserted as any).id}`);
