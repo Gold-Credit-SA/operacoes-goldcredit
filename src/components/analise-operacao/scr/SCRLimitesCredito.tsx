@@ -10,7 +10,7 @@ interface SCRLimitesCreditoProps {
 }
 
 export function SCRLimitesCredito({ latestDtb }: SCRLimitesCreditoProps) {
-  const limiteOps = latestDtb.lsOp.filter(op => isLimiteOp(op));
+  const limiteOps = (latestDtb.lsOp || []).filter(op => isLimiteOp(op));
   if (limiteOps.length === 0) return null;
 
   const totalLimite = limiteOps.reduce((s, op) => s + calcTotalVenc(op.resVenc), 0);

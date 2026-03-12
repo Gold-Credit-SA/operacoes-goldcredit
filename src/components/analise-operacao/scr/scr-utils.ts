@@ -40,7 +40,7 @@ export function calcTotalVenc(resVenc: ResVenc): number {
 }
 
 export function calcTotalAVencer(dtbEntry: DtbEntry): number {
-  return dtbEntry.lsOp.reduce((sum, op) => sum + calcTotalVenc(op.resVenc), 0);
+  return (dtbEntry.lsOp || []).reduce((sum, op) => sum + calcTotalVenc(op.resVenc), 0);
 }
 
 export function calcCarteiraAtiva(dtbEntry: DtbEntry): number {
