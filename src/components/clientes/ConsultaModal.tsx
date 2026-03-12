@@ -57,12 +57,15 @@ function getPlatform(id: ConsultaTypeId): string {
 const CONSULTA_TIMEOUT_MS = 45000;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => {
-      setTimeout(() => reject(new Error(`${label} demorou demais para responder. Tente novamente.`)), timeoutMs);
-    }),
-  ]);
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(`${label} demorou demais para responder. Tente novamente.`)), timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+  });
 }
 
 async function runSingleConsulta(cnpj: string, id: ConsultaTypeId): Promise<Record<string, unknown>> {
