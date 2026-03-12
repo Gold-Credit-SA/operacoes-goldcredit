@@ -124,23 +124,33 @@ export default function ClienteDetail() {
     );
   }
 
-  const bd = client.basic_data as any || {};
+  const rawBd = client.basic_data as any || {};
+  // Support both flat structure and nested { clientData, contacts } from register-client action
+  const bd = rawBd.clientData || rawBd;
   const isCpf = client.cpf_cnpj.length === 11;
   const birthDate = bd.birthDate || bd.dataNascimento || bd.nascimento || null;
-  const age = birthDate ? calcAge(birthDate) : null;
+  const age = bd.age || (birthDate ? calcAge(birthDate) : null);
   const gender = bd.gender || bd.genero || bd.sexo || null;
   const maritalStatus = bd.maritalStatus || bd.estadoCivil || null;
   const motherName = bd.motherName || bd.nomeMae || null;
+  const fatherName = bd.fatherName || bd.nomePai || null;
+  const taxIdStatus = bd.taxIdStatus || null;
+  const hasObitIndication = bd.hasObitIndication ?? null;
 
-  // Validations
-  const validations = bd.validations || bd.validacoes || {};
-  const receitaFederal = validations.receitaFederal || validations.receita || null;
-  const obito = validations.obito || validations.death || null;
+  // Validations — build from clientData fields if no explicit validations object
+  const rawValidations = bd.validations || bd.validacoes || {};
+  const validations = Object.keys(rawValidations).length > 0
+    ? rawValidations
+    : {
+        ...(taxIdStatus ? { receitaFederal: taxIdStatus } : {}),
+        ...(hasObitIndication !== null ? { obito: hasObitIndication } : {}),
+      };
 
-  // Addresses, phones, emails from basic_data
-  const addresses: any[] = bd.addresses || bd.enderecos || [];
-  const phones: any[] = bd.phones || bd.telefones || [];
-  const emails: any[] = bd.emails || [];
+  // Addresses, phones, emails — check contacts sub-object too
+  const contactsData = rawBd.contacts || {};
+  const addresses: any[] = bd.addresses || bd.enderecos || contactsData.addresses || [];
+  const phones: any[] = bd.phones || bd.telefones || contactsData.phones || [];
+  const emails: any[] = bd.emails || contactsData.emails || [];
 
   const lastUpdate = client.updated_at || client.created_at;
 
