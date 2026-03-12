@@ -14,6 +14,7 @@ import { ptBR } from 'date-fns/locale';
 import { SCRDetailView } from '@/components/analise-operacao/SCRDetailView';
 import { SerasaDetailView } from '@/components/analise-operacao/serasa/SerasaDetailView';
 import { ConsultaModal } from '@/components/clientes/ConsultaModal';
+import { ConsultaClienteDetailView } from '@/components/clientes/ConsultaClienteDetailView';
 
 interface ClientRecord {
   id: string;
