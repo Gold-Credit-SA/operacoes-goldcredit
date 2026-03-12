@@ -557,8 +557,14 @@ export default function ClienteDetail() {
                           </TableHeader>
                           <TableBody>
                             {emails.map((em: any, i: number) => {
-                              const emailAddr = em.email || em.address || (typeof em === 'string' ? em : JSON.stringify(em));
+                              const emailAddr = em.email || em.address || em.email_address || (typeof em === 'string' ? em : '—');
                               const emInfo = em.information || {};
+                              const emailTypeMap: Record<string, string> = {
+                                'PERSONAL': 'Pessoal', 'WORK': 'Trabalho', 'COMMERCIAL': 'Comercial',
+                                'personal': 'Pessoal', 'work': 'Trabalho', 'commercial': 'Comercial',
+                              };
+                              const rawEType = em.email_type || em.type || em.tipo || '';
+                              const eType = emailTypeMap[rawEType] || rawEType || '—';
                               const lastSeen = emInfo.last_passage || em.ultimaPassagem || em.lastSeen || null;
                               const lastSeenFmt = lastSeen
                                 ? (() => { try { return format(new Date(lastSeen), 'dd/MM/yyyy'); } catch { return lastSeen; } })()
@@ -566,6 +572,7 @@ export default function ClienteDetail() {
                               return (
                                 <TableRow key={i}>
                                   <TableCell className="text-xs">{emailAddr}</TableCell>
+                                  <TableCell className="text-xs">{eType}</TableCell>
                                   <TableCell className="text-xs text-right">{lastSeenFmt}</TableCell>
                                 </TableRow>
                               );
