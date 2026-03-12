@@ -260,24 +260,12 @@ function AmbientalContent({ items }: { items: SubItem[] }) {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {Object.entries(item.data || {}).map(([key, val]) => {
-                  if (typeof val === 'string' && (val.endsWith('.pdf') || val.includes('/certificates/'))) {
-                    return (
-                      <div key={key} className="flex gap-3 text-sm items-center">
-                        <span className="text-muted-foreground min-w-[160px] shrink-0">{key}</span>
-                        <a href={buildPdfProxyUrl(val)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
-                          <ExternalLink className="h-3 w-3" /> Abrir PDF
-                        </a>
-                      </div>
-                    );
-                  }
-                  return (
+                {Object.entries(item.data || {}).filter(([, val]) => val !== null && val !== undefined).map(([key, val]) => (
                     <div key={key} className="flex gap-3 text-sm">
                       <span className="text-muted-foreground min-w-[160px] shrink-0">{key}</span>
                       <span className="text-foreground">{String(val)}</span>
                     </div>
-                  );
-                })}
+                  ))}
               </div>
             </CardContent>
           </Card>
