@@ -806,7 +806,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           const totalAnnot = pAnnot + dAnnot;
           return (
           <div className="border border-border rounded-lg p-3 mb-4">
-            <p className="text-[11px] font-medium text-muted-foreground">Sem ocorrências</p>
+            <p className="text-[10px] font-medium text-muted-foreground">Ocorrência de anotações negativas</p>
             <p className="text-sm font-bold text-foreground mt-0.5">
               {allPartners.length} | {allDirectors.length}
             </p>
