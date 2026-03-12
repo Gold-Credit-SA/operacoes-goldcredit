@@ -434,16 +434,29 @@ export default function ClienteDetail() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {addresses.map((addr: any, i: number) => {
-                              const logradouro = addr.logradouro || addr.street
-                                ? [addr.street || addr.logradouro, addr.number || addr.numero, addr.complement || addr.complemento, addr.neighborhood || addr.bairro, addr.zipCode || addr.cep, addr.city || addr.cidade, addr.state || addr.estado].filter(Boolean).join(', ')
-                                : JSON.stringify(addr);
+                          {addresses.map((addr: any, i: number) => {
+                              const logradouro = [
+                                addr.address || addr.logradouro || addr.street,
+                                addr.number || addr.numero,
+                                addr.complement || addr.complemento,
+                                addr.neighborhood || addr.bairro,
+                                addr.city || addr.cidade,
+                                addr.state || addr.estado,
+                                addr.zip_code || addr.zipCode || addr.cep
+                              ].filter(Boolean).join(', ') || '—';
+                              const addrType = addr.address_type || addr.type || addr.tipo || '—';
+                              const info = addr.information || {};
+                              const totalPassages = info.total_passages ?? addr.passagem ?? addr.count ?? '—';
+                              const lastPassage = info.last_passage || addr.ultimaPassagem || addr.lastSeen || addr.updatedAt || null;
+                              const lastPassageFormatted = lastPassage
+                                ? (() => { try { return format(new Date(lastPassage), 'dd/MM/yyyy'); } catch { return lastPassage; } })()
+                                : '—';
                               return (
                                 <TableRow key={i}>
                                   <TableCell className="text-xs">{logradouro}</TableCell>
-                                  <TableCell className="text-xs font-medium">{addr.type || addr.tipo || '—'}</TableCell>
-                                  <TableCell className="text-xs text-center">{addr.passagem ?? addr.count ?? '—'}</TableCell>
-                                  <TableCell className="text-xs text-right">{addr.ultimaPassagem || addr.lastSeen || addr.updatedAt || '—'}</TableCell>
+                                  <TableCell className="text-xs font-medium">{addrType}</TableCell>
+                                  <TableCell className="text-xs text-center">{totalPassages}</TableCell>
+                                  <TableCell className="text-xs text-right">{lastPassageFormatted}</TableCell>
                                 </TableRow>
                               );
                             })}
