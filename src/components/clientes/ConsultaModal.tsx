@@ -102,6 +102,18 @@ function hasConsultaClienteDetails(data: Record<string, unknown>): boolean {
     });
   }
 
+  // Enriched format (flat): { compliance: {...}, bvs: {...}, lawsuits: {...}, ... }
+  const KNOWN_DETAIL_KEYS = ['compliance', 'lawsuits', 'bvs', 'contacts', 'groups_family', 'groups_economic', 'bndes'];
+  const hasKnownKeys = KNOWN_DETAIL_KEYS.some(k => k in data);
+  if (hasKnownKeys) {
+    return KNOWN_DETAIL_KEYS.some(k => {
+      const v = data[k];
+      if (!v) return false;
+      const str = JSON.stringify(v);
+      return str.length > 50;
+    });
+  }
+
   // Legacy format fallback
   return Object.values(data).some((raw) => {
     const items = Array.isArray(raw) ? raw : [raw];
