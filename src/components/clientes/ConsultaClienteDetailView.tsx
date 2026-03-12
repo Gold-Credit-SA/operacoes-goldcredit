@@ -65,9 +65,7 @@ function normalizeResponseData(rawData: Record<string, any>): Record<string, Sub
         status: 'DONE',
         data: {
           'Ficha Criminal': c.criminalRecord?.cleanRecord ? 'Nada consta' : 'Possui registro',
-          'Arquivo': c.criminalRecord?.fileUrl || null,
           'Mandados de Prisão': c.warrants?.quant === 0 ? 'Nenhum mandado encontrado' : `${c.warrants?.quant} mandado(s)`,
-          'Arquivo Mandados': c.warrants?.file || null,
         }
       });
     }
