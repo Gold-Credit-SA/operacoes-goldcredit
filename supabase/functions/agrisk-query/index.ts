@@ -144,6 +144,73 @@ async function pollForResults(token: string, clientId: string, maxWaitMs = 45000
   throw new Error("Timeout aguardando resultado da consulta AgRisk. Tente novamente em alguns minutos.");
 }
 
+// For consulta_cliente: poll a specific queryId and fetch categorized sub-query results
+async function pollConsultaCliente(token: string, clientId: string, queryId: string, maxWaitMs = 60000): Promise<any> {
+  const start = Date.now();
+  const interval = 4000;
+
+  // Wait a bit for initial processing
+  await new Promise((r) => setTimeout(r, 5000));
+
+  while (Date.now() - start < maxWaitMs) {
+    // Try fetching the query result by queryId
+    const endpoints = [
+      `/queries/clients/${clientId}/consulta-cliente/${queryId}`,
+      `/queries/clients/${clientId}/${queryId}`,
+      `/queries/${queryId}`,
+    ];
+
+    for (const path of endpoints) {
+      try {
+        const res = await fetch(`${AGRISK_BASE}${path}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          // Check if there are sub-queries and if any have moved past FILA
+          const keys = Object.keys(data).filter(k => !['queryId', 'status', 'id', '_id'].includes(k));
+          if (keys.length > 0) {
+            const hasResults = keys.some(k => {
+              const val = data[k];
+              if (Array.isArray(val) && val.length > 0) {
+                return val[0]?.status !== 'FILA';
+              }
+              return val?.status !== 'FILA';
+            });
+            if (hasResults) {
+              console.log(`Consulta cliente results ready from ${path}`);
+              return data;
+            }
+          }
+        }
+      } catch (e) {
+        console.log(`Poll endpoint ${path} failed:`, e);
+      }
+    }
+
+    await new Promise((r) => setTimeout(r, interval));
+  }
+
+  // Timeout — return whatever we can get
+  console.log("Consulta cliente polling timeout, fetching last state...");
+  try {
+    const res = await fetch(`${AGRISK_BASE}/queries/clients/${clientId}/consulta-cliente/${queryId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+
+  // Fallback to generic endpoint
+  try {
+    const res = await fetch(`${AGRISK_BASE}/queries/clients/${clientId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+
+  return { message: "Consulta enviada. Os resultados podem demorar para serem processados." };
+}
+
 async function fetchResultByType(
   token: string,
   clientId: string,
