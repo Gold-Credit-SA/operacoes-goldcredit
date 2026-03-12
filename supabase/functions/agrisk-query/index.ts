@@ -145,63 +145,83 @@ async function fetchResultByType(
   consultaType: string,
   queryItems: any[]
 ): Promise<any> {
-  // Find the relevant query item for this product
   const productCode = PRODUCT_MAP[consultaType]?.code;
 
-  // Try to find queryId in the polling results
+  // Find the relevant query item for this product
   const relevantItem = queryItems.find(
     (item: any) => item.productCode === productCode || item.product?.code === productCode || item.code === productCode
   );
   const queryId = relevantItem?.queryId || relevantItem?.id || relevantItem?._id;
 
+  console.log(`fetchResultByType: type=${consultaType}, productCode=${productCode}, queryId=${queryId}`);
+  console.log(`queryItems:`, JSON.stringify(queryItems).slice(0, 500));
+
+  // Try multiple possible endpoints for the query result
+  const tryEndpoints = async (paths: string[]): Promise<any> => {
+    for (const path of paths) {
+      try {
+        console.log(`Trying endpoint: ${path}`);
+        const res = await fetch(`${AGRISK_BASE}${path}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          console.log(`Success from ${path}:`, JSON.stringify(data).slice(0, 300));
+          return data;
+        }
+        console.log(`Endpoint ${path} returned ${res.status}`);
+      } catch (e) {
+        console.log(`Endpoint ${path} failed:`, e);
+      }
+    }
+    return null;
+  };
+
   switch (consultaType) {
     case "consulta_cliente": {
-      // Client data is usually in the query result itself or client endpoint
-      const res = await fetch(`${AGRISK_BASE}/v2/clients?filter=all&page=1`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const items = data.items || data;
-        if (Array.isArray(items)) {
-          const client = items.find((c: any) => c.id === clientId || c._id === clientId);
-          if (client) return client;
-        }
-      }
-      // Fallback: return polling item data
-      return relevantItem || { message: "Dados do cliente consultados com sucesso." };
+      // The actual query result should be fetched from the query endpoint, not the client list
+      const paths = queryId
+        ? [
+            `/queries/clients/${clientId}/consulta-cliente/${queryId}`,
+            `/queries/clients/${clientId}/bvs/${queryId}`,
+            `/queries/clients/${clientId}/${queryId}`,
+            `/queries/${queryId}`,
+          ]
+        : [];
+      
+      // Also try fetching all query results for this client
+      paths.push(`/queries/clients/${clientId}`);
+      
+      const result = await tryEndpoints(paths);
+      if (result) return result;
+      
+      // Fallback: return the polling item itself which may contain embedded data
+      return relevantItem || { message: "Consulta processada, dados não encontrados no endpoint esperado." };
     }
 
     case "imoveis_simples": {
       if (!queryId) return relevantItem || { message: "Consulta processada, sem queryId disponível." };
-      const res = await fetch(`${AGRISK_BASE}/queries/clients/${clientId}/properties/${queryId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) return await res.json();
-      // Try alternative endpoint
-      const res2 = await fetch(`${AGRISK_BASE}/queries/clients/${clientId}/pesquisa-imoveis/${queryId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res2.ok) return await res2.json();
-      return relevantItem || {};
+      const result = await tryEndpoints([
+        `/queries/clients/${clientId}/properties/${queryId}`,
+        `/queries/clients/${clientId}/pesquisa-imoveis/${queryId}`,
+      ]);
+      return result || relevantItem || {};
     }
 
     case "imoveis_car": {
       if (!queryId) return relevantItem || { message: "Consulta processada, sem queryId disponível." };
-      const res = await fetch(`${AGRISK_BASE}/queries/clients/${clientId}/car/${queryId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) return await res.json();
-      return relevantItem || {};
+      const result = await tryEndpoints([
+        `/queries/clients/${clientId}/car/${queryId}`,
+      ]);
+      return result || relevantItem || {};
     }
 
     case "patrimonio_veicular": {
       if (!queryId) return relevantItem || { message: "Consulta processada, sem queryId disponível." };
-      const res = await fetch(`${AGRISK_BASE}/queries/clients/${clientId}/vehicle-assets/${queryId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) return await res.json();
-      return relevantItem || {};
+      const result = await tryEndpoints([
+        `/queries/clients/${clientId}/vehicle-assets/${queryId}`,
+      ]);
+      return result || relevantItem || {};
     }
 
     default:
