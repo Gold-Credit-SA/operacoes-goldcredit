@@ -60,8 +60,8 @@ function subLabel(key: string): string {
 }
 
 function normalizeStatus(status: string | undefined): string {
-  const s = (status || '').toUpperCase().trim();
-  if (['FILA','PENDING','PROCESSING','QUEUED'].includes(s)) return 'FILA';
+  const s = (status || '').toUpperCase().trim().replace(/\s+/g, '_');
+  if (['FILA','PENDING','PROCESSING','QUEUED','EM_PROGRESSO'].includes(s)) return 'FILA';
   if (['DONE','SUCCESS','COMPLETED','OK','FINALIZADO'].includes(s)) return 'DONE';
   if (['ERROR','FAILED','ERRO'].includes(s)) return 'ERROR';
   if (['NOT_FOUND','EMPTY'].includes(s)) return 'NOT_FOUND';
