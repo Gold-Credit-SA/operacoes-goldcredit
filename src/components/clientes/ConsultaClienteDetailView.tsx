@@ -302,7 +302,6 @@ function CNDsContent({ items }: { items: SubItem[] }) {
                   <TableHead>Status</TableHead>
                   <TableHead>Certificado</TableHead>
                   <TableHead>Expedição</TableHead>
-                  <TableHead className="w-[60px]">PDF</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -326,13 +325,6 @@ function CNDsContent({ items }: { items: SubItem[] }) {
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {cnd.expedition ? formatDate(cnd.expedition) : '—'}
-                    </TableCell>
-                    <TableCell>
-                      {cnd.fileUrl && (
-                        <a href={buildPdfProxyUrl(cnd.fileUrl)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
-                          <ExternalLink className="h-3 w-3" /> PDF
-                        </a>
-                      )}
                     </TableCell>
                   </TableRow>
                 ))}
