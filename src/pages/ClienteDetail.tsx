@@ -168,9 +168,7 @@ export default function ClienteDetail() {
               Voltar ao cliente
             </Button>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className={`text-[10px] ${getPlatformColor(detailEntry.platform)}`}>
-                {detailEntry.platform.toUpperCase()}
-              </Badge>
+              <PlatformBadge platform={detailEntry.platform} />
               <span className="text-xs text-muted-foreground">
                 {format(new Date(detailEntry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
               </span>
