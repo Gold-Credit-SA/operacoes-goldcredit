@@ -79,6 +79,7 @@ export default function ClienteDetail() {
   const [loading, setLoading] = useState(true);
   const [consultaOpen, setConsultaOpen] = useState(false);
   const [detailEntry, setDetailEntry] = useState<HistoryEntry | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!id) return;
