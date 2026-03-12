@@ -93,6 +93,16 @@ async function runSingleConsulta(cnpj: string, id: ConsultaTypeId): Promise<Reco
 function hasConsultaClienteDetails(data: Record<string, unknown>): boolean {
   if (!data || typeof data !== 'object') return false;
 
+  // New format: { details: { compliance: {...}, bvs: {...}, lawsuits: {...}, ... }, hasRealData: true }
+  if ('details' in data && typeof data.details === 'object') {
+    return Object.values(data.details as Record<string, unknown>).some((v) => {
+      if (!v) return false;
+      const str = JSON.stringify(v);
+      return str.length > 50;
+    });
+  }
+
+  // Legacy format fallback
   return Object.values(data).some((raw) => {
     const items = Array.isArray(raw) ? raw : [raw];
     return items.some((item: any) => {
