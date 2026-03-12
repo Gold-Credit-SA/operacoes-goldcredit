@@ -90,6 +90,19 @@ async function runSingleConsulta(cnpj: string, id: ConsultaTypeId): Promise<Reco
   return data?.data || data;
 }
 
+function hasConsultaClienteDetails(data: Record<string, unknown>): boolean {
+  if (!data || typeof data !== 'object') return false;
+
+  return Object.values(data).some((raw) => {
+    const items = Array.isArray(raw) ? raw : [raw];
+    return items.some((item: any) => {
+      const result = item?.result ?? item?.data;
+      if (Array.isArray(result)) return result.length > 0;
+      return !!(result && typeof result === 'object' && Object.keys(result).length > 0);
+    });
+  });
+}
+
 export function ConsultaModal({ cpfCnpj, clientName, open, onClose, onDone }: ConsultaModalProps) {
   const { user, profile } = useAuth();
   const [selected, setSelected] = useState<Set<ConsultaTypeId>>(new Set());
