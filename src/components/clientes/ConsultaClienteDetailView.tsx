@@ -458,7 +458,7 @@ export function ConsultaClienteDetailView({ data }: Props) {
     .filter(k => !categorizedKeys.has(k) && !METADATA_KEYS.has(k))
     .map(k => {
       const raw = data[k];
-      const item = Array.isArray(raw) ? raw[0] : raw;
+      const item = pickBestItem(raw);
       return { key: k, data: raw, status: item?.status || '', completedAt: item?.completedAt };
     });
 
