@@ -274,6 +274,21 @@ serve(async (req) => {
     const body = await req.json();
     const { action, taxId, consultaType } = body;
 
+    // ── Action: fetch-existing-details (reuse existing queryId, no new charge) ──
+    if (action === "fetch-existing-details") {
+      const { clientId, queryId } = body;
+      if (!clientId || !queryId) {
+        return new Response(JSON.stringify({ error: "clientId e queryId são obrigatórios." }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const token = await agriskLogin();
+      const { details, hasRealData } = await fetchConsultaClienteDetails(token, clientId, queryId);
+      return new Response(JSON.stringify({ data: { details, hasRealData } }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ── Action: list-products ──
     if (action === "list-products") {
       const token = await agriskLogin();
