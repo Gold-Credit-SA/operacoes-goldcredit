@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   CheckCircle2, XCircle, Clock, AlertTriangle, Shield, Scale, Leaf,
-  Building2, FileText, Users, Database, Ban, ExternalLink
+  Building2, FileText, Users, Database, Ban
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,10 +31,8 @@ function formatCurrency(val: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 }
 
-function buildPdfProxyUrl(relativePath: string): string {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  return `${supabaseUrl}/functions/v1/agrisk-query?file=${encodeURIComponent(relativePath)}`;
-}
+
+
 
 // ─── Transform new API format ───
 interface SubItem {
@@ -65,9 +63,7 @@ function normalizeResponseData(rawData: Record<string, any>): Record<string, Sub
         status: 'DONE',
         data: {
           'Ficha Criminal': c.criminalRecord?.cleanRecord ? 'Nada consta' : 'Possui registro',
-          'Arquivo': c.criminalRecord?.fileUrl || null,
           'Mandados de Prisão': c.warrants?.quant === 0 ? 'Nenhum mandado encontrado' : `${c.warrants?.quant} mandado(s)`,
-          'Arquivo Mandados': c.warrants?.file || null,
         }
       });
     }
@@ -83,7 +79,6 @@ function normalizeResponseData(rawData: Record<string, any>): Record<string, Sub
           'PEP (Pessoa Politicamente Exposta)': l.IsPep ? 'Sim' : 'Não',
           'Trabalho Escravo': l.IsSlaveLabour ? 'Listado' : 'Não listado',
           'TST Status': l.tst?.status ? l.tst.status.charAt(0).toUpperCase() + l.tst.status.slice(1) : '—',
-          'Arquivo TST': l.tst?.fileUrl || null,
         }
       });
     }
@@ -104,15 +99,12 @@ function normalizeResponseData(rawData: Record<string, any>): Record<string, Sub
 
       if (ibama.ibamaCND) {
         details_ibama['CND Status'] = ibama.ibamaCND.content?.length === 0 ? 'Nada consta' : `${ibama.ibamaCND.content?.length} registro(s)`;
-        if (ibama.ibamaCND.fileUrl) details_ibama['CND Arquivo'] = ibama.ibamaCND.fileUrl;
       }
       if (ibama.embargos) {
         details_ibama['Embargos'] = ibama.embargos.content?.length === 0 ? 'Nenhum embargo' : `${ibama.embargos.content?.length} embargo(s)`;
-        if (ibama.embargos.fileUrl) details_ibama['Embargos Arquivo'] = ibama.embargos.fileUrl;
       }
       if (ibama.assessments) {
         details_ibama['Autuações'] = ibama.assessments.content?.length === 0 ? 'Nenhuma autuação' : `${ibama.assessments.content?.length} autuação(ões)`;
-        if (ibama.assessments.fileUrl) details_ibama['Autuações Arquivo'] = ibama.assessments.fileUrl;
       }
 
       ambientalItems.push({ key: 'ibama', label: 'IBAMA', status: 'DONE', data: details_ibama });
@@ -235,24 +227,12 @@ function ComplianceContent({ items }: { items: SubItem[] }) {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {Object.entries(item.data || {}).map(([key, val]) => {
-                  if (typeof val === 'string' && (val.endsWith('.pdf') || val.includes('/certificates/'))) {
-                    return (
-                      <div key={key} className="flex gap-3 text-sm items-center">
-                        <span className="text-muted-foreground min-w-[180px] shrink-0">{key}</span>
-                        <a href={buildPdfProxyUrl(val)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
-                          <ExternalLink className="h-3 w-3" /> Abrir PDF
-                        </a>
-                      </div>
-                    );
-                  }
-                  return (
+                {Object.entries(item.data || {}).filter(([, val]) => val !== null && val !== undefined).map(([key, val]) => (
                     <div key={key} className="flex gap-3 text-sm">
                       <span className="text-muted-foreground min-w-[180px] shrink-0">{key}</span>
                       <span className="text-foreground">{String(val)}</span>
                     </div>
-                  );
-                })}
+                  ))}
               </div>
             </CardContent>
           </Card>
@@ -277,24 +257,12 @@ function AmbientalContent({ items }: { items: SubItem[] }) {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {Object.entries(item.data || {}).map(([key, val]) => {
-                  if (typeof val === 'string' && (val.endsWith('.pdf') || val.includes('/certificates/'))) {
-                    return (
-                      <div key={key} className="flex gap-3 text-sm items-center">
-                        <span className="text-muted-foreground min-w-[160px] shrink-0">{key}</span>
-                        <a href={buildPdfProxyUrl(val)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
-                          <ExternalLink className="h-3 w-3" /> Abrir PDF
-                        </a>
-                      </div>
-                    );
-                  }
-                  return (
+                {Object.entries(item.data || {}).filter(([, val]) => val !== null && val !== undefined).map(([key, val]) => (
                     <div key={key} className="flex gap-3 text-sm">
                       <span className="text-muted-foreground min-w-[160px] shrink-0">{key}</span>
                       <span className="text-foreground">{String(val)}</span>
                     </div>
-                  );
-                })}
+                  ))}
               </div>
             </CardContent>
           </Card>
@@ -331,7 +299,6 @@ function CNDsContent({ items }: { items: SubItem[] }) {
                   <TableHead>Status</TableHead>
                   <TableHead>Certificado</TableHead>
                   <TableHead>Expedição</TableHead>
-                  <TableHead className="w-[60px]">PDF</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -355,13 +322,6 @@ function CNDsContent({ items }: { items: SubItem[] }) {
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {cnd.expedition ? formatDate(cnd.expedition) : '—'}
-                    </TableCell>
-                    <TableCell>
-                      {cnd.fileUrl && (
-                        <a href={buildPdfProxyUrl(cnd.fileUrl)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
-                          <ExternalLink className="h-3 w-3" /> PDF
-                        </a>
-                      )}
                     </TableCell>
                   </TableRow>
                 ))}
