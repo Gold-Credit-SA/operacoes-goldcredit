@@ -1580,6 +1580,17 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         const refMarket = asArray(businessReferences?.market?.businessReferencesResponse || businessReferences?.marketReferences || []);
         const refFactoring = asArray(businessReferences?.factoring?.businessReferencesResponse || businessReferences?.factoringReferences || []);
 
+        console.log('[Behavioral Debug] behavioralData keys:', Object.keys(behavioralData));
+        console.log('[Behavioral Debug] behavioralData:', JSON.stringify(behavioralData, null, 2).substring(0, 5000));
+        console.log('[Behavioral Debug] marketRelationship:', JSON.stringify(marketRelationship, null, 2).substring(0, 2000));
+        console.log('[Behavioral Debug] paymentHistoryPJ:', JSON.stringify(paymentHistoryPJ, null, 2).substring(0, 3000));
+        console.log('[Behavioral Debug] commitmentEvolution:', JSON.stringify(commitmentEvolution, null, 2).substring(0, 3000));
+        console.log('[Behavioral Debug] businessReferences:', JSON.stringify(businessReferences, null, 2).substring(0, 2000));
+        console.log('[Behavioral Debug] suppliers:', JSON.stringify(suppliers, null, 2).substring(0, 2000));
+        console.log('[Behavioral Debug] comparativeAnalysis:', JSON.stringify(comparativeAnalysis, null, 2).substring(0, 2000));
+        console.log('[Behavioral Debug] report keys for behavioral:', JSON.stringify(Object.keys(report || {})));
+        console.log('[Behavioral Debug] optionalFeatures keys:', JSON.stringify(Object.keys(optionalFeatures || {})));
+
         return (
         <div>
           <p className="text-sm font-semibold text-primary mb-1">Informações Comportamentais</p>
