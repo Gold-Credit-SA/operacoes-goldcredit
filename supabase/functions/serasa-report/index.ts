@@ -139,8 +139,9 @@ serve(async (req) => {
     const uf = federalUnit || 'SP';
     reportUrl += `&federalUnit=${uf}`;
 
-    if (optionalFeatures) {
-      reportUrl += `&optionalFeatures=${optionalFeatures}`;
+    const effectiveOptionalFeatures = optionalFeatures || reportConfig.defaultOptionalFeatures;
+    if (effectiveOptionalFeatures) {
+      reportUrl += `&optionalFeatures=${effectiveOptionalFeatures}`;
     }
 
     // Build reportParameters for score model if applicable
