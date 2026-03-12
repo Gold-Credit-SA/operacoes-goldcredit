@@ -180,6 +180,27 @@ function extractSubQueries(data: any): Record<string, any> | null {
   return null;
 }
 
+function pickBestSubQueryEntry(raw: any): any {
+  if (!Array.isArray(raw)) return raw;
+  if (raw.length === 0) return null;
+
+  const withResult = raw.find((entry: any) => entry?.result || entry?.data);
+  if (withResult) return withResult;
+
+  const done = raw.find((entry: any) => ["DONE", "SUCCESS", "COMPLETED", "FINALIZADO"].includes((entry?.status || "").toUpperCase()));
+  return done || raw[0];
+}
+
+function getQueryIdCandidates(raw: any, fallbackQueryId: string): string[] {
+  const entries = Array.isArray(raw) ? raw : [raw];
+  const ids = entries
+    .map((entry: any) => entry?.queryId || entry?.id || entry?._id)
+    .filter((id: unknown): id is string => typeof id === "string" && id.length > 0);
+
+  if (fallbackQueryId) ids.push(fallbackQueryId);
+  return Array.from(new Set(ids));
+}
+
 // For consulta_cliente: poll status then fetch detailed results for each completed sub-query
 async function pollConsultaCliente(token: string, clientId: string, queryId: string, maxWaitMs = 25000): Promise<any> {
   const start = Date.now();
