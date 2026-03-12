@@ -77,14 +77,7 @@ async function getOrCreateClient(token: string, taxId: string): Promise<string> 
   throw new Error(`Erro ao cadastrar cliente (${createRes.status}): ${txt}`);
 }
 
-async function getProducts(token: string): Promise<any[]> {
-  const res = await fetch(`${AGRISK_BASE}/login`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.items || [];
-}
+
 
 async function requestQuery(token: string, clientId: string, productIds: string[]): Promise<any> {
   const res = await fetch(`${AGRISK_BASE}/queries`, {
