@@ -44,7 +44,7 @@ export function calcTotalAVencer(dtbEntry: DtbEntry): number {
 }
 
 export function calcCarteiraAtiva(dtbEntry: DtbEntry): number {
-  return dtbEntry.lsOp
+  return (dtbEntry.lsOp || [])
     .filter(op => !isLimiteOp(op))
     .reduce((sum, op) => sum + calcTotalVenc(op.resVenc), 0);
 }
