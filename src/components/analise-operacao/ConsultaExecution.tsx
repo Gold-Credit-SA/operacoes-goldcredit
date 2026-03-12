@@ -68,6 +68,17 @@ async function executeConsulta(cnpj: string, id: ConsultaTypeId): Promise<Record
     return data?.data || data;
   }
 
+  // AgRisk integration
+  const AGRISK_IDS = ['consulta_cliente', 'imoveis_simples', 'imoveis_car', 'patrimonio_veicular'];
+  if (AGRISK_IDS.includes(id)) {
+    const { data, error } = await supabase.functions.invoke('agrisk-query', {
+      body: { taxId: cnpj.replace(/\D/g, ''), consultaType: id },
+    });
+    if (error) throw new Error(error.message || 'Erro ao consultar AgRisk.');
+    if (data?.error) throw new Error(data.error);
+    return data?.data || data;
+  }
+
   // Other consultas - still simulated
   await new Promise(r => setTimeout(r, 1500 + Math.random() * 2000));
   

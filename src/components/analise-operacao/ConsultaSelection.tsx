@@ -19,6 +19,7 @@ export const CONSULTA_GROUPS: ConsultaGroup[] = [
   {
     provider: 'Agrisk',
     items: [
+      { id: 'consulta_cliente', label: 'Consulta Cliente' },
       { id: 'restritivos', label: 'Restritivos Nacional' },
       { id: 'endividamento', label: 'Endividamento Financeiro' },
       { id: 'cpr', label: 'Consulta CPR' },
