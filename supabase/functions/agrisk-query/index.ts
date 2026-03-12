@@ -15,6 +15,24 @@ const PRODUCT_MAP: Record<string, { code: string; _id: string }> = {
   patrimonio_veicular: { code: "vehicle-assets", _id: "8a6dd886-902c-4745-a8e0-e81db1e10e93" },
 };
 
+async function fetchJsonWithTimeout(url: string, token: string, timeoutMs = 2500): Promise<any | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function agriskLogin(): Promise<string> {
   const credential = Deno.env.get("AGRISK_CREDENTIAL");
   const password = Deno.env.get("AGRISK_PASSWORD");
