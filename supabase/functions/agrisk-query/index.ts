@@ -476,7 +476,7 @@ serve(async (req) => {
 
       if (effectiveQueryId) {
         console.log(`Using consulta_cliente polling with queryId: ${effectiveQueryId}`);
-        const resultData = await pollConsultaCliente(token, clientId, effectiveQueryId, 60000);
+        const resultData = await pollConsultaCliente(token, clientId, effectiveQueryId, 25000);
         return new Response(JSON.stringify({ data: resultData }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
