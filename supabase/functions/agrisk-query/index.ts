@@ -262,7 +262,9 @@ serve(async (req) => {
     const queryResult = await requestQuery(token, clientId, [productInfo._id]);
 
     // 5. Poll for results
+    console.log("Query result:", JSON.stringify(queryResult).slice(0, 500));
     const pollResults = await pollForResults(token, clientId);
+    console.log("Poll results:", JSON.stringify(pollResults).slice(0, 500));
 
     // 6. Fetch specific results
     const resultData = await fetchResultByType(token, clientId, consultaType, Array.isArray(pollResults) ? pollResults : [pollResults]);
