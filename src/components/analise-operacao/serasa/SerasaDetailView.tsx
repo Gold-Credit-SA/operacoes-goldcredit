@@ -839,11 +839,11 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
                   const hasNeg = p.hasNegative === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim';
                   return (
                   <TableRow key={i}>
-                    <TableCell className="text-xs py-2">{p.participationPercentage != null ? `${p.participationPercentage}%` : p.percentage || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{p.votingPercentage != null ? `${p.votingPercentage}%` : p.votingCapital || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{p.capitalTotalValue != null ? `${p.capitalTotalValue}%` : p.participationPercentage != null ? `${p.participationPercentage}%` : p.percentage || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{p.capitalVoterValue != null ? `${p.capitalVoterValue}%` : p.votingPercentage != null ? `${p.votingPercentage}%` : p.votingCapital || '-'}</TableCell>
                     <TableCell className="text-xs py-2">{p.name || p.partnerName || '-'}</TableCell>
                     <TableCell className="text-xs py-2">{formatDocument(p.documentId || p.documentNumber || p.cpf || p.cnpj)}</TableCell>
-                    <TableCell className="text-xs py-2">{formatDate(p.admissionDate || p.entryDate || p.since)}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDate(p.sinceDate || p.admissionDate || p.entryDate || p.since)}</TableCell>
                     <TableCell className="text-xs py-2">{p.nationality || '-'}</TableCell>
                     <TableCell className={`text-xs py-2 ${hasNeg ? 'text-destructive font-medium' : ''}`}>{hasNeg ? 'Sim' : 'Não'}</TableCell>
                   </TableRow>
