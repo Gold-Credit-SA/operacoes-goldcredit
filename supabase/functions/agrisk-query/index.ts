@@ -230,7 +230,7 @@ async function pollConsultaCliente(token: string, clientId: string, queryId: str
 
       const doneCount = keys.filter((k) => {
         const val = sq[k];
-        const item = Array.isArray(val) ? val[0] : val;
+        const item = pickBestSubQueryEntry(val);
         const s = (item?.status || "").toUpperCase();
         return ["DONE", "SUCCESS", "COMPLETED", "FINALIZADO"].includes(s);
       }).length;
