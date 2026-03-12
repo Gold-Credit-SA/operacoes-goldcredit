@@ -34,7 +34,7 @@ const CATEGORIES: { key: string; label: string; icon: any; keys: string[] }[] = 
 
 const METADATA_KEYS = new Set([
   'queryId','status','createdAt','completedAt','requestedBy','taxId',
-  '_id','id','message','updatedAt','productId','clientId','type',
+  '_id','id','message','updatedAt','productId','clientId','type','result',
 ]);
 
 // ─── Helpers ───
