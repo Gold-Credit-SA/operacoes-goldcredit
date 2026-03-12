@@ -144,17 +144,33 @@ async function pollForResults(token: string, clientId: string, maxWaitMs = 45000
   throw new Error("Timeout aguardando resultado da consulta AgRisk. Tente novamente em alguns minutos.");
 }
 
+// Extract the flat sub-query map from various API response shapes
+function extractSubQueries(data: any): Record<string, any> | null {
+  if (data?.items && Array.isArray(data.items) && data.items[0]?.queries) {
+    return data.items[0].queries;
+  }
+  if (data?.queries && typeof data.queries === 'object') {
+    return data.queries;
+  }
+  const metaKeys = new Set(['queryId', 'status', 'id', '_id', 'message', 'items', 'statusCode']);
+  const keys = Object.keys(data || {}).filter(k => !metaKeys.has(k));
+  if (keys.length > 3) {
+    const result: Record<string, any> = {};
+    for (const k of keys) result[k] = data[k];
+    return result;
+  }
+  return null;
+}
+
 // For consulta_cliente: poll status then fetch detailed results for each completed sub-query
 async function pollConsultaCliente(token: string, clientId: string, queryId: string, maxWaitMs = 60000): Promise<any> {
   const start = Date.now();
   const interval = 4000;
 
-  // Wait a bit for initial processing
   await new Promise((r) => setTimeout(r, 5000));
 
-  let statusData: any = null;
+  let subQueries: Record<string, any> | null = null;
 
-  // Phase 1: Poll until sub-queries move past FILA
   while (Date.now() - start < maxWaitMs) {
     const endpoints = [
       `/queries/clients/${clientId}/consulta-cliente/${queryId}`,
@@ -169,19 +185,20 @@ async function pollConsultaCliente(token: string, clientId: string, queryId: str
         });
         if (res.ok) {
           const data = await res.json();
-          const keys = Object.keys(data).filter(k => !['queryId', 'status', 'id', '_id', 'message'].includes(k));
-          if (keys.length > 0) {
+          const sq = extractSubQueries(data);
+          if (sq) {
+            const keys = Object.keys(sq);
             const doneCount = keys.filter(k => {
-              const val = data[k];
+              const val = sq[k];
               const item = Array.isArray(val) ? val[0] : val;
               const s = (item?.status || '').toUpperCase();
               return ['DONE', 'SUCCESS', 'COMPLETED', 'FINALIZADO'].includes(s);
             }).length;
-            
-            // If at least 30% are done, proceed to fetch results
-            if (doneCount >= Math.floor(keys.length * 0.3)) {
-              console.log(`Consulta cliente: ${doneCount}/${keys.length} done from ${path}`);
-              statusData = data;
+
+            console.log(`Consulta cliente: ${doneCount}/${keys.length} done from ${path}`);
+
+            if (doneCount >= Math.floor(keys.length * 0.3) || (Date.now() - start > 40000)) {
+              subQueries = sq;
               break;
             }
           }
@@ -191,12 +208,11 @@ async function pollConsultaCliente(token: string, clientId: string, queryId: str
       }
     }
 
-    if (statusData) break;
+    if (subQueries) break;
     await new Promise((r) => setTimeout(r, interval));
   }
 
-  // Fallback: get whatever state we can
-  if (!statusData) {
+  if (!subQueries) {
     console.log("Polling timeout, fetching last state...");
     for (const path of [
       `/queries/clients/${clientId}/consulta-cliente/${queryId}`,
@@ -207,35 +223,37 @@ async function pollConsultaCliente(token: string, clientId: string, queryId: str
         const res = await fetch(`${AGRISK_BASE}${path}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (res.ok) { statusData = await res.json(); break; }
+        if (res.ok) {
+          const data = await res.json();
+          subQueries = extractSubQueries(data);
+          if (subQueries) break;
+        }
       } catch {}
     }
   }
 
-  if (!statusData) {
+  if (!subQueries) {
     return { message: "Consulta enviada. Os resultados podem demorar para serem processados." };
   }
 
   // Phase 2: For each FINALIZADO sub-query, try to fetch its detailed results
-  const subKeys = Object.keys(statusData).filter(k => !['queryId', 'status', 'id', '_id', 'message'].includes(k));
+  const subKeys = Object.keys(subQueries);
   const enrichedData: Record<string, any> = {};
 
-  // Batch fetch in parallel (max 10 concurrent)
   const batchSize = 10;
   for (let i = 0; i < subKeys.length; i += batchSize) {
     const batch = subKeys.slice(i, i + batchSize);
     const promises = batch.map(async (key) => {
-      const val = statusData[key];
+      const val = subQueries![key];
       const item = Array.isArray(val) ? val[0] : val;
       const s = (item?.status || '').toUpperCase();
       const isDone = ['DONE', 'SUCCESS', 'COMPLETED', 'FINALIZADO'].includes(s);
 
       if (!isDone) {
-        enrichedData[key] = val; // Keep status-only data for pending items
+        enrichedData[key] = val;
         return;
       }
 
-      // Try to fetch detailed results for this sub-query
       const detailPaths = [
         `/queries/clients/${clientId}/consulta-cliente/${queryId}/${key}`,
         `/queries/clients/${clientId}/bvs/${queryId}/${key}`,
@@ -248,16 +266,14 @@ async function pollConsultaCliente(token: string, clientId: string, queryId: str
           });
           if (res.ok) {
             const detail = await res.json();
-            // Merge status metadata with actual result data
             const merged = Array.isArray(val) ? [{ ...val[0], result: detail }] : { ...val, result: detail };
             enrichedData[key] = merged;
-            console.log(`Fetched detail for ${key}: ${JSON.stringify(detail).slice(0, 200)}`);
+            console.log(`Detail for ${key}: ${JSON.stringify(detail).slice(0, 200)}`);
             return;
           }
         } catch {}
       }
 
-      // If no detail endpoint works, keep original
       enrichedData[key] = val;
     });
 
