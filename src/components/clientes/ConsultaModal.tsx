@@ -70,13 +70,16 @@ export function ConsultaModal({ cpfCnpj, clientName, open, onClose, onDone }: Co
 
   const isCpf = cpfCnpj.length === 11;
 
+  // Only show specific AgRisk items (adding gradually)
+  const allowedAgriskItems = new Set(['consulta_cliente']);
+
   const filteredGroups = CONSULTA_GROUPS.map(group => ({
     ...group,
     items: group.items.filter(item => {
       if ((item.id === 'serasa_basico_pf' || item.id === 'serasa_avancado_top_score_pf') && !isCpf) return false;
       if ((item.id === 'serasa_basico_pj' || item.id === 'serasa_avancado_pj') && isCpf) return false;
-      // Hide consulta_cliente since it's already done on registration
-      if (item.id === 'consulta_cliente') return false;
+      // For AgRisk, only show explicitly allowed items
+      if (group.provider === 'Agrisk' && !allowedAgriskItems.has(item.id)) return false;
       return true;
     }),
   })).filter(g => g.items.length > 0);
