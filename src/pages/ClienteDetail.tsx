@@ -97,8 +97,21 @@ export default function ClienteDetail() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const handleConsultaDone = () => {
+  const handleConsultaDone = async () => {
     setConsultaOpen(false);
+    // Reload data and auto-show the most recent result
+    if (!client) return;
+    const { data: latest } = await supabase
+      .from('consulta_history')
+      .select('*')
+      .eq('cnpj', client.cpf_cnpj)
+      .eq('status', 'success')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    if (latest) {
+      setDetailEntry(latest as unknown as HistoryEntry);
+    }
     loadData();
   };
 
