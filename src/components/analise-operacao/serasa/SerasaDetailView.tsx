@@ -1205,6 +1205,19 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           </div>
         </div>
 
+        {/* NADA CONSTA - highlight when no negative records */}
+        {totalNegativeCount === 0 && (
+          <div className="border-2 border-green-500/30 bg-green-500/5 rounded-lg p-4 mb-4">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-green-600" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">Anotações negativas</p>
+                <p className="text-base font-bold text-green-600">NADA CONSTA</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Tabelas individuais */}
         <NegDetailTable
           title="Dívidas em Instituições Financeiras - Refin"
