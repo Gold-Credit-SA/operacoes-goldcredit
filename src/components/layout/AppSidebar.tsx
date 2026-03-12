@@ -18,14 +18,8 @@ export function AppSidebar() {
     { path: '/carteira/gestao', label: 'Gestão de Carteira', icon: Settings2 },
   ];
 
-  const consultasItems = [
-    { path: '/consultas', label: 'Nova Consulta', icon: Search },
-    { path: '/historico-serasa', label: 'Serasa', icon: FileText },
-    { path: '/historico-scr', label: 'SCR', icon: FileText },
-    { path: '/historico-agrisk', label: 'Agrisk', icon: FileText },
-  ];
-
   const navItemsAfter = [
+    { path: '/clientes', label: 'Clientes', icon: Users },
     { path: '/consulta', label: 'Cedentes', icon: Search },
     ...(isMaster ? [{ path: '/admin', label: 'Configurações', icon: Settings }] : []),
   ];
