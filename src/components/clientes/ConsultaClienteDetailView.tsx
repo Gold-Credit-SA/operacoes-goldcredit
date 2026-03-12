@@ -81,7 +81,6 @@ function normalizeResponseData(rawData: Record<string, any>): Record<string, Sub
           'PEP (Pessoa Politicamente Exposta)': l.IsPep ? 'Sim' : 'Não',
           'Trabalho Escravo': l.IsSlaveLabour ? 'Listado' : 'Não listado',
           'TST Status': l.tst?.status ? l.tst.status.charAt(0).toUpperCase() + l.tst.status.slice(1) : '—',
-          'Arquivo TST': l.tst?.fileUrl || null,
         }
       });
     }
