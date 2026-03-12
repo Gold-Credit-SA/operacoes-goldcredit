@@ -75,7 +75,7 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
     return Object.values(grouped);
   };
 
-  latestDtb.lsOp.forEach(op => {
+  (latestDtb.lsOp || []).forEach(op => {
     const limite = isLimiteOp(op);
     const cat = getDisplayCategory(op.mod, limite);
     opsByCategory[cat].push(op);
@@ -103,7 +103,7 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
     return point;
   }).filter(p => activeCats.some(c => (p[c] || 0) > 0));
 
-  const totalGeral = latestDtb.lsOp.filter(op => !isLimiteOp(op)).reduce((s, op) => s + calcTotalVenc(op.resVenc), 0);
+  const totalGeral = (latestDtb.lsOp || []).filter(op => !isLimiteOp(op)).reduce((s, op) => s + calcTotalVenc(op.resVenc), 0);
   const dtbLabel = formatDtb(latestDtb.dtb);
 
   return (
