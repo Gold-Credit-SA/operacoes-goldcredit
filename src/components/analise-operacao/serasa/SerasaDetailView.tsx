@@ -787,7 +787,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           </div>
           <div className="border border-border rounded-lg p-2.5">
             <p className="text-[10px] font-medium text-muted-foreground">Tipo de capital</p>
-            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(companyData, ['capitalType', 'typeCapital']) || '-')}</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(companyData, ['nature', 'capitalType', 'typeCapital']) || '-')}</p>
           </div>
           <div className="border border-border rounded-lg p-2.5">
             <p className="text-[10px] font-medium text-muted-foreground">Tipo de controle</p>
