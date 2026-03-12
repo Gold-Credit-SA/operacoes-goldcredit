@@ -173,15 +173,6 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const allPartners = partnersList.length > 0 ? partnersList : qsaPartners;
   const allDirectors = directorsList.length > 0 ? directorsList : qsaDirectors;
 
-  // Debug QSA data
-  if (isPJ) {
-    console.log('[QSA Debug] companyData:', JSON.stringify(companyData, null, 2));
-    console.log('[QSA Debug] qsaReport keys:', Object.keys(qsaReport));
-    console.log('[QSA Debug] allPartners[0]:', JSON.stringify(allPartners[0], null, 2));
-    console.log('[QSA Debug] allDirectors[0]:', JSON.stringify(allDirectors[0], null, 2));
-    console.log('[QSA Debug] partnerSection:', JSON.stringify(partnerSection, null, 2));
-    console.log('[QSA Debug] report.partner:', JSON.stringify(report?.partner, null, 2));
-  }
 
   // PJ inquiry uses inquiryCompanyResponse
   const factsInquiry = (facts?.inquiry || facts?.inquiryCompanyResponse || inquiry) as GenericRecord;
@@ -796,7 +787,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           </div>
           <div className="border border-border rounded-lg p-2.5">
             <p className="text-[10px] font-medium text-muted-foreground">Tipo de capital</p>
-            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(companyData, ['capitalType', 'typeCapital']) || '-')}</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(companyData, ['nature', 'capitalType', 'typeCapital']) || '-')}</p>
           </div>
           <div className="border border-border rounded-lg p-2.5">
             <p className="text-[10px] font-medium text-muted-foreground">Tipo de controle</p>
@@ -804,7 +795,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           </div>
           <div className="border border-border rounded-lg p-2.5">
             <p className="text-[10px] font-medium text-muted-foreground">Origem</p>
-            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(companyData, ['origin', 'companyOrigin']) || '-')}</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(companyData, ['countryOrigin', 'origin', 'companyOrigin']) || '-')}</p>
           </div>
         </div>
 
@@ -815,7 +806,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           const totalAnnot = pAnnot + dAnnot;
           return (
           <div className="border border-border rounded-lg p-3 mb-4">
-            <p className="text-[11px] font-medium text-muted-foreground">Sem ocorrências</p>
+            <p className="text-[10px] font-medium text-muted-foreground">Ocorrência de anotações negativas</p>
             <p className="text-sm font-bold text-foreground mt-0.5">
               {allPartners.length} | {allDirectors.length}
             </p>
@@ -848,11 +839,11 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
                   const hasNeg = p.hasNegative === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim';
                   return (
                   <TableRow key={i}>
-                    <TableCell className="text-xs py-2">{p.participationPercentage != null ? `${p.participationPercentage}%` : p.percentage || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{p.votingPercentage != null ? `${p.votingPercentage}%` : p.votingCapital || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{p.capitalTotalValue != null ? `${p.capitalTotalValue}%` : p.participationPercentage != null ? `${p.participationPercentage}%` : p.percentage || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{p.capitalVoterValue != null ? `${p.capitalVoterValue}%` : p.votingPercentage != null ? `${p.votingPercentage}%` : p.votingCapital || '-'}</TableCell>
                     <TableCell className="text-xs py-2">{p.name || p.partnerName || '-'}</TableCell>
                     <TableCell className="text-xs py-2">{formatDocument(p.documentId || p.documentNumber || p.cpf || p.cnpj)}</TableCell>
-                    <TableCell className="text-xs py-2">{formatDate(p.admissionDate || p.entryDate || p.since)}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDate(p.sinceDate || p.admissionDate || p.entryDate || p.since)}</TableCell>
                     <TableCell className="text-xs py-2">{p.nationality || '-'}</TableCell>
                     <TableCell className={`text-xs py-2 ${hasNeg ? 'text-destructive font-medium' : ''}`}>{hasNeg ? 'Sim' : 'Não'}</TableCell>
                   </TableRow>
@@ -888,9 +879,9 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
                   return (
                   <TableRow key={i}>
                     <TableCell className="text-xs py-2">{d.name || d.directorName || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{d.position || d.role || d.office || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{d.role || d.position || d.office || '-'}</TableCell>
                     <TableCell className="text-xs py-2">{formatDocument(d.documentId || d.documentNumber || d.cpf || d.cnpj)}</TableCell>
-                    <TableCell className="text-xs py-2">{formatDate(d.admissionDate || d.entryDate || d.since)}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDate(d.sinceDate || d.admissionDate || d.entryDate || d.since)}</TableCell>
                     <TableCell className="text-xs py-2">{d.mandate || d.mandatePeriod || '-'}</TableCell>
                     <TableCell className="text-xs py-2">{d.nationality || '-'}</TableCell>
                     <TableCell className="text-xs py-2">{d.maritalStatus || d.civilStatus || '-'}</TableCell>
@@ -945,7 +936,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
                   const hasNeg = p.hasNegative === true || p.restrictionSign === true || String(p.annotations || '').toLowerCase() === 'sim';
                   return (
                   <TableRow key={i}>
-                    <TableCell className="text-xs py-2">{p.participationPercentage != null ? `${p.participationPercentage}%` : p.percentage || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{p.capitalTotalValue != null ? `${p.capitalTotalValue}%` : p.participationPercentage != null ? `${p.participationPercentage}%` : p.percentage || '-'}</TableCell>
                     <TableCell className="text-xs py-2">{p.name || p.partnerName || '-'}</TableCell>
                     <TableCell className="text-xs py-2">{formatDocument(p.documentId || p.documentNumber || p.cpf || p.cnpj)}</TableCell>
                     <TableCell className={`text-xs py-2 ${hasNeg ? 'text-destructive font-medium' : ''}`}>{hasNeg ? 'Sim' : 'Não'}</TableCell>
