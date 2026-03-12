@@ -539,12 +539,20 @@ export default function ClienteDetail() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {emails.map((em: any, i: number) => (
-                              <TableRow key={i}>
-                                <TableCell className="text-xs">{em.email || em.address || String(em)}</TableCell>
-                                <TableCell className="text-xs text-right">{em.ultimaPassagem || em.lastSeen || '—'}</TableCell>
-                              </TableRow>
-                            ))}
+                            {emails.map((em: any, i: number) => {
+                              const emailAddr = em.email || em.address || (typeof em === 'string' ? em : JSON.stringify(em));
+                              const emInfo = em.information || {};
+                              const lastSeen = emInfo.last_passage || em.ultimaPassagem || em.lastSeen || null;
+                              const lastSeenFmt = lastSeen
+                                ? (() => { try { return format(new Date(lastSeen), 'dd/MM/yyyy'); } catch { return lastSeen; } })()
+                                : '—';
+                              return (
+                                <TableRow key={i}>
+                                  <TableCell className="text-xs">{emailAddr}</TableCell>
+                                  <TableCell className="text-xs text-right">{lastSeenFmt}</TableCell>
+                                </TableRow>
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       </div>
