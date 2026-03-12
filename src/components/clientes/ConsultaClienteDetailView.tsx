@@ -99,11 +99,9 @@ function normalizeResponseData(rawData: Record<string, any>): Record<string, Sub
 
       if (ibama.ibamaCND) {
         details_ibama['CND Status'] = ibama.ibamaCND.content?.length === 0 ? 'Nada consta' : `${ibama.ibamaCND.content?.length} registro(s)`;
-        if (ibama.ibamaCND.fileUrl) details_ibama['CND Arquivo'] = ibama.ibamaCND.fileUrl;
       }
       if (ibama.embargos) {
         details_ibama['Embargos'] = ibama.embargos.content?.length === 0 ? 'Nenhum embargo' : `${ibama.embargos.content?.length} embargo(s)`;
-        if (ibama.embargos.fileUrl) details_ibama['Embargos Arquivo'] = ibama.embargos.fileUrl;
       }
       if (ibama.assessments) {
         details_ibama['Autuações'] = ibama.assessments.content?.length === 0 ? 'Nenhuma autuação' : `${ibama.assessments.content?.length} autuação(ões)`;
