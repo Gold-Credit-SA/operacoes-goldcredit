@@ -15,16 +15,20 @@ const PRODUCT_MAP: Record<string, { code: string; _id: string }> = {
   patrimonio_veicular: { code: "vehicle-assets", _id: "8a6dd886-902c-4745-a8e0-e81db1e10e93" },
 };
 
-async function fetchJsonWithTimeout(url: string, token: string, timeoutMs = 2500): Promise<any | null> {
+// ── Utility ──
+
+async function fetchJson(url: string, token: string, timeoutMs = 5000): Promise<any | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
   try {
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
       signal: controller.signal,
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.log(`GET ${url} → ${res.status}`);
+      return null;
+    }
     return await res.json();
   } catch {
     return null;
@@ -32,6 +36,8 @@ async function fetchJsonWithTimeout(url: string, token: string, timeoutMs = 2500
     clearTimeout(timeout);
   }
 }
+
+// ── Auth ──
 
 async function agriskLogin(): Promise<string> {
   const credential = Deno.env.get("AGRISK_CREDENTIAL");
@@ -53,6 +59,8 @@ async function agriskLogin(): Promise<string> {
   return data.token;
 }
 
+// ── Products ──
+
 async function listProducts(token: string): Promise<any[]> {
   const res = await fetch(`${AGRISK_BASE}/v2/products`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -64,6 +72,8 @@ async function listProducts(token: string): Promise<any[]> {
   const data = await res.json();
   return data.items || data || [];
 }
+
+// ── Client ──
 
 async function findClientByTaxId(token: string, taxId: string): Promise<string | null> {
   for (let page = 1; page <= 10; page++) {
@@ -82,18 +92,11 @@ async function findClientByTaxId(token: string, taxId: string): Promise<string |
 
 async function getOrCreateClient(token: string, taxId: string): Promise<string> {
   const existingId = await findClientByTaxId(token, taxId);
-  if (existingId) {
-    console.log(`Client found: ${existingId} for taxId ${taxId}`);
-    return existingId;
-  }
+  if (existingId) return existingId;
 
-  console.log(`Client not found, creating for taxId ${taxId}`);
   const createRes = await fetch(`${AGRISK_BASE}/clients`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify({ taxId }),
   });
 
@@ -103,8 +106,6 @@ async function getOrCreateClient(token: string, taxId: string): Promise<string> 
   }
 
   const errText = await createRes.text();
-  console.error(`Create client failed (${createRes.status}): ${errText}`);
-  
   try {
     const errData = JSON.parse(errText);
     if (errData.id || errData.clientId || errData._id) {
@@ -112,20 +113,16 @@ async function getOrCreateClient(token: string, taxId: string): Promise<string> 
     }
   } catch {}
 
-  throw new Error(`Não foi possível cadastrar ou encontrar o cliente com o documento informado.`);
+  throw new Error("Não foi possível cadastrar ou encontrar o cliente com o documento informado.");
 }
+
+// ── Query Request ──
 
 async function requestQuery(token: string, clientId: string, productIds: string[]): Promise<any> {
   const res = await fetch(`${AGRISK_BASE}/queries`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      clients: [clientId],
-      products: productIds,
-    }),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ clients: [clientId], products: productIds }),
   });
 
   if (!res.ok) {
@@ -136,282 +133,137 @@ async function requestQuery(token: string, clientId: string, productIds: string[
   return await res.json();
 }
 
-async function pollForResults(token: string, clientId: string, maxWaitMs = 45000): Promise<any> {
-  const start = Date.now();
-  const interval = 3000;
+// ── Extract queryId from POST /queries response ──
 
-  while (Date.now() - start < maxWaitMs) {
-    const res = await fetch(`${AGRISK_BASE}/queries/clients/${clientId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+function extractQueryId(queryResult: any): string | null {
+  if (queryResult?.queryId) return queryResult.queryId;
+  if (queryResult?.id) return queryResult.id;
+  if (queryResult?._id) return queryResult._id;
+  if (queryResult?.items?.[0]?.queryId) return queryResult.items[0].queryId;
+  if (queryResult?.items?.[0]?.id) return queryResult.items[0].id;
 
-    if (res.ok) {
-      const data = await res.json();
-      const items = data.items || data;
-      if (Array.isArray(items)) {
-        const allDone = items.every((item: any) => item.status !== "pending" && item.status !== "processing");
-        if (allDone) return items;
-      } else {
-        return data;
-      }
+  // Check if response has a queries object with sub-query arrays
+  const queries = queryResult?.items?.[0]?.queries || queryResult?.queries;
+  if (queries && typeof queries === "object") {
+    const firstKey = Object.keys(queries)[0];
+    if (firstKey && Array.isArray(queries[firstKey]) && queries[firstKey][0]?.queryId) {
+      return queries[firstKey][0].queryId;
     }
-
-    await new Promise((r) => setTimeout(r, interval));
   }
 
-  throw new Error("Timeout aguardando resultado da consulta AgRisk. Tente novamente em alguns minutos.");
-}
+  // Check nested arrays
+  for (const key of Object.keys(queryResult || {})) {
+    if (Array.isArray(queryResult[key]) && queryResult[key][0]?.queryId) {
+      return queryResult[key][0].queryId;
+    }
+  }
 
-// Extract the flat sub-query map from various API response shapes
-function extractSubQueries(data: any): Record<string, any> | null {
-  if (data?.items && Array.isArray(data.items) && data.items[0]?.queries) {
-    return data.items[0].queries;
-  }
-  if (data?.queries && typeof data.queries === 'object') {
-    return data.queries;
-  }
-  const metaKeys = new Set(['queryId', 'status', 'id', '_id', 'message', 'items', 'statusCode']);
-  const keys = Object.keys(data || {}).filter(k => !metaKeys.has(k));
-  if (keys.length > 3) {
-    const result: Record<string, any> = {};
-    for (const k of keys) result[k] = data[k];
-    return result;
-  }
   return null;
 }
 
-function pickBestSubQueryEntry(raw: any): any {
-  if (!Array.isArray(raw)) return raw;
-  if (raw.length === 0) return null;
+// ── Poll sub-query statuses ──
 
-  const withResult = raw.find((entry: any) => entry?.result || entry?.data);
-  if (withResult) return withResult;
-
-  const done = raw.find((entry: any) => ["DONE", "SUCCESS", "COMPLETED", "FINALIZADO"].includes((entry?.status || "").toUpperCase()));
-  return done || raw[0];
-}
-
-function getQueryIdCandidates(raw: any, fallbackQueryId: string): string[] {
-  const entries = Array.isArray(raw) ? raw : [raw];
-  const ids = entries
-    .map((entry: any) => entry?.queryId || entry?.id || entry?._id)
-    .filter((id: unknown): id is string => typeof id === "string" && id.length > 0);
-
-  if (fallbackQueryId) ids.push(fallbackQueryId);
-  return Array.from(new Set(ids));
-}
-
-// For consulta_cliente: poll status then fetch detailed results for each completed sub-query
-async function pollConsultaCliente(token: string, clientId: string, queryId: string, maxWaitMs = 25000): Promise<any> {
+async function waitForSubQueries(token: string, clientId: string, maxWaitMs = 20000): Promise<Record<string, any> | null> {
   const start = Date.now();
-  const hardDeadline = start + maxWaitMs;
   const interval = 2500;
 
-  await new Promise((r) => setTimeout(r, 1500));
+  // Initial wait for processing to start
+  await new Promise((r) => setTimeout(r, 2000));
 
-  let subQueries: Record<string, any> | null = null;
-
-  while (Date.now() < hardDeadline) {
-    const endpoints = [
-      `/queries/clients/${clientId}/consulta-cliente/${queryId}`,
-      `/queries/clients/${clientId}/bvs/${queryId}`,
-      `/queries/clients/${clientId}/${queryId}`,
-    ];
-
-    for (const path of endpoints) {
-      const data = await fetchJsonWithTimeout(`${AGRISK_BASE}${path}`, token, 3000);
-      if (!data) continue;
-
-      const sq = extractSubQueries(data);
-      if (!sq) continue;
-
-      const keys = Object.keys(sq);
-      if (keys.length === 0) continue;
-
-      const doneCount = keys.filter((k) => {
-        const val = sq[k];
-        const item = pickBestSubQueryEntry(val);
-        const s = (item?.status || "").toUpperCase();
-        return ["DONE", "SUCCESS", "COMPLETED", "FINALIZADO"].includes(s);
-      }).length;
-
-      const pendingCount = keys.length - doneCount;
-      console.log(`Consulta cliente: ${doneCount}/${keys.length} done from ${path}`);
-
-      if (doneCount > 0 || pendingCount === 0 || Date.now() - start > 16000) {
-        subQueries = sq;
-        break;
-      }
+  while (Date.now() - start < maxWaitMs) {
+    const data = await fetchJson(`${AGRISK_BASE}/queries/clients/${clientId}`, token, 4000);
+    if (!data) {
+      await new Promise((r) => setTimeout(r, interval));
+      continue;
     }
 
-    if (subQueries) break;
+    // The response is a flat object: { "kyc": [...], "tst": [...], "cnd-ba": [...], ... }
+    const metaKeys = new Set(["queryId", "status", "id", "_id", "message", "items", "statusCode"]);
+    const subQueryKeys = Object.keys(data).filter((k) => !metaKeys.has(k) && Array.isArray(data[k]));
+
+    if (subQueryKeys.length === 0) {
+      await new Promise((r) => setTimeout(r, interval));
+      continue;
+    }
+
+    // Check how many are done
+    let doneCount = 0;
+    let totalCount = subQueryKeys.length;
+    for (const key of subQueryKeys) {
+      const entries = data[key];
+      const latest = entries[0]; // Most recent entry
+      const status = (latest?.status || "").toUpperCase();
+      if (["FINALIZADO", "DONE", "SUCCESS", "COMPLETED"].includes(status)) doneCount++;
+    }
+
+    console.log(`Sub-queries: ${doneCount}/${totalCount} done`);
+
+    // If most are done or we've waited long enough, return
+    if (doneCount >= totalCount * 0.7 || (doneCount > 0 && Date.now() - start > 12000)) {
+      return data;
+    }
+
     await new Promise((r) => setTimeout(r, interval));
   }
 
-  if (!subQueries) {
-    console.log("Polling timeout, fetching last state...");
-    for (const path of [
-      `/queries/clients/${clientId}/consulta-cliente/${queryId}`,
-      `/queries/clients/${clientId}/bvs/${queryId}`,
-      `/queries/clients/${clientId}`,
-    ]) {
-      const data = await fetchJsonWithTimeout(`${AGRISK_BASE}${path}`, token, 2500);
-      if (!data) continue;
-      subQueries = extractSubQueries(data);
-      if (subQueries) break;
-    }
-  }
-
-  if (!subQueries) {
-    return { message: "Consulta enviada. Os resultados podem demorar para serem processados." };
-  }
-
-  const subKeys = Object.keys(subQueries);
-  const enrichedData: Record<string, any> = {};
-  const detailDeadline = Date.now() + 12000;
-
-  const batchSize = 6;
-  for (let i = 0; i < subKeys.length; i += batchSize) {
-    if (Date.now() > detailDeadline) break;
-
-    const batch = subKeys.slice(i, i + batchSize);
-    await Promise.all(batch.map(async (key) => {
-      const val = subQueries![key];
-      const item = pickBestSubQueryEntry(val);
-      const s = (item?.status || "").toUpperCase();
-      const isDone = ["DONE", "SUCCESS", "COMPLETED", "FINALIZADO"].includes(s);
-
-      if (!isDone) {
-        enrichedData[key] = val;
-        return;
-      }
-
-      const queryIdCandidates = getQueryIdCandidates(val, queryId);
-
-      for (const currentQueryId of queryIdCandidates) {
-        const detailPaths = [
-          `/queries/clients/${clientId}/consulta-cliente/${currentQueryId}/${key}`,
-          `/queries/clients/${clientId}/bvs/${currentQueryId}/${key}`,
-          `/queries/clients/${clientId}/${currentQueryId}/${key}`,
-        ];
-
-        for (const path of detailPaths) {
-          if (Date.now() > detailDeadline) break;
-
-          const detail = await fetchJsonWithTimeout(`${AGRISK_BASE}${path}`, token, 2000);
-          if (detail) {
-            if (Array.isArray(val)) {
-              const idx = val.findIndex((entry: any) => (entry?.queryId || entry?.id || entry?._id) === currentQueryId);
-              if (idx >= 0) {
-                const merged = [...val];
-                merged[idx] = { ...merged[idx], result: detail };
-                enrichedData[key] = merged;
-              } else {
-                enrichedData[key] = [{ ...item, result: detail }];
-              }
-            } else {
-              enrichedData[key] = { ...item, result: detail };
-            }
-            return;
-          }
-        }
-      }
-
-      enrichedData[key] = val;
-    }));
-  }
-
-  for (const key of subKeys) {
-    if (!(key in enrichedData)) enrichedData[key] = subQueries[key];
-  }
-
-  return enrichedData;
+  // Final attempt
+  return await fetchJson(`${AGRISK_BASE}/queries/clients/${clientId}`, token, 4000);
 }
 
-async function fetchResultByType(
+// ── Fetch REAL detailed results from correct API endpoints ──
+
+async function fetchConsultaClienteDetails(
   token: string,
   clientId: string,
-  consultaType: string,
-  queryItems: any[]
+  queryId: string
 ): Promise<any> {
-  const productCode = PRODUCT_MAP[consultaType]?.code;
+  console.log(`Fetching Consulta Cliente details: clientId=${clientId}, queryId=${queryId}`);
 
-  const relevantItem = queryItems.find(
-    (item: any) => item.productCode === productCode || item.product?.code === productCode || item.code === productCode
-  );
-  const queryId = relevantItem?.queryId || relevantItem?.id || relevantItem?._id;
+  // These are the REAL endpoints from the AgRisk API documentation
+  const detailFetches = [
+    { key: "compliance", fn: () => fetchJson(`${AGRISK_BASE}/queries/clients/${clientId}/compliance/${queryId}`, token, 8000) },
+    { key: "bvs", fn: () => fetchJson(`${AGRISK_BASE}/queries/clients/${clientId}/bvs/${queryId}`, token, 8000) },
+    { key: "lawsuits", fn: () => fetchJson(`${AGRISK_BASE}/queries/clients/${clientId}/lawsuits`, token, 8000) },
+    { key: "groups_economic", fn: () => fetchJson(`${AGRISK_BASE}/queries/clients/${clientId}/groups/economic`, token, 5000) },
+    { key: "groups_family", fn: () => fetchJson(`${AGRISK_BASE}/queries/clients/${clientId}/groups/family`, token, 5000) },
+    { key: "bndes", fn: () => fetchJson(`${AGRISK_BASE}/queries/clients/${clientId}/bndes`, token, 5000) },
+    { key: "contacts", fn: () => fetchJson(`${AGRISK_BASE}/v2/queries/clients/${clientId}/contacts`, token, 5000) },
+  ];
 
-  console.log(`fetchResultByType: type=${consultaType}, productCode=${productCode}, queryId=${queryId}`);
-  console.log(`queryItems:`, JSON.stringify(queryItems).slice(0, 500));
-
-  const tryEndpoints = async (paths: string[]): Promise<any> => {
-    for (const path of paths) {
+  // Execute all in parallel
+  const results = await Promise.all(
+    detailFetches.map(async ({ key, fn }) => {
       try {
-        console.log(`Trying endpoint: ${path}`);
-        const res = await fetch(`${AGRISK_BASE}${path}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          console.log(`Success from ${path}:`, JSON.stringify(data).slice(0, 300));
-          return data;
-        }
-        console.log(`Endpoint ${path} returned ${res.status}`);
+        const data = await fn();
+        console.log(`${key}: ${data ? "OK" : "null"}`);
+        return { key, data };
       } catch (e) {
-        console.log(`Endpoint ${path} failed:`, e);
+        console.log(`${key}: error`, e);
+        return { key, data: null };
       }
-    }
-    return null;
-  };
+    })
+  );
 
-  switch (consultaType) {
-    case "consulta_cliente": {
-      const paths = queryId
-        ? [
-            `/queries/clients/${clientId}/consulta-cliente/${queryId}`,
-            `/queries/clients/${clientId}/bvs/${queryId}`,
-            `/queries/clients/${clientId}/${queryId}`,
-            `/queries/${queryId}`,
-          ]
-        : [];
-      
-      paths.push(`/queries/clients/${clientId}`);
-      
-      const result = await tryEndpoints(paths);
-      if (result) return result;
-      
-      return relevantItem || { message: "Consulta processada, dados não encontrados no endpoint esperado." };
-    }
+  const enrichedData: Record<string, any> = {};
+  let hasRealData = false;
 
-    case "imoveis_simples": {
-      if (!queryId) return relevantItem || { message: "Consulta processada, sem queryId disponível." };
-      const result = await tryEndpoints([
-        `/queries/clients/${clientId}/properties/${queryId}`,
-        `/queries/clients/${clientId}/pesquisa-imoveis/${queryId}`,
-      ]);
-      return result || relevantItem || {};
+  for (const { key, data } of results) {
+    if (data !== null) {
+      enrichedData[key] = data;
+      // Check if this contains actual useful data (not just empty objects)
+      const str = JSON.stringify(data);
+      if (str.length > 50) hasRealData = true;
     }
-
-    case "imoveis_car": {
-      if (!queryId) return relevantItem || { message: "Consulta processada, sem queryId disponível." };
-      const result = await tryEndpoints([
-        `/queries/clients/${clientId}/car/${queryId}`,
-      ]);
-      return result || relevantItem || {};
-    }
-
-    case "patrimonio_veicular": {
-      if (!queryId) return relevantItem || { message: "Consulta processada, sem queryId disponível." };
-      const result = await tryEndpoints([
-        `/queries/clients/${clientId}/vehicle-assets/${queryId}`,
-      ]);
-      return result || relevantItem || {};
-    }
-
-    default:
-      return relevantItem || {};
   }
+
+  if (!hasRealData) {
+    console.log("No real data found from any detail endpoint");
+  }
+
+  return { details: enrichedData, hasRealData };
 }
+
+// ── Main handler ──
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -432,7 +284,6 @@ serve(async (req) => {
     }
 
     // ── Action: register-client ──
-    // Only registers client + fetches free cadastral data (no paid queries)
     if (action === "register-client") {
       if (!taxId) {
         return new Response(JSON.stringify({ error: "taxId é obrigatório." }), {
@@ -444,7 +295,6 @@ serve(async (req) => {
       const token = await agriskLogin();
       const clientId = await getOrCreateClient(token, taxId.replace(/\D/g, ""));
 
-      // Fetch client cadastral data (free GET)
       let clientData = null;
       try {
         const res = await fetch(`${AGRISK_BASE}/clients/client/${clientId}`, {
@@ -453,7 +303,6 @@ serve(async (req) => {
         if (res.ok) clientData = await res.json();
       } catch {}
 
-      // Fetch contacts (free GET)
       let contacts = null;
       try {
         const res = await fetch(`${AGRISK_BASE}/v2/queries/clients/${clientId}/contacts`, {
@@ -463,17 +312,13 @@ serve(async (req) => {
       } catch {}
 
       return new Response(JSON.stringify({
-        data: {
-          clientId,
-          clientData,
-          contacts,
-        },
+        data: { clientId, clientData, contacts },
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // ── Default action: single query ──
+    // ── Default: execute query ──
     if (!taxId || !consultaType) {
       return new Response(JSON.stringify({ error: "taxId e consultaType são obrigatórios." }), {
         status: 400,
@@ -495,37 +340,74 @@ serve(async (req) => {
 
     console.log("Query result:", JSON.stringify(queryResult).slice(0, 500));
 
-    // For consulta_cliente, use specific polling with queryId
-    if (consultaType === "consulta_cliente") {
-      // Extract queryId from various response shapes
-      let effectiveQueryId = queryResult?.queryId || queryResult?.id || queryResult?._id;
-      // Check items array: { items: [{ queryId: "..." }] }
-      if (!effectiveQueryId && queryResult?.items?.[0]?.queryId) {
-        effectiveQueryId = queryResult.items[0].queryId;
-      }
-      // Check nested arrays
-      if (!effectiveQueryId) {
-        const firstKey = Object.keys(queryResult || {}).find(k => Array.isArray(queryResult[k]));
-        effectiveQueryId = firstKey ? queryResult[firstKey]?.[0]?.queryId : null;
-      }
+    const queryId = extractQueryId(queryResult);
+    console.log(`Extracted queryId: ${queryId}`);
 
-      if (effectiveQueryId) {
-        console.log(`Using consulta_cliente polling with queryId: ${effectiveQueryId}`);
-        const resultData = await pollConsultaCliente(token, clientId, effectiveQueryId, 25000);
-        return new Response(JSON.stringify({ data: resultData }), {
+    if (consultaType === "consulta_cliente") {
+      // Wait for sub-queries to process
+      await waitForSubQueries(token, clientId, 20000);
+
+      // Now fetch the REAL detailed data from correct endpoints
+      const effectiveQueryId = queryId || "latest";
+      const { details, hasRealData } = await fetchConsultaClienteDetails(token, clientId, effectiveQueryId);
+
+      if (!hasRealData) {
+        return new Response(JSON.stringify({
+          error: "A consulta foi processada, mas os endpoints de detalhamento não retornaram dados úteis. Verifique se o CPF/CNPJ possui informações nos bureaus consultados.",
+        }), {
+          status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      return new Response(JSON.stringify({ data: details }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const pollResults = await pollForResults(token, clientId);
-    console.log("Poll results:", JSON.stringify(pollResults).slice(0, 500));
+    // ── Other query types ──
+    // Wait briefly for processing
+    await new Promise((r) => setTimeout(r, 5000));
 
-    const resultData = await fetchResultByType(token, clientId, consultaType, Array.isArray(pollResults) ? pollResults : [pollResults]);
+    let resultData = null;
+
+    switch (consultaType) {
+      case "imoveis_simples": {
+        if (queryId) {
+          resultData = await fetchJson(`${AGRISK_BASE}/queries/clients/${clientId}/properties/${queryId}`, token, 8000);
+          if (!resultData) {
+            resultData = await fetchJson(`${AGRISK_BASE}/queries/clients/${clientId}/pesquisa-imoveis/${queryId}`, token, 8000);
+          }
+        }
+        break;
+      }
+      case "imoveis_car": {
+        if (queryId) {
+          resultData = await fetchJson(`${AGRISK_BASE}/queries/clients/${clientId}/car/${queryId}`, token, 8000);
+        }
+        break;
+      }
+      case "patrimonio_veicular": {
+        if (queryId) {
+          resultData = await fetchJson(`${AGRISK_BASE}/queries/clients/${clientId}/vehicle-assets/${queryId}`, token, 8000);
+        }
+        break;
+      }
+    }
+
+    if (!resultData) {
+      return new Response(JSON.stringify({
+        error: "Consulta enviada mas não foi possível obter os resultados detalhados.",
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     return new Response(JSON.stringify({ data: resultData }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (err) {
     console.error("AgRisk query error:", err);
     const message = err instanceof Error ? err.message : "Erro interno ao consultar AgRisk.";
