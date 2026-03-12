@@ -353,9 +353,9 @@ function CNDsContent({ items }: { items: SubItem[] }) {
                     </TableCell>
                     <TableCell>
                       {cnd.fileUrl && (
-                        <Badge variant="outline" className="text-[10px] gap-1">
-                          <FileText className="h-3 w-3" />
-                        </Badge>
+                        <a href={cnd.fileUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
+                          <ExternalLink className="h-3 w-3" /> PDF
+                        </a>
                       )}
                     </TableCell>
                   </TableRow>
