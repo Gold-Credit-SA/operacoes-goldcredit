@@ -79,9 +79,13 @@ export const VENCIMENTO_DETALHE_MAP: Record<string, string> = {
   'v160': '361 a 720 Dias',
   'v165': 'Acima de 720 Dias',
   'v170': '721 a 1080 Dias',
-  'v180': '1081 a 1440 Dias',
-  'v190': '1441 a 1800 Dias',
-  'v200': 'Acima de 1800 Dias',
+  'v175': '1081 a 1440 Dias',
+  'v180': '1441 a 1800 Dias',
+  'v190': '1801 a 5400 Dias',
+  'v200': 'Acima de 5400 Dias',
+  'v250': 'Prazo Indeterminado',
+  'v255': 'Prazo Indeterminado (curto)',
+  'v260': 'Prazo Indeterminado (longo)',
 };
 
 // Labels específicos para operações de LIMITE no DETALHAMENTO
