@@ -377,56 +377,6 @@ export default function ClienteDetail() {
               </CardContent>
             </Card>
 
-            {/* Últimas Consultas */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-primary" />
-                  Últimas Consultas
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {history.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Nenhuma consulta realizada.</p>
-                ) : (
-                  history.slice(0, 3).map(entry => (
-                    <div
-                      key={entry.id}
-                      className="flex items-center gap-2 p-2 rounded-md border border-border hover:border-primary/30 cursor-pointer transition-colors"
-                      onClick={() => setDetailEntry(entry)}
-                    >
-                      <PlatformBadge platform={entry.platform} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-foreground truncate">{entry.consulta_label}</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {format(new Date(entry.created_at), "dd/MM/yy HH:mm")}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Platform cards */}
-            <div className="grid grid-cols-3 gap-2">
-              {(['serasa', 'scr', 'agrisk'] as const).map(platform => {
-                const count = history.filter(h => h.platform === platform).length;
-                return (
-                  <Card
-                    key={platform}
-                    className="hover:border-primary/30 cursor-pointer transition-colors"
-                    onClick={() => setFilterPlatform(platform)}
-                  >
-                    <CardContent className="py-3 px-2 flex flex-col items-center gap-1.5">
-                      <PlatformBadge platform={platform} />
-                      <p className="text-lg font-bold text-foreground">{count}</p>
-                      <p className="text-[10px] text-muted-foreground">consulta(s)</p>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
           </div>
 
           {/* Right content */}
