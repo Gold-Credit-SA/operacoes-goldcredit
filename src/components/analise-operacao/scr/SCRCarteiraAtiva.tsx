@@ -176,10 +176,10 @@ export function SCRCarteiraAtivaTable({ latestDtb }: SCRCarteiraAtivaProps) {
       <CardContent className="pt-4">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead className="font-bold uppercase text-xs">Carteira Ativa (A)</TableHead>
-              <TableHead className="text-right font-bold font-mono">{formatCurrency(totalCarteira)}</TableHead>
-              <TableHead className="text-right font-bold">100%</TableHead>
+            <TableRow className="bg-primary/10 border-b-2 border-primary/30">
+              <TableHead className="font-bold uppercase text-xs text-primary">Carteira Ativa (A)</TableHead>
+              <TableHead className="text-right font-bold font-mono text-primary">{formatCurrency(totalCarteira)}</TableHead>
+              <TableHead className="text-right font-bold text-primary">100%</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -187,7 +187,10 @@ export function SCRCarteiraAtivaTable({ latestDtb }: SCRCarteiraAtivaProps) {
             {totalAVencer > 0 && (
               <>
                 <TableRow className="bg-muted/30">
-                  <TableCell className="text-sm font-semibold">A Vencer</TableCell>
+                  <TableCell className="text-sm font-semibold flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-primary" />
+                    A Vencer
+                  </TableCell>
                   <TableCell className="text-right font-mono text-sm font-semibold">{formatCurrency(totalAVencer)}</TableCell>
                   <TableCell className="text-right text-sm font-semibold">
                     {((totalAVencer / totalCarteira) * 100).toFixed(2)}%
@@ -195,7 +198,7 @@ export function SCRCarteiraAtivaTable({ latestDtb }: SCRCarteiraAtivaProps) {
                 </TableRow>
                 {sortBuckets(Object.entries(aVencerBuckets)).map(([key, val]) => (
                   <TableRow key={key}>
-                    <TableCell className="text-sm pl-6">{VENCIMENTO_AVENCER_MAP[key] || key}</TableCell>
+                    <TableCell className="text-sm pl-8">{VENCIMENTO_AVENCER_MAP[key] || key}</TableCell>
                     <TableCell className="text-right font-mono text-sm">{formatCurrency(val)}</TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">
                       {((val / totalCarteira) * 100).toFixed(2)}%
@@ -208,16 +211,22 @@ export function SCRCarteiraAtivaTable({ latestDtb }: SCRCarteiraAtivaProps) {
             {/* Vencidos subtotal */}
             {totalVencido > 0 && (
               <>
-                <TableRow className="bg-muted/30">
-                  <TableCell className="text-sm font-semibold">Vencidos</TableCell>
-                  <TableCell className="text-right font-mono text-sm font-semibold">{formatCurrency(totalVencido)}</TableCell>
-                  <TableCell className="text-right text-sm font-semibold">
+                <TableRow className="bg-destructive/10">
+                  <TableCell className="text-sm font-semibold flex items-center gap-2 text-destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    Vencido
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-sm font-semibold text-destructive">{formatCurrency(totalVencido)}</TableCell>
+                  <TableCell className="text-right text-sm font-semibold text-destructive">
                     {((totalVencido / totalCarteira) * 100).toFixed(2)}%
                   </TableCell>
                 </TableRow>
                 {sortBuckets(Object.entries(vencidoBuckets)).map(([key, val]) => (
                   <TableRow key={key}>
-                    <TableCell className="text-sm pl-6">{VENCIMENTO_VENCIDO_MAP[key] || key}</TableCell>
+                    <TableCell className="text-sm pl-8 flex items-center gap-2">
+                      <AlertTriangle className="h-3 w-3 text-destructive/60" />
+                      {VENCIMENTO_VENCIDO_MAP[key] || key}
+                    </TableCell>
                     <TableCell className="text-right font-mono text-sm">{formatCurrency(val)}</TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">
                       {((val / totalCarteira) * 100).toFixed(2)}%
