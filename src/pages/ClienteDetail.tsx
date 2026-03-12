@@ -47,15 +47,6 @@ function formatDoc(doc: string): string {
   return doc;
 }
 
-function getPlatformColor(platform: string) {
-  switch (platform) {
-    case 'serasa': return 'bg-blue-500/10 text-blue-700 border-blue-200';
-    case 'scr': return 'bg-green-500/10 text-green-700 border-green-200';
-    case 'agrisk': return 'bg-amber-500/10 text-amber-700 border-amber-200';
-    default: return 'bg-muted text-muted-foreground';
-  }
-}
-
 function calcAge(birthDate: string): number | null {
   try {
     const parts = birthDate.includes('/') ? birthDate.split('/') : null;
