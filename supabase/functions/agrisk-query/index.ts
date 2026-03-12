@@ -274,28 +274,6 @@ serve(async (req) => {
     const body = await req.json();
     const { action, taxId, consultaType } = body;
 
-    // ── Action: test-details (fetch existing details without new query) ──
-    if (action === "test-details") {
-      const { clientId, queryId } = body;
-      if (!clientId || !queryId) {
-        return new Response(JSON.stringify({ error: "clientId e queryId são obrigatórios." }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const token = await agriskLogin();
-      
-      // Also fetch the sub-query status to see what's available
-      const subQueryStatus = await fetchJson(`${AGRISK_BASE}/queries/clients/${clientId}`, token, 8000);
-      console.log("Sub-query status keys:", subQueryStatus ? Object.keys(subQueryStatus) : "null");
-      
-      const { details, hasRealData } = await fetchConsultaClienteDetails(token, clientId, queryId);
-      return new Response(JSON.stringify({ 
-        data: { details, hasRealData, subQueryStatusKeys: subQueryStatus ? Object.keys(subQueryStatus) : [] }
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     // ── Action: list-products ──
     if (action === "list-products") {
       const token = await agriskLogin();
