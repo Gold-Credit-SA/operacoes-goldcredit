@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { TrendingUp, DollarSign, BarChart3 } from 'lucide-react';
 import { DtbEntry, Operacao } from './scr-types';
 import {
   CATEGORY_LABELS, CategoryKey, VENCIMENTO_DETALHE_MAP, VENCIMENTO_AVENCER_MAP,
@@ -24,6 +25,13 @@ const CHART_COLORS: Record<CategoryKey, string> = {
   financiamentos: 'hsl(var(--chart-3))',
   outros_creditos: 'hsl(var(--chart-4))',
   limite: 'hsl(var(--chart-5))',
+};
+
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  emprestimos: <TrendingUp className="h-5 w-5 text-primary" />,
+  titulos_descontados: <BarChart3 className="h-5 w-5 text-chart-2" />,
+  financiamentos: <DollarSign className="h-5 w-5 text-chart-3" />,
+  outros_creditos: <BarChart3 className="h-5 w-5 text-chart-4" />,
 };
 
 const BUCKET_ORDER = ['v110', 'v120', 'v130', 'v140', 'v150', 'v160', 'v165', 'v170', 'v175', 'v180', 'v190', 'v200'];
@@ -52,27 +60,26 @@ function ChartTooltip({ active, payload, label }: any) {
   );
 }
 
+const groupByMod = (ops: Operacao[]): Operacao[] => {
+  const grouped: Record<string, Operacao> = {};
+  ops.forEach(op => {
+    if (!grouped[op.mod]) {
+      grouped[op.mod] = { ...op, resVenc: { ...op.resVenc } };
+    } else {
+      Object.entries(op.resVenc).forEach(([k, v]) => {
+        grouped[op.mod].resVenc[k] = (grouped[op.mod].resVenc[k] || 0) + v;
+      });
+      if (op.varCamb === 'S') grouped[op.mod].varCamb = 'S';
+    }
+  });
+  return Object.values(grouped);
+};
+
 export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
   const categoryOrder: CategoryKey[] = ['emprestimos', 'titulos_descontados', 'financiamentos', 'outros_creditos', 'limite'];
 
   const opsByCategory: Record<CategoryKey, Operacao[]> = {
     emprestimos: [], titulos_descontados: [], financiamentos: [], outros_creditos: [], limite: [],
-  };
-
-  // Group operations by mod within each category
-  const groupByMod = (ops: Operacao[]): Operacao[] => {
-    const grouped: Record<string, Operacao> = {};
-    ops.forEach(op => {
-      if (!grouped[op.mod]) {
-        grouped[op.mod] = { ...op, resVenc: { ...op.resVenc } };
-      } else {
-        Object.entries(op.resVenc).forEach(([k, v]) => {
-          grouped[op.mod].resVenc[k] = (grouped[op.mod].resVenc[k] || 0) + v;
-        });
-        if (op.varCamb === 'S') grouped[op.mod].varCamb = 'S';
-      }
-    });
-    return Object.values(grouped);
   };
 
   (latestDtb.lsOp || []).forEach(op => {
@@ -81,12 +88,10 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
     opsByCategory[cat].push(op);
   });
 
-  // Apply grouping and sorting per category
   (Object.keys(opsByCategory) as CategoryKey[]).forEach(cat => {
     opsByCategory[cat] = sortOpsByPriority(groupByMod(opsByCategory[cat]));
   });
 
-  // Build chart data: for each a-vencer bucket, sum values per non-limite category
   const nonLimiteCats = categoryOrder.filter(c => c !== 'limite');
   const activeCats = nonLimiteCats.filter(c => opsByCategory[c].length > 0);
 
@@ -107,79 +112,89 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
   const dtbLabel = formatDtb(latestDtb.dtb);
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">Detalhamento dos Registros — {dtbLabel}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Summary chart + legend */}
-        {chartData.length > 0 && (
-          <div>
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={chartData} margin={{ top: 10, right: 30, bottom: 5, left: 10 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
-                <YAxis tickFormatter={formatCompact} tick={{ fontSize: 10 }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} width={80} />
-                <Tooltip content={<ChartTooltip />} />
-                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-                {activeCats.map(cat => (
-                  <Area
-                    key={cat}
-                    type="monotone"
-                    dataKey={cat}
-                    name={CATEGORY_LABELS[cat]}
-                    stroke={CHART_COLORS[cat]}
-                    fill={CHART_COLORS[cat]}
-                    fillOpacity={0.15}
-                    strokeWidth={2}
-                  />
-                ))}
-              </AreaChart>
-            </ResponsiveContainer>
-            <div className="flex flex-wrap gap-4 mt-4 justify-center">
-              <div className="text-center px-4 py-2 rounded-md bg-muted/50">
-                <p className="font-mono text-lg font-bold">{formatCurrency(totalGeral)}</p>
-                <p className="text-xs text-muted-foreground">Total Geral</p>
+    <div className="space-y-6">
+      {/* Detalhamento dos registros - Chart + Summary side by side */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base text-primary">Detalhamento dos registros — {dtbLabel}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
+            {/* Chart */}
+            <div>
+              {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={280}>
+                  <AreaChart data={chartData} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
+                    <YAxis tickFormatter={formatCompact} tick={{ fontSize: 10 }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} width={80} />
+                    <Tooltip content={<ChartTooltip />} />
+                    {activeCats.map(cat => (
+                      <Area
+                        key={cat}
+                        type="monotone"
+                        dataKey={cat}
+                        name={CATEGORY_LABELS[cat]}
+                        stroke={CHART_COLORS[cat]}
+                        fill={CHART_COLORS[cat]}
+                        fillOpacity={0.15}
+                        strokeWidth={2}
+                      />
+                    ))}
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[280px] text-muted-foreground text-sm">
+                  Sem dados de créditos a vencer para exibir no gráfico.
+                </div>
+              )}
+            </div>
+
+            {/* Summary panel on the right */}
+            <div className="flex flex-col justify-center space-y-5">
+              <div>
+                <p className="font-mono text-2xl font-bold">{formatCurrency(totalGeral)}</p>
+                <p className="text-sm text-muted-foreground">Total</p>
               </div>
-              {activeCats.map(cat => {
+              {nonLimiteCats.map(cat => {
                 const catTotal = opsByCategory[cat].reduce((s, op) => s + calcTotalVenc(op.resVenc), 0);
                 return (
-                  <div key={cat} className="text-center px-4 py-2 rounded-md border">
-                    <div className="flex items-center gap-2 justify-center mb-1">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: CHART_COLORS[cat] }} />
+                  <div key={cat} className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${CHART_COLORS[cat]}20` }}>
+                      {CATEGORY_ICONS[cat] || <BarChart3 className="h-5 w-5 text-muted-foreground" />}
+                    </div>
+                    <div>
+                      <p className="font-mono text-sm font-bold">{formatCurrency(catTotal)}</p>
                       <p className="text-xs text-muted-foreground">{CATEGORY_LABELS[cat]}</p>
                     </div>
-                    <p className="font-mono text-sm font-semibold">{formatCurrency(catTotal)}</p>
                   </div>
                 );
               })}
             </div>
           </div>
-        )}
+        </CardContent>
+      </Card>
 
-        {/* Detail table */}
-        <div className="border-t pt-4">
-          <h3 className="font-semibold text-sm uppercase tracking-wide mb-4">Detalhamento</h3>
+      {/* Detalhamento table */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base text-primary">Detalhamento</CardTitle>
+        </CardHeader>
+        <CardContent>
           {categoryOrder.map(catKey => {
             const ops = opsByCategory[catKey];
             if (ops.length === 0) return null;
 
             const isLimiteCat = catKey === 'limite';
-            const catTotal = ops.reduce((s, op) => s + calcTotalVenc(op.resVenc), 0);
 
             return (
-              <div key={catKey} className="mb-6">
-                <div className="flex items-center justify-between bg-muted/50 px-3 py-2 rounded-md mb-2">
-                  <span className="font-semibold text-sm text-primary">{CATEGORY_LABELS[catKey]}</span>
-                  <span className="font-mono font-semibold text-sm">{formatCurrency(catTotal)}</span>
-                </div>
-
+              <div key={catKey} className="mb-6 last:mb-0">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[200px]">{isLimiteCat ? 'Tipo' : CATEGORY_LABELS[catKey]}</TableHead>
-                      <TableHead className="text-right">Valor</TableHead>
-                      <TableHead className="text-center w-[80px]">Cambial</TableHead>
-                      <TableHead>A vencer</TableHead>
+                    <TableRow className="bg-primary/10 border-b border-primary/20">
+                      <TableHead className="text-primary font-semibold">Modalidade</TableHead>
+                      <TableHead className="text-right text-primary font-semibold">Valor</TableHead>
+                      <TableHead className="text-center text-primary font-semibold w-[80px]">Cambial</TableHead>
+                      <TableHead className="text-primary font-semibold">A vencer</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -189,30 +204,71 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
                         ? (LIMITE_SUB_LABELS[op.mod] || getModalidadeLabel(op.mod))
                         : getModalidadeLabel(op.mod);
 
-                      const sortedBuckets = Object.entries(op.resVenc)
+                      const { aVencer, vencidos } = separateVencBuckets(op.resVenc);
+                      const totalAVencer = Object.values(aVencer).reduce((s, v) => s + v, 0);
+                      const totalVencido = Object.values(vencidos).reduce((s, v) => s + v, 0);
+
+                      const sortedAVencer = Object.entries(aVencer)
+                        .filter(([, v]) => v > 0)
+                        .sort(([a], [b]) => parseInt(a.replace('v', '')) - parseInt(b.replace('v', '')));
+
+                      const sortedVencidos = Object.entries(vencidos)
                         .filter(([, v]) => v > 0)
                         .sort(([a], [b]) => parseInt(a.replace('v', '')) - parseInt(b.replace('v', '')));
 
                       const cambial = op.varCamb === 'S' ? 'Sim' : 'Não';
 
+                      // Category label row
+                      const catLabel = isLimiteCat
+                        ? CATEGORY_LABELS.limite
+                        : CATEGORY_LABELS[catKey];
+
                       return (
-                        <TableRow key={i} className="align-top">
-                          <TableCell className="text-sm font-medium align-top">{label}</TableCell>
-                          <TableCell className="text-right font-mono text-sm align-top whitespace-nowrap">
-                            {formatCurrency(total)}
-                          </TableCell>
-                          <TableCell className="text-center text-sm align-top">{cambial}</TableCell>
-                          <TableCell className="align-top">
-                            <div className="space-y-0.5">
-                              {sortedBuckets.map(([k, v]) => (
-                                <div key={k} className="flex justify-between text-xs">
-                                  <span className="text-muted-foreground">{getVencLabel(k, isLimiteCat)}</span>
-                                  <span className="font-mono ml-4">{formatCurrency(v)}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </TableCell>
-                        </TableRow>
+                        <>
+                          {i === 0 && (
+                            <TableRow key={`header-${catKey}`} className="bg-muted/30">
+                              <TableCell colSpan={4} className="text-sm font-semibold text-primary">
+                                {catLabel}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          <TableRow key={i} className="align-top">
+                            <TableCell className="text-sm font-medium align-top pl-6">{label}</TableCell>
+                            <TableCell className="text-right font-mono text-sm align-top whitespace-nowrap">
+                              {formatCurrency(total)}
+                            </TableCell>
+                            <TableCell className="text-center text-sm align-top">{cambial}</TableCell>
+                            <TableCell className="align-top">
+                              <div className="space-y-0.5">
+                                {sortedAVencer.map(([k, v]) => (
+                                  <div key={k} className="flex justify-between text-xs">
+                                    <span className="text-muted-foreground">{getVencLabel(k, isLimiteCat)}</span>
+                                    <span className="font-mono ml-4">{formatCurrency(v)}</span>
+                                  </div>
+                                ))}
+                                {sortedVencidos.map(([k, v]) => (
+                                  <div key={k} className="flex justify-between text-xs">
+                                    <span className="text-destructive/80">{getVencLabel(k, isLimiteCat)}</span>
+                                    <span className="font-mono ml-4">{formatCurrency(v)}</span>
+                                  </div>
+                                ))}
+                                {/* Totals */}
+                                {totalAVencer > 0 && (
+                                  <div className="flex justify-between text-xs font-semibold border-t border-border/50 pt-1 mt-1">
+                                    <span>Total A Vencer</span>
+                                    <span className="font-mono ml-4">{formatCurrency(totalAVencer)}</span>
+                                  </div>
+                                )}
+                                {totalVencido > 0 && (
+                                  <div className="flex justify-between text-xs font-semibold text-destructive border-t border-border/50 pt-1 mt-0.5">
+                                    <span>Total Vencido</span>
+                                    <span className="font-mono ml-4">{formatCurrency(totalVencido)}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        </>
                       );
                     })}
                   </TableBody>
@@ -220,8 +276,8 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
               </div>
             );
           })}
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
