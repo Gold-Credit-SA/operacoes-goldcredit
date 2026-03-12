@@ -8,7 +8,6 @@ const corsHeaders = {
 
 const AGRISK_BASE = "https://api.agrisk.digital";
 
-// Map frontend consulta IDs to AgRisk product codes and IDs
 const PRODUCT_MAP: Record<string, { code: string; _id: string }> = {
   consulta_cliente: { code: "consulta-cliente", _id: "Y9kboNavmB0DjJGxAVWn" },
   imoveis_simples: { code: "pesquisa-imoveis", _id: "9Z6kr6GlVG6n6fM7k7Yb" },
@@ -36,8 +35,19 @@ async function agriskLogin(): Promise<string> {
   return data.token;
 }
 
+async function listProducts(token: string): Promise<any[]> {
+  const res = await fetch(`${AGRISK_BASE}/v2/products`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`Erro ao listar produtos (${res.status}): ${txt}`);
+  }
+  const data = await res.json();
+  return data.items || data || [];
+}
+
 async function findClientByTaxId(token: string, taxId: string): Promise<string | null> {
-  // Search across multiple pages
   for (let page = 1; page <= 10; page++) {
     const res = await fetch(`${AGRISK_BASE}/v2/clients?filter=all&page=${page}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -53,14 +63,12 @@ async function findClientByTaxId(token: string, taxId: string): Promise<string |
 }
 
 async function getOrCreateClient(token: string, taxId: string): Promise<string> {
-  // 1. First try to find existing client
   const existingId = await findClientByTaxId(token, taxId);
   if (existingId) {
     console.log(`Client found: ${existingId} for taxId ${taxId}`);
     return existingId;
   }
 
-  // 2. Client not found, create new one
   console.log(`Client not found, creating for taxId ${taxId}`);
   const createRes = await fetch(`${AGRISK_BASE}/clients`, {
     method: "POST",
@@ -76,7 +84,6 @@ async function getOrCreateClient(token: string, taxId: string): Promise<string> 
     return data.id || data._id || data.clientId;
   }
 
-  // If creation fails, try to parse error for client ID
   const errText = await createRes.text();
   console.error(`Create client failed (${createRes.status}): ${errText}`);
   
@@ -89,8 +96,6 @@ async function getOrCreateClient(token: string, taxId: string): Promise<string> 
 
   throw new Error(`Não foi possível cadastrar ou encontrar o cliente com o documento informado.`);
 }
-
-
 
 async function requestQuery(token: string, clientId: string, productIds: string[]): Promise<any> {
   const res = await fetch(`${AGRISK_BASE}/queries`, {
@@ -147,7 +152,6 @@ async function fetchResultByType(
 ): Promise<any> {
   const productCode = PRODUCT_MAP[consultaType]?.code;
 
-  // Find the relevant query item for this product
   const relevantItem = queryItems.find(
     (item: any) => item.productCode === productCode || item.product?.code === productCode || item.code === productCode
   );
@@ -156,7 +160,6 @@ async function fetchResultByType(
   console.log(`fetchResultByType: type=${consultaType}, productCode=${productCode}, queryId=${queryId}`);
   console.log(`queryItems:`, JSON.stringify(queryItems).slice(0, 500));
 
-  // Try multiple possible endpoints for the query result
   const tryEndpoints = async (paths: string[]): Promise<any> => {
     for (const path of paths) {
       try {
@@ -179,7 +182,6 @@ async function fetchResultByType(
 
   switch (consultaType) {
     case "consulta_cliente": {
-      // The actual query result should be fetched from the query endpoint, not the client list
       const paths = queryId
         ? [
             `/queries/clients/${clientId}/consulta-cliente/${queryId}`,
@@ -189,13 +191,11 @@ async function fetchResultByType(
           ]
         : [];
       
-      // Also try fetching all query results for this client
       paths.push(`/queries/clients/${clientId}`);
       
       const result = await tryEndpoints(paths);
       if (result) return result;
       
-      // Fallback: return the polling item itself which may contain embedded data
       return relevantItem || { message: "Consulta processada, dados não encontrados no endpoint esperado." };
     }
 
@@ -235,8 +235,100 @@ serve(async (req) => {
   }
 
   try {
-    const { taxId, consultaType } = await req.json();
+    const body = await req.json();
+    const { action, taxId, consultaType } = body;
 
+    // ── Action: list-products ──
+    if (action === "list-products") {
+      const token = await agriskLogin();
+      const products = await listProducts(token);
+      return new Response(JSON.stringify({ data: products }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── Action: run-free-queries ──
+    // Registers client + runs all price=0 products automatically
+    if (action === "run-free-queries") {
+      if (!taxId) {
+        return new Response(JSON.stringify({ error: "taxId é obrigatório." }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const token = await agriskLogin();
+      const clientId = await getOrCreateClient(token, taxId.replace(/\D/g, ""));
+
+      // Get products and filter free ones
+      const products = await listProducts(token);
+      const freeProducts = products.filter((p: any) => p.price === 0);
+      console.log(`Free products: ${freeProducts.length} of ${products.length} total`);
+
+      if (freeProducts.length === 0) {
+        // Just return client info with no free queries
+        let clientData = null;
+        try {
+          const res = await fetch(`${AGRISK_BASE}/clients/client/${clientId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) clientData = await res.json();
+        } catch {}
+
+        return new Response(JSON.stringify({
+          data: {
+            clientId,
+            clientData,
+            freeQueryResults: [],
+            message: "Nenhum produto gratuito disponível.",
+          },
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Request queries for all free products
+      const freeProductIds = freeProducts.map((p: any) => p._id);
+      console.log(`Requesting free queries with product IDs:`, freeProductIds);
+      const queryResult = await requestQuery(token, clientId, freeProductIds);
+      console.log("Free query result:", JSON.stringify(queryResult).slice(0, 500));
+
+      // Poll for results
+      const pollResults = await pollForResults(token, clientId);
+
+      // Fetch client cadastral data (free)
+      let clientData = null;
+      try {
+        const res = await fetch(`${AGRISK_BASE}/clients/client/${clientId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) clientData = await res.json();
+      } catch {}
+
+      // Fetch contacts (free)
+      let contacts = null;
+      try {
+        const res = await fetch(`${AGRISK_BASE}/v2/queries/clients/${clientId}/contacts`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) contacts = await res.json();
+      } catch {}
+
+      return new Response(JSON.stringify({
+        data: {
+          clientId,
+          clientData,
+          contacts,
+          freeProducts: freeProducts.map((p: any) => ({ name: p.name, code: p.code })),
+          queryResult,
+          pollResults,
+        },
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── Default action: single query ──
     if (!taxId || !consultaType) {
       return new Response(JSON.stringify({ error: "taxId e consultaType são obrigatórios." }), {
         status: 400,
@@ -252,21 +344,14 @@ serve(async (req) => {
       });
     }
 
-    // 1. Login
     const token = await agriskLogin();
-
-    // 2. Get or create client
     const clientId = await getOrCreateClient(token, taxId.replace(/\D/g, ""));
-
-    // 3. Request query with hardcoded product ID
     const queryResult = await requestQuery(token, clientId, [productInfo._id]);
 
-    // 5. Poll for results
     console.log("Query result:", JSON.stringify(queryResult).slice(0, 500));
     const pollResults = await pollForResults(token, clientId);
     console.log("Poll results:", JSON.stringify(pollResults).slice(0, 500));
 
-    // 6. Fetch specific results
     const resultData = await fetchResultByType(token, clientId, consultaType, Array.isArray(pollResults) ? pollResults : [pollResults]);
 
     return new Response(JSON.stringify({ data: resultData }), {

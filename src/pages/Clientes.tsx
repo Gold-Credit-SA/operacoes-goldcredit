@@ -116,12 +116,14 @@ export default function Clientes() {
 
     setCreating(true);
     try {
+      // Run free queries automatically on registration
       const { data: agriskData, error: agriskError } = await supabase.functions.invoke('agrisk-query', {
-        body: { taxId: cleanDoc, consultaType: 'consulta_cliente' },
+        body: { action: 'run-free-queries', taxId: cleanDoc },
       });
 
-      const clientName = agriskData?.data?.name || agriskData?.name || null;
-      const agriskClientId = agriskData?.data?._id || agriskData?.data?.id || agriskData?._id || null;
+      const resultData = agriskData?.data || agriskData || {};
+      const clientName = resultData?.clientData?.name || null;
+      const agriskClientId = resultData?.clientId || null;
 
       const { data: inserted, error: insertError } = await supabase
         .from('consulta_clients')
@@ -129,7 +131,7 @@ export default function Clientes() {
           cpf_cnpj: cleanDoc,
           name: clientName,
           agrisk_client_id: agriskClientId,
-          basic_data: agriskData?.data || agriskData || null,
+          basic_data: resultData,
           created_by: user!.id,
         } as any)
         .select()
@@ -143,13 +145,19 @@ export default function Clientes() {
           throw insertError;
         }
       } else if (inserted) {
+        // Save free queries to history
+        const freeProducts = resultData?.freeProducts || [];
+        const historyLabel = freeProducts.length > 0
+          ? `Cadastro + ${freeProducts.length} consulta(s) gratuita(s)`
+          : 'Cadastro Cliente';
+
         await supabase.from('consulta_history').insert({
           user_id: user!.id,
           cnpj: cleanDoc,
           platform: 'agrisk',
-          consulta_type: 'consulta_cliente',
-          consulta_label: 'Consulta Cliente',
-          result_data: agriskData?.data || agriskData || null,
+          consulta_type: 'cadastro_free',
+          consulta_label: historyLabel,
+          result_data: resultData,
           status: agriskError ? 'error' : 'success',
           entity_name: clientName,
         } as any);

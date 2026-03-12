@@ -1,10 +1,9 @@
-import { useState, useCallback } from 'react';
-import { Search, Loader2, CheckCircle2, XCircle, RotateCcw, FileText } from 'lucide-react';
+import { useState, useCallback, useEffect } from 'react';
+import { Search, Loader2, CheckCircle2, XCircle, Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { CONSULTA_GROUPS, type ConsultaTypeId } from '@/components/analise-operacao/ConsultaSelection';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +17,13 @@ interface ConsultaResult {
   error?: string;
 }
 
+interface AgriskProduct {
+  name: string;
+  code: string;
+  _id: string;
+  price: number;
+}
+
 interface ConsultaModalProps {
   cpfCnpj: string;
   clientName: string | null;
@@ -25,6 +31,14 @@ interface ConsultaModalProps {
   onClose: () => void;
   onDone: () => void;
 }
+
+// Map AgRisk product codes to our frontend IDs
+const CODE_TO_FRONTEND_ID: Record<string, string> = {
+  'consulta-cliente': 'consulta_cliente',
+  'pesquisa-imoveis': 'imoveis_simples',
+  'car': 'imoveis_car',
+  'vehicle-assets': 'patrimonio_veicular',
+};
 
 function getLabel(id: ConsultaTypeId): string {
   for (const g of CONSULTA_GROUPS) {
@@ -67,8 +81,33 @@ export function ConsultaModal({ cpfCnpj, clientName, open, onClose, onDone }: Co
   const [selected, setSelected] = useState<Set<ConsultaTypeId>>(new Set());
   const [phase, setPhase] = useState<'select' | 'executing'>('select');
   const [results, setResults] = useState<ConsultaResult[]>([]);
+  const [agriskProducts, setAgriskProducts] = useState<AgriskProduct[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
 
   const isCpf = cpfCnpj.length === 11;
+
+  // Fetch AgRisk products with prices when modal opens
+  useEffect(() => {
+    if (!open) return;
+    setLoadingProducts(true);
+    supabase.functions.invoke('agrisk-query', {
+      body: { action: 'list-products' },
+    }).then(({ data }) => {
+      const products = data?.data || [];
+      setAgriskProducts(products);
+    }).catch(() => {
+      // Silently fail — prices just won't show
+    }).finally(() => setLoadingProducts(false));
+  }, [open]);
+
+  // Get price for a frontend consulta ID
+  const getPrice = (id: ConsultaTypeId): number | null => {
+    // Non-AgRisk items don't have AgRisk pricing
+    if (id.startsWith('serasa') || id === 'scr') return null;
+    const product = agriskProducts.find(p => CODE_TO_FRONTEND_ID[p.code] === id);
+    if (product) return product.price;
+    return null;
+  };
 
   // Only show specific AgRisk items (adding gradually)
   const allowedAgriskItems = new Set(['consulta_cliente']);
@@ -78,7 +117,6 @@ export function ConsultaModal({ cpfCnpj, clientName, open, onClose, onDone }: Co
     items: group.items.filter(item => {
       if ((item.id === 'serasa_basico_pf' || item.id === 'serasa_avancado_top_score_pf') && !isCpf) return false;
       if ((item.id === 'serasa_basico_pj' || item.id === 'serasa_avancado_pj') && isCpf) return false;
-      // For AgRisk, only show explicitly allowed items
       if (group.provider === 'Agrisk' && !allowedAgriskItems.has(item.id)) return false;
       return true;
     }),
@@ -92,6 +130,12 @@ export function ConsultaModal({ cpfCnpj, clientName, open, onClose, onDone }: Co
     });
   };
 
+  // Calculate total credits
+  const totalCredits = Array.from(selected).reduce((sum, id) => {
+    const price = getPrice(id);
+    return sum + (price || 0);
+  }, 0);
+
   const executeAll = useCallback(async () => {
     const ids = Array.from(selected);
     setPhase('executing');
@@ -102,7 +146,6 @@ export function ConsultaModal({ cpfCnpj, clientName, open, onClose, onDone }: Co
         const data = await runSingleConsulta(cpfCnpj, id);
         setResults(prev => prev.map(r => r.id === id ? { ...r, status: 'success' as const } : r));
 
-        // Save to history
         if (user) {
           const extractedName = clientName
             || (data as any)?.name
@@ -133,7 +176,7 @@ export function ConsultaModal({ cpfCnpj, clientName, open, onClose, onDone }: Co
   const successCount = results.filter(r => r.status === 'success').length;
 
   const handleClose = () => {
-    if (phase === 'executing' && !allDone) return; // Don't close while running
+    if (phase === 'executing' && !allDone) return;
     if (phase === 'executing') {
       onDone();
     } else {
@@ -160,25 +203,48 @@ export function ConsultaModal({ cpfCnpj, clientName, open, onClose, onDone }: Co
         <div className="flex-1 min-h-0 overflow-auto">
           {phase === 'select' ? (
             <div className="space-y-4 py-2">
+              {loadingProducts && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Carregando preços...
+                </div>
+              )}
               {filteredGroups.map(group => (
                 <div key={group.provider} className="space-y-2">
                   <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground/60">
                     {group.provider}
                   </span>
                   <div className="grid gap-1.5">
-                    {group.items.map(ct => (
-                      <label
-                        key={ct.id}
-                        className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
-                          selected.has(ct.id)
-                            ? 'border-primary bg-primary/5'
-                            : 'border-border hover:border-muted-foreground/30'
-                        }`}
-                      >
-                        <Checkbox checked={selected.has(ct.id)} onCheckedChange={() => toggle(ct.id)} />
-                        <span className="text-sm text-foreground">{ct.label}</span>
-                      </label>
-                    ))}
+                    {group.items.map(ct => {
+                      const price = getPrice(ct.id);
+                      const isFree = price === 0;
+                      return (
+                        <label
+                          key={ct.id}
+                          className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                            selected.has(ct.id)
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:border-muted-foreground/30'
+                          }`}
+                        >
+                          <Checkbox checked={selected.has(ct.id)} onCheckedChange={() => toggle(ct.id)} />
+                          <span className="text-sm text-foreground flex-1">{ct.label}</span>
+                          {price !== null && (
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] gap-1 shrink-0 ${
+                                isFree
+                                  ? 'border-green-500/30 text-green-600 bg-green-500/5'
+                                  : 'border-amber-500/30 text-amber-600 bg-amber-500/5'
+                              }`}
+                            >
+                              <Coins className="h-3 w-3" />
+                              {isFree ? 'Grátis' : `${price} créd.`}
+                            </Badge>
+                          )}
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
               ))}
@@ -200,19 +266,28 @@ export function ConsultaModal({ cpfCnpj, clientName, open, onClose, onDone }: Co
           )}
         </div>
 
-        <div className="flex justify-end gap-2 pt-2 border-t border-border">
-          {phase === 'select' ? (
-            <>
-              <Button variant="outline" onClick={onClose}>Cancelar</Button>
-              <Button onClick={executeAll} disabled={selected.size === 0}>
-                Executar ({selected.size})
-              </Button>
-            </>
-          ) : (
-            <Button onClick={handleClose} disabled={!allDone}>
-              {allDone ? 'Fechar' : <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Aguarde...</>}
-            </Button>
+        <div className="flex items-center justify-between pt-2 border-t border-border">
+          {phase === 'select' && totalCredits > 0 && (
+            <div className="flex items-center gap-1.5 text-xs text-amber-600">
+              <Coins className="h-3.5 w-3.5" />
+              <span className="font-medium">{totalCredits} crédito(s)</span>
+            </div>
           )}
+          {phase === 'select' && totalCredits === 0 && <div />}
+          <div className="flex gap-2 ml-auto">
+            {phase === 'select' ? (
+              <>
+                <Button variant="outline" onClick={onClose}>Cancelar</Button>
+                <Button onClick={executeAll} disabled={selected.size === 0}>
+                  Executar ({selected.size})
+                </Button>
+              </>
+            ) : (
+              <Button onClick={handleClose} disabled={!allDone}>
+                {allDone ? 'Fechar' : <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Aguarde...</>}
+              </Button>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
