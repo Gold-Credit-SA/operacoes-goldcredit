@@ -124,23 +124,33 @@ export default function ClienteDetail() {
     );
   }
 
-  const bd = client.basic_data as any || {};
+  const rawBd = client.basic_data as any || {};
+  // Support both flat structure and nested { clientData, contacts } from register-client action
+  const bd = rawBd.clientData || rawBd;
   const isCpf = client.cpf_cnpj.length === 11;
   const birthDate = bd.birthDate || bd.dataNascimento || bd.nascimento || null;
-  const age = birthDate ? calcAge(birthDate) : null;
+  const age = bd.age || (birthDate ? calcAge(birthDate) : null);
   const gender = bd.gender || bd.genero || bd.sexo || null;
   const maritalStatus = bd.maritalStatus || bd.estadoCivil || null;
   const motherName = bd.motherName || bd.nomeMae || null;
+  const fatherName = bd.fatherName || bd.nomePai || null;
+  const taxIdStatus = bd.taxIdStatus || null;
+  const hasObitIndication = bd.hasObitIndication ?? null;
 
-  // Validations
-  const validations = bd.validations || bd.validacoes || {};
-  const receitaFederal = validations.receitaFederal || validations.receita || null;
-  const obito = validations.obito || validations.death || null;
+  // Validations — build from clientData fields if no explicit validations object
+  const rawValidations = bd.validations || bd.validacoes || {};
+  const validations = Object.keys(rawValidations).length > 0
+    ? rawValidations
+    : {
+        ...(taxIdStatus ? { receitaFederal: taxIdStatus } : {}),
+        ...(hasObitIndication !== null ? { obito: hasObitIndication } : {}),
+      };
 
-  // Addresses, phones, emails from basic_data
-  const addresses: any[] = bd.addresses || bd.enderecos || [];
-  const phones: any[] = bd.phones || bd.telefones || [];
-  const emails: any[] = bd.emails || [];
+  // Addresses, phones, emails — check contacts sub-object too
+  const contactsData = rawBd.contacts || {};
+  const addresses: any[] = bd.addresses || bd.enderecos || contactsData.addresses || [];
+  const phones: any[] = bd.phones || bd.telefones || contactsData.phones || [];
+  const emails: any[] = bd.emails || contactsData.emails || [];
 
   const lastUpdate = client.updated_at || client.created_at;
 
@@ -228,6 +238,12 @@ export default function ClienteDetail() {
                     <p className="text-sm text-foreground">{motherName}</p>
                   </div>
                 )}
+                {fatherName && (
+                  <div>
+                    <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Nome do Pai</p>
+                    <p className="text-sm text-foreground">{fatherName}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -242,16 +258,16 @@ export default function ClienteDetail() {
               <CardContent>
                 {Object.keys(validations).length > 0 ? (
                   <div className="grid grid-cols-2 gap-3">
-                    {receitaFederal && (
+                    {validations.receitaFederal && (
                       <div>
                         <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Receita Federal</p>
-                        <p className="text-sm text-foreground">{receitaFederal}</p>
+                        <p className="text-sm text-foreground">{validations.receitaFederal}</p>
                       </div>
                     )}
-                    {obito !== undefined && obito !== null && (
+                    {validations.obito !== undefined && validations.obito !== null && (
                       <div>
                         <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Óbito</p>
-                        <p className="text-sm text-foreground">{typeof obito === 'boolean' ? (obito ? 'Positivo' : 'Negativo') : String(obito)}</p>
+                        <p className="text-sm text-foreground">{typeof validations.obito === 'boolean' ? (validations.obito ? 'Positivo' : 'Negativo') : String(validations.obito)}</p>
                       </div>
                     )}
                     {Object.entries(validations).filter(([k]) => k !== 'receitaFederal' && k !== 'receita' && k !== 'obito' && k !== 'death').map(([key, val]) => (
