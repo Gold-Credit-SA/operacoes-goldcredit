@@ -235,9 +235,9 @@ function ComplianceContent({ items }: { items: SubItem[] }) {
                     return (
                       <div key={key} className="flex gap-3 text-sm items-center">
                         <span className="text-muted-foreground min-w-[180px] shrink-0">{key}</span>
-                        <Badge variant="outline" className="text-[10px] gap-1">
-                          <FileText className="h-3 w-3" /> PDF disponível
-                        </Badge>
+                        <a href={val} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
+                          <ExternalLink className="h-3 w-3" /> Abrir PDF
+                        </a>
                       </div>
                     );
                   }
@@ -277,9 +277,9 @@ function AmbientalContent({ items }: { items: SubItem[] }) {
                     return (
                       <div key={key} className="flex gap-3 text-sm items-center">
                         <span className="text-muted-foreground min-w-[160px] shrink-0">{key}</span>
-                        <Badge variant="outline" className="text-[10px] gap-1">
-                          <FileText className="h-3 w-3" /> PDF disponível
-                        </Badge>
+                        <a href={val} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
+                          <ExternalLink className="h-3 w-3" /> Abrir PDF
+                        </a>
                       </div>
                     );
                   }
@@ -353,9 +353,9 @@ function CNDsContent({ items }: { items: SubItem[] }) {
                     </TableCell>
                     <TableCell>
                       {cnd.fileUrl && (
-                        <Badge variant="outline" className="text-[10px] gap-1">
-                          <FileText className="h-3 w-3" />
-                        </Badge>
+                        <a href={cnd.fileUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
+                          <ExternalLink className="h-3 w-3" /> PDF
+                        </a>
                       )}
                     </TableCell>
                   </TableRow>
