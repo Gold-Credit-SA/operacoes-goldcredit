@@ -1582,6 +1582,14 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
 
         const hasBehavioral = Object.keys(behavioralData).length > 0 || marketItems.length > 0 || pjPayItems.length > 0 || payHistoryMarket.length > 0 || commitmentItems.length > 0 || commitmentMarket.length > 0 || businessRefItems.length > 0;
 
+        // Debug: log full behavioral data structure
+        console.log('[Behavioral] report keys:', Object.keys(report || {}));
+        console.log('[Behavioral] behavioralData:', JSON.stringify(behavioralData, null, 2).substring(0, 8000));
+        console.log('[Behavioral] optionalFeatures keys:', Object.keys(optionalFeatures || {}));
+        console.log('[Behavioral] paymentHistoryPJ:', JSON.stringify(paymentHistoryPJ, null, 2).substring(0, 5000));
+        console.log('[Behavioral] commitmentEvolution:', JSON.stringify(commitmentEvolution, null, 2).substring(0, 3000));
+        console.log('[Behavioral] businessReferences:', JSON.stringify(businessReferences, null, 2).substring(0, 3000));
+
         // Helper to render a horizontal grid table (like Relacionamento com mercado)
         const GridRow = ({ headers, values }: { headers: string[]; values: (string | number)[] }) => (
           <div className="overflow-x-auto border border-border rounded-lg">
