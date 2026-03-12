@@ -247,7 +247,14 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
     Number(pick(checks, ['summary.count'], 0)) +
     Number(pick(protests, ['summary.count'], 0));
 
-  // Common derived values
+  // Check for explicit "NADA CONSTA" message from the API (liminar or clean record)
+  const nadaConstaMessage = pick<string>(negativeData, [
+    'message', 'summary.message', 'annotationMessage', 'nadaConsta',
+    'pefinResponse.message', 'refinResponse.message',
+  ], '') || '';
+  const hasNadaConsta = totalNegativeCount === 0 || 
+    nadaConstaMessage.toUpperCase().includes('NADA CONSTA');
+
   const scoreValue = Number(pick(score, ['score'], 0));
   const rawDefaultRate = pick<string>(score, ['defaultRate'], '');
   // Parse raw defaultRate: "01378" → "13,78%"
@@ -703,6 +710,19 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           </div>
           )}
         </div>
+
+        {/* NADA CONSTA - highlight when no negative records */}
+        {hasNadaConsta && (
+          <div className="border-2 border-green-500/30 bg-green-500/5 rounded-lg p-4 mb-4">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-green-600" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">Anotações negativas</p>
+                <p className="text-base font-bold text-green-600">NADA CONSTA</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tabelas individuais PJ */}
         <NegDetailTable title="REFIN" rows={refinItems} columns={[
@@ -1191,6 +1211,19 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             )}
           </div>
         </div>
+
+        {/* NADA CONSTA - highlight when no negative records */}
+        {hasNadaConsta && (
+          <div className="border-2 border-green-500/30 bg-green-500/5 rounded-lg p-4 mb-4">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-green-600" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">Anotações negativas</p>
+                <p className="text-base font-bold text-green-600">NADA CONSTA</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tabelas individuais */}
         <NegDetailTable
