@@ -75,7 +75,7 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
     return Object.values(grouped);
   };
 
-  latestDtb.lsOp.forEach(op => {
+  (latestDtb.lsOp || []).forEach(op => {
     const limite = isLimiteOp(op);
     const cat = getDisplayCategory(op.mod, limite);
     opsByCategory[cat].push(op);
