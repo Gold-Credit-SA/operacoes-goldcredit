@@ -879,9 +879,9 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
                   return (
                   <TableRow key={i}>
                     <TableCell className="text-xs py-2">{d.name || d.directorName || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{d.position || d.role || d.office || '-'}</TableCell>
+                    <TableCell className="text-xs py-2">{d.role || d.position || d.office || '-'}</TableCell>
                     <TableCell className="text-xs py-2">{formatDocument(d.documentId || d.documentNumber || d.cpf || d.cnpj)}</TableCell>
-                    <TableCell className="text-xs py-2">{formatDate(d.admissionDate || d.entryDate || d.since)}</TableCell>
+                    <TableCell className="text-xs py-2">{formatDate(d.sinceDate || d.admissionDate || d.entryDate || d.since)}</TableCell>
                     <TableCell className="text-xs py-2">{d.mandate || d.mandatePeriod || '-'}</TableCell>
                     <TableCell className="text-xs py-2">{d.nationality || '-'}</TableCell>
                     <TableCell className="text-xs py-2">{d.maritalStatus || d.civilStatus || '-'}</TableCell>
