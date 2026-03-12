@@ -21,6 +21,8 @@ import Consultas from "./pages/Consultas";
 import HistoricoSerasa from "./pages/HistoricoSerasa";
 import HistoricoSCR from "./pages/HistoricoSCR";
 import HistoricoAgrisk from "./pages/HistoricoAgrisk";
+import Clientes from "./pages/Clientes";
+import ClienteDetail from "./pages/ClienteDetail";
 
 const queryClient = new QueryClient({
   defaultOptions: {
