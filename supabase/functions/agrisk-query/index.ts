@@ -8,12 +8,12 @@ const corsHeaders = {
 
 const AGRISK_BASE = "https://api.agrisk.digital";
 
-// Map frontend consulta IDs to AgRisk product codes
-const PRODUCT_MAP: Record<string, string> = {
-  consulta_cliente: "consulta-cliente",
-  imoveis_simples: "pesquisa-imoveis",
-  imoveis_car: "car",
-  patrimonio_veicular: "vehicle-assets",
+// Map frontend consulta IDs to AgRisk product codes and IDs
+const PRODUCT_MAP: Record<string, { code: string; _id: string }> = {
+  consulta_cliente: { code: "consulta-cliente", _id: "Y9kboNavmB0DjJGxAVWn" },
+  imoveis_simples: { code: "pesquisa-imoveis", _id: "9Z6kr6GlVG6n6fM7k7Yb" },
+  imoveis_car: { code: "car", _id: "d9e66bd5-300a-49dd-ab49-9133dcccab96" },
+  patrimonio_veicular: { code: "vehicle-assets", _id: "8a6dd886-902c-4745-a8e0-e81db1e10e93" },
 };
 
 async function agriskLogin(): Promise<string> {
