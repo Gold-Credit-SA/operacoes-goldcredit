@@ -26,9 +26,6 @@ const SHORT_LABELS: Record<string, string> = {
   'v180': '1800',
   'v190': '5400',
   'v200': '+5400',
-  'v250': 'Indet.',
-  'v255': 'Indet.C',
-  'v260': 'Indet.L',
 };
 
 const SHORT_VENCIDO_LABELS: Record<string, string> = {
@@ -36,6 +33,15 @@ const SHORT_VENCIDO_LABELS: Record<string, string> = {
   'v20': '≤15d',
   'v30': '1-30d',
   'v40': '31-60d',
+  'v50': '61-90d',
+  'v60': '91-180d',
+  'v70': '181-300d',
+  'v80': '301-360d',
+  'v90': '361-720d',
+  'v100': '+720d',
+  'v250': 'Indet.',
+  'v255': 'Indet.C',
+  'v260': 'Indet.L',
 };
 
 function formatCompact(value: number): string {

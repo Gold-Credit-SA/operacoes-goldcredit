@@ -53,9 +53,6 @@ export const VENCIMENTO_AVENCER_MAP: Record<string, string> = {
   'v180': '1441 a 1800 Dias',
   'v190': '1801 a 5400 Dias',
   'v200': 'Acima de 5400 Dias',
-  'v250': 'Prazo Indeterminado',
-  'v255': 'Prazo Indeterminado (curto)',
-  'v260': 'Prazo Indeterminado (longo)',
 };
 
 export const VENCIMENTO_VENCIDO_MAP: Record<string, string> = {
@@ -63,6 +60,15 @@ export const VENCIMENTO_VENCIDO_MAP: Record<string, string> = {
   'v20': 'Vencidos até 15 dias',
   'v30': 'Vencidos de 1 a 30 dias',
   'v40': 'Vencidos de 31 a 60 dias',
+  'v50': 'Vencidos de 61 a 90 dias',
+  'v60': 'Vencidos de 91 a 180 dias',
+  'v70': 'Vencidos de 181 a 300 dias',
+  'v80': 'Vencidos de 301 a 360 dias',
+  'v90': 'Vencidos de 361 a 720 dias',
+  'v100': 'Vencidos há mais de 720 dias',
+  'v250': 'Prazo Indeterminado',
+  'v255': 'Prazo Indeterminado (curto)',
+  'v260': 'Prazo Indeterminado (longo)',
 };
 
 // Labels for DETALHAMENTO table - same as carteira (HBI uses same labels)
@@ -71,6 +77,12 @@ export const VENCIMENTO_DETALHE_MAP: Record<string, string> = {
   'v20': 'Vencidos até 15 dias',
   'v30': 'Vencidos de 1 a 30 dias',
   'v40': 'Vencidos de 31 a 60 dias',
+  'v50': 'Vencidos de 61 a 90 dias',
+  'v60': 'Vencidos de 91 a 180 dias',
+  'v70': 'Vencidos de 181 a 300 dias',
+  'v80': 'Vencidos de 301 a 360 dias',
+  'v90': 'Vencidos de 361 a 720 dias',
+  'v100': 'Vencidos há mais de 720 dias',
   'v110': '30 Dias',
   'v120': '31 a 60 Dias',
   'v130': '61 a 90 Dias',
