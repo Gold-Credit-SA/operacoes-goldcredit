@@ -36,8 +36,32 @@ async function agriskLogin(): Promise<string> {
   return data.token;
 }
 
+async function findClientByTaxId(token: string, taxId: string): Promise<string | null> {
+  // Search across multiple pages
+  for (let page = 1; page <= 10; page++) {
+    const res = await fetch(`${AGRISK_BASE}/v2/clients?filter=all&page=${page}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) break;
+    const data = await res.json();
+    const items = data.items || data;
+    if (!Array.isArray(items) || items.length === 0) break;
+    const found = items.find((c: any) => c.taxId?.replace(/\D/g, "") === taxId.replace(/\D/g, ""));
+    if (found) return found.id || found._id;
+  }
+  return null;
+}
+
 async function getOrCreateClient(token: string, taxId: string): Promise<string> {
-  // Try to create client
+  // 1. First try to find existing client
+  const existingId = await findClientByTaxId(token, taxId);
+  if (existingId) {
+    console.log(`Client found: ${existingId} for taxId ${taxId}`);
+    return existingId;
+  }
+
+  // 2. Client not found, create new one
+  console.log(`Client not found, creating for taxId ${taxId}`);
   const createRes = await fetch(`${AGRISK_BASE}/clients`, {
     method: "POST",
     headers: {
@@ -52,29 +76,18 @@ async function getOrCreateClient(token: string, taxId: string): Promise<string> 
     return data.id || data._id || data.clientId;
   }
 
-  // If 400, client may already exist — extract id from response
-  if (createRes.status === 400) {
-    const errData = await createRes.json();
+  // If creation fails, try to parse error for client ID
+  const errText = await createRes.text();
+  console.error(`Create client failed (${createRes.status}): ${errText}`);
+  
+  try {
+    const errData = JSON.parse(errText);
     if (errData.id || errData.clientId || errData._id) {
       return errData.id || errData.clientId || errData._id;
     }
-    // Search in client list
-    const listRes = await fetch(`${AGRISK_BASE}/v2/clients?filter=all&page=1`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (listRes.ok) {
-      const listData = await listRes.json();
-      const items = listData.items || listData;
-      if (Array.isArray(items)) {
-        const found = items.find((c: any) => c.taxId?.replace(/\D/g, "") === taxId.replace(/\D/g, ""));
-        if (found) return found.id || found._id;
-      }
-    }
-    throw new Error(errData.message || "Cliente já cadastrado mas não foi possível obter o ID.");
-  }
+  } catch {}
 
-  const txt = await createRes.text();
-  throw new Error(`Erro ao cadastrar cliente (${createRes.status}): ${txt}`);
+  throw new Error(`Não foi possível cadastrar ou encontrar o cliente com o documento informado.`);
 }
 
 
