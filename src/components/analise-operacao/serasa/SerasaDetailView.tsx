@@ -152,14 +152,6 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const qsaReport = (report?.QSAReport || report?.qsaReport || {}) as GenericRecord;
   const companyData = (qsaReport?.companyData || report?.companyData || optionalFeatures?.companyData || {}) as GenericRecord;
 
-  // Debug: log actual API structure for PJ reports
-  if (isPJ) {
-    console.log('[SerasaDebug] report keys:', Object.keys(report));
-    console.log('[SerasaDebug] identificationReport:', JSON.stringify(identificationReport, null, 2));
-    console.log('[SerasaDebug] registration:', JSON.stringify(registration, null, 2));
-    console.log('[SerasaDebug] registration.address:', JSON.stringify(registration?.address, null, 2));
-  }
-
   // Partners: try report.partner.PartnerResponse.results first (PJ basic), then QSA paths
   const partnerSection = (report?.partner || {}) as GenericRecord;
   const directorSection = (report?.director || {}) as GenericRecord;
@@ -289,7 +281,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const cnae = String(pick(identificationReport, ['cnae']) || '-');
   const numberEmployees = pick(identificationReport, ['numberEmployees']);
   const socialCapital = pick(companyData, ['socialCapitalValue', 'capitalValue', 'accomplishedValue']);
-  const companyAddress = pick(registration, ['address']) || pick(identificationReport, ['address']) || {} as GenericRecord;
+  const companyAddress = (pick(identificationReport, ['address']) || pick(registration, ['address']) || {}) as GenericRecord;
 
   const rawStatusRF = String(pick(registration, ['statusRegistration', 'documentStatus']) || pick(identificationReport, ['statusRegistration', 'statusCodeDescription']) || '-');
   // Clean "SITUACAO DO CNPJ EM DD/MM/YYYY: ATIVA" → "ATIVA"
@@ -467,7 +459,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
           <div className="border border-border rounded-lg p-3">
             <p className="text-[10px] font-medium text-muted-foreground">Tipo de sociedade</p>
-            <p className="text-xs font-bold text-foreground mt-0.5 line-clamp-2">{String(pick(identificationReport, ['legalNature', 'companyLegalNature', 'societyType']) || '-')}</p>
+            <p className="text-xs font-bold text-foreground mt-0.5 line-clamp-2">{String(pick(identificationReport, ['partnership', 'legalNature', 'companyLegalNature', 'societyType']) || '-')}</p>
           </div>
           <div className="border border-border rounded-lg p-3">
             <p className="text-[10px] font-medium text-muted-foreground">Funcionários</p>
@@ -491,23 +483,21 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             { label: 'Endereço', value: (() => {
               const addr = companyAddress as GenericRecord;
               if (!addr || typeof addr !== 'object') return '-';
-              const street = addr.street || addr.streetName || addr.logradouro || '';
-              const num = addr.number || addr.addressNumber || '';
-              const compl = addr.complement || addr.addressComplement || '';
-              const neigh = addr.neighborhood || addr.district || addr.bairro || '';
-              const city = addr.city || addr.cityName || addr.municipio || '';
-              const state = addr.state || addr.federalUnit || addr.uf || '';
-              const zip = addr.zipCode || addr.postalCode || addr.cep || '';
-              const parts = [street, num, compl, neigh ? `- ${neigh}` : '', city, state ? `- ${state}` : '', zip].filter(Boolean);
+              const line = addr.addressLine || '';
+              const neigh = addr.district || addr.neighborhood || addr.bairro || '';
+              const city = addr.city || addr.cityName || '';
+              const state = addr.state || addr.federalUnit || '';
+              const zip = addr.zipCode || addr.postalCode || '';
+              const parts = [line, neigh ? `- ${neigh},` : '', city, state ? `- ${state},` : '', zip].filter(Boolean);
               return parts.join(' ') || '-';
             })() },
-            { label: 'Site', value: String(pick(identificationReport, ['website', 'site', 'webSite', 'homePage']) || '-') },
+            { label: 'Site', value: String(pick(identificationReport, ['companyUrl', 'website', 'site', 'webSite', 'homePage']) || '-') || '-' },
             { label: 'Telefone', value: (() => {
-              const phone = pick(identificationReport, ['phone', 'telephone', 'phoneNumber', 'mainPhone']) || pick(registration, ['phone', 'telephone']);
+              const phone = pick(identificationReport, ['phone', 'telephone', 'phoneNumber', 'mainPhone']);
               if (!phone) return '-';
               if (typeof phone === 'object') {
                 const p = phone as GenericRecord;
-                return [p.areaCode || p.ddd, p.number || p.phoneNumber].filter(Boolean).join(' ') || '-';
+                return [p.areaCode || p.ddd, p.phoneNumber || p.number].filter(Boolean).join(' ') || '-';
               }
               return String(phone);
             })() },
@@ -532,14 +522,21 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
               }
               return String(raw);
             })() },
+            { label: 'Ramo de atividade', value: economicActivity },
             { label: 'Inscrição estadual', value: String(pick(identificationReport, ['stateRegistration', 'inscricaoEstadual', 'stateInscription']) || '-') },
-            { label: 'NIRE', value: String(pick(identificationReport, ['nire', 'NIRE', 'nireNumber']) || '-') },
-            { label: 'Registro', value: String(pick(identificationReport, ['registrationBoard', 'registrationNumber']) || '-') },
-            { label: 'Data de registro', value: formatDate(pick(identificationReport, ['registrationDate', 'boardDate'])) },
+            { label: 'NIRE', value: String(pick(identificationReport, ['nireNumber', 'nire', 'NIRE']) || '-') },
+            { label: 'Registro', value: String(pick(identificationReport, ['companyRegister', 'registrationBoard', 'registrationNumber']) || '-') },
+            { label: 'Data de registro', value: formatDate(pick(identificationReport, ['companyRegisterDate', 'registrationDate', 'boardDate'])) },
             { label: 'Import. / compras', value: String(pick(identificationReport, ['importation', 'importOnPurchases', 'importPercentage']) || '-') },
             { label: 'Export. / vendas', value: String(pick(identificationReport, ['exportation', 'exportOnSales', 'exportPercentage']) || '-') },
-            { label: 'Cód. ativ. Serasa', value: String(pick(identificationReport, ['activityCode', 'serasaActivityCode', 'serasaCode']) || '-') },
-            { label: 'Empresa antecessora', value: String(pick(identificationReport, ['predecessorCompany', 'antecessorCompany', 'predecessor']) || '-') },
+            { label: 'Cód. ativ. Serasa', value: String(pick(identificationReport, ['serasaActiveCode', 'activityCode', 'serasaActivityCode']) || '-') },
+            { label: 'Empresa antecessora', value: (() => {
+              const list = asArray(pick(identificationReport, ['predecessorList'], []));
+              if (list.length > 0) {
+                return list.map((p: any) => `${p.predecessorName || '-'}${p.predecessorDate ? ` - até ${formatDate(p.predecessorDate)}` : ''}`).join('; ');
+              }
+              return String(pick(identificationReport, ['predecessorCompany', 'antecessorCompany']) || '-');
+            })() },
           ].map((row, i) => (
             <div key={i} className="px-4 py-1.5 flex gap-2">
               <span className="text-muted-foreground text-xs font-medium shrink-0 w-44">{row.label}:</span>
@@ -583,9 +580,14 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             <span className="text-muted-foreground text-xs font-medium shrink-0">Endereço:</span>
             <span className="text-xs text-foreground">
               {(() => {
-                const addr = companyAddress;
+                const addr = companyAddress as GenericRecord;
                 if (!addr || typeof addr !== 'object') return '-';
-                const parts = [addr.street, addr.number, addr.complement, addr.neighborhood ? `- ${addr.neighborhood}` : '', addr.city || '', addr.state ? `- ${addr.state},` : '', addr.zipCode].filter(Boolean);
+                const line = addr.addressLine || '';
+                const neigh = addr.district || addr.neighborhood || '';
+                const city = addr.city || '';
+                const state = addr.state || addr.federalUnit || '';
+                const zip = addr.zipCode || '';
+                const parts = [line, neigh ? `- ${neigh},` : '', city, state ? `- ${state},` : '', zip].filter(Boolean);
                 return parts.join(' ') || '-';
               })()}
             </span>
