@@ -240,17 +240,14 @@ export default function ClienteDetail() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-foreground">{entry.consulta_label}</span>
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] cursor-pointer hover:opacity-80 ${getPlatformColor(entry.platform)}`}
+                        <PlatformBadge
+                          platform={entry.platform}
                           onClick={(e) => {
                             e.stopPropagation();
                             const routes: Record<string, string> = { serasa: '/historico-serasa', scr: '/historico-scr', agrisk: '/historico-agrisk' };
                             if (routes[entry.platform]) navigate(routes[entry.platform]);
                           }}
-                        >
-                          {entry.platform.toUpperCase()}
-                        </Badge>
+                        />
                       </div>
                       <p className="text-xs text-muted-foreground">
                         {format(new Date(entry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
