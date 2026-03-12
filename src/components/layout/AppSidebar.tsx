@@ -31,7 +31,6 @@ export function AppSidebar() {
 
   const userInitial = profile?.name?.charAt(0).toUpperCase() || 'U';
   const isCarteiraActive = location.pathname.startsWith('/carteira');
-  const isConsultasActive = location.pathname.startsWith('/consultas') || location.pathname.startsWith('/historico-');
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar flex flex-col border-r border-sidebar-border">
