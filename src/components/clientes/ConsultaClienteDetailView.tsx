@@ -68,6 +68,17 @@ function normalizeStatus(status: string | undefined): string {
   return s;
 }
 
+function pickBestItem(raw: any): any {
+  if (!Array.isArray(raw)) return raw;
+  if (raw.length === 0) return null;
+
+  const withResult = raw.find((entry: any) => entry?.result || entry?.data);
+  if (withResult) return withResult;
+
+  const done = raw.find((entry: any) => normalizeStatus(entry?.status) === 'DONE');
+  return done || raw[0];
+}
+
 function statusIcon(s: string) {
   const n = normalizeStatus(s);
   if (n === 'DONE') return <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />;
@@ -109,16 +120,21 @@ function renderValue(val: unknown): string {
 }
 
 function getPayload(raw: any): any {
-  const item = Array.isArray(raw) ? raw[0] : raw;
-  if (!item || typeof item !== 'object') return null;
-  // The enriched data has result field with actual data
-  const result = item.result || item.data;
-  if (result && typeof result === 'object') return result;
-  // Fallback: filter out metadata from the item itself
-  const filtered = Object.fromEntries(
-    Object.entries(item).filter(([k]) => !METADATA_KEYS.has(k))
-  );
-  return Object.keys(filtered).length > 0 ? filtered : null;
+  const candidates = Array.isArray(raw) ? raw : [pickBestItem(raw)];
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== 'object') continue;
+
+    const result = candidate.result || candidate.data;
+    if (result && typeof result === 'object') return result;
+
+    const filtered = Object.fromEntries(
+      Object.entries(candidate).filter(([k]) => !METADATA_KEYS.has(k))
+    );
+    if (Object.keys(filtered).length > 0) return filtered;
+  }
+
+  return null;
 }
 
 function getPayloadEntries(payload: any): [string, unknown][] {
