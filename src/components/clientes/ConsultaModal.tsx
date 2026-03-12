@@ -171,6 +171,11 @@ export function ConsultaModal({ cpfCnpj, clientName, open, onClose, onDone }: Co
     const promises = ids.map(async (id) => {
       try {
         const data = await withTimeout(runSingleConsulta(cpfCnpj, id), CONSULTA_TIMEOUT_MS, getLabel(id));
+
+        if (id === 'consulta_cliente' && !hasConsultaClienteDetails(data)) {
+          throw new Error('A consulta retornou somente metadados (status) sem detalhamento útil.');
+        }
+
         setResults(prev => prev.map(r => r.id === id ? { ...r, status: 'success' as const } : r));
 
         if (user) {
