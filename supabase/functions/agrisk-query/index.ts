@@ -247,9 +247,9 @@ serve(async (req) => {
       });
     }
 
-    // ── Action: run-free-queries ──
-    // Registers client + runs all price=0 products automatically
-    if (action === "run-free-queries") {
+    // ── Action: register-client ──
+    // Only registers client + fetches free cadastral data (no paid queries)
+    if (action === "register-client") {
       if (!taxId) {
         return new Response(JSON.stringify({ error: "taxId é obrigatório." }), {
           status: 400,
@@ -260,43 +260,7 @@ serve(async (req) => {
       const token = await agriskLogin();
       const clientId = await getOrCreateClient(token, taxId.replace(/\D/g, ""));
 
-      // Get products and filter free ones
-      const products = await listProducts(token);
-      const freeProducts = products.filter((p: any) => p.price === 0);
-      console.log(`Free products: ${freeProducts.length} of ${products.length} total`);
-
-      if (freeProducts.length === 0) {
-        // Just return client info with no free queries
-        let clientData = null;
-        try {
-          const res = await fetch(`${AGRISK_BASE}/clients/client/${clientId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (res.ok) clientData = await res.json();
-        } catch {}
-
-        return new Response(JSON.stringify({
-          data: {
-            clientId,
-            clientData,
-            freeQueryResults: [],
-            message: "Nenhum produto gratuito disponível.",
-          },
-        }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Request queries for all free products
-      const freeProductIds = freeProducts.map((p: any) => p._id);
-      console.log(`Requesting free queries with product IDs:`, freeProductIds);
-      const queryResult = await requestQuery(token, clientId, freeProductIds);
-      console.log("Free query result:", JSON.stringify(queryResult).slice(0, 500));
-
-      // Poll for results
-      const pollResults = await pollForResults(token, clientId);
-
-      // Fetch client cadastral data (free)
+      // Fetch client cadastral data (free GET)
       let clientData = null;
       try {
         const res = await fetch(`${AGRISK_BASE}/clients/client/${clientId}`, {
@@ -305,7 +269,7 @@ serve(async (req) => {
         if (res.ok) clientData = await res.json();
       } catch {}
 
-      // Fetch contacts (free)
+      // Fetch contacts (free GET)
       let contacts = null;
       try {
         const res = await fetch(`${AGRISK_BASE}/v2/queries/clients/${clientId}/contacts`, {
@@ -319,9 +283,6 @@ serve(async (req) => {
           clientId,
           clientData,
           contacts,
-          freeProducts: freeProducts.map((p: any) => ({ name: p.name, code: p.code })),
-          queryResult,
-          pollResults,
         },
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
