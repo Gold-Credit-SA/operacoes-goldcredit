@@ -39,7 +39,7 @@ export function SCRDetailView({ data }: SCRDetailViewProps) {
 
   const latestDtb = response.lsDtb[response.lsDtb.length - 1];
   const entityName = (data as any)?.data?.name || (data as any)?.name || response.name || '';
-  const totalOperacoes = latestDtb.lsOp.length;
+  const totalOperacoes = latestDtb.lsOp?.length ?? 0;
   const riskClassification = (data as any)?.data?.riskClassification || (data as any)?.riskClassification;
 
   return (
