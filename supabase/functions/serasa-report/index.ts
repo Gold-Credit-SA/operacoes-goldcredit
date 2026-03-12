@@ -139,7 +139,10 @@ serve(async (req) => {
     const uf = federalUnit || 'SP';
     reportUrl += `&federalUnit=${uf}`;
 
-    const effectiveOptionalFeatures = optionalFeatures || reportConfig.defaultOptionalFeatures;
+    // Optional features are disabled for advanced PJ by default because many contracts reject them
+    const effectiveOptionalFeatures = cId === 'serasa_avancado_pj'
+      ? undefined
+      : (optionalFeatures || reportConfig.defaultOptionalFeatures);
     if (effectiveOptionalFeatures) {
       reportUrl += `&optionalFeatures=${effectiveOptionalFeatures}`;
     }
