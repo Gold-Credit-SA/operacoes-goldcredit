@@ -248,11 +248,12 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
     Number(pick(protests, ['summary.count'], 0));
 
   // Check for explicit "NADA CONSTA" message from Serasa API (liminar judicial)
-  // This is a WARNING: means a court order is hiding negative records — only show when API explicitly says so
-  const nadaConstaMessage = pick<string>(negativeData, [
-    'message', 'summary.message', 'annotationMessage', 'nadaConsta',
-    'pefinResponse.message', 'refinResponse.message',
-  ], '') || '';
+  // The API returns this in report.negativeSummary.message when there's a court order
+  const negativeSummary = (report?.negativeSummary || {}) as GenericRecord;
+  const nadaConstaMessage = [
+    pick<string>(negativeSummary, ['message'], ''),
+    pick<string>(negativeData, ['message', 'summary.message', 'annotationMessage', 'nadaConsta', 'pefinResponse.message', 'refinResponse.message'], ''),
+  ].filter(Boolean).join(' ');
   const hasNadaConsta = nadaConstaMessage.toUpperCase().includes('NADA CONSTA');
 
   const scoreValue = Number(pick(score, ['score'], 0));
