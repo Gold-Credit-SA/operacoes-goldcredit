@@ -93,49 +93,8 @@ export function AppSidebar() {
           </div>
         )}
 
-        <div className="pt-1" />
 
-        {/* Consultas dropdown */}
-        <button
-          onClick={() => setConsultasOpen(!consultasOpen)}
-          className={cn(
-            "flex items-center justify-between w-full px-4 py-3 rounded-lg text-sm font-medium transition-all duration-150",
-            isConsultasActive
-              ? "text-sidebar-foreground bg-sidebar-accent"
-              : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
-          )}
-        >
-          <span className="flex items-center gap-3">
-            <ClipboardList className={cn("h-5 w-5", isConsultasActive ? "text-primary" : "text-sidebar-foreground/50")} />
-            Consultas
-          </span>
-          <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", consultasOpen ? "rotate-180" : "")} />
-        </button>
 
-        {consultasOpen && (
-          <div className="ml-4 pl-4 border-l border-sidebar-border space-y-1">
-            {consultasItems.map((item) => {
-              const isActive = location.pathname === item.path;
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150",
-                    isActive
-                      ? "text-sidebar-foreground bg-sidebar-accent font-medium"
-                      : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/40"
-                  )}
-                >
-                  <item.icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-sidebar-foreground/40")} />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="pt-1" />
 
         {navItemsAfter.map((item) => {
           const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
