@@ -588,9 +588,14 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             <span className="text-muted-foreground text-xs font-medium shrink-0">Endereço:</span>
             <span className="text-xs text-foreground">
               {(() => {
-                const addr = companyAddress;
+                const addr = companyAddress as GenericRecord;
                 if (!addr || typeof addr !== 'object') return '-';
-                const parts = [addr.street, addr.number, addr.complement, addr.neighborhood ? `- ${addr.neighborhood}` : '', addr.city || '', addr.state ? `- ${addr.state},` : '', addr.zipCode].filter(Boolean);
+                const line = addr.addressLine || '';
+                const neigh = addr.district || addr.neighborhood || '';
+                const city = addr.city || '';
+                const state = addr.state || addr.federalUnit || '';
+                const zip = addr.zipCode || '';
+                const parts = [line, neigh ? `- ${neigh},` : '', city, state ? `- ${state},` : '', zip].filter(Boolean);
                 return parts.join(' ') || '-';
               })()}
             </span>
