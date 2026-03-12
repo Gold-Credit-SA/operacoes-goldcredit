@@ -62,7 +62,7 @@ export const VENCIMENTO_VENCIDO_MAP: Record<string, string> = {
   'v40': 'Vencidos de 31 a 60 dias',
   'v50': 'Vencidos de 61 a 90 dias',
   'v60': 'Vencidos de 91 a 180 dias',
-  'v70': 'Vencidos de 181 a 300 dias',
+  'v70': 'Vencidos de 241 a 300 dias',
   'v80': 'Vencidos de 301 a 360 dias',
   'v90': 'Vencidos de 361 a 720 dias',
   'v100': 'Vencidos há mais de 720 dias',
