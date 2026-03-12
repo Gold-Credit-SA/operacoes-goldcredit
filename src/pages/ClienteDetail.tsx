@@ -550,8 +550,9 @@ export default function ClienteDetail() {
                       <div className="overflow-auto">
                         <Table>
                           <TableHeader>
-                            <TableRow>
+                             <TableRow>
                               <TableHead>E-mail</TableHead>
+                              <TableHead className="w-[100px]">Tipo</TableHead>
                               <TableHead className="w-[120px] text-right">Última Passagem</TableHead>
                             </TableRow>
                           </TableHeader>
