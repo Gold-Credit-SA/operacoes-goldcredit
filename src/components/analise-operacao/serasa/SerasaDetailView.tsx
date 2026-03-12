@@ -289,7 +289,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const cnae = String(pick(identificationReport, ['cnae']) || '-');
   const numberEmployees = pick(identificationReport, ['numberEmployees']);
   const socialCapital = pick(companyData, ['socialCapitalValue', 'capitalValue', 'accomplishedValue']);
-  const companyAddress = pick(registration, ['address']) || pick(identificationReport, ['address']) || {} as GenericRecord;
+  const companyAddress = (pick(identificationReport, ['address']) || pick(registration, ['address']) || {}) as GenericRecord;
 
   const rawStatusRF = String(pick(registration, ['statusRegistration', 'documentStatus']) || pick(identificationReport, ['statusRegistration', 'statusCodeDescription']) || '-');
   // Clean "SITUACAO DO CNPJ EM DD/MM/YYYY: ATIVA" → "ATIVA"
