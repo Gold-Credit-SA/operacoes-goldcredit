@@ -222,12 +222,9 @@ async function fetchConsultaClienteDetails(
   // These are the REAL endpoints from the AgRisk API documentation
   const detailFetches = [
     { key: "compliance", fn: () => fetchJson(`${AGRISK_BASE}/queries/clients/${clientId}/compliance/${queryId}`, token, 8000) },
-    { key: "bvs", fn: () => fetchJson(`${AGRISK_BASE}/queries/clients/${clientId}/bvs/${queryId}`, token, 8000) },
     { key: "lawsuits", fn: () => fetchJson(`${AGRISK_BASE}/queries/clients/${clientId}/lawsuits`, token, 8000) },
     { key: "groups_economic", fn: () => fetchJson(`${AGRISK_BASE}/queries/clients/${clientId}/groups/economic`, token, 5000) },
     { key: "groups_family", fn: () => fetchJson(`${AGRISK_BASE}/queries/clients/${clientId}/groups/family`, token, 5000) },
-    { key: "bndes", fn: () => fetchJson(`${AGRISK_BASE}/queries/clients/${clientId}/bndes`, token, 5000) },
-    { key: "contacts", fn: () => fetchJson(`${AGRISK_BASE}/v2/queries/clients/${clientId}/contacts`, token, 5000) },
   ];
 
   // Execute all in parallel
