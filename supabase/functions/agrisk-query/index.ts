@@ -9,6 +9,8 @@ const corsHeaders = {
 const AGRISK_BASE = "https://api.agrisk.digital";
 const POLL_DELAY_MS = 2500;
 const POLL_ATTEMPTS = 8;
+const AGRISK_FALLBACK_CREDENTIAL = "api-agrisk@goldcreditsa.com.br";
+const AGRISK_FALLBACK_PASSWORD = "@CB9W0AkYRkvFfx";
 
 type ConsultaType =
   | "consulta_cliente"
@@ -313,8 +315,8 @@ async function handleConsulta(body: Record<string, unknown>): Promise<Response> 
 }
 
 async function agriskLogin(): Promise<string> {
-  const credential = Deno.env.get("AGRISK_CREDENTIAL");
-  const password = Deno.env.get("AGRISK_PASSWORD");
+  const credential = Deno.env.get("AGRISK_CREDENTIAL") || AGRISK_FALLBACK_CREDENTIAL;
+  const password = Deno.env.get("AGRISK_PASSWORD") || AGRISK_FALLBACK_PASSWORD;
 
   if (!credential || !password) {
     throw new Error("Credenciais AgRisk nao configuradas.");
