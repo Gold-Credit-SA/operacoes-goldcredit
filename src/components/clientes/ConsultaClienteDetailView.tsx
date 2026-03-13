@@ -566,53 +566,41 @@ export function ConsultaClienteDetailView({ data: rawData }: Props) {
   const selectedCat = categorizedData.find(c => c.key === selectedKey);
 
   return (
-    <div className="flex gap-0 min-h-[500px] border border-border rounded-lg overflow-hidden bg-card">
-      {/* Sidebar */}
-      <div className="w-[200px] shrink-0 border-r border-border bg-muted/30">
-        <div className="p-3 border-b border-border">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Consulta Cliente</p>
-          <div className="flex items-center gap-1.5 mt-1">
-            <span className="text-[10px] text-green-600 flex items-center gap-0.5">
-              <CheckCircle2 className="h-3 w-3" /> {categorizedData.length} categorias
-            </span>
-          </div>
-        </div>
-        <ScrollArea className="h-[calc(100%-60px)]">
-          <nav className="py-1">
-            {categorizedData.map(cat => {
-              const Icon = cat.icon;
-              const isActive = cat.key === selectedKey;
+    <div className="space-y-4">
+      {/* Navbar tabs */}
+      <div className="flex items-center gap-1 border-b border-border">
+        {categorizedData.map(cat => {
+          const Icon = cat.icon;
+          const isActive = cat.key === selectedKey;
 
-              return (
-                <button
-                  key={cat.key}
-                  onClick={() => setActiveCategory(cat.key)}
-                  className={cn(
-                    'w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm transition-colors',
-                    isActive
-                      ? 'bg-primary/10 text-primary border-l-2 border-primary font-medium'
-                      : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground border-l-2 border-transparent'
-                  )}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  <span className="flex-1 truncate">{cat.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </ScrollArea>
+          return (
+            <button
+              key={cat.key}
+              onClick={() => setActiveCategory(cat.key)}
+              className={cn(
+                'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px',
+                isActive
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {cat.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 min-w-0 p-6 overflow-auto">
+      {/* Content */}
+      <div className="min-h-[400px]">
         {selectedCat ? (
           selectedCat.key === 'compliance' ? <ComplianceContent items={selectedCat.items} /> :
           selectedCat.key === 'juridico' ? <LawsuitsContent items={selectedCat.items} /> :
           selectedCat.key === 'grupos' ? <GruposContent items={selectedCat.items} /> :
           null
         ) : (
-          <div className="flex items-center justify-center h-full text-muted-foreground">
-            <p>Selecione uma categoria na barra lateral.</p>
+          <div className="flex items-center justify-center h-full text-muted-foreground py-12">
+            <p>Nenhuma categoria disponível.</p>
           </div>
         )}
       </div>
