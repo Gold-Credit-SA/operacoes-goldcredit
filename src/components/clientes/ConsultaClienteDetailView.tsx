@@ -386,53 +386,107 @@ function LawsuitsContent({ items }: { items: SubItem[] }) {
 
       {/* Detail dialog */}
       <Dialog open={!!selectedProcess} onOpenChange={(open) => !open && setSelectedProcess(null)}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg">Detalhes do Processo</DialogTitle>
           </DialogHeader>
-          {selectedProcess && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <DetailField label="Número" value={selectedProcess.Number} mono />
-                <DetailField label="Tribunal" value={selectedProcess.CourtName} />
-                <DetailField label="UF" value={selectedProcess.State} />
-                <DetailField label="Polo" value={selectedProcess.Polarity} />
-                <DetailField label="Status" value={selectedProcess.Status} />
-                <DetailField label="Natureza" value={selectedProcess.Nature} />
-                <DetailField label="Valor" value={selectedProcess.Value ? formatCurrency(selectedProcess.Value) : '—'} />
-                <DetailField label="Data Início" value={selectedProcess.StartDate ? formatDate(selectedProcess.StartDate) : '—'} />
+          {selectedProcess && (() => {
+            const p = selectedProcess;
+            const nature = p.Nature || p.MainSubject?.split(' - ')[0] || '';
+            const polarity = p.Polarity || '—';
+            const status = p.Status || '—';
+            const isActive = !(status === 'INATIVO' || status === 'BAIXADO');
+
+            return (
+              <div className="space-y-5">
+                {/* Status badges row */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant={isActive ? "default" : "secondary"}>{isActive ? 'ATIVO' : 'INATIVO'}</Badge>
+                  <Badge variant="outline" className={cn("text-xs font-semibold",
+                    polarity === 'Ativo' ? 'border-primary/40 text-primary bg-primary/5' : 'border-blue-500/30 text-blue-600 bg-blue-50'
+                  )}>{polarity.toUpperCase()}</Badge>
+                  {nature && getNatureBadge(nature)}
+                </div>
+
+                {/* Main info grid */}
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <DetailField label="Número" value={p.Number} mono />
+                      <DetailField label="Tribunal" value={p.CourtName} />
+                      <DetailField label="UF" value={p.State} />
+                      <DetailField label="Natureza" value={p.Nature} />
+                      <DetailField label="Classe" value={p.Class || p.ClassName} />
+                      <DetailField label="Área" value={p.Area} />
+                      <DetailField label="Assunto Principal" value={p.MainSubject} />
+                      <DetailField label="Assunto Extra" value={p.ExtraSubject} />
+                      <DetailField label="Vara / Foro" value={p.CourtLevel || p.Court} />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Dates & Values */}
+                <Card>
+                  <CardContent className="p-4">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">Datas e Valores</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <DetailField label="Data Início" value={p.StartDate ? formatDate(p.StartDate) : p.DistributionDate ? formatDate(p.DistributionDate) : '—'} />
+                      <DetailField label="Data Distribuição" value={p.DistributionDate ? formatDate(p.DistributionDate) : '—'} />
+                      <DetailField label="Última Atualização" value={p.LastUpdate ? formatDate(p.LastUpdate) : p.LastMovementDate ? formatDate(p.LastMovementDate) : '—'} />
+                      <DetailField label="Valor da Causa" value={p.Value ? formatCurrency(p.Value) : '—'} />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Parties */}
+                {p.Parties && p.Parties.length > 0 && (
+                  <Card>
+                    <CardContent className="p-4">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">Partes ({p.Parties.length})</p>
+                      <div className="divide-y divide-border">
+                        {p.Parties.map((party: any, i: number) => (
+                          <div key={i} className="flex items-center justify-between py-2.5">
+                            <div>
+                              <p className="text-sm font-medium text-foreground">{party.Name || party.name || '—'}</p>
+                              {(party.TaxId || party.taxId || party.Document) && (
+                                <p className="text-xs text-muted-foreground">{party.TaxId || party.taxId || party.Document}</p>
+                              )}
+                              {(party.Lawyer || party.LawyerName) && (
+                                <p className="text-xs text-muted-foreground mt-0.5">Advogado: {party.Lawyer || party.LawyerName}</p>
+                              )}
+                            </div>
+                            <Badge variant="outline" className="text-[10px] font-semibold">
+                              {(party.Polarity || party.polarity || party.Type || party.type || '—').toUpperCase()}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Updates / Movimentações */}
+                {p.Updates && p.Updates.length > 0 && (
+                  <Card>
+                    <CardContent className="p-4">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">Movimentações ({p.Updates.length})</p>
+                      <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                        {p.Updates.map((upd: any, i: number) => (
+                          <div key={i} className="border-l-2 border-primary/30 pl-3 pb-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-primary">{upd.Date ? formatDate(upd.Date) : '—'}</span>
+                              {upd.Type && <Badge variant="secondary" className="text-[10px]">{upd.Type}</Badge>}
+                            </div>
+                            <p className="text-xs text-foreground mt-1">{upd.Description || upd.Content || upd.Text || '—'}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
-              <DetailField label="Assunto Principal" value={selectedProcess.MainSubject} />
-              {selectedProcess.Parties && selectedProcess.Parties.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Partes</p>
-                  <div className="space-y-2">
-                    {selectedProcess.Parties.map((party: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                        <span className="text-sm text-foreground">{party.Name || party.name || '—'}</span>
-                        <Badge variant="outline" className="text-[10px]">
-                          {(party.Polarity || party.polarity || party.Type || party.type || '—').toUpperCase()}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {selectedProcess.Updates && selectedProcess.Updates.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Movimentações</p>
-                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                    {selectedProcess.Updates.map((upd: any, i: number) => (
-                      <div key={i} className="text-xs border-b border-border pb-2 last:border-0">
-                        <span className="text-muted-foreground">{upd.Date ? formatDate(upd.Date) : ''}</span>
-                        <p className="text-foreground mt-0.5">{upd.Description || upd.Content || '—'}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
