@@ -624,17 +624,76 @@ async function fetchLawsuitDetail(
   clientId: string,
   lawsuitId: string,
 ): Promise<Record<string, unknown> | null> {
-  const result = await tryJson<Record<string, unknown>>(
-    `${AGRISK_BASE}/queries/clients/${clientId}/lawsuits/${lawsuitId}`,
-    token,
-    15000,
-  );
+  let lastDetail: Record<string, unknown> | null = null;
 
-  if (!result.ok || !result.data || typeof result.data !== "object") {
-    return null;
+  for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
+    const result = await tryJson<Record<string, unknown>>(
+      `${AGRISK_BASE}/queries/clients/${clientId}/lawsuits/${lawsuitId}`,
+      token,
+      15000,
+    );
+
+    if (result.ok && result.data && typeof result.data === "object") {
+      lastDetail = await enrichLawsuitMovements(token, result.data);
+
+      if (hasLawsuitTimeline(lastDetail)) {
+        return lastDetail;
+      }
+    }
+
+    if (attempt < POLL_ATTEMPTS - 1) {
+      await sleep(POLL_DELAY_MS);
+    }
   }
 
-  return result.data;
+  return lastDetail;
+}
+
+async function enrichLawsuitMovements(
+  token: string,
+  detail: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const enriched = { ...detail };
+  const initialUpdates = extractLawsuitUpdates(detail);
+  const nextPageUrl = asString(detail.NextPageUrlMovements) || asString(detail.nextPageUrlMovements);
+
+  if (!nextPageUrl) {
+    if (initialUpdates.length > 0) {
+      enriched.Updates = initialUpdates;
+    }
+    return enriched;
+  }
+
+  const collected = [...initialUpdates];
+  let currentUrl: string | null = nextPageUrl;
+
+  for (let page = 0; page < 10 && currentUrl; page += 1) {
+    const result = await tryJson<unknown>(resolveAgriskUrl(currentUrl), token, 15000);
+    if (!result.ok || result.data == null) {
+      break;
+    }
+
+    const pageUpdates = extractLawsuitUpdates(result.data);
+    if (pageUpdates.length > 0) {
+      collected.push(...pageUpdates);
+    }
+
+    if (typeof result.data === "object" && !Array.isArray(result.data)) {
+      currentUrl =
+        asString((result.data as Record<string, unknown>).NextPageUrlMovements) ||
+        asString((result.data as Record<string, unknown>).nextPageUrlMovements) ||
+        asString((result.data as Record<string, unknown>).nextPageUrl) ||
+        null;
+    } else {
+      currentUrl = null;
+    }
+  }
+
+  if (collected.length > 0) {
+    enriched.Updates = collected;
+  }
+
+  return enriched;
 }
 
 async function fetchRestritivos(
@@ -865,6 +924,45 @@ function isPendingStatus(status?: string): boolean {
   if (!status) return false;
   const normalized = normalizeText(status);
   return /(pending|process|queue|running|requested|aguardando|andamento)/.test(normalized);
+}
+
+function hasLawsuitTimeline(detail: Record<string, unknown> | null): boolean {
+  if (!detail) return false;
+
+  return (
+    extractLawsuitUpdates(detail).length > 0 ||
+    (Array.isArray(detail.Decisions) && detail.Decisions.length > 0) ||
+    (Array.isArray(detail.Petitions) && detail.Petitions.length > 0)
+  );
+}
+
+function extractLawsuitUpdates(payload: unknown): Record<string, unknown>[] {
+  if (Array.isArray(payload)) {
+    return payload.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"));
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return [];
+  }
+
+  const record = payload as Record<string, unknown>;
+  const directCandidates = [record.Updates, record.updates, record.Movements, record.movements, record.items];
+
+  for (const candidate of directCandidates) {
+    if (Array.isArray(candidate)) {
+      return candidate.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"));
+    }
+  }
+
+  return [];
+}
+
+function resolveAgriskUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+
+  return `${AGRISK_BASE}${url.startsWith("/") ? url : `/${url}`}`;
 }
 
 async function tryJson<T = unknown>(url: string, token: string, timeoutMs = 8000): Promise<TryJsonResult<T>> {
