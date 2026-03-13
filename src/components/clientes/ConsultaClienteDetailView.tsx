@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   CheckCircle2, AlertTriangle, Shield, Scale, Leaf,
-  Users, Ban, ChevronUp, ChevronDown, Search, Briefcase
+  Users, Ban, ChevronUp, ChevronDown, Search, Briefcase, Eye, X
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
