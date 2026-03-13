@@ -90,22 +90,7 @@ function getBestItemDate(value: Record<string, any>): string | null {
 }
 
 function isProcessDetailLoaded(process: Record<string, any>): boolean {
-  const hasParties = Array.isArray(process.Parties) && process.Parties.length > 0;
-  const hasTimeline =
-    (Array.isArray(process.Updates) && process.Updates.length > 0) ||
-    (Array.isArray(process.Decisions) && process.Decisions.length > 0) ||
-    (Array.isArray(process.Petitions) && process.Petitions.length > 0);
-  const hasExtraDetail =
-    (Array.isArray(process.Tags) && process.Tags.length > 0) ||
-    isPlainObject(process.IaAnalysisHistory) ||
-    Boolean(process.NumberOfPages) ||
-    Boolean(process.NumberOfVolumes) ||
-    typeof process.JusticeSecret === 'boolean';
-
-  return Boolean(
-    process.detailLoaded ||
-    (hasParties && (hasTimeline || hasExtraDetail)),
-  );
+  return Boolean(process.detailLoaded);
 }
 
 // ─── Transform API data ───
@@ -566,6 +551,18 @@ function ProcessDetailContent({ process, agriskClientId }: { process: Record<str
       </div>
 
       {loadingError && <p className="text-sm text-destructive">{loadingError}</p>}
+      {!loadingDetail && !loadingError && (!Array.isArray(p.Updates) || p.Updates.length === 0) && typeof p.UpdateStatus === 'string' && (
+        <div className={cn(
+          "rounded-lg border px-3 py-2 text-sm",
+          normalizeText(p.UpdateStatus) === 'falhou'
+            ? "border-amber-300 bg-amber-50 text-amber-900"
+            : "border-muted bg-muted/40 text-muted-foreground",
+        )}>
+          {normalizeText(p.UpdateStatus) === 'falhou'
+            ? 'O AgRisk retornou falha ao atualizar as movimentações deste processo. Os demais detalhes foram carregados, mas a API não entregou a timeline.'
+            : `Status das movimentações no AgRisk: ${p.UpdateStatus}.`}
+        </div>
+      )}
 
       <Card>
         <CardContent className="p-4">
