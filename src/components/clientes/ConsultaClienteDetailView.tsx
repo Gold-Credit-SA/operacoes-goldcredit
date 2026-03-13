@@ -90,11 +90,21 @@ function getBestItemDate(value: Record<string, any>): string | null {
 }
 
 function isProcessDetailLoaded(process: Record<string, any>): boolean {
-  return Boolean(
+  const hasParties = Array.isArray(process.Parties) && process.Parties.length > 0;
+  const hasTimeline =
     (Array.isArray(process.Updates) && process.Updates.length > 0) ||
     (Array.isArray(process.Decisions) && process.Decisions.length > 0) ||
-    (Array.isArray(process.Petitions) && process.Petitions.length > 0) ||
-    process.detailLoaded,
+    (Array.isArray(process.Petitions) && process.Petitions.length > 0);
+  const hasExtraDetail =
+    (Array.isArray(process.Tags) && process.Tags.length > 0) ||
+    isPlainObject(process.IaAnalysisHistory) ||
+    Boolean(process.NumberOfPages) ||
+    Boolean(process.NumberOfVolumes) ||
+    typeof process.JusticeSecret === 'boolean';
+
+  return Boolean(
+    process.detailLoaded ||
+    (hasParties && (hasTimeline || hasExtraDetail)),
   );
 }
 
