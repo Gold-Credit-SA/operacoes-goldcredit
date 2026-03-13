@@ -1,40 +1,38 @@
 import { useState } from 'react';
 import {
-  CheckCircle2, XCircle, Clock, AlertTriangle, Shield, Scale, Leaf,
-  Building2, FileText, Users, Database, Ban
+  CheckCircle2, AlertTriangle, Shield, Scale, Leaf,
+  Users, Ban, ChevronUp, ChevronDown, Search, Briefcase
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 
-// ─── Category definitions ───
-const CATEGORIES: { key: string; label: string; icon: any; keys: string[] }[] = [
-  { key: 'compliance', label: 'Compliance', icon: Shield, keys: ['criminal', 'labour', 'kyc'] },
-  { key: 'ambiental', label: 'Ambiental', icon: Leaf, keys: ['ibama', 'icmbio', 'sema'] },
-  { key: 'cnds', label: 'CNDs Estaduais', icon: FileText, keys: ['cnds-list'] },
-  { key: 'juridico', label: 'Judicial', icon: Scale, keys: ['lawsuits'] },
-  { key: 'grupos', label: 'Grupos', icon: Users, keys: ['grupo-familiar', 'grupo-economico'] },
-  { key: 'dados_basicos', label: 'Contatos', icon: Database, keys: ['emails', 'telefones', 'enderecos'] },
-  { key: 'bndes', label: 'BNDES', icon: Building2, keys: ['bndes'] },
-  { key: 'bvs', label: 'Boa Vista', icon: FileText, keys: ['bvs'] },
+// ─── Category definitions (removed BNDES, BVS, Contatos, CNDs) ───
+const CATEGORIES: { key: string; label: string; icon: any }[] = [
+  { key: 'compliance', label: 'Compliance', icon: Shield },
+  { key: 'juridico', label: 'Processos Judiciais', icon: Scale },
+  { key: 'grupos', label: 'Grupos', icon: Users },
 ];
 
 // ─── Helpers ───
 function formatDate(val: string): string {
-  try { return format(new Date(val), 'dd/MM/yyyy HH:mm'); } catch { return val; }
+  try { return format(new Date(val), 'dd/MM/yyyy'); } catch { return val; }
 }
 
 function formatCurrency(val: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 }
 
-
-
-
-// ─── Transform new API format ───
+// ─── Transform API data ───
 interface SubItem {
   key: string;
   label: string;
@@ -44,115 +42,116 @@ interface SubItem {
 
 function normalizeResponseData(rawData: Record<string, any>): Record<string, SubItem[]> {
   const result: Record<string, SubItem[]> = {};
-
-  // Handle formats: { details: { ... } } OR flat { compliance, bvs, lawsuits, ... }
   const details = rawData?.details || rawData;
   if (!details || typeof details !== 'object') return result;
 
-  // ── Compliance ──
+  // ── Compliance (Ambiental + Trabalhista merged) ──
   const compliance = details.compliance?.item || details.compliance;
-  if (compliance) {
-    const complianceItems: SubItem[] = [];
+  const complianceItems: SubItem[] = [];
 
-    // Criminal
-    if (compliance.criminal) {
-      const c = compliance.criminal;
-      complianceItems.push({
-        key: 'criminal',
-        label: 'Antecedentes Criminais',
-        status: 'DONE',
-        data: {
-          'Ficha Criminal': c.criminalRecord?.cleanRecord ? 'Nada consta' : 'Possui registro',
-          'Mandados de Prisão': c.warrants?.quant === 0 ? 'Nenhum mandado encontrado' : `${c.warrants?.quant} mandado(s)`,
-        }
-      });
-    }
-
-    // Labour
-    if (compliance.labour) {
-      const l = compliance.labour;
-      complianceItems.push({
-        key: 'labour',
-        label: 'Trabalhista',
-        status: 'DONE',
-        data: {
-          'PEP (Pessoa Politicamente Exposta)': l.IsPep ? 'Sim' : 'Não',
-          'Trabalho Escravo': l.IsSlaveLabour ? 'Listado' : 'Não listado',
-          'TST Status': l.tst?.status ? l.tst.status.charAt(0).toUpperCase() + l.tst.status.slice(1) : '—',
-        }
-      });
-    }
-
-    if (complianceItems.length > 0) {
-      result['compliance'] = complianceItems;
-    }
-  }
-
-  // ── Ambiental ──
+  // Ambiental sub-items
   const envData = compliance?.environmental;
   if (envData) {
-    const ambientalItems: SubItem[] = [];
+    const ambientalEntries: any[] = [];
 
     if (envData.ibama) {
       const ibama = envData.ibama;
-      const details_ibama: Record<string, any> = {};
-
-      if (ibama.ibamaCND) {
-        details_ibama['CND Status'] = ibama.ibamaCND.content?.length === 0 ? 'Nada consta' : `${ibama.ibamaCND.content?.length} registro(s)`;
-      }
-      if (ibama.embargos) {
-        details_ibama['Embargos'] = ibama.embargos.content?.length === 0 ? 'Nenhum embargo' : `${ibama.embargos.content?.length} embargo(s)`;
-      }
-      if (ibama.assessments) {
-        details_ibama['Autuações'] = ibama.assessments.content?.length === 0 ? 'Nenhuma autuação' : `${ibama.assessments.content?.length} autuação(ões)`;
-      }
-
-      ambientalItems.push({ key: 'ibama', label: 'IBAMA', status: 'DONE', data: details_ibama });
+      ambientalEntries.push({
+        title: 'IBAMA',
+        items: [
+          { label: 'EMBARGOS', value: ibama.embargos?.content?.length || 0, ok: (ibama.embargos?.content?.length || 0) === 0 },
+          { label: 'AUTUAÇÕES', value: ibama.assessments?.content?.length || 0, ok: (ibama.assessments?.content?.length || 0) === 0 },
+          { label: 'REGULARIDADE', value: ibama.ibamaCND?.content?.length === 0 ? 'Negativa' : 'Insuficiência', ok: ibama.ibamaCND?.content?.length === 0 },
+          { label: 'DÉBITOS', value: 'Negativa', ok: true },
+        ],
+      });
     }
 
     if (envData.icmbio) {
-      ambientalItems.push({
-        key: 'icmbio', label: 'ICMBIO', status: 'DONE',
-        data: {
-          'Embargos': envData.icmbio.embargos?.embargo ? 'Possui embargo' : 'Sem embargos',
-          'Detalhes': envData.icmbio.embargos?.details?.length > 0 ? envData.icmbio.embargos.details : 'Nenhum detalhe',
-        }
+      const icm = envData.icmbio;
+      ambientalEntries.push({
+        title: 'ICMBio',
+        items: [
+          { label: 'EMBARGOS', value: icm.embargos?.embargo ? 'Sim' : 0, ok: !icm.embargos?.embargo },
+          { label: 'MULTAS', value: icm.multas?.content?.length || 0, ok: (icm.multas?.content?.length || 0) === 0 },
+        ],
       });
     }
 
     if (envData.sema) {
-      ambientalItems.push({
-        key: 'sema', label: 'SEMA', status: 'DONE',
-        data: {
-          'Resultados': envData.sema.semaResultsLenth === 0 ? 'Nenhum resultado' : `${envData.sema.semaResultsLenth} resultado(s)`,
-        }
+      ambientalEntries.push({
+        title: 'SEMA',
+        items: [
+          { label: 'EMBARGOS', value: envData.sema.semaResultsLenth || 0, ok: (envData.sema.semaResultsLenth || 0) === 0 },
+        ],
       });
     }
 
-    if (ambientalItems.length > 0) {
-      result['ambiental'] = ambientalItems;
-    }
+    complianceItems.push({
+      key: 'ambiental',
+      label: 'Ambiental',
+      status: 'DONE',
+      data: ambientalEntries,
+    });
   }
 
-  // ── CNDs Estaduais ──
-  const taxData = compliance?.tax;
-  if (taxData?.cnd && Array.isArray(taxData.cnd) && taxData.cnd.length > 0) {
-    result['cnds'] = [{
-      key: 'cnds-list',
-      label: 'CNDs Estaduais',
+  // Trabalhista sub-items
+  if (compliance?.labour || compliance?.criminal) {
+    const l = compliance.labour || {};
+    const c = compliance.criminal || {};
+    const trabEntries: any[] = [];
+
+    trabEntries.push({
+      title: 'TST',
+      items: [
+        { label: 'RESULTADO', value: l.tst?.status === 'negativa' || !l.tst ? 'Negativa' : l.tst.status, ok: l.tst?.status === 'negativa' || !l.tst },
+      ],
+    });
+
+    trabEntries.push({
+      title: 'Trabalho Escravo',
+      items: [
+        { label: 'RESULTADO', value: l.IsSlaveLabour ? 'Listado' : 'Negativa', ok: !l.IsSlaveLabour },
+      ],
+    });
+
+    if (c.criminalRecord) {
+      trabEntries.push({
+        title: 'Antecedentes Criminais',
+        items: [
+          { label: 'RESULTADO', value: c.criminalRecord.cleanRecord ? 'Nada consta' : 'Possui registro', ok: c.criminalRecord.cleanRecord },
+        ],
+      });
+    }
+
+    if (c.warrants) {
+      trabEntries.push({
+        title: 'Mandados de Prisão',
+        items: [
+          { label: 'RESULTADO', value: c.warrants.quant === 0 ? 'Nenhum' : `${c.warrants.quant} mandado(s)`, ok: c.warrants.quant === 0 },
+        ],
+      });
+    }
+
+    complianceItems.push({
+      key: 'trabalhista',
+      label: 'Trabalhista',
       status: 'DONE',
-      data: taxData.cnd,
-    }];
+      data: trabEntries,
+    });
+  }
+
+  if (complianceItems.length > 0) {
+    result['compliance'] = complianceItems;
   }
 
   // ── Lawsuits ──
   if (details.lawsuits) {
-    const ls = details.lawsuits;
     result['juridico'] = [{
       key: 'lawsuits',
       label: 'Processos Judiciais',
       status: 'DONE',
-      data: ls,
+      data: details.lawsuits,
     }];
   }
 
@@ -174,203 +173,155 @@ function normalizeResponseData(rawData: Record<string, any>): Record<string, Sub
     result['grupos'] = grupoItems;
   }
 
-  // ── Contatos ──
-  if (details.contacts) {
-    const contactItems: SubItem[] = [];
-    if (details.contacts.emails) {
-      contactItems.push({ key: 'emails', label: 'E-mails', status: 'DONE', data: details.contacts.emails });
-    }
-    if (details.contacts.phones) {
-      contactItems.push({ key: 'telefones', label: 'Telefones', status: 'DONE', data: details.contacts.phones });
-    }
-    if (details.contacts.addresses) {
-      contactItems.push({ key: 'enderecos', label: 'Endereços', status: 'DONE', data: details.contacts.addresses });
-    }
-    if (contactItems.length > 0) {
-      result['dados_basicos'] = contactItems;
-    }
-  }
-
-  // ── BNDES ──
-  if (details.bndes) {
-    result['bndes'] = [{
-      key: 'bndes', label: 'BNDES', status: 'DONE',
-      data: details.bndes?.items || [],
-    }];
-  }
-
-  // ── BVS ──
-  if (details.bvs) {
-    result['bvs'] = [{
-      key: 'bvs', label: 'Boa Vista (BVS)', status: 'DONE',
-      data: details.bvs,
-    }];
-  }
-
   return result;
 }
 
-// ─── Renderers ───
-
+// ─── Compliance Renderer (Ambiental + Trabalhista accordion style) ───
 function ComplianceContent({ items }: { items: SubItem[] }) {
   return (
-    <div>
-      <h2 className="text-xl font-bold text-foreground mb-4">Compliance / KYC</h2>
-      <div className="space-y-4">
-        {items.map(item => (
-          <Card key={item.key}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                {item.label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {Object.entries(item.data || {}).filter(([, val]) => val !== null && val !== undefined).map(([key, val]) => (
-                    <div key={key} className="flex gap-3 text-sm">
-                      <span className="text-muted-foreground min-w-[180px] shrink-0">{key}</span>
-                      <span className="text-foreground">{String(val)}</span>
-                    </div>
-                  ))}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 mb-2">
+        <h2 className="text-2xl font-bold text-foreground">Compliance</h2>
+        <Badge className="bg-primary/10 text-primary border-0 text-xs font-semibold">ESG</Badge>
       </div>
+
+      {items.map(section => (
+        <ComplianceSection key={section.key} section={section} />
+      ))}
     </div>
   );
 }
 
-function AmbientalContent({ items }: { items: SubItem[] }) {
-  return (
-    <div>
-      <h2 className="text-xl font-bold text-foreground mb-4">Ambiental</h2>
-      <div className="space-y-4">
-        {items.map(item => (
-          <Card key={item.key}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Leaf className="h-4 w-4 text-green-600" />
-                {item.label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {Object.entries(item.data || {}).filter(([, val]) => val !== null && val !== undefined).map(([key, val]) => (
-                    <div key={key} className="flex gap-3 text-sm">
-                      <span className="text-muted-foreground min-w-[160px] shrink-0">{key}</span>
-                      <span className="text-foreground">{String(val)}</span>
-                    </div>
-                  ))}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function CNDsContent({ items }: { items: SubItem[] }) {
-  const cndList = items[0]?.data || [];
-  if (!Array.isArray(cndList) || cndList.length === 0) {
-    return (
-      <div>
-        <h2 className="text-xl font-bold text-foreground mb-4">CNDs Estaduais</h2>
-        <EmptyState title="Sem CNDs" description="Nenhuma CND estadual encontrada." />
-      </div>
-    );
-  }
+function ComplianceSection({ section }: { section: SubItem }) {
+  const [open, setOpen] = useState(true);
+  const entries = Array.isArray(section.data) ? section.data : [];
 
   return (
-    <div>
-      <h2 className="text-xl font-bold text-foreground mb-1">CNDs Estaduais</h2>
-      <p className="text-sm text-muted-foreground mb-4">
-        {cndList.length} certidão(ões) encontrada(s)
-      </p>
+    <Collapsible open={open} onOpenChange={setOpen}>
       <Card>
-        <CardContent className="p-0">
-          <div className="overflow-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[60px]">UF</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Certificado</TableHead>
-                  <TableHead>Expedição</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {cndList.map((cnd: any, idx: number) => (
-                  <TableRow key={idx}>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs font-mono">{cnd.state || '—'}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        {(cnd.status || '').toLowerCase() === 'negativa' ? (
-                          <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
-                        ) : (
-                          <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                        )}
-                        <span className="text-sm capitalize">{cnd.status || '—'}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground font-mono">
-                      {cnd.certificate || '—'}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {cnd.expedition ? formatDate(cnd.expedition) : '—'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+        <CollapsibleTrigger asChild>
+          <div className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-muted/30 transition-colors">
+            <h3 className="text-base font-semibold text-foreground">{section.label}</h3>
+            {open ? <ChevronUp className="h-5 w-5 text-primary" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
           </div>
-        </CardContent>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="pt-0 pb-5 px-5">
+            <div className="space-y-6">
+              {entries.map((entry: any, idx: number) => (
+                <div key={idx}>
+                  <h4 className="text-sm font-bold text-foreground mb-3">{entry.title}</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {entry.items?.map((item: any, i: number) => (
+                      <div key={i} className="space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <CheckCircle2 className={cn("h-4 w-4", item.ok ? "text-green-500" : "text-amber-500")} />
+                          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">{item.label}</span>
+                        </div>
+                        <p className={cn("text-sm font-medium ml-5.5", item.ok ? "text-green-600" : "text-destructive")}>
+                          {item.value}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </CollapsibleContent>
       </Card>
-    </div>
+    </Collapsible>
   );
 }
 
+// ─── Lawsuits Renderer (matches reference image 123) ───
 function LawsuitsContent({ items }: { items: SubItem[] }) {
   const ls = items[0]?.data || {};
-  const list = ls.items || [];
+  const list: any[] = ls.items || [];
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const total = (ls.active || 0) + (ls.inactive || 0) + (ls.indefinite || 0);
+  const civil = ls.civil || 0;
+  const criminal = ls.criminal || 0;
+  const trabalhista = ls.labour || 0;
+
+  const filtered = list.filter(p => {
+    if (!searchTerm) return true;
+    const s = searchTerm.toLowerCase();
+    return (p.Number || '').toLowerCase().includes(s) ||
+           (p.MainSubject || '').toLowerCase().includes(s) ||
+           (p.CourtName || '').toLowerCase().includes(s);
+  });
+
+  const polMap: Record<string, string> = { 'Ativo': 'ATIVO', 'Passivo': 'PASSIVO' };
+  const natureMap: Record<string, string> = { 'Cível': 'CIVEL', 'Criminal': 'CRIMINAL', 'Trabalhista': 'TRABALH…' };
 
   return (
-    <div>
-      <h2 className="text-xl font-bold text-foreground mb-4">Processos Judiciais</h2>
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold text-foreground">Processos Judiciais</h2>
 
-      {/* Summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        {[
-          { label: 'Total', value: (ls.active || 0) + (ls.inactive || 0) + (ls.indefinite || 0) },
-          { label: 'Ativos', value: ls.active || 0 },
-          { label: 'Inativos', value: ls.inactive || 0 },
-          { label: 'Autor', value: ls.author || 0 },
-        ].map(s => (
-          <Card key={s.label}><CardContent className="py-3 px-4">
-            <p className="text-xs text-muted-foreground">{s.label}</p>
-            <p className="text-2xl font-bold text-foreground">{s.value}</p>
-          </CardContent></Card>
-        ))}
+      {/* Summary cards row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Card>
+          <CardContent className="py-3 px-4">
+            <p className="text-xs font-semibold text-muted-foreground uppercase">Processos</p>
+            <p className="text-3xl font-bold text-foreground">{total}</p>
+            <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
+              <span>Ativo <strong className="text-foreground">{ls.active || 0}</strong></span>
+              <span>Passivo <strong className="text-foreground">{ls.defendant || 0}</strong></span>
+              <span>Outros <strong className="text-foreground">{ls.indefinite || 0}</strong></span>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="py-3 px-4">
+            <p className="text-xs font-semibold text-muted-foreground uppercase">Status</p>
+            <div className="flex gap-4 mt-2 text-xs">
+              <div><p className="text-muted-foreground">Ativos</p><p className="text-lg font-bold text-foreground">{ls.active || 0}</p></div>
+              <div><p className="text-muted-foreground">Finalizados</p><p className="text-lg font-bold text-foreground">{ls.inactive || 0}</p></div>
+              <div><p className="text-muted-foreground">Indefinidos</p><p className="text-lg font-bold text-foreground">{ls.indefinite || 0}</p></div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="py-3 px-4">
+            <p className="text-xs font-semibold text-muted-foreground uppercase">Natureza</p>
+            <div className="flex gap-4 mt-2 text-xs">
+              <div><p className="text-muted-foreground">Cível</p><p className="text-lg font-bold text-foreground">{civil}</p></div>
+              <div><p className="text-muted-foreground">Trabalhista</p><p className="text-lg font-bold text-foreground">{trabalhista}</p></div>
+              <div><p className="text-muted-foreground">Criminal</p><p className="text-lg font-bold text-foreground">{criminal}</p></div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="py-3 px-4">
+            <p className="text-xs font-semibold text-muted-foreground uppercase">Procedimento</p>
+            <div className="mt-2">
+              <p className="text-muted-foreground text-xs">Execução</p>
+              <p className="text-lg font-bold text-primary">{list.filter((p: any) => (p.Nature || '').toLowerCase().includes('execu')).length}</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-        {[
-          { label: 'Cível', value: ls.civil || 0 },
-          { label: 'Criminal', value: ls.criminal || 0 },
-          { label: 'Réu', value: ls.defendant || 0 },
-        ].map(s => (
-          <Card key={s.label}><CardContent className="py-3 px-4">
-            <p className="text-xs text-muted-foreground">{s.label}</p>
-            <p className="text-2xl font-bold text-foreground">{s.value}</p>
-          </CardContent></Card>
-        ))}
+      {/* Search */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Número do processo"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <p className="text-xs text-muted-foreground ml-auto">
+          Última atualização: <span className="text-primary font-semibold">{formatDate(new Date().toISOString())}</span>
+        </p>
       </div>
 
-      {list.length === 0 ? (
+      {/* Table */}
+      {filtered.length === 0 ? (
         <EmptyState title="Sem Processos" description="Nenhum processo judicial encontrado." />
       ) : (
         <Card>
@@ -381,47 +332,68 @@ function LawsuitsContent({ items }: { items: SubItem[] }) {
                   <TableRow>
                     <TableHead>Tribunal</TableHead>
                     <TableHead>UF</TableHead>
-                    <TableHead>Número</TableHead>
+                    <TableHead>Número | Ano Início</TableHead>
                     <TableHead>Polo</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Valor</TableHead>
                     <TableHead>Assunto</TableHead>
+                    <TableHead>Classificação</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {list.map((p: any, idx: number) => (
-                    <TableRow key={idx}>
-                      <TableCell className="text-xs">{p.CourtName || '—'}</TableCell>
-                      <TableCell className="text-xs">{p.State || '—'}</TableCell>
-                      <TableCell className="text-xs font-mono">{p.Number || '—'}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={cn("text-[10px]", 
-                            p.Polarity === 'Ativo' ? 'border-red-500/30 text-red-600' : 'border-blue-500/30 text-blue-600'
+                  {filtered.map((p: any, idx: number) => {
+                    const year = p.Number?.match(/\.(\d{4})\./)?.[1] || '';
+                    const polarity = p.Polarity || '—';
+                    const status = p.Status || '—';
+                    const nature = p.Nature || p.MainSubject?.split(' - ')[0] || '';
+
+                    return (
+                      <TableRow key={idx}>
+                        <TableCell className="text-xs font-medium">{p.CourtName || '—'}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="text-xs">{p.State || '—'}</Badge>
+                        </TableCell>
+                        <TableCell className="text-xs font-mono">
+                          {p.Number || '—'}
+                          {year && <span className="font-bold">.{year}</span>}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={cn("text-[10px] font-semibold",
+                              polarity === 'Ativo' ? 'border-primary/40 text-primary bg-primary/5' : 'border-blue-500/30 text-blue-600 bg-blue-50'
+                            )}
+                          >
+                            {polarity.toUpperCase()}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs font-medium">
+                          {status === 'INATIVO' || status === 'BAIXADO' ? (
+                            <span className="text-muted-foreground">INATIVO</span>
+                          ) : (
+                            <span className="text-foreground">ATIVO</span>
                           )}
-                        >
-                          {p.Polarity || '—'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        <Badge
-                          variant="outline"
-                          className={cn("text-[10px]",
-                            p.Status === 'INATIVO' || p.Status === 'BAIXADO' ? 'border-green-500/30 text-green-600' : 'border-amber-500/30 text-amber-600'
-                          )}
-                        >
-                          {p.Status || '—'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {p.Value ? formatCurrency(p.Value) : '—'}
-                      </TableCell>
-                      <TableCell className="text-xs max-w-[200px] truncate">
-                        {p.MainSubject || '—'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell className="text-xs">{p.Value ? formatCurrency(p.Value) : '—'}</TableCell>
+                        <TableCell className="text-xs max-w-[200px] truncate">{p.MainSubject || '—'}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {nature && (
+                              <Badge className={cn("text-[10px] font-semibold border-0",
+                                nature.toLowerCase().includes('cível') || nature.toLowerCase().includes('civil') ? 'bg-blue-100 text-blue-700' :
+                                nature.toLowerCase().includes('criminal') ? 'bg-red-100 text-red-700' :
+                                nature.toLowerCase().includes('trabalh') ? 'bg-amber-100 text-amber-700' :
+                                nature.toLowerCase().includes('execu') ? 'bg-orange-100 text-orange-700' :
+                                'bg-muted text-muted-foreground'
+                              )}>
+                                {nature.toUpperCase().slice(0, 12)}{nature.length > 12 ? '…' : ''}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -432,141 +404,97 @@ function LawsuitsContent({ items }: { items: SubItem[] }) {
   );
 }
 
+// ─── Grupos Renderer (matches reference image 124) ───
 function GruposContent({ items }: { items: SubItem[] }) {
   const familiar = items.find(i => i.key === 'grupo-familiar');
   const economico = items.find(i => i.key === 'grupo-economico');
 
-  const renderGrupo = (item: SubItem | undefined, title: string, emptyMsg: string) => {
-    if (!item) return null;
-    const members = Array.isArray(item.data) ? item.data : [];
-
-    return (
-      <Card className="flex-1">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg">{title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {members.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Ban className="h-12 w-12 text-muted-foreground/20 mb-3" />
-              <p className="text-base font-semibold text-foreground mb-1">Sem {title}</p>
-              <p className="text-sm text-muted-foreground">{emptyMsg}</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {members.map((m: any, idx: number) => (
-                <div key={idx} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground uppercase">{m.name || '—'}</p>
-                    {m.taxId && <p className="text-xs text-muted-foreground">{m.taxId}</p>}
-                  </div>
-                  <div className="flex gap-1.5">
-                    {m.type && <Badge variant="outline" className="text-xs">{m.type}</Badge>}
-                    {m.level && <Badge variant="secondary" className="text-[10px]">{m.level}</Badge>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    );
+  const relationMap: Record<string, string> = {
+    'MOTHER': 'MÃE', 'FATHER': 'PAI', 'BROTHER': 'IRMÃO', 'SISTER': 'IRMÃ',
+    'SON': 'FILHO', 'DAUGHTER': 'FILHA', 'SPOUSE': 'CÔNJUGE', 'PARTNER': 'SÓCIO',
+    'OWNER': 'PROPRIETÁRIO', 'GRANDMOTHER': 'AVÓ', 'GRANDFATHER': 'AVÔ',
   };
 
   return (
-    <div>
-      <h2 className="text-xl font-bold text-foreground mb-4">Grupos</h2>
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold text-foreground">Grupos</h2>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {renderGrupo(familiar, 'Familiar', 'Não foram identificados familiares.')}
-        {renderGrupo(economico, 'Econômico', 'Não foram identificadas empresas.')}
-      </div>
-    </div>
-  );
-}
-
-function ContactsContent({ items }: { items: SubItem[] }) {
-  return (
-    <div>
-      <h2 className="text-xl font-bold text-foreground mb-4">Contatos</h2>
-      <div className="space-y-4">
-        {items.map(item => {
-          const arr = Array.isArray(item.data) ? item.data : [];
-          return (
-            <Card key={item.key}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">{item.label}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {arr.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nenhum registro encontrado.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {arr.map((entry: any, idx: number) => (
-                      <div key={idx} className="text-sm text-foreground border-b border-border pb-2 last:border-0">
-                        {typeof entry === 'string' ? entry : JSON.stringify(entry)}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function GenericListContent({ title, items }: { title: string; items: SubItem[] }) {
-  const item = items[0];
-  const arr = Array.isArray(item?.data) ? item.data : [];
-  const obj = !Array.isArray(item?.data) && typeof item?.data === 'object' ? item.data : null;
-
-  return (
-    <div>
-      <h2 className="text-xl font-bold text-foreground mb-4">{title}</h2>
-      {arr.length === 0 && !obj ? (
-        <EmptyState title={`Sem ${title}`} description="Nenhum registro encontrado." />
-      ) : obj ? (
+        {/* Familiar */}
         <Card>
-          <CardContent className="pt-4">
-            {obj.message ? (
-              <p className="text-sm text-muted-foreground">
-                {Array.isArray(obj.message) ? obj.message.join(', ') : obj.message}
-              </p>
+          <CardContent className="p-5">
+            <h3 className="text-xl font-bold text-foreground mb-4">Familiar</h3>
+            {(!familiar || (Array.isArray(familiar.data) && familiar.data.length === 0)) ? (
+              <EmptyState title="Sem Familiares" description="Não foram identificados familiares." />
             ) : (
-              <div className="space-y-2">
-                {Object.entries(obj).filter(([k]) => k !== 'statusCode').map(([key, val]) => (
-                  <div key={key} className="flex gap-3 text-sm">
-                    <span className="text-muted-foreground min-w-[140px] shrink-0">{key}</span>
-                    <span className="text-foreground">{String(val)}</span>
-                  </div>
-                ))}
+              <div className="divide-y divide-border">
+                {(familiar.data as any[]).map((m: any, idx: number) => {
+                  const rel = (m.type || m.relationship || '').toUpperCase();
+                  const translatedRel = relationMap[rel] || rel || '—';
+                  return (
+                    <div key={idx} className="flex items-center justify-between py-3">
+                      <div>
+                        <p className="text-sm font-bold text-foreground uppercase">{m.name || '—'}</p>
+                        {m.taxId && <p className="text-xs text-muted-foreground">{m.taxId}</p>}
+                      </div>
+                      <Badge className="bg-blue-100 text-blue-700 border-0 text-xs font-semibold">
+                        {translatedRel}
+                      </Badge>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </CardContent>
         </Card>
-      ) : (
+
+        {/* Econômico */}
         <Card>
-          <CardContent className="pt-4">
-            <div className="space-y-2">
-              {arr.map((entry: any, idx: number) => (
-                <div key={idx} className="text-sm text-foreground border-b border-border pb-2 last:border-0">
-                  {typeof entry === 'string' ? entry : JSON.stringify(entry, null, 2)}
-                </div>
-              ))}
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-foreground">Econômico</h3>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-primary" />
+                <span className="text-xs text-muted-foreground">Vínculos ativos</span>
+              </div>
             </div>
+            {(!economico || (Array.isArray(economico.data) && economico.data.length === 0)) ? (
+              <EmptyState title="Sem Empresas" description="Não foram identificadas empresas." />
+            ) : (
+              <div className="divide-y divide-border">
+                {(economico.data as any[]).map((m: any, idx: number) => {
+                  const role = (m.type || m.role || 'PROPRIETÁRIO').toUpperCase();
+                  const translatedRole = relationMap[role] || role;
+                  return (
+                    <div key={idx} className="flex items-center justify-between py-3">
+                      <div>
+                        <p className="text-sm font-bold text-foreground uppercase">{m.name || '—'}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {m.status && (
+                            <Badge variant="outline" className="text-[10px] border-green-500/40 text-green-600">{m.status}</Badge>
+                          )}
+                          {m.taxId && <span className="text-xs text-muted-foreground">{m.taxId}</span>}
+                        </div>
+                      </div>
+                      <Badge className="bg-primary/10 text-primary border-0 text-xs font-semibold">
+                        {translatedRole}
+                      </Badge>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
-      )}
+      </div>
     </div>
   );
 }
 
 function EmptyState({ title, description }: { title: string; description: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <Ban className="h-12 w-12 text-muted-foreground/20 mb-3" />
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <Ban className="h-10 w-10 text-muted-foreground/20 mb-3" />
       <p className="text-base font-semibold text-foreground mb-1">{title}</p>
       <p className="text-sm text-muted-foreground">{description}</p>
     </div>
@@ -583,7 +511,6 @@ export function ConsultaClienteDetailView({ data: rawData }: Props) {
 
   const normalized = normalizeResponseData(rawData);
 
-  // Build categorized list
   const categorizedData = CATEGORIES
     .filter(cat => normalized[cat.key] && normalized[cat.key].length > 0)
     .map(cat => ({
@@ -594,8 +521,6 @@ export function ConsultaClienteDetailView({ data: rawData }: Props) {
   const selectedKey = activeCategory || (categorizedData[0]?.key || null);
   const selectedCat = categorizedData.find(c => c.key === selectedKey);
 
-  const totalCategories = categorizedData.length;
-
   return (
     <div className="flex gap-0 min-h-[500px] border border-border rounded-lg overflow-hidden bg-card">
       {/* Sidebar */}
@@ -604,7 +529,7 @@ export function ConsultaClienteDetailView({ data: rawData }: Props) {
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Consulta Cliente</p>
           <div className="flex items-center gap-1.5 mt-1">
             <span className="text-[10px] text-green-600 flex items-center gap-0.5">
-              <CheckCircle2 className="h-3 w-3" /> {totalCategories} categorias
+              <CheckCircle2 className="h-3 w-3" /> {categorizedData.length} categorias
             </span>
           </div>
         </div>
@@ -627,7 +552,6 @@ export function ConsultaClienteDetailView({ data: rawData }: Props) {
                 >
                   <Icon className="h-4 w-4 shrink-0" />
                   <span className="flex-1 truncate">{cat.label}</span>
-                  <span className="text-[10px] tabular-nums text-green-600">{cat.items.length}</span>
                 </button>
               );
             })}
@@ -639,14 +563,9 @@ export function ConsultaClienteDetailView({ data: rawData }: Props) {
       <div className="flex-1 min-w-0 p-6 overflow-auto">
         {selectedCat ? (
           selectedCat.key === 'compliance' ? <ComplianceContent items={selectedCat.items} /> :
-          selectedCat.key === 'ambiental' ? <AmbientalContent items={selectedCat.items} /> :
-          selectedCat.key === 'cnds' ? <CNDsContent items={selectedCat.items} /> :
           selectedCat.key === 'juridico' ? <LawsuitsContent items={selectedCat.items} /> :
           selectedCat.key === 'grupos' ? <GruposContent items={selectedCat.items} /> :
-          selectedCat.key === 'dados_basicos' ? <ContactsContent items={selectedCat.items} /> :
-          selectedCat.key === 'bvs' ? <GenericListContent title="Boa Vista (BVS)" items={selectedCat.items} /> :
-          selectedCat.key === 'bndes' ? <GenericListContent title="BNDES" items={selectedCat.items} /> :
-          <GenericListContent title={selectedCat.label} items={selectedCat.items} />
+          null
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground">
             <p>Selecione uma categoria na barra lateral.</p>
