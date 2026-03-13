@@ -170,10 +170,11 @@ serve(async (req) => {
       JSON.stringify({ success: true, data: finalResult }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (err) {
-    console.error(`[hbi-scr] Erro:`, err.message);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Erro interno';
+    console.error(`[hbi-scr] Erro:`, message);
     return new Response(
-      JSON.stringify({ error: err.message }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
