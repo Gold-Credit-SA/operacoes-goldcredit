@@ -54,49 +54,37 @@ const KNOWN_QUERY_SERVICES = [
   {
     outputKey: "compliance",
     matchers: ["compliance", "kyc"],
-    getPath: (clientId: string, queryId: string) =>
-      `/queries/clients/${clientId}/compliance/${queryId}`,
+    getPath: (clientId: string, queryId: string) => `/queries/clients/${clientId}/compliance/${queryId}`,
   },
   {
     outputKey: "bvs",
     matchers: ["bvs", "boa-vista", "boa vista"],
-    getPath: (clientId: string, queryId: string) =>
-      `/queries/clients/${clientId}/bvs/${queryId}`,
+    getPath: (clientId: string, queryId: string) => `/queries/clients/${clientId}/bvs/${queryId}`,
   },
   {
     outputKey: "restritivos",
-    matchers: [
-      "credit-restrictive",
-      "credit restrictive",
-      "credit-restrictives-fif-pf",
-      "restritivo",
-    ],
-    getPath: (clientId: string, queryId: string) =>
-      `/queries/clients/${clientId}/credit-restrictive/${queryId}`,
+    matchers: ["credit-restrictive", "credit restrictive", "credit-restrictives-fif-pf", "restritivo"],
+    getPath: (clientId: string, queryId: string) => `/queries/clients/${clientId}/credit-restrictive/${queryId}`,
   },
   {
     outputKey: "scr",
     matchers: ["scr", "endividamento"],
-    getPath: (clientId: string, queryId: string) =>
-      `/queries/clients/${clientId}/scr/${queryId}`,
+    getPath: (clientId: string, queryId: string) => `/queries/clients/${clientId}/scr/${queryId}`,
   },
   {
     outputKey: "cpr",
     matchers: ["cpr"],
-    getPath: (clientId: string, queryId: string) =>
-      `/queries/clients/${clientId}/cpr/${queryId}`,
+    getPath: (clientId: string, queryId: string) => `/queries/clients/${clientId}/cpr/${queryId}`,
   },
   {
     outputKey: "protests",
     matchers: ["protests", "protestos", "protest"],
-    getPath: (clientId: string, queryId: string) =>
-      `/queries/clients/${clientId}/protests/${queryId}`,
+    getPath: (clientId: string, queryId: string) => `/queries/clients/${clientId}/protests/${queryId}`,
   },
   {
     outputKey: "quod",
     matchers: ["quod"],
-    getPath: (clientId: string, queryId: string) =>
-      `/queries/clients/${clientId}/quod/${queryId}`,
+    getPath: (clientId: string, queryId: string) => `/queries/clients/${clientId}/quod/${queryId}`,
   },
 ];
 
@@ -207,9 +195,7 @@ async function handleRegisterClient(body: Record<string, unknown>): Promise<Resp
   });
 }
 
-async function handleFetchExistingDetails(
-  body: Record<string, unknown>,
-): Promise<Response> {
+async function handleFetchExistingDetails(body: Record<string, unknown>): Promise<Response> {
   const clientId = asString(body?.clientId);
   const queryId = asString(body?.queryId);
 
@@ -224,9 +210,7 @@ async function handleFetchExistingDetails(
   return json({ data: details });
 }
 
-async function handleFetchLawsuitDetail(
-  body: Record<string, unknown>,
-): Promise<Response> {
+async function handleFetchLawsuitDetail(body: Record<string, unknown>): Promise<Response> {
   const clientId = asString(body?.clientId);
   const lawsuitId = asString(body?.lawsuitId);
 
@@ -425,8 +409,7 @@ async function getOrCreateClient(token: string, taxId: string): Promise<string> 
   }
 
   const duplicateId =
-    (data && (asString(data.clientId) || asString(data.id) || asString(data._id))) ||
-    extractClientIdFromText(text);
+    (data && (asString(data.clientId) || asString(data.id) || asString(data._id))) || extractClientIdFromText(text);
   if (duplicateId) {
     return duplicateId;
   }
@@ -467,11 +450,7 @@ function extractClientIdFromText(text: string): string | null {
   return match?.[1] || null;
 }
 
-async function requestQuery(
-  token: string,
-  clientId: string,
-  productIds: string[],
-): Promise<unknown> {
+async function requestQuery(token: string, clientId: string, productIds: string[]): Promise<unknown> {
   const res = await fetch(`${AGRISK_BASE}/queries`, {
     method: "POST",
     headers: {
@@ -547,22 +526,14 @@ function walkQueryPayload(payload: unknown, refs: QueryRef[], serviceKey?: strin
   }
 }
 
-async function waitForQueryRefs(
-  token: string,
-  clientId: string,
-  initialRefs: QueryRef[] = [],
-): Promise<QueryRef[]> {
+async function waitForQueryRefs(token: string, clientId: string, initialRefs: QueryRef[] = []): Promise<QueryRef[]> {
   const merged = new Map<string, QueryRef>();
   for (const ref of initialRefs) {
     merged.set(ref.serviceKey, ref);
   }
 
   for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
-    const result = await tryJson<Record<string, unknown>>(
-      `${AGRISK_BASE}/queries/clients/${clientId}`,
-      token,
-      8000,
-    );
+    const result = await tryJson<Record<string, unknown>>(`${AGRISK_BASE}/queries/clients/${clientId}`, token, 8000);
 
     if (result.ok && result.data) {
       const refs = extractQueryRefs(result.data);
@@ -571,9 +542,7 @@ async function waitForQueryRefs(
       }
 
       const hasRefs = merged.size > 0;
-      const hasPending = Array.from(merged.values()).some((ref) =>
-        isPendingStatus(ref.status),
-      );
+      const hasPending = Array.from(merged.values()).some((ref) => isPendingStatus(ref.status));
 
       if (hasRefs && !hasPending) {
         break;
@@ -677,12 +646,7 @@ async function fetchRestritivos(
   if (!ref?.queryId) return null;
 
   const data = await pollForReadyData(
-    () =>
-      tryJson(
-        `${AGRISK_BASE}/queries/clients/${clientId}/credit-restrictive/${ref.queryId}`,
-        token,
-        12000,
-      ),
+    () => tryJson(`${AGRISK_BASE}/queries/clients/${clientId}/credit-restrictive/${ref.queryId}`, token, 12000),
     isReadyResult,
   );
 
@@ -698,12 +662,7 @@ async function fetchEndividamento(
   if (!ref?.queryId) return null;
 
   const data = await pollForReadyData(
-    () =>
-      tryJson(
-        `${AGRISK_BASE}/queries/clients/${clientId}/scr/${ref.queryId}`,
-        token,
-        15000,
-      ),
+    () => tryJson(`${AGRISK_BASE}/queries/clients/${clientId}/scr/${ref.queryId}`, token, 15000),
     isReadyResult,
   );
 
@@ -719,12 +678,7 @@ async function fetchCpr(
   if (!ref?.queryId) return null;
 
   const data = await pollForReadyData(
-    () =>
-      tryJson(
-        `${AGRISK_BASE}/queries/clients/${clientId}/cpr/${ref.queryId}`,
-        token,
-        12000,
-      ),
+    () => tryJson(`${AGRISK_BASE}/queries/clients/${clientId}/cpr/${ref.queryId}`, token, 12000),
     isReadyResult,
   );
 
@@ -737,20 +691,14 @@ async function enrichCprDetails(
   clientId: string,
   cprData: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
-  const items = Array.isArray(cprData.items)
-    ? (cprData.items as Record<string, unknown>[])
-    : [];
+  const items = Array.isArray(cprData.items) ? (cprData.items as Record<string, unknown>[]) : [];
 
   const detailedItems = await Promise.all(
     items.map(async (item) => {
       const cprId = asString(item.cercPublicidadeCprsId);
       if (!cprId) return item;
 
-      const detail = await tryJson(
-        `${AGRISK_BASE}/queries/clients/${clientId}/cpr-details/${cprId}`,
-        token,
-        12000,
-      );
+      const detail = await tryJson(`${AGRISK_BASE}/queries/clients/${clientId}/cpr-details/${cprId}`, token, 12000);
 
       return detail.ok && detail.data
         ? { ...item, details: detail.data }
@@ -764,46 +712,31 @@ async function enrichCprDetails(
   return { ...cprData, detailedItems };
 }
 
-async function fetchImoveisSimples(
-  token: string,
-  clientId: string,
-): Promise<Record<string, unknown> | null> {
+async function fetchImoveisSimples(token: string, clientId: string): Promise<Record<string, unknown> | null> {
   const [rural, urban] = await Promise.all([
     tryJson(`${AGRISK_BASE}/assets/${clientId}/properties/rural?page=1`, token, 12000),
     tryJson(`${AGRISK_BASE}/assets/${clientId}/properties/urban/list`, token, 12000),
   ]);
 
   const ruralData =
-    rural.ok && rural.data && typeof rural.data === "object"
-      ? (rural.data as Record<string, unknown>)
-      : null;
+    rural.ok && rural.data && typeof rural.data === "object" ? (rural.data as Record<string, unknown>) : null;
   const urbanData =
-    urban.ok && urban.data && typeof urban.data === "object"
-      ? (urban.data as Record<string, unknown>)
-      : null;
+    urban.ok && urban.data && typeof urban.data === "object" ? (urban.data as Record<string, unknown>) : null;
 
   if (!ruralData && !urbanData) {
     return null;
   }
 
-  const ruralItems = ruralData && Array.isArray(ruralData.items)
-    ? (ruralData.items as Record<string, unknown>[])
-    : [];
+  const ruralItems = ruralData && Array.isArray(ruralData.items) ? (ruralData.items as Record<string, unknown>[]) : [];
 
   const ruralDetails = await Promise.all(
     ruralItems.map(async (item) => {
       const propertyId = asString(item.propertyId);
       if (!propertyId) return item;
 
-      const detail = await tryJson(
-        `${AGRISK_BASE}/assets/properties/rural/${propertyId}`,
-        token,
-        12000,
-      );
+      const detail = await tryJson(`${AGRISK_BASE}/assets/properties/rural/${propertyId}`, token, 12000);
 
-      return detail.ok && detail.data
-        ? { ...item, details: detail.data }
-        : item;
+      return detail.ok && detail.data ? { ...item, details: detail.data } : item;
     }),
   );
 
@@ -823,12 +756,7 @@ async function fetchImoveisCar(
   if (!ref?.queryId) return null;
 
   const data = await pollForReadyData(
-    () =>
-      tryJson(
-        `${AGRISK_BASE}/v2/queries/clients/${clientId}/${ref.queryId}/cars?page=1`,
-        token,
-        15000,
-      ),
+    () => tryJson(`${AGRISK_BASE}/v2/queries/clients/${clientId}/${ref.queryId}/cars?page=1`, token, 15000),
     isReadyResult,
   );
 
@@ -841,11 +769,7 @@ async function fetchImoveisCar(
       const carId = asString(item._id);
       if (!carId) return item;
 
-      const detail = await tryJson(
-        `${AGRISK_BASE}/v2/queries/clients/cars/${carId}`,
-        token,
-        12000,
-      );
+      const detail = await tryJson(`${AGRISK_BASE}/v2/queries/clients/cars/${carId}`, token, 12000);
 
       return detail.ok && detail.data
         ? detail.data
@@ -859,20 +783,12 @@ async function fetchImoveisCar(
   };
 }
 
-async function fetchPatrimonioVeicular(
-  token: string,
-  queryRefs: QueryRef[],
-): Promise<Record<string, unknown> | null> {
+async function fetchPatrimonioVeicular(token: string, queryRefs: QueryRef[]): Promise<Record<string, unknown> | null> {
   const ref = findQueryRef(queryRefs, ["vehicle-assets", "veicular", "vehicle"]);
   if (!ref?.queryId) return null;
 
   const data = await pollForReadyData(
-    () =>
-      tryJson(
-        `${AGRISK_BASE}/v2/queries/vehicle-assets/${ref.queryId}`,
-        token,
-        15000,
-      ),
+    () => tryJson(`${AGRISK_BASE}/v2/queries/vehicle-assets/${ref.queryId}`, token, 15000),
     isReadyResult,
   );
 
@@ -951,11 +867,7 @@ function isPendingStatus(status?: string): boolean {
   return /(pending|process|queue|running|requested|aguardando|andamento)/.test(normalized);
 }
 
-async function tryJson<T = unknown>(
-  url: string,
-  token: string,
-  timeoutMs = 8000,
-): Promise<TryJsonResult<T>> {
+async function tryJson<T = unknown>(url: string, token: string, timeoutMs = 8000): Promise<TryJsonResult<T>> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
