@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import {
   CheckCircle2, AlertTriangle, Shield, Scale, Leaf,
   Users, Ban, ChevronUp, ChevronDown, Search, Briefcase, Eye, X
@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import {
@@ -32,6 +33,69 @@ function formatDate(val: string): string {
 
 function formatCurrency(val: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+}
+
+function formatLabel(value: string): string {
+  return value
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]/g, ' ')
+    .trim()
+    .replace(/^\w/, (char) => char.toUpperCase());
+}
+
+function formatDocument(value?: string | null): string {
+  if (!value) return '—';
+  const digits = String(value).replace(/\D/g, '');
+  if (digits.length === 11) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+  if (digits.length === 14) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+  return String(value);
+}
+
+function isPlainObject(value: unknown): value is Record<string, any> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function formatPrimitive(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—';
+  if (typeof value === 'boolean') return value ? 'Sim' : 'Não';
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : '—';
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return '—';
+    if (/^\d{4}-\d{2}-\d{2}/.test(trimmed) || /^\d{4}\/\d{2}\/\d{2}/.test(trimmed)) {
+      return formatDate(trimmed);
+    }
+    return trimmed;
+  }
+  return JSON.stringify(value);
+}
+
+function getLongText(value: Record<string, any>): string | null {
+  const direct = value.Description || value.Content || value.Text || value.DecisionContent || value.Resume || value.Summary;
+  if (typeof direct === 'string' && direct.trim()) return direct.trim();
+
+  const longest = Object.values(value)
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 30)
+    .sort((a, b) => b.length - a.length)[0];
+
+  return longest || null;
+}
+
+function getBestItemDate(value: Record<string, any>): string | null {
+  const rawDate = value.Date || value.date || value.DecisionDate || value.PublicationDate || value.LastUpdate || value.LastMovementDate || value.createdAt || value.updatedAt;
+  if (!rawDate || typeof rawDate !== 'string') return null;
+  return formatDate(rawDate);
+}
+
+function isProcessDetailLoaded(process: Record<string, any>): boolean {
+  return Boolean(
+    (Array.isArray(process.Updates) && process.Updates.length > 0) ||
+    (Array.isArray(process.Decisions) && process.Decisions.length > 0) ||
+    (Array.isArray(process.Petitions) && process.Petitions.length > 0) ||
+    process.detailLoaded,
+  );
 }
 
 // ─── Transform API data ───
@@ -237,7 +301,7 @@ function ComplianceSection({ section }: { section: SubItem }) {
 }
 
 // ─── Lawsuits Renderer (matches reference image 123) ───
-function LawsuitsContent({ items }: { items: SubItem[] }) {
+function LawsuitsContent({ items, agriskClientId }: { items: SubItem[]; agriskClientId?: string | null }) {
   const ls = items[0]?.data || {};
   const list: any[] = ls.items || [];
   const [searchTerm, setSearchTerm] = useState('');
@@ -270,7 +334,6 @@ function LawsuitsContent({ items }: { items: SubItem[] }) {
     <div className="space-y-4">
       <h2 className="text-2xl font-bold text-foreground">Processos Judiciais</h2>
 
-      {/* Summary cards row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Card>
           <CardContent className="py-3 px-4">
@@ -314,7 +377,6 @@ function LawsuitsContent({ items }: { items: SubItem[] }) {
         </Card>
       </div>
 
-      {/* Search */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -330,7 +392,6 @@ function LawsuitsContent({ items }: { items: SubItem[] }) {
         </p>
       </div>
 
-      {/* Compact card list */}
       {filtered.length === 0 ? (
         <EmptyState title="Sem Processos" description="Nenhum processo judicial encontrado." />
       ) : (
@@ -384,109 +445,12 @@ function LawsuitsContent({ items }: { items: SubItem[] }) {
         </div>
       )}
 
-      {/* Detail dialog */}
       <Dialog open={!!selectedProcess} onOpenChange={(open) => !open && setSelectedProcess(null)}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg">Detalhes do Processo</DialogTitle>
           </DialogHeader>
-          {selectedProcess && (() => {
-            const p = selectedProcess;
-            const nature = p.Nature || p.MainSubject?.split(' - ')[0] || '';
-            const polarity = p.Polarity || '—';
-            const status = p.Status || '—';
-            const isActive = !(status === 'INATIVO' || status === 'BAIXADO');
-
-            return (
-              <div className="space-y-5">
-                {/* Status badges row */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant={isActive ? "default" : "secondary"}>{isActive ? 'ATIVO' : 'INATIVO'}</Badge>
-                  <Badge variant="outline" className={cn("text-xs font-semibold",
-                    polarity === 'Ativo' ? 'border-primary/40 text-primary bg-primary/5' : 'border-blue-500/30 text-blue-600 bg-blue-50'
-                  )}>{polarity.toUpperCase()}</Badge>
-                  {nature && getNatureBadge(nature)}
-                </div>
-
-                {/* Main info grid */}
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      <DetailField label="Número" value={p.Number} mono />
-                      <DetailField label="Tribunal" value={p.CourtName} />
-                      <DetailField label="UF" value={p.State} />
-                      <DetailField label="Natureza" value={p.Nature} />
-                      <DetailField label="Classe" value={p.Class || p.ClassName} />
-                      <DetailField label="Área" value={p.Area} />
-                      <DetailField label="Assunto Principal" value={p.MainSubject} />
-                      <DetailField label="Assunto Extra" value={p.ExtraSubject} />
-                      <DetailField label="Vara / Foro" value={p.CourtLevel || p.Court} />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Dates & Values */}
-                <Card>
-                  <CardContent className="p-4">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">Datas e Valores</p>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <DetailField label="Data Início" value={p.StartDate ? formatDate(p.StartDate) : p.DistributionDate ? formatDate(p.DistributionDate) : '—'} />
-                      <DetailField label="Data Distribuição" value={p.DistributionDate ? formatDate(p.DistributionDate) : '—'} />
-                      <DetailField label="Última Atualização" value={p.LastUpdate ? formatDate(p.LastUpdate) : p.LastMovementDate ? formatDate(p.LastMovementDate) : '—'} />
-                      <DetailField label="Valor da Causa" value={p.Value ? formatCurrency(p.Value) : '—'} />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Parties */}
-                {p.Parties && p.Parties.length > 0 && (
-                  <Card>
-                    <CardContent className="p-4">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">Partes ({p.Parties.length})</p>
-                      <div className="divide-y divide-border">
-                        {p.Parties.map((party: any, i: number) => (
-                          <div key={i} className="flex items-center justify-between py-2.5">
-                            <div>
-                              <p className="text-sm font-medium text-foreground">{party.Name || party.name || '—'}</p>
-                              {(party.TaxId || party.taxId || party.Document) && (
-                                <p className="text-xs text-muted-foreground">{party.TaxId || party.taxId || party.Document}</p>
-                              )}
-                              {(party.Lawyer || party.LawyerName) && (
-                                <p className="text-xs text-muted-foreground mt-0.5">Advogado: {party.Lawyer || party.LawyerName}</p>
-                              )}
-                            </div>
-                            <Badge variant="outline" className="text-[10px] font-semibold">
-                              {(party.Polarity || party.polarity || party.Type || party.type || '—').toUpperCase()}
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Updates / Movimentações */}
-                {p.Updates && p.Updates.length > 0 && (
-                  <Card>
-                    <CardContent className="p-4">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">Movimentações ({p.Updates.length})</p>
-                      <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-                        {p.Updates.map((upd: any, i: number) => (
-                          <div key={i} className="border-l-2 border-primary/30 pl-3 pb-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-semibold text-primary">{upd.Date ? formatDate(upd.Date) : '—'}</span>
-                              {upd.Type && <Badge variant="secondary" className="text-[10px]">{upd.Type}</Badge>}
-                            </div>
-                            <p className="text-xs text-foreground mt-1">{upd.Description || upd.Content || upd.Text || '—'}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            );
-          })()}
+          {selectedProcess && <ProcessDetailContent process={selectedProcess} agriskClientId={agriskClientId} />}
         </DialogContent>
       </Dialog>
     </div>
@@ -499,6 +463,262 @@ function DetailField({ label, value, mono }: { label: string; value?: string | n
       <p className="text-[11px] font-semibold text-muted-foreground uppercase">{label}</p>
       <p className={cn("text-sm text-foreground mt-0.5", mono && "font-mono")}>{value || '—'}</p>
     </div>
+  );
+}
+
+function ProcessDetailContent({ process, agriskClientId }: { process: Record<string, any>; agriskClientId?: string | null }) {
+  const [detailProcess, setDetailProcess] = useState<Record<string, any>>(process);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
+  const effectiveClientId = agriskClientId || process?.ClientId || process?.clientId || null;
+
+  useEffect(() => {
+    setDetailProcess(process);
+    setLoadingError(null);
+  }, [process]);
+
+  useEffect(() => {
+    const lawsuitId = process?.LawsuitId || process?._id || process?.id;
+    if (!effectiveClientId || !lawsuitId || isProcessDetailLoaded(process)) return;
+
+    let cancelled = false;
+    setLoadingDetail(true);
+
+    supabase.functions.invoke('agrisk-query', {
+      body: {
+        action: 'fetch-lawsuit-detail',
+        clientId: effectiveClientId,
+        lawsuitId,
+      },
+    }).then(({ data, error }) => {
+      if (cancelled) return;
+      if (error || !data?.data) {
+        setLoadingError(error?.message || 'Não foi possível carregar o detalhe completo do processo.');
+        return;
+      }
+      setDetailProcess((current) => ({ ...current, ...data.data, detailLoaded: true }));
+    }).catch((error) => {
+      if (!cancelled) {
+        setLoadingError(error instanceof Error ? error.message : 'Não foi possível carregar o detalhe completo do processo.');
+      }
+    }).finally(() => {
+      if (!cancelled) setLoadingDetail(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveClientId, process]);
+
+  const p = detailProcess;
+  const nature = p.Nature || p.Type || p.CourtType || p.MainSubject?.split(' - ')[0] || '';
+  const polarity = p.Polarity || '—';
+  const status = p.Status || '—';
+  const isActive = !(status === 'INATIVO' || status === 'BAIXADO');
+
+  const knownKeys = new Set([
+    '_id', 'id', 'LawsuitId', 'Number', 'CourtName', 'State', 'Nature', 'Type', 'CourtType', 'Class', 'ClassName',
+    'Area', 'MainSubject', 'ExtraSubject', 'OtherSubjects', 'CourtLevel', 'Court', 'DistributionDate', 'StartDate',
+    'LastUpdate', 'LastMovementDate', 'PublicationDate', 'Value', 'Polarity', 'Status', 'Parties', 'Updates',
+    'Decisions', 'Petitions', 'Tags', 'NumberOfPages', 'NumberOfVolumes', 'JusticeSecret', 'CourtDistrict',
+    'JudgingBody', 'createdAt', 'updatedAt', 'Base', 'Origin', 'ClientId', 'CompanyId', 'Homonym',
+    'ActivePolarityTitle', 'PassivePolarityTitle', 'TimeSinceLastVerification', 'QuantityMovements',
+    'SourcesCourtsAreArchived', 'IaAnalysisStatus', 'IaAnalysisHistory', 'detailLoaded'
+  ]);
+
+  const extraScalarEntries = Object.entries(p).filter(([key, value]) =>
+    !knownKeys.has(key) && !Array.isArray(value) && !isPlainObject(value),
+  );
+
+  const extraComplexEntries = Object.entries(p).filter(([key, value]) =>
+    !knownKeys.has(key) && (Array.isArray(value) || isPlainObject(value)),
+  );
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Badge variant={isActive ? "default" : "secondary"}>{isActive ? 'ATIVO' : 'INATIVO'}</Badge>
+        <Badge variant="outline" className={cn("text-xs font-semibold",
+          polarity === 'Ativo' ? 'border-primary/40 text-primary bg-primary/5' : 'border-blue-500/30 text-blue-600 bg-blue-50'
+        )}>{String(polarity).toUpperCase()}</Badge>
+        {nature && (
+          <Badge className={cn(
+            "text-[10px] font-semibold border-0",
+            nature.toLowerCase().includes('civil') || nature.toLowerCase().includes('cível') ? 'bg-blue-100 text-blue-700' :
+            nature.toLowerCase().includes('criminal') ? 'bg-red-100 text-red-700' :
+            nature.toLowerCase().includes('trabalh') ? 'bg-amber-100 text-amber-700' :
+            'bg-muted text-muted-foreground'
+          )}>
+            {String(nature).toUpperCase()}
+          </Badge>
+        )}
+        {loadingDetail && <Badge variant="secondary">Carregando detalhe completo...</Badge>}
+      </div>
+
+      {loadingError && <p className="text-sm text-destructive">{loadingError}</p>}
+
+      <Card>
+        <CardContent className="p-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <DetailField label="Número" value={p.Number} mono />
+            <DetailField label="Tribunal" value={p.CourtName} />
+            <DetailField label="UF" value={p.State} />
+            <DetailField label="Natureza" value={p.Nature || p.Type || p.CourtType} />
+            <DetailField label="Classe" value={p.Class || p.ClassName || p.CourtLevel} />
+            <DetailField label="Área" value={p.Area || p.CourtDistrict} />
+            <DetailField label="Assunto Principal" value={p.MainSubject} />
+            <DetailField label="Assuntos Extras" value={Array.isArray(p.OtherSubjects) ? p.OtherSubjects.map((item: any) => formatPrimitive(item?.name || item?.description || item)).join(', ') : p.ExtraSubject} />
+            <DetailField label="Vara / Foro" value={p.CourtLevel || p.Court || p.JudgingBody} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-4">
+          <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">Datas e Valores</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <DetailField label="Data Início" value={p.StartDate ? formatDate(p.StartDate) : p.DistributionDate ? formatDate(p.DistributionDate) : p.PublicationDate ? formatDate(p.PublicationDate) : '—'} />
+            <DetailField label="Data Distribuição" value={p.DistributionDate ? formatDate(p.DistributionDate) : '—'} />
+            <DetailField label="Última Atualização" value={p.LastUpdate ? formatDate(p.LastUpdate) : p.LastMovementDate ? formatDate(p.LastMovementDate) : '—'} />
+            <DetailField label="Valor da Causa" value={typeof p.Value === 'number' ? formatCurrency(p.Value) : p.Value} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {Array.isArray(p.Tags) && p.Tags.length > 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">Tags</p>
+            <div className="flex flex-wrap gap-2">
+              {p.Tags.map((tag: any, index: number) => (
+                <Badge key={index} variant="secondary">{String(tag?.tag || tag)}</Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {Array.isArray(p.Parties) && p.Parties.length > 0 && (
+        <ArraySection
+          title={`Partes (${p.Parties.length})`}
+          items={p.Parties}
+          renderItem={(party: any, i: number) => (
+            <div key={i} className="flex items-center justify-between py-2.5">
+              <div>
+                <p className="text-sm font-medium text-foreground">{party.Name || party.name || '—'}</p>
+                <p className="text-xs text-muted-foreground">{formatDocument(party.TaxId || party.taxId || party.Document || party.Doc)}</p>
+                {(party.Lawyer || party.LawyerName) && (
+                  <p className="text-xs text-muted-foreground mt-0.5">Advogado: {party.Lawyer || party.LawyerName}</p>
+                )}
+              </div>
+              <Badge variant="outline" className="text-[10px] font-semibold">
+                {String(party.Polarity || party.polarity || party.Type || party.type || '—').toUpperCase()}
+              </Badge>
+            </div>
+          )}
+        />
+      )}
+
+      {Array.isArray(p.Updates) && p.Updates.length > 0 && (
+        <TimelineSection title={`Movimentações (${p.Updates.length})`} items={p.Updates} />
+      )}
+
+      {Array.isArray(p.Decisions) && p.Decisions.length > 0 && (
+        <TimelineSection title={`Decisões (${p.Decisions.length})`} items={p.Decisions} />
+      )}
+
+      {Array.isArray(p.Petitions) && p.Petitions.length > 0 && (
+        <TimelineSection title={`Petições (${p.Petitions.length})`} items={p.Petitions} />
+      )}
+
+      {isPlainObject(p.IaAnalysisHistory) && (
+        <ObjectSection title="Histórico IA" value={p.IaAnalysisHistory} />
+      )}
+
+      {extraScalarEntries.length > 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">Campos Extras</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {extraScalarEntries.map(([key, value]) => (
+                <DetailField key={key} label={formatLabel(key)} value={formatPrimitive(value)} />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {extraComplexEntries.map(([key, value]) => (
+        Array.isArray(value) ? (
+          <TimelineSection key={key} title={formatLabel(key)} items={value} />
+        ) : (
+          <ObjectSection key={key} title={formatLabel(key)} value={value as Record<string, any>} />
+        )
+      ))}
+    </div>
+  );
+}
+
+function ArraySection({
+  title,
+  items,
+  renderItem,
+}: {
+  title: string;
+  items: any[];
+  renderItem: (item: any, index: number) => ReactNode;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">{title}</p>
+        <div className="divide-y divide-border">
+          {items.map((item, index) => renderItem(item, index))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TimelineSection({ title, items }: { title: string; items: any[] }) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">{title}</p>
+        <ScrollArea className="max-h-[360px] pr-2">
+          <div className="space-y-3">
+            {items.map((item, index) => (
+              <div key={index} className="border-l-2 border-primary/30 pl-3 pb-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-semibold text-primary">{getBestItemDate(item) || '—'}</span>
+                  {item.Type && <Badge variant="secondary" className="text-[10px]">{String(item.Type)}</Badge>}
+                </div>
+                <p className="text-xs text-foreground mt-1 whitespace-pre-wrap">{getLongText(item) || JSON.stringify(item, null, 2)}</p>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ObjectSection({ title, value }: { title: string; value: Record<string, any> }) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">{title}</p>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {Object.entries(value).map(([key, itemValue]) => (
+            <DetailField
+              key={key}
+              label={formatLabel(key)}
+              value={isPlainObject(itemValue) || Array.isArray(itemValue) ? JSON.stringify(itemValue) : formatPrimitive(itemValue)}
+            />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -602,9 +822,10 @@ function EmptyState({ title, description }: { title: string; description: string
 // ─── Main component ───
 interface Props {
   data: Record<string, any>;
+  agriskClientId?: string | null;
 }
 
-export function ConsultaClienteDetailView({ data: rawData }: Props) {
+export function ConsultaClienteDetailView({ data: rawData, agriskClientId }: Props) {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   const normalized = normalizeResponseData(rawData);
@@ -649,7 +870,7 @@ export function ConsultaClienteDetailView({ data: rawData }: Props) {
       <div className="min-h-[400px]">
         {selectedCat ? (
           selectedCat.key === 'compliance' ? <ComplianceContent items={selectedCat.items} /> :
-          selectedCat.key === 'juridico' ? <LawsuitsContent items={selectedCat.items} /> :
+          selectedCat.key === 'juridico' ? <LawsuitsContent items={selectedCat.items} agriskClientId={agriskClientId} /> :
           selectedCat.key === 'grupos' ? <GruposContent items={selectedCat.items} /> :
           null
         ) : (

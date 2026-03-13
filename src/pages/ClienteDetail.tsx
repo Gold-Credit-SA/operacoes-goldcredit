@@ -194,7 +194,10 @@ export default function ClienteDetail() {
               ) : detailEntry.platform === 'serasa' || detailEntry.consulta_type.startsWith('serasa') ? (
                 <SerasaDetailView data={detailEntry.result_data} document={detailEntry.cnpj} consultaId={detailEntry.consulta_type} />
               ) : detailEntry.consulta_type === 'consulta_cliente' ? (
-                <ConsultaClienteDetailView data={detailEntry.result_data as Record<string, any>} />
+                <ConsultaClienteDetailView
+                  data={detailEntry.result_data as Record<string, any>}
+                  agriskClientId={client.agrisk_client_id}
+                />
               ) : (
                 <pre className="text-xs text-foreground whitespace-pre-wrap bg-muted p-4 rounded-lg">
                   {JSON.stringify(detailEntry.result_data, null, 2)}

@@ -69,7 +69,7 @@ async function executeConsulta(cnpj: string, id: ConsultaTypeId): Promise<Record
   }
 
   // AgRisk integration
-  const AGRISK_IDS = ['consulta_cliente', 'imoveis_simples', 'imoveis_car', 'patrimonio_veicular'];
+  const AGRISK_IDS = ['consulta_cliente', 'restritivos', 'endividamento', 'cpr', 'imoveis_simples', 'imoveis_car', 'patrimonio_veicular'];
   if (AGRISK_IDS.includes(id)) {
     const { data, error } = await supabase.functions.invoke('agrisk-query', {
       body: { taxId: cnpj.replace(/\D/g, ''), consultaType: id },
