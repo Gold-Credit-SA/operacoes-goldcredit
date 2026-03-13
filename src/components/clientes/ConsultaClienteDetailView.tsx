@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import {
   CheckCircle2, AlertTriangle, Shield, Scale, Leaf,
-  Users, Ban, ChevronUp, ChevronDown, Search, Briefcase
+  Users, Ban, ChevronUp, ChevronDown, Search, Briefcase, Eye, X
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -239,6 +241,7 @@ function LawsuitsContent({ items }: { items: SubItem[] }) {
   const ls = items[0]?.data || {};
   const list: any[] = ls.items || [];
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedProcess, setSelectedProcess] = useState<any | null>(null);
 
   const total = (ls.active || 0) + (ls.inactive || 0) + (ls.indefinite || 0);
   const civil = ls.civil || 0;
@@ -253,8 +256,15 @@ function LawsuitsContent({ items }: { items: SubItem[] }) {
            (p.CourtName || '').toLowerCase().includes(s);
   });
 
-  const polMap: Record<string, string> = { 'Ativo': 'ATIVO', 'Passivo': 'PASSIVO' };
-  const natureMap: Record<string, string> = { 'Cível': 'CIVEL', 'Criminal': 'CRIMINAL', 'Trabalhista': 'TRABALH…' };
+  function getNatureBadge(nature: string) {
+    const n = nature.toLowerCase();
+    const cls = n.includes('cível') || n.includes('civil') ? 'bg-blue-100 text-blue-700' :
+      n.includes('criminal') ? 'bg-red-100 text-red-700' :
+      n.includes('trabalh') ? 'bg-amber-100 text-amber-700' :
+      n.includes('execu') ? 'bg-orange-100 text-orange-700' :
+      'bg-muted text-muted-foreground';
+    return <Badge className={cn("text-[10px] font-semibold border-0", cls)}>{nature.toUpperCase()}</Badge>;
+  }
 
   return (
     <div className="space-y-4">
@@ -316,90 +326,124 @@ function LawsuitsContent({ items }: { items: SubItem[] }) {
           />
         </div>
         <p className="text-xs text-muted-foreground ml-auto">
-          Última atualização: <span className="text-primary font-semibold">{formatDate(new Date().toISOString())}</span>
+          {filtered.length} processo(s) encontrado(s)
         </p>
       </div>
 
-      {/* Table */}
+      {/* Compact card list */}
       {filtered.length === 0 ? (
         <EmptyState title="Sem Processos" description="Nenhum processo judicial encontrado." />
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tribunal</TableHead>
-                    <TableHead>UF</TableHead>
-                    <TableHead>Número | Ano Início</TableHead>
-                    <TableHead>Polo</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Valor</TableHead>
-                    <TableHead>Assunto</TableHead>
-                    <TableHead>Classificação</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((p: any, idx: number) => {
-                    const year = p.Number?.match(/\.(\d{4})\./)?.[1] || '';
-                    const polarity = p.Polarity || '—';
-                    const status = p.Status || '—';
-                    const nature = p.Nature || p.MainSubject?.split(' - ')[0] || '';
+        <div className="space-y-2">
+          {filtered.map((p: any, idx: number) => {
+            const polarity = p.Polarity || '—';
+            const status = p.Status || '—';
+            const nature = p.Nature || p.MainSubject?.split(' - ')[0] || '';
+            const isActive = !(status === 'INATIVO' || status === 'BAIXADO');
 
-                    return (
-                      <TableRow key={idx}>
-                        <TableCell className="text-xs font-medium">{p.CourtName || '—'}</TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className="text-xs">{p.State || '—'}</Badge>
-                        </TableCell>
-                        <TableCell className="text-xs font-mono">
-                          {p.Number || '—'}
-                          {year && <span className="font-bold">.{year}</span>}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={cn("text-[10px] font-semibold",
-                              polarity === 'Ativo' ? 'border-primary/40 text-primary bg-primary/5' : 'border-blue-500/30 text-blue-600 bg-blue-50'
-                            )}
-                          >
-                            {polarity.toUpperCase()}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs font-medium">
-                          {status === 'INATIVO' || status === 'BAIXADO' ? (
-                            <span className="text-muted-foreground">INATIVO</span>
-                          ) : (
-                            <span className="text-foreground">ATIVO</span>
+            return (
+              <Card key={idx} className="hover:bg-muted/30 transition-colors">
+                <CardContent className="py-3 px-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-mono font-medium text-foreground">{p.Number || '—'}</span>
+                        <Badge
+                          variant="outline"
+                          className={cn("text-[10px] font-semibold",
+                            polarity === 'Ativo' ? 'border-primary/40 text-primary bg-primary/5' : 'border-blue-500/30 text-blue-600 bg-blue-50'
                           )}
-                        </TableCell>
-                        <TableCell className="text-xs">{p.Value ? formatCurrency(p.Value) : '—'}</TableCell>
-                        <TableCell className="text-xs max-w-[200px] truncate">{p.MainSubject || '—'}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            {nature && (
-                              <Badge className={cn("text-[10px] font-semibold border-0",
-                                nature.toLowerCase().includes('cível') || nature.toLowerCase().includes('civil') ? 'bg-blue-100 text-blue-700' :
-                                nature.toLowerCase().includes('criminal') ? 'bg-red-100 text-red-700' :
-                                nature.toLowerCase().includes('trabalh') ? 'bg-amber-100 text-amber-700' :
-                                nature.toLowerCase().includes('execu') ? 'bg-orange-100 text-orange-700' :
-                                'bg-muted text-muted-foreground'
-                              )}>
-                                {nature.toUpperCase().slice(0, 12)}{nature.length > 12 ? '…' : ''}
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+                        >
+                          {polarity.toUpperCase()}
+                        </Badge>
+                        <Badge variant={isActive ? "default" : "secondary"} className="text-[10px]">
+                          {isActive ? 'ATIVO' : 'INATIVO'}
+                        </Badge>
+                        {nature && getNatureBadge(nature)}
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span>{p.CourtName || '—'}</span>
+                        {p.State && <Badge variant="secondary" className="text-[10px]">{p.State}</Badge>}
+                        {p.Value ? <span className="font-medium text-foreground">{formatCurrency(p.Value)}</span> : null}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0 text-xs gap-1.5"
+                      onClick={() => setSelectedProcess(p)}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      Detalhes
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       )}
+
+      {/* Detail dialog */}
+      <Dialog open={!!selectedProcess} onOpenChange={(open) => !open && setSelectedProcess(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg">Detalhes do Processo</DialogTitle>
+          </DialogHeader>
+          {selectedProcess && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <DetailField label="Número" value={selectedProcess.Number} mono />
+                <DetailField label="Tribunal" value={selectedProcess.CourtName} />
+                <DetailField label="UF" value={selectedProcess.State} />
+                <DetailField label="Polo" value={selectedProcess.Polarity} />
+                <DetailField label="Status" value={selectedProcess.Status} />
+                <DetailField label="Natureza" value={selectedProcess.Nature} />
+                <DetailField label="Valor" value={selectedProcess.Value ? formatCurrency(selectedProcess.Value) : '—'} />
+                <DetailField label="Data Início" value={selectedProcess.StartDate ? formatDate(selectedProcess.StartDate) : '—'} />
+              </div>
+              <DetailField label="Assunto Principal" value={selectedProcess.MainSubject} />
+              {selectedProcess.Parties && selectedProcess.Parties.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Partes</p>
+                  <div className="space-y-2">
+                    {selectedProcess.Parties.map((party: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                        <span className="text-sm text-foreground">{party.Name || party.name || '—'}</span>
+                        <Badge variant="outline" className="text-[10px]">
+                          {(party.Polarity || party.polarity || party.Type || party.type || '—').toUpperCase()}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {selectedProcess.Updates && selectedProcess.Updates.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Movimentações</p>
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                    {selectedProcess.Updates.map((upd: any, i: number) => (
+                      <div key={i} className="text-xs border-b border-border pb-2 last:border-0">
+                        <span className="text-muted-foreground">{upd.Date ? formatDate(upd.Date) : ''}</span>
+                        <p className="text-foreground mt-0.5">{upd.Description || upd.Content || '—'}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function DetailField({ label, value, mono }: { label: string; value?: string | null; mono?: boolean }) {
+  return (
+    <div>
+      <p className="text-[11px] font-semibold text-muted-foreground uppercase">{label}</p>
+      <p className={cn("text-sm text-foreground mt-0.5", mono && "font-mono")}>{value || '—'}</p>
     </div>
   );
 }
