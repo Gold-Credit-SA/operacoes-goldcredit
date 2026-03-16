@@ -92,6 +92,14 @@ export function DashboardSkeleton() {
           </div>
         </div>
       </div>
+
+      {/* Indicador de carregamento no canto */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <div className="bg-primary text-primary-foreground px-4 py-2 rounded-full shadow-lg flex items-center gap-2 animate-bounce">
+          <div className="h-2 w-2 rounded-full bg-primary-foreground animate-ping" />
+          <span className="text-sm font-medium">Carregando painel...</span>
+        </div>
+      </div>
     </div>
   );
 }
