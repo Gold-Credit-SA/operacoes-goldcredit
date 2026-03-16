@@ -21,6 +21,7 @@ import {
   ResponsiveContainer, LineChart, Line, Area, AreaChart, Cell,
   PieChart as RechartsPie, Pie, Legend,
 } from 'recharts';
+import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 
 // Types
 interface Resumo {
