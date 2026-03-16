@@ -624,7 +624,8 @@ function ProcessDetailContent({ process, agriskClientId }: { process: Record<str
   }, [process]);
 
   useEffect(() => {
-    const lawsuitId = process?.LawsuitId || process?._id || process?.id;
+    const lawsuitId = process?._id || process?.LawsuitId || process?.id;
+    console.log('[ProcessDetail] effectiveClientId:', effectiveClientId, '| lawsuitId (_id first):', lawsuitId, '| _id:', process?._id, '| LawsuitId:', process?.LawsuitId);
     if (!effectiveClientId || !lawsuitId || isProcessDetailLoaded(process)) return;
 
     let cancelled = false;
@@ -638,6 +639,7 @@ function ProcessDetailContent({ process, agriskClientId }: { process: Record<str
       },
     }).then(({ data, error }) => {
       if (cancelled) return;
+      console.log('[ProcessDetail] detail response:', { error, hasData: !!data?.data, updatesLength: Array.isArray(data?.data?.Updates) ? data.data.Updates.length : 'none', keys: data?.data ? Object.keys(data.data) : [] });
       if (error || !data?.data) {
         setLoadingError(error?.message || 'Não foi possível carregar o detalhe completo do processo.');
         return;

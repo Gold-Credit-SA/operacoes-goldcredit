@@ -231,6 +231,8 @@ async function handleFetchLawsuitDetail(body: Record<string, unknown>): Promise<
     });
   }
 
+  // Always return what we have, even if Updates is empty
+  console.log(`[handleFetchLawsuitDetail] returning detail: _id=${asString(detail._id)} Updates=${Array.isArray(detail.Updates) ? detail.Updates.length : "none"} keys=${Object.keys(detail).join(",")}`);
   return json({ data: detail });
 }
 
@@ -624,29 +626,56 @@ async function fetchLawsuitDetail(
   clientId: string,
   lawsuitId: string,
 ): Promise<Record<string, unknown> | null> {
-  let lastDetail: Record<string, unknown> | null = null;
+  const url = `${AGRISK_BASE}/queries/clients/${clientId}/lawsuits/${lawsuitId}`;
+  console.log(`[fetchLawsuitDetail] GET ${url}`);
 
-  for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
-    const result = await tryJson<Record<string, unknown>>(
-      `${AGRISK_BASE}/queries/clients/${clientId}/lawsuits/${lawsuitId}`,
-      token,
-      15000,
-    );
+  let lastDetail: Record<string, unknown> | null = null;
+  const MAX_ATTEMPTS = 3;
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+    const result = await tryJson<Record<string, unknown>>(url, token, 15000);
+
+    console.log(`[fetchLawsuitDetail] attempt=${attempt} status=${result.status} ok=${result.ok} error=${result.error ?? "none"}`);
 
     if (result.ok && result.data && typeof result.data === "object") {
-      lastDetail = await enrichLawsuitMovements(token, result.data);
+      const unwrapped = unwrapLawsuitResponse(result.data);
+      console.log(`[fetchLawsuitDetail] unwrapped keys=${Object.keys(unwrapped).join(",")}`);
+      console.log(`[fetchLawsuitDetail] Updates length=${Array.isArray(unwrapped.Updates) ? unwrapped.Updates.length : "none"}`);
+
+      lastDetail = await enrichLawsuitMovements(token, unwrapped);
 
       if (hasLawsuitTimeline(lastDetail)) {
+        console.log(`[fetchLawsuitDetail] timeline found on attempt=${attempt}, returning`);
         return lastDetail;
       }
     }
 
-    if (attempt < POLL_ATTEMPTS - 1) {
+    if (attempt < MAX_ATTEMPTS - 1) {
       await sleep(POLL_DELAY_MS);
     }
   }
 
+  console.log(`[fetchLawsuitDetail] returning lastDetail after ${MAX_ATTEMPTS} attempts, hasUpdates=${Array.isArray(lastDetail?.Updates) && lastDetail.Updates.length > 0}`);
   return lastDetail;
+}
+
+function unwrapLawsuitResponse(data: Record<string, unknown>): Record<string, unknown> {
+  // Handle wrapped responses: { data: {...} } or { item: {...} }
+  if (data.data && typeof data.data === "object" && !Array.isArray(data.data)) {
+    const inner = data.data as Record<string, unknown>;
+    if (inner._id || inner.LawsuitId || inner.Number) {
+      console.log("[unwrapLawsuitResponse] unwrapping from 'data' key");
+      return inner;
+    }
+  }
+  if (data.item && typeof data.item === "object" && !Array.isArray(data.item)) {
+    const inner = data.item as Record<string, unknown>;
+    if (inner._id || inner.LawsuitId || inner.Number) {
+      console.log("[unwrapLawsuitResponse] unwrapping from 'item' key");
+      return inner;
+    }
+  }
+  return data;
 }
 
 async function enrichLawsuitMovements(
