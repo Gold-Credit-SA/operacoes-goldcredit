@@ -15,6 +15,7 @@ import {
   Search, ArrowRight, RefreshCw, Briefcase, UserPlus, Loader2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react';
+import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -151,6 +152,7 @@ export default function CarteiraGiro() {
 
   return (
     <MainLayout title="Giro de Carteira" subtitle="Acompanhamento de movimentações e operações da sua carteira">
+      <LoadingIndicator show={isLoading} message="Carregando carteira..." />
       <div className="space-y-6">
         {/* Search & refresh */}
         <div className="flex items-center gap-3">

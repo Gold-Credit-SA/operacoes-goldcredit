@@ -21,6 +21,7 @@ import { ConsultaModal } from '@/components/clientes/ConsultaModal';
 import { ConsultaClienteDetailView } from '@/components/clientes/ConsultaClienteDetailView';
 import { CedenteInfoPanel } from '@/components/consulta/CedenteInfoPanel';
 import { ClienteAICompilationCard } from '@/components/clientes/ClienteAICompilationCard';
+import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 
 interface ClientRecord {
   id: string;
@@ -251,6 +252,7 @@ export default function ClienteDetail() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <LoadingIndicator show={true} message="Carregando cliente..." />
       </div>
     );
   }

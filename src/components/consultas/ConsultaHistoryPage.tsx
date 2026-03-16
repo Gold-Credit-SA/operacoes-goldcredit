@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 
 interface HistoryEntry {
   id: string;
@@ -204,6 +205,7 @@ export function ConsultaHistoryPage({ platform, title, description, icon }: Cons
 
   return (
     <div className="min-h-screen bg-background">
+      <LoadingIndicator show={loading} message="Carregando histórico..." />
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border">
         <div className="px-6 py-4">
           <div className="flex items-center gap-3">
