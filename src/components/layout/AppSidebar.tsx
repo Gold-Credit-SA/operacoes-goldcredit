@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, LogOut, ClipboardList, Settings, Briefcase, ChevronDown, RefreshCw, BarChart3, Settings2, UserCircle, LayoutDashboard, FileText, Users } from 'lucide-react';
+import { Search, LogOut, Settings, Briefcase, ChevronDown, RefreshCw, BarChart3, Settings2, LayoutDashboard, Users } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,6 +14,8 @@ export function AppSidebar() {
   const [carteiraOpen, setCarteiraOpen] = useState(
     location.pathname.startsWith('/carteira')
   );
+  const queryClient = useQueryClient();
+
   const carteiraItems = [
     { path: '/carteira/giro', label: 'Giro de Carteira', icon: RefreshCw },
     { path: '/carteira/metricas', label: 'Métricas da Carteira', icon: BarChart3 },
@@ -33,8 +35,8 @@ export function AppSidebar() {
 
   const userInitial = profile?.name?.charAt(0).toUpperCase() || 'U';
   const isCarteiraActive = location.pathname.startsWith('/carteira');
-  const queryClient = useQueryClient();
 
+  // ── Prefetch helpers ──────────────────────────────────────────────
   const prefetchDashboard = useCallback(() => {
     queryClient.prefetchQuery({
       queryKey: ['gestor-dashboard'],
@@ -54,7 +56,7 @@ export function AppSidebar() {
       queryKey: ['cedentes-list-portfolio'],
       queryFn: async () => {
         const { data, error } = await supabase.functions.invoke('external-db', {
-          body: { action: 'cedentes-list', filters: {} }
+          body: { action: 'cedentes-list', filters: {} },
         });
         if (error) throw error;
         return data;
@@ -62,6 +64,40 @@ export function AppSidebar() {
       staleTime: 2 * 60 * 1000,
     });
   }, [queryClient]);
+
+  const prefetchPortfolio = useCallback(() => {
+    queryClient.prefetchQuery({
+      queryKey: ['portfolio-carteira'],
+      queryFn: async () => {
+        const { data, error } = await supabase.functions.invoke('portfolio-data', {
+          body: { action: 'list-portfolio' },
+        });
+        if (error) throw error;
+        return data;
+      },
+      staleTime: 2 * 60 * 1000,
+    });
+  }, [queryClient]);
+
+  const prefetchClientes = useCallback(() => {
+    queryClient.prefetchQuery({
+      queryKey: ['consulta-clients'],
+      queryFn: async () => {
+        const { data } = await supabase
+          .from('consulta_clients')
+          .select('*')
+          .order('created_at', { ascending: false });
+        return data;
+      },
+      staleTime: 2 * 60 * 1000,
+    });
+  }, [queryClient]);
+
+  const getPrefetchFn = (path: string) => {
+    if (path === '/consulta') return prefetchCedentes;
+    if (path === '/clientes') return prefetchClientes;
+    return undefined;
+  };
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar flex flex-col border-r border-sidebar-border">
@@ -88,6 +124,7 @@ export function AppSidebar() {
         {/* Carteira dropdown */}
         <button
           onClick={() => setCarteiraOpen(!carteiraOpen)}
+          onMouseEnter={prefetchPortfolio}
           className={cn(
             "flex items-center justify-between w-full px-4 py-3 rounded-lg text-sm font-medium transition-all duration-150",
             isCarteiraActive
@@ -110,6 +147,7 @@ export function AppSidebar() {
                 <Link
                   key={item.path}
                   to={item.path}
+                  onMouseEnter={prefetchPortfolio}
                   className={cn(
                     "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150",
                     isActive
@@ -125,16 +163,13 @@ export function AppSidebar() {
           </div>
         )}
 
-
-
-
         {navItemsAfter.map((item) => {
           const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
           return (
             <Link
               key={item.path}
               to={item.path}
-              onMouseEnter={item.path === '/consulta' ? prefetchCedentes : undefined}
+              onMouseEnter={getPrefetchFn(item.path)}
               className={cn(
                 "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-150",
                 isActive
