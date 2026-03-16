@@ -22,6 +22,7 @@ import { ConsultaClienteDetailView } from '@/components/clientes/ConsultaCliente
 import { CedenteInfoPanel } from '@/components/consulta/CedenteInfoPanel';
 import { ClienteAICompilationCard } from '@/components/clientes/ClienteAICompilationCard';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
+import { PageLoadingSkeleton } from '@/components/ui/PageLoadingSkeleton';
 
 interface ClientRecord {
   id: string;
