@@ -138,7 +138,7 @@ serve(async (req) => {
     if (!cnpj || typeof cnpj !== 'string') {
       return new Response(
         JSON.stringify({ error: 'CNPJ é obrigatório.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -175,7 +175,7 @@ serve(async (req) => {
     console.error(`[hbi-scr] Erro:`, message);
     return new Response(
       JSON.stringify({ error: message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
