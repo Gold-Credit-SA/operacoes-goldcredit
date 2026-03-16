@@ -138,7 +138,7 @@ serve(async (req) => {
     if (!cnpj || typeof cnpj !== 'string') {
       return new Response(
         JSON.stringify({ error: 'CNPJ é obrigatório.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
