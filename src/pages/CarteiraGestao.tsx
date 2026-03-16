@@ -20,6 +20,7 @@ import {
   Search, Plus, RefreshCw, Settings2, Users, Clock, CheckCircle2, XCircle, AlertCircle,
 } from 'lucide-react';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
+import { PageLoadingSkeleton } from '@/components/ui/PageLoadingSkeleton';
 
 interface Assignment {
   id: string;
