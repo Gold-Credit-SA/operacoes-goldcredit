@@ -33,6 +33,35 @@ export function AppSidebar() {
 
   const userInitial = profile?.name?.charAt(0).toUpperCase() || 'U';
   const isCarteiraActive = location.pathname.startsWith('/carteira');
+  const queryClient = useQueryClient();
+
+  const prefetchDashboard = useCallback(() => {
+    queryClient.prefetchQuery({
+      queryKey: ['gestor-dashboard'],
+      queryFn: async () => {
+        const { data, error } = await supabase.functions.invoke('portfolio-data', {
+          body: { action: 'gestor-dashboard' },
+        });
+        if (error) throw error;
+        return data;
+      },
+      staleTime: 2 * 60 * 1000,
+    });
+  }, [queryClient]);
+
+  const prefetchCedentes = useCallback(() => {
+    queryClient.prefetchQuery({
+      queryKey: ['cedentes-list-portfolio'],
+      queryFn: async () => {
+        const { data, error } = await supabase.functions.invoke('external-db', {
+          body: { action: 'cedentes-list', filters: {} }
+        });
+        if (error) throw error;
+        return data;
+      },
+      staleTime: 2 * 60 * 1000,
+    });
+  }, [queryClient]);
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar flex flex-col border-r border-sidebar-border">
