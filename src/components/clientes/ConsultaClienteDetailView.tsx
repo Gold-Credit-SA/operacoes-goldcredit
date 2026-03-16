@@ -83,13 +83,13 @@ function formatPrimitive(value: unknown): string {
 
 function sanitizeUiText(value: string): string {
   return value
-    .replaceAll('ÃƒÂ§', 'c')
-    .replaceAll('ÃƒÂ£', 'a')
-    .replaceAll('ÃƒÂ¡', 'a')
-    .replaceAll('ÃƒÂª', 'e')
-    .replaceAll('ÃƒÂ©', 'e')
-    .replaceAll('ÃƒÂ­', 'i')
-    .replaceAll('ÃƒÂ³', 'o')
+    .split('ÃƒÂ§').join('c')
+    .split('ÃƒÂ£').join('a')
+    .split('ÃƒÂ¡').join('a')
+    .split('ÃƒÂª').join('e')
+    .split('ÃƒÂ©').join('e')
+    .split('ÃƒÂ­').join('i')
+    .split('ÃƒÂ³').join('o')
     .replaceAll('ÃƒÂµ', 'o')
     .replaceAll('ÃƒÂº', 'u')
     .replaceAll('Ãƒâ€œ', 'O')
