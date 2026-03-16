@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { ProximosAniversariantesCard } from '@/components/painel/ProximosAniversariantesCard';
 import { SaldosCard } from '@/components/painel/SaldosCard';
 import { ChequesDevolvidosCard } from '@/components/painel/ChequesDevolvidosCard';
+import { DashboardSkeleton } from '@/components/painel/DashboardSkeleton';
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -60,6 +61,10 @@ export default function GestorDashboard() {
     month: 'long',
     year: 'numeric',
   });
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
 
   return (
     <div className="min-h-full bg-[radial-gradient(circle_at_top_left,rgba(217,119,6,0.10),transparent_30%),radial-gradient(circle_at_top_right,rgba(120,53,15,0.05),transparent_28%),linear-gradient(180deg,rgba(255,251,235,0.72),rgba(255,255,255,1))] p-6">

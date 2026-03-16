@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Search, LogOut, ClipboardList, Settings, Briefcase, ChevronDown, RefreshCw, BarChart3, Settings2, UserCircle, LayoutDashboard, FileText, Users } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import logoGoldCredit from '@/assets/logo-gold-credit.png';
 
 export function AppSidebar() {
@@ -31,6 +33,35 @@ export function AppSidebar() {
 
   const userInitial = profile?.name?.charAt(0).toUpperCase() || 'U';
   const isCarteiraActive = location.pathname.startsWith('/carteira');
+  const queryClient = useQueryClient();
+
+  const prefetchDashboard = useCallback(() => {
+    queryClient.prefetchQuery({
+      queryKey: ['gestor-dashboard'],
+      queryFn: async () => {
+        const { data, error } = await supabase.functions.invoke('portfolio-data', {
+          body: { action: 'gestor-dashboard' },
+        });
+        if (error) throw error;
+        return data;
+      },
+      staleTime: 2 * 60 * 1000,
+    });
+  }, [queryClient]);
+
+  const prefetchCedentes = useCallback(() => {
+    queryClient.prefetchQuery({
+      queryKey: ['cedentes-list-portfolio'],
+      queryFn: async () => {
+        const { data, error } = await supabase.functions.invoke('external-db', {
+          body: { action: 'cedentes-list', filters: {} }
+        });
+        if (error) throw error;
+        return data;
+      },
+      staleTime: 2 * 60 * 1000,
+    });
+  }, [queryClient]);
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar flex flex-col border-r border-sidebar-border">
@@ -42,6 +73,7 @@ export function AppSidebar() {
         {/* Painel */}
         <Link
           to="/painel"
+          onMouseEnter={prefetchDashboard}
           className={cn(
             "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-150",
             location.pathname === '/painel'
@@ -102,6 +134,7 @@ export function AppSidebar() {
             <Link
               key={item.path}
               to={item.path}
+              onMouseEnter={item.path === '/consulta' ? prefetchCedentes : undefined}
               className={cn(
                 "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-150",
                 isActive
