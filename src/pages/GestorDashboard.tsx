@@ -62,8 +62,11 @@ export default function GestorDashboard() {
     year: 'numeric',
   });
 
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
+
   return (
-    <div className="min-h-full bg-[radial-gradient(circle_at_top_left,rgba(217,119,6,0.10),transparent_30%),radial-gradient(circle_at_top_right,rgba(120,53,15,0.05),transparent_28%),linear-gradient(180deg,rgba(255,251,235,0.72),rgba(255,255,255,1))] p-6">
       <div className="mx-auto max-w-[1600px] space-y-6">
         <section className="py-2">
           <div className="flex flex-wrap items-center justify-between gap-3">
