@@ -15,6 +15,7 @@ import {
   Search, ArrowRight, RefreshCw, Briefcase, UserPlus, Loader2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react';
+import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
