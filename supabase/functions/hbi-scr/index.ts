@@ -175,7 +175,7 @@ serve(async (req) => {
     console.error(`[hbi-scr] Erro:`, message);
     return new Response(
       JSON.stringify({ error: message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
