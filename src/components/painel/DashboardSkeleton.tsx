@@ -2,7 +2,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Wallet2, Cake, AlertTriangle } from 'lucide-react';
 
-export function DashboardSkeleton() {
+interface DashboardSkeletonProps {
+  message?: string;
+}
+
+export function DashboardSkeleton({ message = 'Carregando painel...' }: DashboardSkeletonProps) {
   return (
     <div className="min-h-full bg-[radial-gradient(circle_at_top_left,rgba(217,119,6,0.10),transparent_30%),radial-gradient(circle_at_top_right,rgba(120,53,15,0.05),transparent_28%),linear-gradient(180deg,rgba(255,251,235,0.72),rgba(255,255,255,1))] p-6">
       <div className="mx-auto max-w-[1600px] space-y-6">
