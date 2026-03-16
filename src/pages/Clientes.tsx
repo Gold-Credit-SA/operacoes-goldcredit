@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
+import { PageLoadingSkeleton } from '@/components/ui/PageLoadingSkeleton';
 
 interface ClientRecord {
   id: string;
