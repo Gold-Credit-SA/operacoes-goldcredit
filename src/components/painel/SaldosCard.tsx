@@ -105,7 +105,7 @@ export function SaldosCard({ saldoTrustee, loading, className }: Props) {
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           <div className="rounded-2xl border border-[#FFF6D9]/24 bg-[linear-gradient(135deg,rgba(63,38,21,0.32),rgba(139,90,34,0.22))] px-4 py-3 backdrop-blur">
             <span className="text-[11px] uppercase tracking-[0.24em] text-[#FFF6D9]/88">Total consolidado</span>
-            <p className="mt-2 text-3xl font-semibold tracking-tight">
+            <p className="mt-2 text-2xl font-semibold tracking-tight truncate" title={loading ? '' : formatCurrency(total)}>
               {loading ? '...' : formatCurrency(total)}
             </p>
           </div>
