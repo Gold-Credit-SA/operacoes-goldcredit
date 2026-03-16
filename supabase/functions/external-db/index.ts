@@ -353,7 +353,6 @@ Deno.serve(async (req) => {
       success: false, 
       error: error instanceof Error ? error.message : 'Erro ao conectar ao banco externo'
     }), {
-      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   } finally {
