@@ -16,6 +16,7 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
+import { PageLoadingSkeleton } from '@/components/ui/PageLoadingSkeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -150,9 +151,12 @@ export default function CarteiraGiro() {
   );
   const goToPage = (page: number) => setCurrentPage(Math.max(1, Math.min(page, totalPages)));
 
+  if (isLoading && cedentes.length === 0) {
+    return <PageLoadingSkeleton message="Carregando carteira..." />;
+  }
+
   return (
     <MainLayout title="Giro de Carteira" subtitle="Acompanhamento de movimentações e operações da sua carteira">
-      <LoadingIndicator show={isLoading} message="Carregando carteira..." />
       <div className="space-y-6">
         {/* Search & refresh */}
         <div className="flex items-center gap-3">

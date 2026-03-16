@@ -22,6 +22,7 @@ import { ConsultaClienteDetailView } from '@/components/clientes/ConsultaCliente
 import { CedenteInfoPanel } from '@/components/consulta/CedenteInfoPanel';
 import { ClienteAICompilationCard } from '@/components/clientes/ClienteAICompilationCard';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
+import { PageLoadingSkeleton } from '@/components/ui/PageLoadingSkeleton';
 
 interface ClientRecord {
   id: string;
@@ -249,12 +250,7 @@ export default function ClienteDetail() {
   const agriskContactsData = isPlainObject((agriskSnapshot as any).contacts) ? ((agriskSnapshot as any).contacts as any) : {};
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <LoadingIndicator show={true} message="Carregando cliente..." />
-      </div>
-    );
+    return <PageLoadingSkeleton message="Carregando cliente..." />;
   }
 
   if (!client) {
