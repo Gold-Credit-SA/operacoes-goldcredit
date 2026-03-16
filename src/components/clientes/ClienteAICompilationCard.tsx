@@ -1,5 +1,5 @@
-import { useMemo, useState, type ReactNode } from 'react';
-import { AlertTriangle, Brain, CheckCircle2, Lightbulb, Loader2, RefreshCw, Sparkles } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { AlertTriangle, Brain, Building2, CreditCard, FileSearch, Loader2, RefreshCw, Shield, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,23 +30,34 @@ interface ClientRecord {
 }
 
 interface AICompilation {
-  visaoGeral: string;
-  resumoExecutivo: string;
-  confiancaAnalise: 'ALTA' | 'MEDIA' | 'BAIXA';
-  fontesConsideradas: Array<{
-    fonte: string;
-    tipo: 'interna' | 'externa';
-    status: 'presente' | 'ausente';
-    observacao: string;
-  }>;
-  pontosFortes: string[];
-  pontosAtencao: string[];
-  inconsistenciasOuLacunas: string[];
-  recomendacaoCredito: {
+  alertaCritico: string | null;
+  smart: {
+    disponivel: boolean;
+    ultimasOperacoes: string;
+    resumoFinanceiro: string;
+    limite: string;
+    concentracao: string;
+    liquidez: string;
+  };
+  serasa: {
+    disponivel: boolean;
+    mensagem: string | null;
+    liminarJudicial: boolean;
+    alertaLiminar: string | null;
+    score: string;
+    ultimasConsultas: string;
+    historicoPagamento: string;
+    resumoDividas: string;
+  };
+  scr: {
+    disponivel: boolean;
+    mensagem: string | null;
+    resumoGeral: string;
+  };
+  parecerFinal: {
     parecer: 'FAVORAVEL' | 'FAVORAVEL_COM_RESTRICOES' | 'ATENCAO' | 'DESFAVORAVEL';
     justificativa: string;
   };
-  proximosPassos: string[];
 }
 
 interface Props {
@@ -61,20 +72,21 @@ function latestByPlatform(entries: HistoryEntry[], platform: string) {
     .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))[0] || null;
 }
 
-function confidenceStyle(value?: string) {
-  if (value === 'ALTA') return 'bg-emerald-500/10 text-emerald-700 border-emerald-200';
-  if (value === 'MEDIA') return 'bg-amber-500/10 text-amber-700 border-amber-200';
-  return 'bg-red-500/10 text-red-700 border-red-200';
-}
-
-function recommendationStyle(value?: string) {
+function parecerStyle(value?: string) {
   if (value === 'FAVORAVEL') return 'bg-emerald-500/10 text-emerald-700 border-emerald-200';
   if (value === 'FAVORAVEL_COM_RESTRICOES') return 'bg-amber-500/10 text-amber-700 border-amber-200';
   if (value === 'ATENCAO') return 'bg-orange-500/10 text-orange-700 border-orange-200';
   return 'bg-red-500/10 text-red-700 border-red-200';
 }
 
-export function ClienteAICompilationCard({ client, history, agriskOverview }: Props) {
+function parecerLabel(value?: string) {
+  if (value === 'FAVORAVEL') return 'FAVORÁVEL';
+  if (value === 'FAVORAVEL_COM_RESTRICOES') return 'FAVORÁVEL COM RESTRIÇÕES';
+  if (value === 'ATENCAO') return 'ATENÇÃO';
+  return 'DESFAVORÁVEL';
+}
+
+export function ClienteAICompilationCard({ client, history }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [analysis, setAnalysis] = useState<AICompilation | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -99,12 +111,6 @@ export function ClienteAICompilationCard({ client, history, agriskOverview }: Pr
           createdAt: latestSmart.created_at,
           data: latestSmart.result_data,
         } : null,
-        agrisk: agriskOverview ? {
-          sourceType: 'externa',
-          consultaLabel: agriskOverview.consulta_label,
-          createdAt: agriskOverview.created_at,
-          data: agriskOverview.result_data,
-        } : null,
         serasa: latestSerasa ? {
           sourceType: 'externa',
           consultaLabel: latestSerasa.consulta_label,
@@ -119,13 +125,12 @@ export function ClienteAICompilationCard({ client, history, agriskOverview }: Pr
         } : null,
       },
     };
-  }, [client, history, agriskOverview]);
+  }, [client, history]);
 
   const hasAnySource = Object.values(compiledPayload.sourceData).some(Boolean);
 
   const runCompilation = async () => {
     if (!hasAnySource) return;
-
     setIsLoading(true);
     setError(null);
 
@@ -138,7 +143,7 @@ export function ClienteAICompilationCard({ client, history, agriskOverview }: Pr
       if (data?.error) throw new Error(data.error);
 
       setAnalysis(data.analysis);
-      toast.success('Resumo consolidado com IA concluido.');
+      toast.success('Compilação com IA concluída.');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro ao compilar dados com IA.';
       setError(message);
@@ -158,7 +163,7 @@ export function ClienteAICompilationCard({ client, history, agriskOverview }: Pr
               Compilar dados com IA
             </CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
-              A IA consolida os dados internos do Smart com as consultas externas do cliente.
+              Consolida dados Smart, Serasa e SCR em tópicos padronizados.
             </p>
           </div>
           <Button
@@ -167,20 +172,11 @@ export function ClienteAICompilationCard({ client, history, agriskOverview }: Pr
             className="gap-2 bg-[linear-gradient(135deg,#5b3418,#AA7128)] text-white hover:opacity-95"
           >
             {isLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Compilando...
-              </>
+              <><Loader2 className="h-4 w-4 animate-spin" /> Compilando...</>
             ) : analysis ? (
-              <>
-                <RefreshCw className="h-4 w-4" />
-                Atualizar resumo
-              </>
+              <><RefreshCw className="h-4 w-4" /> Atualizar compilação</>
             ) : (
-              <>
-                <Sparkles className="h-4 w-4" />
-                Compilar dados com IA
-              </>
+              <><Sparkles className="h-4 w-4" /> Compilar dados com IA</>
             )}
           </Button>
         </div>
@@ -189,7 +185,7 @@ export function ClienteAICompilationCard({ client, history, agriskOverview }: Pr
       <CardContent className="space-y-5">
         {!hasAnySource && (
           <div className="rounded-xl border border-dashed border-border p-6 text-sm text-muted-foreground">
-            Nenhuma fonte disponivel para consolidacao ainda. Execute pelo menos uma consulta externa ou a consulta interna Smart.
+            Nenhuma fonte disponível. Execute pelo menos uma consulta (Smart, Serasa ou SCR).
           </div>
         )}
 
@@ -199,99 +195,117 @@ export function ClienteAICompilationCard({ client, history, agriskOverview }: Pr
           </div>
         )}
 
-        {analysis && (
-          <div className="space-y-5">
-            <div className="grid gap-4 lg:grid-cols-[1.35fr_0.85fr]">
-              <div className="rounded-2xl border border-amber-200/70 bg-white p-5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className={confidenceStyle(analysis.confiancaAnalise)}>
-                    Confianca {analysis.confiancaAnalise}
-                  </Badge>
-                  <Badge variant="outline" className={recommendationStyle(analysis.recomendacaoCredito?.parecer)}>
-                    {analysis.recomendacaoCredito?.parecer}
-                  </Badge>
-                </div>
-                <p className="mt-4 text-lg font-semibold text-foreground">{analysis.visaoGeral}</p>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground">{analysis.resumoExecutivo}</p>
-              </div>
-
-              <div className="rounded-2xl border border-amber-200/70 bg-white p-5">
-                <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Fontes consideradas</p>
-                <div className="mt-4 space-y-3">
-                  {analysis.fontesConsideradas?.map((fonte) => (
-                    <div key={`${fonte.fonte}-${fonte.tipo}`} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-medium text-foreground">{fonte.fonte}</p>
-                        <Badge variant="outline" className={fonte.tipo === 'interna' ? 'border-stone-200 text-stone-700' : 'border-amber-200 text-amber-700'}>
-                          {fonte.tipo}
-                        </Badge>
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {fonte.status} · {fonte.observacao}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-2">
-              <SectionList
-                title="Pontos fortes"
-                items={analysis.pontosFortes}
-                icon={<CheckCircle2 className="h-4 w-4 text-emerald-600" />}
-                emptyText="Nenhum ponto forte destacado."
-              />
-              <SectionList
-                title="Pontos de atencao"
-                items={analysis.pontosAtencao}
-                icon={<AlertTriangle className="h-4 w-4 text-orange-600" />}
-                emptyText="Nenhum ponto de atencao destacado."
-              />
-            </div>
-
-            <SectionList
-              title="Inconsistencias ou lacunas"
-              items={analysis.inconsistenciasOuLacunas}
-              icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
-              emptyText="Nenhuma inconsistencia relevante encontrada."
-            />
-
-            <Card className="border-amber-200/70 bg-white shadow-none">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm">Recomendacao de credito</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Badge variant="outline" className={recommendationStyle(analysis.recomendacaoCredito?.parecer)}>
-                  {analysis.recomendacaoCredito?.parecer}
-                </Badge>
-                <p className="text-sm text-muted-foreground">{analysis.recomendacaoCredito?.justificativa}</p>
-              </CardContent>
-            </Card>
-
-            <SectionList
-              title="Proximos passos"
-              items={analysis.proximosPassos}
-              icon={<Lightbulb className="h-4 w-4 text-amber-700" />}
-              emptyText="Nenhum proximo passo sugerido."
-            />
-          </div>
-        )}
+        {analysis && <AnalysisResult analysis={analysis} />}
       </CardContent>
     </Card>
   );
 }
 
-function SectionList({
+/* ─── Sub-components ─── */
+
+function AnalysisResult({ analysis }: { analysis: AICompilation }) {
+  return (
+    <div className="space-y-5 animate-fade-in">
+      {/* Alerta Crítico (Liminar) */}
+      {analysis.alertaCritico && (
+        <div className="flex items-start gap-3 rounded-xl border-2 border-red-400 bg-red-50 px-5 py-4">
+          <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold text-red-700">⚠ ALERTA CRÍTICO — LIMINAR JUDICIAL</p>
+            <p className="mt-1 text-sm text-red-600">{analysis.alertaCritico}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Serasa Liminar extra */}
+      {analysis.serasa?.liminarJudicial && analysis.serasa.alertaLiminar && !analysis.alertaCritico && (
+        <div className="flex items-start gap-3 rounded-xl border-2 border-red-400 bg-red-50 px-5 py-4">
+          <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold text-red-700">⚠ LIMINAR JUDICIAL DETECTADA</p>
+            <p className="mt-1 text-sm text-red-600">{analysis.serasa.alertaLiminar}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Smart Section */}
+      <SectionCard
+        title="Smart (Dados Internos)"
+        icon={<Building2 className="h-4 w-4 text-stone-600" />}
+        available={analysis.smart?.disponivel}
+      >
+        <TopicRow label="Últimas Operações" value={analysis.smart?.ultimasOperacoes} />
+        <TopicRow label="Resumo Financeiro" value={analysis.smart?.resumoFinanceiro} />
+        <TopicRow label="Limite" value={analysis.smart?.limite} />
+        <TopicRow label="Concentração" value={analysis.smart?.concentracao} />
+        <TopicRow label="Liquidez" value={analysis.smart?.liquidez} />
+      </SectionCard>
+
+      {/* Serasa Section */}
+      <SectionCard
+        title="Serasa"
+        icon={<Shield className="h-4 w-4 text-blue-600" />}
+        available={analysis.serasa?.disponivel}
+        unavailableMessage={analysis.serasa?.mensagem}
+      >
+        {analysis.serasa?.disponivel && (
+          <>
+            {analysis.serasa.liminarJudicial && (
+              <div className="mb-3 rounded-lg border border-red-300 bg-red-50 p-3 text-sm font-semibold text-red-700">
+                ⚠ Liminar Judicial detectada — {analysis.serasa.alertaLiminar || 'Verificar detalhes no relatório completo.'}
+              </div>
+            )}
+            <TopicRow label="Score" value={analysis.serasa.score} />
+            <TopicRow label="Últimas Consultas" value={analysis.serasa.ultimasConsultas} />
+            <TopicRow label="Histórico de Pagamento" value={analysis.serasa.historicoPagamento} />
+            <TopicRow label="Resumo de Dívidas" value={analysis.serasa.resumoDividas} />
+          </>
+        )}
+      </SectionCard>
+
+      {/* SCR Section */}
+      <SectionCard
+        title="SCR (Sistema de Informações de Crédito)"
+        icon={<CreditCard className="h-4 w-4 text-emerald-600" />}
+        available={analysis.scr?.disponivel}
+        unavailableMessage={analysis.scr?.mensagem}
+      >
+        {analysis.scr?.disponivel && (
+          <TopicRow label="Resumo Geral" value={analysis.scr.resumoGeral} />
+        )}
+      </SectionCard>
+
+      {/* Parecer Final */}
+      <Card className="border-amber-200/70 bg-white shadow-none">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <FileSearch className="h-4 w-4 text-amber-700" />
+            Parecer Final
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Badge variant="outline" className={parecerStyle(analysis.parecerFinal?.parecer)}>
+            {parecerLabel(analysis.parecerFinal?.parecer)}
+          </Badge>
+          <p className="text-sm text-muted-foreground leading-relaxed">{analysis.parecerFinal?.justificativa}</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SectionCard({
   title,
-  items,
   icon,
-  emptyText,
+  available,
+  unavailableMessage,
+  children,
 }: {
   title: string;
-  items?: string[];
-  icon: ReactNode;
-  emptyText: string;
+  icon: React.ReactNode;
+  available?: boolean;
+  unavailableMessage?: string | null;
+  children: React.ReactNode;
 }) {
   return (
     <Card className="border-amber-200/70 bg-white shadow-none">
@@ -299,22 +313,31 @@ function SectionList({
         <CardTitle className="flex items-center gap-2 text-sm">
           {icon}
           {title}
+          {available === false && (
+            <Badge variant="outline" className="ml-auto text-xs bg-muted/50 text-muted-foreground border-border">
+              Indisponível
+            </Badge>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {items && items.length > 0 ? (
-          <ul className="space-y-2">
-            {items.map((item, index) => (
-              <li key={`${title}-${index}`} className="flex items-start gap-2 text-sm text-muted-foreground">
-                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-600 shrink-0" />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
+        {available === false ? (
+          <p className="text-sm text-muted-foreground italic">
+            {unavailableMessage || 'Dados não disponíveis para esta fonte.'}
+          </p>
         ) : (
-          <p className="text-sm text-muted-foreground">{emptyText}</p>
+          <div className="space-y-3">{children}</div>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function TopicRow({ label, value }: { label: string; value?: string }) {
+  return (
+    <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{label}</p>
+      <p className="text-sm text-foreground leading-relaxed">{value || 'Sem dados.'}</p>
+    </div>
   );
 }

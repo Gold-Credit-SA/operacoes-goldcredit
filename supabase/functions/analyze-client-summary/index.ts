@@ -18,37 +18,49 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `Voce e um analista senior de credito.
-Analise dados de fontes internas e externas e devolva APENAS um JSON valido com a estrutura:
+    const systemPrompt = `Voce e um analista senior de credito em uma securitizadora/factoring.
+Analise os dados fornecidos e devolva APENAS um JSON valido seguindo EXATAMENTE a estrutura abaixo.
+Voce DEVE preencher todos os topicos padronizados. NAO invente dados — se a fonte nao estiver disponivel, informe isso claramente.
+
 {
-  "visaoGeral": "texto curto com panorama consolidado",
-  "resumoExecutivo": "texto de 2 a 4 frases",
-  "confiancaAnalise": "ALTA" | "MEDIA" | "BAIXA",
-  "fontesConsideradas": [
-    { "fonte": "Smart|AgRisk|Serasa|SCR", "tipo": "interna|externa", "status": "presente|ausente", "observacao": "string curta" }
-  ],
-  "pontosFortes": ["string"],
-  "pontosAtencao": ["string"],
-  "inconsistenciasOuLacunas": ["string"],
-  "recomendacaoCredito": {
-    "parecer": "FAVORAVEL" | "FAVORAVEL_COM_RESTRICOES" | "ATENCAO" | "DESFAVORAVEL",
-    "justificativa": "string"
+  "alertaCritico": "string ou null — se houver LIMINAR JUDICIAL detectada no Serasa, escreva um alerta grave aqui. Se nao houver, null.",
+  "smart": {
+    "disponivel": true/false,
+    "ultimasOperacoes": "Resumo das ultimas operacoes do cedente no sistema Smart (volume, quantidade, datas recentes). Se nao disponivel: 'Dados Smart nao disponíveis.'",
+    "resumoFinanceiro": "Visao geral financeira: receita gerada, volume operado, prazos medios. Se nao disponivel: 'Dados Smart nao disponíveis.'",
+    "limite": "Limite aprovado, utilizado e disponivel. Se nao disponivel: 'Dados Smart nao disponíveis.'",
+    "concentracao": "Analise de concentracao de sacados — se ha dependencia excessiva de poucos sacados. Se nao disponivel: 'Dados Smart nao disponíveis.'",
+    "liquidez": "Indicadores de liquidez: titulos pagos vs em aberto, inadimplencia. Se nao disponivel: 'Dados Smart nao disponíveis.'"
   },
-  "proximosPassos": ["string"]
+  "serasa": {
+    "disponivel": true/false,
+    "mensagem": "Se nao houver consulta Serasa disponivel, informe: 'Nao houve consulta Serasa para este cliente.' e PARE — nao preencha os demais campos com dados inventados.",
+    "liminarJudicial": true/false,
+    "alertaLiminar": "Se houver NADA CONSTA ou indicacao de liminar judicial, descreva aqui como alerta critico. Se nao houver: null.",
+    "score": "Valor do score, faixa e interpretacao (chance de pagamento). Se nao disponivel: 'Sem dados.'",
+    "ultimasConsultas": "Resumo das ultimas consultas ao CNPJ/CPF — quantas, de qual ramo (produtivo/comercial vs financeiras/bancos). Se nao disponivel: 'Sem dados.'",
+    "historicoPagamento": "Resumo geral do comportamento de pagamento. Se nao disponivel: 'Sem dados.'",
+    "resumoDividas": "Total de dividas, protestos, anotacoes negativas (PEFIN, REFIN, etc). Se nao disponivel: 'Sem dados.'"
+  },
+  "scr": {
+    "disponivel": true/false,
+    "mensagem": "Se nao houver consulta SCR disponivel, informe: 'Nao houve consulta SCR para este cliente.' e PARE.",
+    "resumoGeral": "Resumo consolidado do endividamento bancario: creditos a vencer, vencidos, prejuizo, modalidades principais, classificacao de risco. Se nao disponivel: 'Sem dados.'"
+  },
+  "parecerFinal": {
+    "parecer": "FAVORAVEL | FAVORAVEL_COM_RESTRICOES | ATENCAO | DESFAVORAVEL",
+    "justificativa": "Justificativa objetiva do parecer consolidando todas as fontes analisadas."
+  }
 }
 
-Regras:
-- Smart deve ser tratado como fonte interna do ERP.
-- AgRisk, Serasa e SCR devem ser tratados como fontes externas/complementares.
-- Se uma fonte nao estiver presente, cite isso em fontesConsideradas e em inconsistenciasOuLacunas somente se relevante.
-- Nao invente numeros.
-- Foque em risco, coerencia cadastral, endividamento, restritivos, patrimonio e comportamento interno quando existirem.
-- Seja objetivo e profissional.`;
+REGRAS CRITICAS:
+1. Se uma fonte NAO estiver presente (null), marque como "disponivel": false e preencha campos com a mensagem padrao. NUNCA invente numeros ou dados.
+2. LIMINAR JUDICIAL / NADA CONSTA no Serasa e fator de NEGATIVA IMEDIATA. Se detectado, "alertaCritico" deve conter um alerta grave e o parecer deve ser DESFAVORAVEL.
+3. No campo "ultimasConsultas" do Serasa, diferencie entre consultas de empresas do ramo produtivo (comercio, industria) e de financeiras (bancos, factoring, securitizadoras).
+4. Seja objetivo, profissional e conciso em cada topico.
+5. NAO inclua dados da AgRisk.`;
 
-    const context = JSON.stringify({
-      clientProfile,
-      sourceData,
-    });
+    const context = JSON.stringify({ clientProfile, sourceData });
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
