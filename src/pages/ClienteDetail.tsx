@@ -50,6 +50,30 @@ function formatDoc(doc: string): string {
   return doc;
 }
 
+function normalizeDigits(value: unknown): string {
+  return String(value ?? '').replace(/\D/g, '');
+}
+
+function formatPhoneDisplay(phone: unknown, areaCode?: unknown): string {
+  const rawValue = typeof phone === 'string' ? phone : String(phone ?? '');
+  const ddd = normalizeDigits(areaCode);
+  let digits = normalizeDigits(phone);
+
+  if (digits.length === 13 && digits.startsWith('55')) digits = digits.slice(2);
+  if (digits.length === 12 && digits.startsWith('55')) digits = digits.slice(2);
+
+  if ((digits.length === 8 || digits.length === 9) && ddd.length === 2) {
+    digits = `${ddd}${digits}`;
+  }
+
+  if (digits.length === 11) return `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`;
+  if (digits.length === 10) return `(${digits.slice(0,2)}) ${digits.slice(2,6)}-${digits.slice(6)}`;
+  if (digits.length === 9) return `${digits.slice(0,5)}-${digits.slice(5)}`;
+  if (digits.length === 8) return `${digits.slice(0,4)}-${digits.slice(4)}`;
+
+  return rawValue || '—';
+}
+
 function calcAge(birthDate: string): number | null {
   try {
     const parts = birthDate.includes('/') ? birthDate.split('/') : null;
@@ -501,19 +525,9 @@ export default function ClienteDetail() {
                           </TableHeader>
                           <TableBody>
                             {phones.map((ph: any, i: number) => {
-                              const rawNum = ph.area_code && ph.number
-                                ? `(${ph.area_code}) ${ph.number}`
-                                : ph.number || ph.numero || ph.phone || (typeof ph === 'string' ? ph : '');
-                              // Format phone: (XX) XXXXX-XXXX or (XX) XXXX-XXXX
-                              const digits = String(rawNum).replace(/\D/g, '');
-                              let formattedNum = rawNum;
-                              if (digits.length === 11) {
-                                formattedNum = `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`;
-                              } else if (digits.length === 10) {
-                                formattedNum = `(${digits.slice(0,2)}) ${digits.slice(2,6)}-${digits.slice(6)}`;
-                              } else if (digits.length >= 8) {
-                                formattedNum = `(${digits.slice(0,2)}) ${digits.slice(2)}`;
-                              }
+                              const phoneCore = ph.phone_number || ph.phoneNumber || ph.number || ph.numero || ph.phone || (typeof ph === 'string' ? ph : '');
+                              const areaCode = ph.area_code || ph.areaCode || ph.ddd;
+                              const formattedNum = formatPhoneDisplay(phoneCore, areaCode);
                               const typeMap: Record<string, string> = {
                                 'MOBILE': 'Celular', 'LANDLINE': 'Fixo', 'WORK': 'Trabalho',
                                 'HOME': 'Residencial', 'FAX': 'Fax', 'COMMERCIAL': 'Comercial',
