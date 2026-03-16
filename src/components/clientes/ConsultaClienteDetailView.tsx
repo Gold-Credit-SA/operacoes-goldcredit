@@ -82,32 +82,20 @@ function formatPrimitive(value: unknown): string {
 }
 
 function sanitizeUiText(value: string): string {
-  return value
-    .split('ÃƒÂ§').join('c')
-    .split('ÃƒÂ£').join('a')
-    .split('ÃƒÂ¡').join('a')
-    .split('ÃƒÂª').join('e')
-    .split('ÃƒÂ©').join('e')
-    .split('ÃƒÂ­').join('i')
-    .split('ÃƒÂ³').join('o')
-    .replaceAll('ÃƒÂµ', 'o')
-    .replaceAll('ÃƒÂº', 'u')
-    .replaceAll('Ãƒâ€œ', 'O')
-    .replaceAll('Ãƒ', '')
-    .replaceAll('Ã§', 'c')
-    .replaceAll('Ã£', 'a')
-    .replaceAll('Ã¡', 'a')
-    .replaceAll('Ã¢', 'a')
-    .replaceAll('Ãª', 'e')
-    .replaceAll('Ã©', 'e')
-    .replaceAll('Ã­', 'i')
-    .replaceAll('Ã³', 'o')
-    .replaceAll('Ãµ', 'o')
-    .replaceAll('Ãº', 'u')
-    .replaceAll('Ã“', 'O')
-    .replaceAll('Ãš', 'U')
-    .replaceAll('â€”', '-')
-    .replaceAll('Â·', '-');
+  const replacements: [string, string][] = [
+    ['ÃƒÂ§', 'c'], ['ÃƒÂ£', 'a'], ['ÃƒÂ¡', 'a'], ['ÃƒÂª', 'e'],
+    ['ÃƒÂ©', 'e'], ['ÃƒÂ­', 'i'], ['ÃƒÂ³', 'o'], ['ÃƒÂµ', 'o'],
+    ['ÃƒÂº', 'u'], ['Ãƒâ€œ', 'O'], ['Ãƒ', ''],
+    ['Ã§', 'c'], ['Ã£', 'a'], ['Ã¡', 'a'], ['Ã¢', 'a'],
+    ['Ãª', 'e'], ['Ã©', 'e'], ['Ã­', 'i'], ['Ã³', 'o'],
+    ['Ãµ', 'o'], ['Ãº', 'u'], ['Ã"', 'O'], ['Ãš', 'U'],
+    ['â€"', '-'], ['Â·', '-'],
+  ];
+  let result = value;
+  for (const [search, replace] of replacements) {
+    result = result.split(search).join(replace);
+  }
+  return result;
 }
 
 function getLongText(value: Record<string, any>): string | null {
