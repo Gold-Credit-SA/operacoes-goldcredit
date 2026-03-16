@@ -168,9 +168,12 @@ export default function Clientes() {
     loadClients();
   };
 
+  if (loading && clients.length === 0) {
+    return <PageLoadingSkeleton message="Carregando clientes..." />;
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <LoadingIndicator show={loading} message="Carregando clientes..." />
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border">
         <div className="px-6 py-4 flex items-center justify-between">

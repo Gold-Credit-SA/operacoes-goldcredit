@@ -213,9 +213,12 @@ export default function CarteiraMetricas() {
 
   const LoadingBlock = ({ h = 'h-[300px]' }: { h?: string }) => <Skeleton className={`${h} w-full rounded-lg`} />;
 
+  if (isLoading && !data) {
+    return <PageLoadingSkeleton message="Carregando métricas..." />;
+  }
+
   return (
     <MainLayout title="Métricas da Carteira" subtitle="Painel analítico avançado de desempenho e risco">
-      <LoadingIndicator show={isLoading} message="Carregando métricas..." />
       <div className="space-y-6">
         {/* Header: Filters */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sticky top-0 z-10 bg-background/80 backdrop-blur-sm py-3 -mt-3">
