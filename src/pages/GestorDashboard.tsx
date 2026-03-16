@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { ProximosAniversariantesCard } from '@/components/painel/ProximosAniversariantesCard';
 import { SaldosCard } from '@/components/painel/SaldosCard';
 import { ChequesDevolvidosCard } from '@/components/painel/ChequesDevolvidosCard';
+import { DashboardSkeleton } from '@/components/painel/DashboardSkeleton';
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
