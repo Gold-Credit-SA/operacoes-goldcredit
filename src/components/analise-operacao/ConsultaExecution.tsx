@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { CONSULTA_TYPES, type ConsultaTypeId } from './ConsultaSelection';
 import { SCRDetailView } from './SCRDetailView';
 import { SerasaDetailView } from './serasa/SerasaDetailView';
+import { ConsultaClienteDetailView } from '@/components/clientes/ConsultaClienteDetailView';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -19,6 +20,8 @@ export interface ConsultaResult {
   error?: string;
   data?: Record<string, unknown>;
 }
+
+const AGRISK_IDS = ['consulta_cliente', 'restritivos', 'endividamento', 'cpr', 'imoveis_simples', 'imoveis_car', 'patrimonio_veicular'];
 
 interface ConsultaExecutionProps {
   cnpj: string;
@@ -69,7 +72,6 @@ async function executeConsulta(cnpj: string, id: ConsultaTypeId): Promise<Record
   }
 
   // AgRisk integration
-  const AGRISK_IDS = ['consulta_cliente', 'restritivos', 'endividamento', 'cpr', 'imoveis_simples', 'imoveis_car', 'patrimonio_veicular'];
   if (AGRISK_IDS.includes(id)) {
     const { data, error } = await supabase.functions.invoke('agrisk-query', {
       body: { taxId: cnpj.replace(/\D/g, ''), consultaType: id },
@@ -248,6 +250,12 @@ export function ConsultaExecution({ cnpj, selected, onBack, onNewAnalysis, saveT
                 <SCRDetailView data={detailResult.data} />
               ) : detailResult.id.startsWith('serasa_') ? (
                 <SerasaDetailView data={detailResult.data} document={cnpj} consultaId={detailResult.id} />
+              ) : AGRISK_IDS.includes(detailResult.id) ? (
+                <ConsultaClienteDetailView
+                  data={detailResult.data as Record<string, any>}
+                  agriskClientId={(detailResult.data as any)?.clientId || null}
+                  consultaType={detailResult.id}
+                />
               ) : (
                 <div className="space-y-3">
                   {renderDetailData(detailResult.data)}

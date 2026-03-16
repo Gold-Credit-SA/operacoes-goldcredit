@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search as SearchIcon, FileText, Loader2, User, MapPin, Shield, Clock, Phone, Mail, RefreshCw } from 'lucide-react';
 import { PlatformBadge } from '@/components/ui/PlatformBadge';
@@ -19,6 +19,8 @@ import { SCRDetailView } from '@/components/analise-operacao/SCRDetailView';
 import { SerasaDetailView } from '@/components/analise-operacao/serasa/SerasaDetailView';
 import { ConsultaModal } from '@/components/clientes/ConsultaModal';
 import { ConsultaClienteDetailView } from '@/components/clientes/ConsultaClienteDetailView';
+import { CedenteInfoPanel } from '@/components/consulta/CedenteInfoPanel';
+import { ClienteAICompilationCard } from '@/components/clientes/ClienteAICompilationCard';
 
 interface ClientRecord {
   id: string;
@@ -41,6 +43,86 @@ interface HistoryEntry {
   created_at: string;
   status: string;
   consulted_by_name: string | null;
+  isAggregated?: boolean;
+  timeline?: HistoryEntry[];
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function getAgriskPayload(entry: HistoryEntry): Record<string, unknown> {
+  if (!entry.result_data || !isPlainObject(entry.result_data)) return {};
+  const data = entry.result_data as Record<string, unknown>;
+  if (isPlainObject(data.details)) return data.details;
+  return data;
+}
+
+function buildAgriskOverviewEntry(entries: HistoryEntry[]): HistoryEntry | null {
+  const agriskEntries = entries
+    .filter((entry) => entry.platform === 'agrisk')
+    .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+
+  if (agriskEntries.length === 0) return null;
+
+  const latestByType = new Map<string, HistoryEntry>();
+  agriskEntries.forEach((entry) => {
+    if (!latestByType.has(entry.consulta_type)) {
+      latestByType.set(entry.consulta_type, entry);
+    }
+  });
+
+  const consultaClienteEntry = latestByType.get('consulta_cliente');
+  const consultaClientePayload = consultaClienteEntry ? getAgriskPayload(consultaClienteEntry) : {};
+  const combinedDetails: Record<string, unknown> = isPlainObject(consultaClientePayload)
+    ? { ...consultaClientePayload }
+    : {};
+
+  latestByType.forEach((entry, type) => {
+    const payload = getAgriskPayload(entry);
+
+    switch (type) {
+      case 'consulta_cliente':
+        Object.assign(combinedDetails, payload);
+        break;
+      case 'restritivos':
+        combinedDetails.restritivos = (payload as any).restritivos || payload;
+        if ((payload as any).bvs) combinedDetails.bvs = (payload as any).bvs;
+        if ((payload as any).quod) combinedDetails.quod = (payload as any).quod;
+        break;
+      case 'endividamento':
+        combinedDetails.scr = (payload as any).scr || payload;
+        break;
+      case 'cpr':
+        combinedDetails.cpr = (payload as any).cpr || payload;
+        break;
+      case 'imoveis_simples':
+        if ((payload as any).rural) combinedDetails.rural = (payload as any).rural;
+        if ((payload as any).urban) combinedDetails.urban = (payload as any).urban;
+        if ((payload as any).ruralDetails) combinedDetails.ruralDetails = (payload as any).ruralDetails;
+        break;
+      case 'imoveis_car':
+        combinedDetails.imoveis_car = (payload as any).imoveis_car || payload;
+        break;
+      case 'patrimonio_veicular':
+        combinedDetails.patrimonio_veicular = (payload as any).patrimonio_veicular || payload;
+        break;
+      default:
+        break;
+    }
+  });
+
+  const latestEntry = agriskEntries[0];
+  return {
+    ...latestEntry,
+    consulta_label: 'Painel AgRisk',
+    consulta_type: 'agrisk_overview',
+    result_data: {
+      details: combinedDetails,
+    },
+    isAggregated: true,
+    timeline: agriskEntries,
+  };
 }
 
 function formatDoc(doc: string): string {
@@ -100,6 +182,22 @@ export default function ClienteDetail() {
   const [detailEntry, setDetailEntry] = useState<HistoryEntry | null>(null);
   const [filterPlatform, setFilterPlatform] = useState<string | null>(null);
 
+  const openAgriskOverview = useCallback(async (cpfCnpj: string) => {
+    const { data } = await supabase
+      .from('consulta_history')
+      .select('*')
+      .eq('cnpj', cpfCnpj)
+      .eq('platform', 'agrisk')
+      .eq('status', 'success')
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    const overviewEntry = buildAgriskOverviewEntry((data || []) as unknown as HistoryEntry[]);
+    if (overviewEntry) {
+      setDetailEntry(overviewEntry);
+    }
+  }, []);
+
   const loadData = useCallback(async () => {
     if (!id) return;
     setLoading(true);
@@ -121,7 +219,7 @@ export default function ClienteDetail() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const handleConsultaDone = async () => {
+  const handleConsultaDone = useCallback(async () => {
     setConsultaOpen(false);
     // Reload data and auto-show the most recent result
     if (!client) return;
@@ -134,10 +232,20 @@ export default function ClienteDetail() {
       .limit(1)
       .single();
     if (latest) {
-      setDetailEntry(latest as unknown as HistoryEntry);
+      const latestEntry = latest as unknown as HistoryEntry;
+      if (latestEntry.platform === 'agrisk') {
+        await openAgriskOverview(client.cpf_cnpj);
+      } else {
+        setDetailEntry(latestEntry);
+      }
     }
     loadData();
-  };
+  }, [client, loadData, openAgriskOverview]);
+
+  const agriskOverview = useMemo(() => buildAgriskOverviewEntry(history), [history]);
+  const agriskSnapshot = agriskOverview ? getAgriskPayload(agriskOverview) : {};
+  const agriskClientData = isPlainObject((agriskSnapshot as any).clientData) ? ((agriskSnapshot as any).clientData as any) : {};
+  const agriskContactsData = isPlainObject((agriskSnapshot as any).contacts) ? ((agriskSnapshot as any).contacts as any) : {};
 
   if (loading) {
     return (
@@ -160,7 +268,7 @@ export default function ClienteDetail() {
 
   const rawBd = client.basic_data as any || {};
   // Support both flat structure and nested { clientData, contacts } from register-client action
-  const bd = rawBd.clientData || rawBd;
+  const bd = Object.keys(agriskClientData).length > 0 ? agriskClientData : (rawBd.clientData || rawBd);
   const isCpf = client.cpf_cnpj.length === 11;
   const birthDate = bd.birthDate || bd.dataNascimento || bd.nascimento || null;
   const age = bd.age || (birthDate ? calcAge(birthDate) : null);
@@ -181,12 +289,12 @@ export default function ClienteDetail() {
       };
 
   // Addresses, phones, emails — check contacts sub-object too
-  const contactsData = rawBd.contacts || {};
+  const contactsData = Object.keys(agriskContactsData).length > 0 ? agriskContactsData : (rawBd.contacts || {});
   const addresses: any[] = bd.addresses || bd.enderecos || contactsData.addresses || [];
   const phones: any[] = bd.phones || bd.telefones || contactsData.phones || [];
   const emails: any[] = bd.emails || contactsData.emails || [];
 
-  const lastUpdate = client.updated_at || client.created_at;
+  const lastUpdate = agriskOverview?.created_at || client.updated_at || client.created_at;
 
   // When a detail entry is selected, show it inline
   if (detailEntry) {
@@ -206,22 +314,25 @@ export default function ClienteDetail() {
             </div>
           </div>
         </div>
-        <div className="p-6 max-w-7xl mx-auto">
-          <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-            <FileText className="h-5 w-5 text-primary" />
-            {detailEntry.consulta_label}
-          </h2>
+        <div className={`p-6 max-w-7xl mx-auto ${detailEntry.platform === 'agrisk' && detailEntry.isAggregated ? 'xl:grid xl:grid-cols-[minmax(0,1fr)_280px] xl:gap-6' : ''}`}>
           <div className="min-w-0">
+            <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              {detailEntry.consulta_label}
+            </h2>
             {detailEntry.result_data && (
               detailEntry.consulta_type === 'scr' ? (
                 <SCRDetailView data={detailEntry.result_data} />
               ) : detailEntry.platform === 'serasa' || detailEntry.consulta_type.startsWith('serasa') ? (
                 <SerasaDetailView data={detailEntry.result_data} document={detailEntry.cnpj} consultaId={detailEntry.consulta_type} />
-              ) : detailEntry.consulta_type === 'consulta_cliente' ? (
+              ) : detailEntry.platform === 'agrisk' ? (
                 <ConsultaClienteDetailView
                   data={detailEntry.result_data as Record<string, any>}
                   agriskClientId={client.agrisk_client_id}
+                  consultaType={detailEntry.isAggregated ? null : detailEntry.consulta_type}
                 />
+              ) : detailEntry.platform === 'smart' ? (
+                <CedenteInfoPanel data={detailEntry.result_data as any} />
               ) : (
                 <pre className="text-xs text-foreground whitespace-pre-wrap bg-muted p-4 rounded-lg">
                   {JSON.stringify(detailEntry.result_data, null, 2)}
@@ -229,6 +340,12 @@ export default function ClienteDetail() {
               )
             )}
           </div>
+
+          {detailEntry.platform === 'agrisk' && detailEntry.isAggregated && detailEntry.timeline && detailEntry.timeline.length > 0 && (
+            <div className="mt-6 xl:mt-10">
+              <AgriskUpdateTimeline timeline={detailEntry.timeline} />
+            </div>
+          )}
         </div>
       </div>
     );
@@ -237,7 +354,7 @@ export default function ClienteDetail() {
   // When filterPlatform is set, show filtered history inline
   if (filterPlatform) {
     const filtered = history.filter(h => h.platform === filterPlatform);
-    const platformLabels: Record<string, string> = { serasa: 'Serasa', scr: 'SCR (HBI)', agrisk: 'AgRisk' };
+    const platformLabels: Record<string, string> = { serasa: 'Serasa', scr: 'SCR (HBI)', agrisk: 'AgRisk', smart: 'Smart' };
     return (
       <div className="min-h-screen bg-background">
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border">
@@ -525,7 +642,7 @@ export default function ClienteDetail() {
                           </TableHeader>
                           <TableBody>
                             {phones.map((ph: any, i: number) => {
-                              const phoneCore = ph.phone_number || ph.phoneNumber || ph.number || ph.numero || ph.phone || (typeof ph === 'string' ? ph : '');
+                              const phoneCore = ph.phone_number || ph.phoneNumber || ph.number || ph.numero || ph.phone || ph.telefone || (typeof ph === 'string' ? ph : '');
                               const areaCode = ph.area_code || ph.areaCode || ph.ddd;
                               const formattedNum = formatPhoneDisplay(phoneCore, areaCode);
                               const typeMap: Record<string, string> = {
@@ -613,23 +730,48 @@ export default function ClienteDetail() {
           </div>
         </div>
 
+        <div className="flex items-center justify-end gap-2 mt-6">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (agriskOverview) {
+                setDetailEntry(agriskOverview);
+              } else {
+                setConsultaOpen(true);
+              }
+            }}
+          >
+            {agriskOverview ? 'Abrir painel AgRisk' : 'Consultar AgRisk'}
+          </Button>
+        </div>
+
         {/* Platform history cards - full width */}
-        <div className="grid grid-cols-3 gap-4 mt-6">
-          {(['serasa', 'scr', 'agrisk'] as const).map(platform => {
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-4">
+          {(['serasa', 'scr', 'agrisk', 'smart'] as const).map(platform => {
             const count = history.filter(h => h.platform === platform).length;
-            const logos: Record<string, { src: string; label: string }> = {
+            const logos: Record<string, { src?: string; label: string; fallback?: string }> = {
               serasa: { src: logoSerasa, label: 'Serasa' },
               scr: { src: logoHbi, label: 'SCR (HBI)' },
               agrisk: { src: logoAgrisk, label: 'AgRisk' },
+              smart: { label: 'Smart', fallback: 'S' },
             };
-            const { src, label } = logos[platform];
+            const { src, label, fallback } = logos[platform];
             return (
               <div
                 key={platform}
                 className="flex items-center gap-4 rounded-xl border border-border bg-card p-4 hover:border-primary/40 hover:shadow-md cursor-pointer transition-all"
-                onClick={() => setFilterPlatform(platform)}
+                onClick={() => {
+                  setFilterPlatform(platform);
+                }}
               >
-                <img src={src} alt={label} className="h-10 w-10 object-contain shrink-0" />
+                {src ? (
+                  <img src={src} alt={label} className="h-10 w-10 object-contain shrink-0" />
+                ) : (
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-sm font-semibold text-stone-700">
+                    {fallback || label.slice(0, 1)}
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-foreground">{label}</p>
                   <p className="text-xs text-muted-foreground">{count} consulta(s)</p>
@@ -638,6 +780,12 @@ export default function ClienteDetail() {
             );
           })}
         </div>
+
+        <ClienteAICompilationCard
+          client={client}
+          history={history}
+          agriskOverview={agriskOverview}
+        />
       </div>
 
       {/* Consulta Modal */}
@@ -651,6 +799,39 @@ export default function ClienteDetail() {
         />
       )}
     </div>
+  );
+}
+
+function AgriskUpdateTimeline({ timeline }: { timeline: HistoryEntry[] }) {
+  const latestByType = new Map<string, HistoryEntry>();
+  timeline.forEach((entry) => {
+    if (!latestByType.has(entry.consulta_type)) {
+      latestByType.set(entry.consulta_type, entry);
+    }
+  });
+
+  const items = Array.from(latestByType.values());
+
+  return (
+    <Card className="xl:sticky xl:top-24">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm">Atualizacoes AgRisk</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {items.map((entry) => (
+          <div key={entry.consulta_type} className="relative pl-4">
+            <span className="absolute left-0 top-1.5 h-2 w-2 rounded-full bg-primary" />
+            <p className="text-xs font-semibold text-foreground">{entry.consulta_label}</p>
+            <p className="text-[11px] text-muted-foreground">
+              {format(new Date(entry.created_at), "dd/MM/yyyy 'as' HH:mm", { locale: ptBR })}
+            </p>
+            {entry.consulted_by_name && (
+              <p className="text-[11px] text-muted-foreground">{entry.consulted_by_name}</p>
+            )}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 

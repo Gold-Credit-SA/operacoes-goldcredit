@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import {
   CheckCircle2, AlertTriangle, Shield, Scale, Leaf,
-  Users, Ban, ChevronUp, ChevronDown, Search, Briefcase, Eye, X
+  Users, Ban, ChevronUp, ChevronDown, Search, Briefcase, Eye, X, UserRound
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { AgriskDetailView } from '@/components/agrisk/AgriskDetailView';
 import {
   Collapsible,
   CollapsibleContent,
@@ -23,6 +24,7 @@ import {
 const CATEGORIES: { key: string; label: string; icon: any }[] = [
   { key: 'compliance', label: 'Compliance', icon: Shield },
   { key: 'juridico', label: 'Processos Judiciais', icon: Scale },
+  { key: 'imoveis', label: 'Imóveis', icon: Leaf },
   { key: 'grupos', label: 'Grupos', icon: Users },
 ];
 
@@ -45,7 +47,11 @@ function formatLabel(value: string): string {
 
 function normalizeText(value: unknown): string {
   if (typeof value !== 'string') return '';
-  return value.trim().toLowerCase();
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
 }
 
 function formatDocument(value?: string | null): string {
@@ -73,6 +79,35 @@ function formatPrimitive(value: unknown): string {
     return trimmed;
   }
   return JSON.stringify(value);
+}
+
+function sanitizeUiText(value: string): string {
+  return value
+    .replaceAll('ÃƒÂ§', 'c')
+    .replaceAll('ÃƒÂ£', 'a')
+    .replaceAll('ÃƒÂ¡', 'a')
+    .replaceAll('ÃƒÂª', 'e')
+    .replaceAll('ÃƒÂ©', 'e')
+    .replaceAll('ÃƒÂ­', 'i')
+    .replaceAll('ÃƒÂ³', 'o')
+    .replaceAll('ÃƒÂµ', 'o')
+    .replaceAll('ÃƒÂº', 'u')
+    .replaceAll('Ãƒâ€œ', 'O')
+    .replaceAll('Ãƒ', '')
+    .replaceAll('Ã§', 'c')
+    .replaceAll('Ã£', 'a')
+    .replaceAll('Ã¡', 'a')
+    .replaceAll('Ã¢', 'a')
+    .replaceAll('Ãª', 'e')
+    .replaceAll('Ã©', 'e')
+    .replaceAll('Ã­', 'i')
+    .replaceAll('Ã³', 'o')
+    .replaceAll('Ãµ', 'o')
+    .replaceAll('Ãº', 'u')
+    .replaceAll('Ã“', 'O')
+    .replaceAll('Ãš', 'U')
+    .replaceAll('â€”', '-')
+    .replaceAll('Â·', '-');
 }
 
 function getLongText(value: Record<string, any>): string | null {
@@ -106,13 +141,82 @@ interface SubItem {
   status: string;
 }
 
-function normalizeResponseData(rawData: Record<string, any>): Record<string, SubItem[]> {
+function detectAgriskConsultaType(rawData: Record<string, any>, consultaType?: string | null): string | null {
+  if (consultaType) return consultaType;
+
+  const productCode = typeof rawData?.product?.code === 'string' ? normalizeText(rawData.product.code) : '';
+  if (productCode.includes('consulta-cliente')) return 'consulta_cliente';
+  if (productCode.includes('credit-restrictive') || productCode.includes('restritivo')) return 'restritivos';
+  if (productCode === 'scr' || productCode.includes('endividamento')) return 'endividamento';
+  if (productCode === 'cpr') return 'cpr';
+  if (productCode.includes('pesquisa-imoveis')) return 'imoveis_simples';
+  if (productCode === 'car') return 'imoveis_car';
+  if (productCode.includes('vehicle-assets') || productCode.includes('veicular')) return 'patrimonio_veicular';
+
+  return null;
+}
+
+function normalizeResponseData(rawData: Record<string, any>, consultaType?: string | null): Record<string, SubItem[]> {
   const result: Record<string, SubItem[]> = {};
   const details = rawData?.details || rawData;
   if (!details || typeof details !== 'object') return result;
+  const agriskType = detectAgriskConsultaType(rawData, consultaType);
+  const isExpectedType = (expected: string, fallback: boolean) => (agriskType ? agriskType === expected : fallback);
+  const hasConsultaClientePayload = isExpectedType(
+    'consulta_cliente',
+    Boolean(
+      details.clientData ||
+      details.contacts ||
+      details.lawsuits ||
+      details.compliance ||
+      details.groups_family ||
+      details.groups_economic,
+    ),
+  );
+  const hasRestritivosPayload = isExpectedType('restritivos', Boolean(details.restritivos || details.bvs || details.quod));
+  const hasEndividamentoPayload = isExpectedType('endividamento', Boolean(details.scr));
+  const hasCprPayload = isExpectedType('cpr', Boolean(details.cpr));
+  const hasImoveisSimplesPayload = isExpectedType('imoveis_simples', Boolean(details.rural || details.urban || details.ruralDetails));
+  const hasImoveisCarPayload = isExpectedType('imoveis_car', Boolean(details.imoveis_car));
+  const hasPatrimonioVeicularPayload = isExpectedType('patrimonio_veicular', Boolean(details.patrimonio_veicular));
+
+  const consultaClienteData =
+    hasConsultaClientePayload
+      ? rawData
+      : null;
+  const restritivosData = hasRestritivosPayload ? (agriskType === 'restritivos' ? details : details.restritivos || details) : null;
+  const endividamentoData = hasEndividamentoPayload ? (agriskType === 'endividamento' ? details : details.scr || details) : null;
+  const cprData = hasCprPayload ? (agriskType === 'cpr' ? details : details.cpr || details) : null;
+  const imoveisSimplesData = hasImoveisSimplesPayload ? details : null;
+  const imoveisCarData = hasImoveisCarPayload ? (agriskType === 'imoveis_car' ? details : details.imoveis_car || details) : null;
+  const patrimonioVeicularData = hasPatrimonioVeicularPayload ? (agriskType === 'patrimonio_veicular' ? details : details.patrimonio_veicular || details) : null;
+
+  result['cliente'] = [{
+    key: 'consulta_cliente',
+    label: 'Consulta Cliente',
+    status: consultaClienteData ? 'DONE' : 'NOT_CONSULTED',
+    data: consultaClienteData,
+  }];
+
+  result['restritivos'] = [
+    { key: 'restritivos', label: 'Restritivos Nacional', status: restritivosData ? 'DONE' : 'NOT_CONSULTED', data: restritivosData },
+    { key: 'bvs', label: 'Boa Vista', status: details.bvs ? 'DONE' : 'NOT_CONSULTED', data: details.bvs || null },
+    { key: 'quod', label: 'Quod', status: details.quod ? 'DONE' : 'NOT_CONSULTED', data: details.quod || null },
+  ];
+
+  result['financeiro'] = [
+    { key: 'endividamento', label: 'Endividamento Financeiro', status: endividamentoData ? 'DONE' : 'NOT_CONSULTED', data: endividamentoData },
+    { key: 'cpr', label: 'Consulta CPR', status: cprData ? 'DONE' : 'NOT_CONSULTED', data: cprData },
+  ];
+
+  result['patrimonio'] = [
+    { key: 'imoveis_simples', label: 'Pesquisa de Imóveis - Simples', status: imoveisSimplesData ? 'DONE' : 'NOT_CONSULTED', data: imoveisSimplesData },
+    { key: 'imoveis_car', label: 'Pesquisa Imóveis - CAR', status: imoveisCarData ? 'DONE' : 'NOT_CONSULTED', data: imoveisCarData },
+    { key: 'patrimonio_veicular', label: 'Patrimônio Veicular', status: patrimonioVeicularData ? 'DONE' : 'NOT_CONSULTED', data: patrimonioVeicularData },
+  ];
 
   // ── Compliance (Ambiental + Trabalhista merged) ──
-  const compliance = details.compliance?.item || details.compliance;
+  const compliance = hasConsultaClientePayload ? (details.compliance?.item || details.compliance) : null;
   const complianceItems: SubItem[] = [];
 
   // Ambiental sub-items
@@ -212,7 +316,7 @@ function normalizeResponseData(rawData: Record<string, any>): Record<string, Sub
   }
 
   // ── Lawsuits ──
-  if (details.lawsuits) {
+  if (hasConsultaClientePayload && details.lawsuits) {
     result['juridico'] = [{
       key: 'lawsuits',
       label: 'Processos Judiciais',
@@ -221,17 +325,38 @@ function normalizeResponseData(rawData: Record<string, any>): Record<string, Sub
     }];
   }
 
+  result['imoveis'] = [
+    {
+      key: 'imoveis-simples',
+      label: 'Imóveis Simples',
+      status: details.rural || details.urban || details.ruralDetails ? 'DONE' : 'NOT_CONSULTED',
+      data: details.rural || details.urban || details.ruralDetails
+        ? {
+            rural: details.rural || null,
+            urban: details.urban || null,
+            ruralDetails: details.ruralDetails || [],
+          }
+        : null,
+    },
+    {
+      key: 'imoveis-car',
+      label: 'CAR',
+      status: details.imoveis_car ? 'DONE' : 'NOT_CONSULTED',
+      data: details.imoveis_car || null,
+    },
+  ];
+
   // ── Grupos ──
   const grupoItems: SubItem[] = [];
-  if (details.groups_family) {
+  if (hasConsultaClientePayload && details.groups_family) {
     grupoItems.push({
       key: 'grupo-familiar', label: 'Grupo Familiar', status: 'DONE',
       data: details.groups_family?.items || [],
     });
   }
-  if (details.groups_economic) {
+  if (hasConsultaClientePayload && details.groups_economic) {
     grupoItems.push({
-      key: 'grupo-economico', label: 'Grupo Econômico', status: 'DONE',
+      key: 'grupo-economico', label: 'Grupo Economico', status: 'DONE',
       data: details.groups_economic?.items || [],
     });
   }
@@ -239,11 +364,36 @@ function normalizeResponseData(rawData: Record<string, any>): Record<string, Sub
     result['grupos'] = grupoItems;
   }
 
+  if (!result['compliance']) {
+    result['compliance'] = [
+      { key: 'ambiental', label: 'Ambiental', status: 'NOT_CONSULTED', data: null },
+      { key: 'trabalhista', label: 'Trabalhista', status: 'NOT_CONSULTED', data: null },
+    ];
+  }
+
+  if (!result['juridico']) {
+    result['juridico'] = [
+      { key: 'lawsuits', label: 'Processos Judiciais', status: 'NOT_CONSULTED', data: null },
+    ];
+  }
+
+  if (!result['grupos']) {
+    result['grupos'] = [
+      { key: 'grupo-familiar', label: 'Grupo Familiar', status: 'NOT_CONSULTED', data: null },
+      { key: 'grupo-economico', label: 'Grupo Economico', status: 'NOT_CONSULTED', data: null },
+    ];
+  }
+
   return result;
 }
 
 // ─── Compliance Renderer (Ambiental + Trabalhista accordion style) ───
 function ComplianceContent({ items }: { items: SubItem[] }) {
+  const hasConsultedItems = items.some((section) => section.status === 'DONE' && Array.isArray(section.data) && section.data.length > 0);
+  if (!hasConsultedItems) {
+    return <EmptyState title="Compliance nao consultado" description="Esse topico nao foi consultado nesta execucao." />;
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 mb-2">
@@ -302,6 +452,10 @@ function ComplianceSection({ section }: { section: SubItem }) {
 
 // ─── Lawsuits Renderer (matches reference image 123) ───
 function LawsuitsContent({ items, agriskClientId }: { items: SubItem[]; agriskClientId?: string | null }) {
+  if (items[0]?.status !== 'DONE' || !items[0]?.data) {
+    return <EmptyState title="Processos Judiciais nao consultado" description="Esse topico nao foi consultado nesta execucao." />;
+  }
+
   const ls = items[0]?.data || {};
   const list: any[] = ls.items || [];
   const [searchTerm, setSearchTerm] = useState('');
@@ -322,7 +476,7 @@ function LawsuitsContent({ items, agriskClientId }: { items: SubItem[]; agriskCl
 
   function getNatureBadge(nature: string) {
     const n = nature.toLowerCase();
-    const cls = n.includes('cível') || n.includes('civil') ? 'bg-blue-100 text-blue-700' :
+    const cls = n.includes('civel') || n.includes('civil') ? 'bg-blue-100 text-blue-700' :
       n.includes('criminal') ? 'bg-red-100 text-red-700' :
       n.includes('trabalh') ? 'bg-amber-100 text-amber-700' :
       n.includes('execu') ? 'bg-orange-100 text-orange-700' :
@@ -360,7 +514,7 @@ function LawsuitsContent({ items, agriskClientId }: { items: SubItem[]; agriskCl
           <CardContent className="py-3 px-4">
             <p className="text-xs font-semibold text-muted-foreground uppercase">Natureza</p>
             <div className="flex gap-4 mt-2 text-xs">
-              <div><p className="text-muted-foreground">Cível</p><p className="text-lg font-bold text-foreground">{civil}</p></div>
+              <div><p className="text-muted-foreground">Civel</p><p className="text-lg font-bold text-foreground">{civil}</p></div>
               <div><p className="text-muted-foreground">Trabalhista</p><p className="text-lg font-bold text-foreground">{trabalhista}</p></div>
               <div><p className="text-muted-foreground">Criminal</p><p className="text-lg font-bold text-foreground">{criminal}</p></div>
             </div>
@@ -370,7 +524,7 @@ function LawsuitsContent({ items, agriskClientId }: { items: SubItem[]; agriskCl
           <CardContent className="py-3 px-4">
             <p className="text-xs font-semibold text-muted-foreground uppercase">Procedimento</p>
             <div className="mt-2">
-              <p className="text-muted-foreground text-xs">Execução</p>
+              <p className="text-muted-foreground text-xs">Execucao</p>
               <p className="text-lg font-bold text-primary">{list.filter((p: any) => (p.Nature || '').toLowerCase().includes('execu')).length}</p>
             </div>
           </CardContent>
@@ -381,7 +535,7 @@ function LawsuitsContent({ items, agriskClientId }: { items: SubItem[]; agriskCl
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Número do processo"
+            placeholder="Numero do processo"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             className="pl-9"
@@ -401,6 +555,9 @@ function LawsuitsContent({ items, agriskClientId }: { items: SubItem[]; agriskCl
             const status = p.Status || '—';
             const nature = p.Nature || p.MainSubject?.split(' - ')[0] || '';
             const isActive = !(status === 'INATIVO' || status === 'BAIXADO');
+            const movementCount = typeof p.QuantityMovements === 'number'
+              ? p.QuantityMovements
+              : Number(p.QuantityMovements || 0) || 0;
 
             return (
               <Card key={idx} className="hover:bg-muted/30 transition-colors">
@@ -426,6 +583,7 @@ function LawsuitsContent({ items, agriskClientId }: { items: SubItem[]; agriskCl
                         <span>{p.CourtName || '—'}</span>
                         {p.State && <Badge variant="secondary" className="text-[10px]">{p.State}</Badge>}
                         {p.Value ? <span className="font-medium text-foreground">{formatCurrency(p.Value)}</span> : null}
+                        <span>Movimentacoes {movementCount}</span>
                       </div>
                     </div>
                     <Button
@@ -460,7 +618,7 @@ function LawsuitsContent({ items, agriskClientId }: { items: SubItem[]; agriskCl
 function DetailField({ label, value, mono }: { label: string; value?: string | null; mono?: boolean }) {
   return (
     <div>
-      <p className="text-[11px] font-semibold text-muted-foreground uppercase">{label}</p>
+      <p className="text-[11px] font-semibold text-muted-foreground uppercase">{sanitizeUiText(label)}</p>
       <p className={cn("text-sm text-foreground mt-0.5", mono && "font-mono")}>{value || '—'}</p>
     </div>
   );
@@ -515,6 +673,11 @@ function ProcessDetailContent({ process, agriskClientId }: { process: Record<str
   const polarity = p.Polarity || '—';
   const status = p.Status || '—';
   const isActive = !(status === 'INATIVO' || status === 'BAIXADO');
+  const movementCount = Array.isArray(p.Updates)
+    ? p.Updates.length
+    : typeof p.QuantityMovements === 'number'
+      ? p.QuantityMovements
+      : Number(p.QuantityMovements || 0) || 0;
 
   const knownKeys = new Set([
     '_id', 'id', 'LawsuitId', 'Number', 'CourtName', 'State', 'Nature', 'Type', 'CourtType', 'Class', 'ClassName',
@@ -588,11 +751,12 @@ function ProcessDetailContent({ process, agriskClientId }: { process: Record<str
       <Card>
         <CardContent className="p-4">
           <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">Datas e Valores</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <DetailField label="Data Início" value={p.StartDate ? formatDate(p.StartDate) : p.DistributionDate ? formatDate(p.DistributionDate) : p.PublicationDate ? formatDate(p.PublicationDate) : '—'} />
             <DetailField label="Data Distribuição" value={p.DistributionDate ? formatDate(p.DistributionDate) : '—'} />
             <DetailField label="Última Atualização" value={p.LastUpdate ? formatDate(p.LastUpdate) : p.LastMovementDate ? formatDate(p.LastMovementDate) : '—'} />
             <DetailField label="Valor da Causa" value={typeof p.Value === 'number' ? formatCurrency(p.Value) : p.Value} />
+            <DetailField label="Movimentações" value={String(movementCount)} />
           </div>
         </CardContent>
       </Card>
@@ -633,6 +797,21 @@ function ProcessDetailContent({ process, agriskClientId }: { process: Record<str
 
       {Array.isArray(p.Updates) && p.Updates.length > 0 && (
         <TimelineSection title={`Movimentações (${p.Updates.length})`} items={p.Updates} />
+      )}
+
+      {(!Array.isArray(p.Updates) || p.Updates.length === 0) && (
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">
+              {`Movimentações (${movementCount})`}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {typeof p.UpdateStatus === 'string'
+                ? `Nenhuma movimentação detalhada retornada pelo AgRisk. Status atual: ${p.UpdateStatus}.`
+                : 'Nenhuma movimentação detalhada retornada pelo AgRisk para este processo.'}
+            </p>
+          </CardContent>
+        </Card>
       )}
 
       {Array.isArray(p.Decisions) && p.Decisions.length > 0 && (
@@ -683,7 +862,7 @@ function ArraySection({
   return (
     <Card>
       <CardContent className="p-4">
-        <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">{title}</p>
+        <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">{sanitizeUiText(title)}</p>
         <div className="divide-y divide-border">
           {items.map((item, index) => renderItem(item, index))}
         </div>
@@ -696,7 +875,7 @@ function TimelineSection({ title, items }: { title: string; items: any[] }) {
   return (
     <Card>
       <CardContent className="p-4">
-        <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">{title}</p>
+        <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">{sanitizeUiText(title)}</p>
         <ScrollArea className="max-h-[360px] pr-2">
           <div className="space-y-3">
             {items.map((item, index) => (
@@ -719,7 +898,7 @@ function ObjectSection({ title, value }: { title: string; value: Record<string, 
   return (
     <Card>
       <CardContent className="p-4">
-        <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">{title}</p>
+        <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">{sanitizeUiText(title)}</p>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {Object.entries(value).map(([key, itemValue]) => (
             <DetailField
@@ -736,6 +915,11 @@ function ObjectSection({ title, value }: { title: string; value: Record<string, 
 
 // ─── Grupos Renderer (matches reference image 124) ───
 function GruposContent({ items }: { items: SubItem[] }) {
+  const hasConsultedItems = items.some((section) => section.status === 'DONE' && Array.isArray(section.data) && section.data.length > 0);
+  if (!hasConsultedItems) {
+    return <EmptyState title="Grupos nÃ£o consultado" description="Esse tÃ³pico nÃ£o foi consultado nesta execuÃ§Ã£o." />;
+  }
+
   const familiar = items.find(i => i.key === 'grupo-familiar');
   const economico = items.find(i => i.key === 'grupo-economico');
 
@@ -821,12 +1005,397 @@ function GruposContent({ items }: { items: SubItem[] }) {
   );
 }
 
+function ImoveisContent({ items }: { items: SubItem[] }) {
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold text-foreground">Imóveis</h2>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {items.map((section) => {
+          const consulted = section.status === 'DONE' && section.data;
+
+          return (
+            <Card key={section.key}>
+              <CardContent className="p-5 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-xl font-bold text-foreground">{section.label}</h3>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-[10px] font-semibold",
+                      consulted
+                        ? "border-green-500/40 text-green-600 bg-green-50"
+                        : "border-amber-500/40 text-amber-700 bg-amber-50",
+                    )}
+                  >
+                    {consulted ? 'CONSULTADO' : 'NÃO CONSULTADO'}
+                  </Badge>
+                </div>
+
+                {consulted ? (
+                  <div className="space-y-3">
+                    {isPlainObject(section.data) ? (
+                      Object.entries(section.data)
+                        .filter(([, value]) => value !== null && value !== undefined)
+                        .map(([key, value]) => (
+                          <div key={key} className="rounded-lg border border-border p-3">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+                              {formatLabel(key)}
+                            </p>
+                            {Array.isArray(value) ? (
+                              <p className="text-sm text-foreground">{`${value.length} item(ns)`}</p>
+                            ) : isPlainObject(value) ? (
+                              <p className="text-sm text-foreground">{`${Object.keys(value).length} campo(s)`}</p>
+                            ) : (
+                              <p className="text-sm text-foreground">{formatPrimitive(value)}</p>
+                            )}
+                          </div>
+                        ))
+                    ) : (
+                      <p className="text-sm text-foreground">Consulta carregada.</p>
+                    )}
+                  </div>
+                ) : (
+                  <EmptyState
+                    title={`${section.label} não consultado`}
+                    description="Esse tópico faz parte do bloco AgRisk, mas não foi consultado nesta execução."
+                  />
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ConsultaClienteTopicContent({ data }: { data: Record<string, any> }) {
+  const details = data?.details || data;
+  const clientData = details?.clientData || {};
+  const contacts = details?.contacts || {};
+  const addresses: any[] = clientData.addresses || clientData.enderecos || contacts.addresses || [];
+  const phones: any[] = clientData.phones || clientData.telefones || contacts.phones || [];
+  const emails: any[] = clientData.emails || contacts.emails || [];
+  const validations = clientData.validations || {};
+
+  const infoFields = [
+    { label: 'Nome', value: clientData.name || clientData.nome || details?.name || details?.clientName },
+    { label: 'CPF/CNPJ', value: formatDocument(clientData.taxId || clientData.document || clientData.cpfCnpj || details?.taxId) },
+    { label: 'Nascimento', value: clientData.birthDate ? formatDate(clientData.birthDate) : clientData.dataNascimento },
+    { label: 'Idade', value: clientData.age ? `${clientData.age} anos` : null },
+    { label: 'GÃªnero', value: clientData.gender || clientData.genero || clientData.sexo },
+    { label: 'Nome da mÃ£e', value: clientData.motherName || clientData.nomeMae },
+    { label: 'Receita Federal', value: clientData.taxIdStatus || validations.receitaFederal },
+    { label: 'Ã“bito', value: typeof clientData.hasObitIndication === 'boolean' ? (clientData.hasObitIndication ? 'PossÃ­vel indicaÃ§Ã£o' : 'Negativo') : validations.obito },
+  ].filter((field) => field.value);
+
+  const hasContent = infoFields.length > 0 || addresses.length > 0 || phones.length > 0 || emails.length > 0;
+  if (!hasContent) {
+    return (
+      <EmptyState
+        title="Consulta Cliente nÃ£o consultado"
+        description="Esse tÃ³pico faz parte da estrutura AgRisk, mas nÃ£o foi consultado nesta execuÃ§Ã£o."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <UserRound className="h-5 w-5 text-primary" />
+            <h3 className="text-xl font-bold text-foreground">InformaÃ§Ãµes Cadastrais</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            {infoFields.map((field) => (
+              <DetailField key={field.label} label={field.label} value={String(field.value)} />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-foreground">EndereÃ§os</h3>
+              <Badge variant="secondary">{addresses.length}</Badge>
+            </div>
+            {addresses.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum endereÃ§o retornado.</p>
+            ) : (
+              <div className="space-y-3">
+                {addresses.slice(0, 3).map((address, index) => (
+                  <div key={index} className="rounded-lg border border-border p-3">
+                    <p className="text-sm text-foreground">
+                      {[
+                        address.street || address.logradouro,
+                        address.number || address.numero,
+                        address.district || address.bairro,
+                        address.city || address.cidade,
+                        address.state || address.uf,
+                      ].filter(Boolean).join(', ') || 'EndereÃ§o sem detalhamento'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-foreground">Telefones</h3>
+              <Badge variant="secondary">{phones.length}</Badge>
+            </div>
+            {phones.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum telefone retornado.</p>
+            ) : (
+              <div className="space-y-3">
+                {phones.slice(0, 4).map((phone, index) => (
+                  <div key={index} className="rounded-lg border border-border p-3">
+                    <p className="text-sm font-medium text-foreground">
+                      {formatPrimitive(phone.phone_number || phone.number || phone.numero || phone.phone || phone.phoneNumber || phone.telefone)}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatPrimitive(phone.type || phone.tipo || phone.classification || 'Nao informado')}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-foreground">Emails</h3>
+              <Badge variant="secondary">{emails.length}</Badge>
+            </div>
+            {emails.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum email retornado.</p>
+            ) : (
+              <div className="space-y-3">
+                {emails.slice(0, 4).map((email, index) => (
+                  <div key={index} className="rounded-lg border border-border p-3">
+                    <p className="text-sm font-medium text-foreground">{formatPrimitive(email.email || email.address || email.value)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatPrimitive(email.type || email.tipo || 'Nao informado')}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function ConsultaClienteTopicContentClean({ data }: { data: Record<string, any> }) {
+  const details = data?.details || data;
+  const clientData = details?.clientData || {};
+  const contacts = details?.contacts || {};
+  const addresses: any[] = clientData.addresses || clientData.enderecos || contacts.addresses || [];
+  const phones: any[] = clientData.phones || clientData.telefones || contacts.phones || [];
+  const emails: any[] = clientData.emails || contacts.emails || [];
+  const validations = clientData.validations || {};
+
+  const infoFields = [
+    { label: 'Nome', value: clientData.name || clientData.nome || details?.name || details?.clientName },
+    { label: 'CPF/CNPJ', value: formatDocument(clientData.taxId || clientData.document || clientData.cpfCnpj || details?.taxId) },
+    { label: 'Nascimento', value: clientData.birthDate ? formatDate(clientData.birthDate) : clientData.dataNascimento },
+    { label: 'Idade', value: clientData.age ? `${clientData.age} anos` : null },
+    { label: 'Genero', value: clientData.gender || clientData.genero || clientData.sexo },
+    { label: 'Nome da mae', value: clientData.motherName || clientData.nomeMae },
+    { label: 'Receita Federal', value: clientData.taxIdStatus || validations.receitaFederal },
+    { label: 'Obito', value: typeof clientData.hasObitIndication === 'boolean' ? (clientData.hasObitIndication ? 'Possivel indicacao' : 'Negativo') : validations.obito },
+  ].filter((field) => field.value);
+
+  const hasContent = infoFields.length > 0 || addresses.length > 0 || phones.length > 0 || emails.length > 0;
+  if (!hasContent) {
+    return (
+      <EmptyState
+        title="Consulta Cliente nao consultado"
+        description="Esse topico faz parte da estrutura AgRisk, mas nao foi consultado nesta execucao."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <UserRound className="h-5 w-5 text-primary" />
+            <h3 className="text-xl font-bold text-foreground">Informacoes Cadastrais</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            {infoFields.map((field) => (
+              <DetailField key={field.label} label={field.label} value={String(field.value)} />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-foreground">Enderecos</h3>
+              <Badge variant="secondary">{addresses.length}</Badge>
+            </div>
+            {addresses.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum endereco retornado.</p>
+            ) : (
+              <div className="space-y-3">
+                {addresses.slice(0, 3).map((address, index) => (
+                  <div key={index} className="rounded-lg border border-border p-3">
+                    <p className="text-sm text-foreground">
+                      {[
+                        address.street || address.logradouro,
+                        address.number || address.numero,
+                        address.district || address.bairro,
+                        address.city || address.cidade,
+                        address.state || address.uf,
+                      ].filter(Boolean).join(', ') || 'Endereco sem detalhamento'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-foreground">Telefones</h3>
+              <Badge variant="secondary">{phones.length}</Badge>
+            </div>
+            {phones.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum telefone retornado.</p>
+            ) : (
+              <div className="space-y-3">
+                {phones.slice(0, 4).map((phone, index) => (
+                  <div key={index} className="rounded-lg border border-border p-3">
+                    <p className="text-sm font-medium text-foreground">
+                      {formatPrimitive(phone.phone_number || phone.number || phone.numero || phone.phone || phone.phoneNumber || phone.telefone)}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatPrimitive(phone.type || phone.tipo || phone.classification || 'Nao informado')}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-foreground">Emails</h3>
+              <Badge variant="secondary">{emails.length}</Badge>
+            </div>
+            {emails.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum email retornado.</p>
+            ) : (
+              <div className="space-y-3">
+                {emails.slice(0, 4).map((email, index) => (
+                  <div key={index} className="rounded-lg border border-border p-3">
+                    <p className="text-sm font-medium text-foreground">{formatPrimitive(email.email || email.address || email.value)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatPrimitive(email.type || email.tipo || 'Nao informado')}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function TopicSectionsContent({ title, items }: { title: string; items: SubItem[] }) {
+  const [selectedKey, setSelectedKey] = useState<string | null>(() => items.find((item) => item.status === 'DONE')?.key || items[0]?.key || null);
+  const selectedItem = items.find((item) => item.key === selectedKey) || items[0] || null;
+
+  useEffect(() => {
+    setSelectedKey(items.find((item) => item.status === 'DONE')?.key || items[0]?.key || null);
+  }, [items]);
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold text-foreground">{sanitizeUiText(title)}</h2>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {items.map((item) => {
+          const consulted = item.status === 'DONE' && item.data;
+          const isActive = selectedItem?.key === item.key;
+          return (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setSelectedKey(item.key)}
+              className={cn(
+                "text-left rounded-xl border p-5 transition-colors",
+                isActive ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/30',
+              )}
+            >
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <h3 className="text-lg font-bold text-foreground">{sanitizeUiText(item.label)}</h3>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-[10px] font-semibold",
+                    consulted
+                      ? "border-green-500/40 text-green-600 bg-green-50"
+                      : "border-amber-500/40 text-amber-700 bg-amber-50",
+                  )}
+                >
+                  {consulted ? 'CONSULTADO' : 'NAO CONSULTADO'}
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {consulted ? 'Consulta disponivel para detalhamento.' : 'Esse topico nao foi consultado nesta execucao.'}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+
+      {selectedItem && (
+        selectedItem.status === 'DONE' && selectedItem.data ? (
+          selectedItem.key === 'consulta_cliente' ? (
+            <ConsultaClienteTopicContentClean data={selectedItem.data} />
+          ) : (
+            <AgriskDetailView data={selectedItem.data} title={selectedItem.label} />
+          )
+        ) : (
+          <EmptyState
+            title={`${sanitizeUiText(selectedItem.label)} nao consultado`}
+            description="Esse topico faz parte da estrutura AgRisk, mas nao foi consultado nesta execucao."
+          />
+        )
+      )}
+    </div>
+  );
+}
+
 function EmptyState({ title, description }: { title: string; description: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
       <Ban className="h-10 w-10 text-muted-foreground/20 mb-3" />
-      <p className="text-base font-semibold text-foreground mb-1">{title}</p>
-      <p className="text-sm text-muted-foreground">{description}</p>
+      <p className="text-base font-semibold text-foreground mb-1">{sanitizeUiText(title)}</p>
+      <p className="text-sm text-muted-foreground">{sanitizeUiText(description)}</p>
     </div>
   );
 }
@@ -835,14 +1404,24 @@ function EmptyState({ title, description }: { title: string; description: string
 interface Props {
   data: Record<string, any>;
   agriskClientId?: string | null;
+  consultaType?: string | null;
 }
 
-export function ConsultaClienteDetailView({ data: rawData, agriskClientId }: Props) {
+export function ConsultaClienteDetailView({ data: rawData, agriskClientId, consultaType }: Props) {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
-  const normalized = normalizeResponseData(rawData);
+  const normalized = normalizeResponseData(rawData, consultaType);
+  const categoryDefs = [
+    { key: 'cliente', label: 'Cliente', icon: UserRound },
+    { key: 'restritivos', label: 'Restritivos', icon: AlertTriangle },
+    { key: 'financeiro', label: 'Financeiro', icon: Briefcase },
+    { key: 'patrimonio', label: 'Patrimônio', icon: Leaf },
+    { key: 'compliance', label: 'Compliance', icon: Shield },
+    { key: 'juridico', label: 'Processos Judiciais', icon: Scale },
+    { key: 'grupos', label: 'Grupos', icon: Users },
+  ];
 
-  const categorizedData = CATEGORIES
+  const categorizedData = categoryDefs
     .filter(cat => normalized[cat.key] && normalized[cat.key].length > 0)
     .map(cat => ({
       ...cat,
@@ -881,6 +1460,10 @@ export function ConsultaClienteDetailView({ data: rawData, agriskClientId }: Pro
       {/* Content */}
       <div className="min-h-[400px]">
         {selectedCat ? (
+          selectedCat.key === 'cliente' ? <TopicSectionsContent title="Cliente" items={selectedCat.items} /> :
+          selectedCat.key === 'restritivos' ? <TopicSectionsContent title="Restritivos" items={selectedCat.items} /> :
+          selectedCat.key === 'financeiro' ? <TopicSectionsContent title="Financeiro" items={selectedCat.items} /> :
+          selectedCat.key === 'patrimonio' ? <TopicSectionsContent title="Patrimônio" items={selectedCat.items} /> :
           selectedCat.key === 'compliance' ? <ComplianceContent items={selectedCat.items} /> :
           selectedCat.key === 'juridico' ? <LawsuitsContent items={selectedCat.items} agriskClientId={agriskClientId} /> :
           selectedCat.key === 'grupos' ? <GruposContent items={selectedCat.items} /> :

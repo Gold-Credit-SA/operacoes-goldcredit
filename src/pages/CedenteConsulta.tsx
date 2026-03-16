@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { CedenteSearch } from '@/components/consulta/CedenteSearch';
 import { CedenteInfoPanel } from '@/components/consulta/CedenteInfoPanel';
@@ -171,12 +171,14 @@ export interface CedenteDetail {
 }
 
 export default function CedenteConsulta() {
+  const location = useLocation();
   const [searchParams] = useSearchParams();
+  const preloadedCedente = location.state?.preloadedCedente as CedenteListItem | undefined;
   const [cedentes, setCedentes] = useState<CedenteListItem[]>([]);
-  const [selectedCedente, setSelectedCedente] = useState<CedenteListItem | null>(null);
+  const [selectedCedente, setSelectedCedente] = useState<CedenteListItem | null>(preloadedCedente ?? null);
   const [cedenteDetail, setCedenteDetail] = useState<CedenteDetail | null>(null);
   const [isLoadingList, setIsLoadingList] = useState(true);
-  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(Boolean(preloadedCedente || searchParams.get('cpf_cnpj')));
   const [search, setSearch] = useState('');
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
@@ -573,6 +575,7 @@ export default function CedenteConsulta() {
     const cpfCnpjParam = searchParams.get('cpf_cnpj');
     
     const loadInitialData = async () => {
+      const detailPromise = cpfCnpjParam ? fetchCedenteDetail(cpfCnpjParam) : Promise.resolve();
       const cedentesData = await fetchCedentes();
       
       if (cpfCnpjParam && cedentesData.length > 0) {
@@ -583,12 +586,10 @@ export default function CedenteConsulta() {
         
         if (cedenteFromUrl) {
           setSelectedCedente(cedenteFromUrl);
-          fetchCedenteDetail(cedenteFromUrl.cpf_cnpj!);
-        } else {
           // Se não encontrou na lista, busca direto pelo detalhe
-          fetchCedenteDetail(cpfCnpjParam);
         }
       }
+      await detailPromise;
       setInitialLoadDone(true);
     };
 

@@ -7,6 +7,7 @@ const PLATFORM_CONFIG: Record<string, { logo: string; label: string; className: 
   serasa: { logo: logoSerasa, label: 'Serasa', className: 'bg-blue-500/10 text-blue-700 border-blue-200' },
   scr: { logo: logoHbi, label: 'SCR (HBI)', className: 'bg-green-500/10 text-green-700 border-green-200' },
   agrisk: { logo: logoAgrisk, label: 'AgRisk', className: 'bg-amber-500/10 text-amber-700 border-amber-200' },
+  smart: { logo: '', label: 'Smart', className: 'bg-stone-500/10 text-stone-700 border-stone-200' },
 };
 
 interface PlatformBadgeProps {
@@ -35,7 +36,13 @@ export function PlatformBadge({ platform, onClick, className }: PlatformBadgePro
       )}
       onClick={onClick}
     >
-      <img src={config.logo} alt={config.label} className="h-3.5 w-3.5 object-contain" />
+      {config.logo ? (
+        <img src={config.logo} alt={config.label} className="h-3.5 w-3.5 object-contain" />
+      ) : (
+        <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-current/15 text-[9px] font-bold leading-none">
+          S
+        </span>
+      )}
       {config.label}
     </span>
   );

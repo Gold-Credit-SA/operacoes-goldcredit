@@ -1,3 +1,4 @@
+import { AlertTriangle, Check } from 'lucide-react';
 import { CedenteDetail } from '@/pages/CedenteConsulta';
 import { DadosEmpresa } from './DadosEmpresa';
 import { ResumoExpandido } from './ResumoExpandido';
@@ -22,82 +23,65 @@ export function CedenteInfoPanel({ data }: CedenteInfoPanelProps) {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header com botão de exportar */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">
-          Relatório de {data.cedente.nome || 'Cedente'}
+          Relatorio de {data.cedente.nome || 'Cedente'}
         </h2>
         <PdfReportButton data={data} />
       </div>
-      {/* Indicador de Suspeita de Fraude no topo */}
+
       {hasFraude ? (
-        <div className="flex items-center gap-3 px-5 py-4 rounded-xl bg-destructive/10 border border-destructive/30">
-          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-destructive/20">
-            <span className="text-lg">⚠️</span>
+        <div className="flex items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-5 py-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/12 text-destructive">
+            <AlertTriangle className="h-4 w-4" />
           </div>
           <div>
-            <p className="text-destructive text-sm font-semibold">
-              {qtdSuspeitasFraude} {qtdSuspeitasFraude === 1 ? 'título com suspeita de fraude' : 'títulos com suspeita de fraude'}
+            <p className="text-sm font-semibold text-destructive">
+              {qtdSuspeitasFraude} {qtdSuspeitasFraude === 1 ? 'titulo com suspeita de fraude' : 'titulos com suspeita de fraude'}
             </p>
-            <p className="text-destructive/70 text-xs">Verifique a seção de fraudes abaixo</p>
+            <p className="text-xs text-destructive/70">Verifique a secao de fraudes abaixo</p>
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-3 px-5 py-4 rounded-xl bg-success/10 border border-success/30">
-          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-success/20">
-            <span className="text-lg">✓</span>
+        <div className="flex items-center gap-3 rounded-xl border border-success/30 bg-success/10 px-5 py-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-success/12 text-success">
+            <Check className="h-4 w-4" />
           </div>
           <div>
-            <p className="text-success text-sm font-semibold">Nenhuma suspeita de fraude</p>
-            <p className="text-success/70 text-xs">Cedente sem alertas de fraude</p>
+            <p className="text-sm font-semibold text-success">Nenhuma suspeita de fraude</p>
+            <p className="text-xs text-success/70">Cedente sem alertas de fraude</p>
           </div>
         </div>
       )}
 
-      {/* Seção 0: Análise de IA */}
       <AnaliseIA data={data} />
 
-      {/* Seção 1: Dados da Empresa */}
-      <DadosEmpresa 
-        cedente={data.cedente} 
-        resumo={data.resumo} 
-      />
+      <DadosEmpresa cedente={data.cedente} resumo={data.resumo} />
 
-      {/* Seção 2: Resumo Financeiro Expandido */}
       {data.resumoExpandido && (
-        <ResumoExpandido 
-          resumoExpandido={data.resumoExpandido} 
-          limites={data.limites}
-        />
+        <ResumoExpandido resumoExpandido={data.resumoExpandido} limites={data.limites} />
       )}
 
-      {/* Seção 3: Limites e Disponibilidade */}
       <LimitesCard limites={data.limites} />
 
-      {/* Seção 4: Taxa de Confirmação */}
       <TaxaConfirmacao confirmacao={data.confirmacao} />
 
-      {/* Seção 5 e 6: Liquidez e Concentração (lado a lado) */}
       <div className="grid gap-6 lg:grid-cols-2">
         <LiquidezSection liquidez={data.liquidez} />
         <ConcentracaoSacados sacados={data.concentracaoSacados} total={data.carteira.total} />
       </div>
 
-      {/* Seção 7: Comportamento de Pagamentos nos Últimos 90 Dias */}
       {data.comportamento90Dias && (
         <ComportamentoPagamento90Dias comportamento={data.comportamento90Dias} />
       )}
 
-      {/* Seção 8: Histórico de Títulos (Abertos e Quitados) */}
-      <TitulosHistorico 
-        titulosAberto={data.titulosAberto} 
-        titulosQuitados={data.titulosQuitados} 
+      <TitulosHistorico
+        titulosAberto={data.titulosAberto}
+        titulosQuitados={data.titulosQuitados}
       />
 
-      {/* Seção 9: Últimas Operações */}
       <OperacoesRecentes operacoes={data.ultimasOperacoes} />
 
-      {/* Seção 10: Suspeita de Fraude (detalhado) */}
       <SuspeitaFraude suspeitasFraude={data.suspeitasFraude} />
     </div>
   );

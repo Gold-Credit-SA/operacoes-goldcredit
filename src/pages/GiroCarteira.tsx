@@ -55,6 +55,7 @@ export default function GiroCarteira() {
   const [filteredCedentes, setFilteredCedentes] = useState<CedenteGiro[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [navigatingCpfCnpj, setNavigatingCpfCnpj] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const { toast } = useToast();
@@ -130,8 +131,27 @@ export default function GiroCarteira() {
     setCurrentPage(1);
   }, [searchTerm, cedentes]);
 
-  const irParaConsulta = (cpfCnpj: string) => {
-    navigate(`/consulta?cpf_cnpj=${cpfCnpj}`);
+  const irParaConsulta = (cedente: CedenteGiro) => {
+    if (!cedente.cpf_cnpj) return;
+
+    setNavigatingCpfCnpj(cedente.cpf_cnpj);
+    navigate(`/consulta?cpf_cnpj=${cedente.cpf_cnpj}`, {
+      state: {
+        preloadedCedente: {
+          id: 0,
+          nome: cedente.nome || cedente.razao_social || null,
+          cpf_cnpj: cedente.cpf_cnpj,
+          cidade: cedente.cidade || null,
+          uf: cedente.uf || null,
+          gerente: null,
+          operador: null,
+          limite_global: cedente.limite_global ?? null,
+          risco_atual: cedente.risco_atual ?? null,
+          saldo: cedente.limite_disponivel ?? null,
+          bloqueado: cedente.bloqueado || null,
+        },
+      },
+    });
   };
 
   // Ordenar: mais recentes primeiro
@@ -261,9 +281,14 @@ export default function GiroCarteira() {
                             <Button 
                               variant="ghost" 
                               size="icon"
-                              onClick={() => irParaConsulta(cedente.cpf_cnpj)}
+                              onClick={() => irParaConsulta(cedente)}
+                              disabled={navigatingCpfCnpj === cedente.cpf_cnpj}
                             >
-                              <ArrowRight className="h-4 w-4" />
+                              {navigatingCpfCnpj === cedente.cpf_cnpj ? (
+                                <RefreshCw className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <ArrowRight className="h-4 w-4" />
+                              )}
                             </Button>
                           </TableCell>
                         </TableRow>

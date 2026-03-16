@@ -8,6 +8,7 @@ import { CONSULTA_GROUPS, type ConsultaTypeId } from '@/components/analise-opera
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { transformSmartCedenteData } from '@/lib/smartCedente';
 
 type Status = 'idle' | 'running' | 'success' | 'error';
 
@@ -32,6 +33,18 @@ interface ConsultaModalProps {
   onDone: () => void;
 }
 
+const AGRISK_TOPIC_GROUPS = [
+  { title: 'Cliente', items: ['consulta_cliente'] },
+  { title: 'Restritivos', items: ['restritivos'] },
+  { title: 'Financeiro', items: ['endividamento', 'cpr'] },
+  { title: 'Patrimônio', items: ['imoveis_simples', 'imoveis_car', 'patrimonio_veicular'] },
+] as const;
+
+const SMART_GROUP = {
+  provider: 'Smart',
+  items: [{ id: 'smart_cedente', label: 'Consulta Smart' }],
+} as const;
+
 // Map AgRisk product codes to our frontend IDs
 const CODE_TO_FRONTEND_ID: Record<string, string> = {
   'consulta-cliente': 'consulta_cliente',
@@ -40,8 +53,26 @@ const CODE_TO_FRONTEND_ID: Record<string, string> = {
   'vehicle-assets': 'patrimonio_veicular',
 };
 
+const AGRISK_PRODUCT_MATCHERS: Record<string, string[]> = {
+  consulta_cliente: ['consulta-cliente', 'consulta cliente'],
+  restritivos: ['credit-restrictive', 'restritivo nacional', 'restritivo'],
+  endividamento: ['scr', 'endividamento'],
+  cpr: ['cpr'],
+  imoveis_simples: ['pesquisa-imoveis', 'imoveis rurais - simples', 'rural simples'],
+  imoveis_car: ['car', 'cadastro ambiental rural', 'imoveis rurais - car'],
+  patrimonio_veicular: ['vehicle-assets', 'veicular', 'patrimonio veicular'],
+};
+
+function normalizeText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
 function getLabel(id: ConsultaTypeId): string {
-  for (const g of CONSULTA_GROUPS) {
+  for (const g of [...CONSULTA_GROUPS, SMART_GROUP]) {
     const found = g.items.find(i => i.id === id);
     if (found) return found.label;
   }
@@ -51,6 +82,7 @@ function getLabel(id: ConsultaTypeId): string {
 function getPlatform(id: ConsultaTypeId): string {
   if (id.startsWith('serasa')) return 'serasa';
   if (id === 'scr') return 'scr';
+  if (id === 'smart_cedente') return 'smart';
   return 'agrisk';
 }
 
@@ -69,6 +101,15 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): 
 }
 
 async function runSingleConsulta(cnpj: string, id: ConsultaTypeId): Promise<Record<string, unknown>> {
+  if (id === 'smart_cedente') {
+    const { data, error } = await supabase.functions.invoke('external-db', {
+      body: { action: 'cedente-info', filters: { cpf_cnpj: cnpj } },
+    });
+    if (error) throw new Error(error.message || 'Erro Smart');
+    if (!data?.success || !data?.data) throw new Error(data?.error || 'Nenhum dado encontrado no Smart.');
+    return transformSmartCedenteData(data.data);
+  }
+
   if (id === 'scr') {
     const { data, error } = await supabase.functions.invoke('hbi-scr', { body: { cnpj } });
     if (error) throw new Error(error.message || 'Erro SCR');
@@ -153,15 +194,31 @@ export function ConsultaModal({ cpfCnpj, clientName, open, onClose, onDone }: Co
   const getPrice = (id: ConsultaTypeId): number | null => {
     // Non-AgRisk items don't have AgRisk pricing
     if (id.startsWith('serasa') || id === 'scr') return null;
-    const product = agriskProducts.find(p => CODE_TO_FRONTEND_ID[p.code] === id);
+    const product = agriskProducts.find((p) => {
+      if (CODE_TO_FRONTEND_ID[p.code] === id) return true;
+
+      const haystack = normalizeText(`${p.code || ''} ${p.name || ''}`);
+      const matchers = AGRISK_PRODUCT_MATCHERS[id] || [];
+      return matchers.some((matcher) => haystack.includes(normalizeText(matcher)));
+    });
     if (product) return product.price;
     return null;
   };
 
   // Only show specific AgRisk items (adding gradually)
-  const allowedAgriskItems = new Set(['consulta_cliente']);
+  const allowedAgriskItems = new Set([
+    'consulta_cliente',
+    'restritivos',
+    'endividamento',
+    'cpr',
+    'imoveis_simples',
+    'imoveis_car',
+    'patrimonio_veicular',
+  ]);
 
-  const filteredGroups = CONSULTA_GROUPS.map(group => ({
+  const modalGroups = [...CONSULTA_GROUPS, SMART_GROUP];
+
+  const filteredGroups = modalGroups.map(group => ({
     ...group,
     items: group.items.filter(item => {
       if ((item.id === 'serasa_basico_pf' || item.id === 'serasa_avancado_top_score_pf') && !isCpf) return false;
@@ -170,6 +227,9 @@ export function ConsultaModal({ cpfCnpj, clientName, open, onClose, onDone }: Co
       return true;
     }),
   })).filter(g => g.items.length > 0);
+
+  const agriskGroup = filteredGroups.find((group) => group.provider === 'Agrisk');
+  const nonAgriskGroups = filteredGroups.filter((group) => group.provider !== 'Agrisk');
 
   const toggle = (id: ConsultaTypeId) => {
     setSelected(prev => {
@@ -263,7 +323,60 @@ export function ConsultaModal({ cpfCnpj, clientName, open, onClose, onDone }: Co
                   Carregando preços...
                 </div>
               )}
-              {filteredGroups.map(group => (
+              {agriskGroup && (
+                <div className="space-y-3">
+                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground/60">
+                    {agriskGroup.provider}
+                  </span>
+                  {AGRISK_TOPIC_GROUPS.map((topicGroup) => {
+                    const items = topicGroup.items
+                      .map((id) => agriskGroup.items.find((item) => item.id === id))
+                      .filter(Boolean) as typeof agriskGroup.items;
+
+                    if (items.length === 0) return null;
+
+                    return (
+                      <div key={topicGroup.title} className="space-y-2">
+                        <p className="text-sm font-semibold text-foreground">{topicGroup.title}</p>
+                        <div className="grid gap-1.5">
+                          {items.map((ct) => {
+                            const price = getPrice(ct.id);
+                            const isFree = price === 0;
+                            return (
+                              <label
+                                key={ct.id}
+                                className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                                  selected.has(ct.id)
+                                    ? 'border-primary bg-primary/5'
+                                    : 'border-border hover:border-muted-foreground/30'
+                                }`}
+                              >
+                                <Checkbox checked={selected.has(ct.id)} onCheckedChange={() => toggle(ct.id)} />
+                                <span className="text-sm text-foreground flex-1">{ct.label}</span>
+                                {price !== null && (
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[10px] gap-1 shrink-0 ${
+                                      isFree
+                                        ? 'border-green-500/30 text-green-600 bg-green-500/5'
+                                        : 'border-amber-500/30 text-amber-600 bg-amber-500/5'
+                                    }`}
+                                  >
+                                    <Coins className="h-3 w-3" />
+                                    {isFree ? 'Grátis' : `${price} créd.`}
+                                  </Badge>
+                                )}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {nonAgriskGroups.map(group => (
                 <div key={group.provider} className="space-y-2">
                   <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground/60">
                     {group.provider}
