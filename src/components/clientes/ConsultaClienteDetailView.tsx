@@ -43,6 +43,11 @@ function formatLabel(value: string): string {
     .replace(/^\w/, (char) => char.toUpperCase());
 }
 
+function normalizeText(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  return value.trim().toLowerCase();
+}
+
 function formatDocument(value?: string | null): string {
   if (!value) return '—';
   const digits = String(value).replace(/\D/g, '');

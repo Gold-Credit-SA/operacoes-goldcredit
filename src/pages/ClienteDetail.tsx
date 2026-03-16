@@ -525,19 +525,9 @@ export default function ClienteDetail() {
                           </TableHeader>
                           <TableBody>
                             {phones.map((ph: any, i: number) => {
-                              const rawNum = ph.area_code && ph.number
-                                ? `(${ph.area_code}) ${ph.number}`
-                                : ph.number || ph.numero || ph.phone || (typeof ph === 'string' ? ph : '');
-                              // Format phone: (XX) XXXXX-XXXX or (XX) XXXX-XXXX
-                              const digits = String(rawNum).replace(/\D/g, '');
-                              let formattedNum = rawNum;
-                              if (digits.length === 11) {
-                                formattedNum = `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`;
-                              } else if (digits.length === 10) {
-                                formattedNum = `(${digits.slice(0,2)}) ${digits.slice(2,6)}-${digits.slice(6)}`;
-                              } else if (digits.length >= 8) {
-                                formattedNum = `(${digits.slice(0,2)}) ${digits.slice(2)}`;
-                              }
+                              const phoneCore = ph.phone_number || ph.phoneNumber || ph.number || ph.numero || ph.phone || (typeof ph === 'string' ? ph : '');
+                              const areaCode = ph.area_code || ph.areaCode || ph.ddd;
+                              const formattedNum = formatPhoneDisplay(phoneCore, areaCode);
                               const typeMap: Record<string, string> = {
                                 'MOBILE': 'Celular', 'LANDLINE': 'Fixo', 'WORK': 'Trabalho',
                                 'HOME': 'Residencial', 'FAX': 'Fax', 'COMMERCIAL': 'Comercial',
