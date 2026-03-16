@@ -73,6 +73,7 @@ export function AppSidebar() {
         {/* Painel */}
         <Link
           to="/painel"
+          onMouseEnter={prefetchDashboard}
           className={cn(
             "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-150",
             location.pathname === '/painel'
