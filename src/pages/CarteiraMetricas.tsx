@@ -22,6 +22,7 @@ import {
   PieChart as RechartsPie, Pie, Legend,
 } from 'recharts';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
+import { PageLoadingSkeleton } from '@/components/ui/PageLoadingSkeleton';
 
 // Types
 interface Resumo {
