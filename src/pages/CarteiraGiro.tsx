@@ -152,6 +152,7 @@ export default function CarteiraGiro() {
 
   return (
     <MainLayout title="Giro de Carteira" subtitle="Acompanhamento de movimentações e operações da sua carteira">
+      <LoadingIndicator show={isLoading} message="Carregando carteira..." />
       <div className="space-y-6">
         {/* Search & refresh */}
         <div className="flex items-center gap-3">

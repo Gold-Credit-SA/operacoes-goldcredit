@@ -166,6 +166,7 @@ export default function CarteiraGestao() {
 
   return (
     <MainLayout title="Gestão de Carteira" subtitle="Solicite e acompanhe a vinculação de cedentes à sua carteira">
+      <LoadingIndicator show={isLoading} message="Carregando gestão..." />
       <div className="space-y-6">
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
