@@ -134,6 +134,7 @@ export function AppSidebar() {
             <Link
               key={item.path}
               to={item.path}
+              onMouseEnter={item.path === '/consulta' ? prefetchCedentes : undefined}
               className={cn(
                 "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-150",
                 isActive
