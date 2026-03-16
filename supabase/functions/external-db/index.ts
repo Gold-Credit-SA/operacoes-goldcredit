@@ -117,9 +117,8 @@ Deno.serve(async (req) => {
         if (cedenteResult.length === 0) {
           return new Response(JSON.stringify({ 
             success: false, 
-            error: 'Cedente não encontrado' 
+            error: 'Cedente não encontrado no Smart.' 
           }), {
-            status: 404,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
