@@ -70,7 +70,7 @@ export function AppSidebar() {
       queryKey: ['portfolio-carteira'],
       queryFn: async () => {
         const { data, error } = await supabase.functions.invoke('portfolio-data', {
-          body: { action: 'list-portfolio' },
+          body: { action: 'my-portfolio' },
         });
         if (error) throw error;
         return data;
