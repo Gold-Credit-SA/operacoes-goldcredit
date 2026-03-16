@@ -16,6 +16,7 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
+import { PageLoadingSkeleton } from '@/components/ui/PageLoadingSkeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
