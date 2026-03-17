@@ -170,56 +170,54 @@ function normalizeResponseData(rawData: Record<string, any>, consultaType?: stri
       details.lawsuits ||
       details.compliance ||
       details.groups_family ||
-      details.groups_economic,
+      details.groups_economic ||
+      details.sintegra,
     ),
   );
-  const hasRestritivosPayload = isExpectedType('restritivos', Boolean(details.restritivos || details.bvs || details.quod));
-  const hasEndividamentoPayload = isExpectedType('endividamento', Boolean(details.scr));
-  const hasCprPayload = isExpectedType('cpr', Boolean(details.cpr));
-  const hasImoveisSimplesPayload = isExpectedType('imoveis_simples', Boolean(details.rural || details.urban || details.ruralDetails));
-  const hasImoveisCarPayload = isExpectedType('imoveis_car', Boolean(details.imoveis_car));
-  const hasPatrimonioVeicularPayload = isExpectedType('patrimonio_veicular', Boolean(details.patrimonio_veicular));
 
-  const consultaClienteData =
-    hasConsultaClientePayload
-      ? rawData
-      : null;
-  const restritivosData = hasRestritivosPayload ? (agriskType === 'restritivos' ? details : details.restritivos || details) : null;
-  const endividamentoData = hasEndividamentoPayload ? (agriskType === 'endividamento' ? details : details.scr || details) : null;
-  const cprData = hasCprPayload ? (agriskType === 'cpr' ? details : details.cpr || details) : null;
-  const imoveisSimplesData = hasImoveisSimplesPayload ? details : null;
-  const imoveisCarData = hasImoveisCarPayload ? (agriskType === 'imoveis_car' ? details : details.imoveis_car || details) : null;
-  const patrimonioVeicularData = hasPatrimonioVeicularPayload ? (agriskType === 'patrimonio_veicular' ? details : details.patrimonio_veicular || details) : null;
+  // ── Sintegra ──
+  if (hasConsultaClientePayload && details.sintegra) {
+    result['sintegra'] = [{
+      key: 'sintegra',
+      label: 'Sintegra',
+      status: 'DONE',
+      data: details.sintegra,
+    }];
+  }
+  if (!result['sintegra']) {
+    result['sintegra'] = [
+      { key: 'sintegra', label: 'Sintegra', status: 'NOT_CONSULTED', data: null },
+    ];
+  }
 
-  result['cliente'] = [{
-    key: 'consulta_cliente',
-    label: 'Consulta Cliente',
-    status: consultaClienteData ? 'DONE' : 'NOT_CONSULTED',
-    data: consultaClienteData,
-  }];
-
-  result['restritivos'] = [
-    { key: 'restritivos', label: 'Restritivos Nacional', status: restritivosData ? 'DONE' : 'NOT_CONSULTED', data: restritivosData },
-    { key: 'bvs', label: 'Boa Vista', status: details.bvs ? 'DONE' : 'NOT_CONSULTED', data: details.bvs || null },
-    { key: 'quod', label: 'Quod', status: details.quod ? 'DONE' : 'NOT_CONSULTED', data: details.quod || null },
-  ];
-
-  result['financeiro'] = [
-    { key: 'endividamento', label: 'Endividamento Financeiro', status: endividamentoData ? 'DONE' : 'NOT_CONSULTED', data: endividamentoData },
-    { key: 'cpr', label: 'Consulta CPR', status: cprData ? 'DONE' : 'NOT_CONSULTED', data: cprData },
-  ];
-
-  result['patrimonio'] = [
-    { key: 'imoveis_simples', label: 'Pesquisa de Imóveis - Simples', status: imoveisSimplesData ? 'DONE' : 'NOT_CONSULTED', data: imoveisSimplesData },
-    { key: 'imoveis_car', label: 'Pesquisa Imóveis - CAR', status: imoveisCarData ? 'DONE' : 'NOT_CONSULTED', data: imoveisCarData },
-    { key: 'patrimonio_veicular', label: 'Patrimônio Veicular', status: patrimonioVeicularData ? 'DONE' : 'NOT_CONSULTED', data: patrimonioVeicularData },
-  ];
+  // ── Grupos ──
+  const grupoItems: SubItem[] = [];
+  if (hasConsultaClientePayload && details.groups_family) {
+    grupoItems.push({
+      key: 'grupo-familiar', label: 'Grupo Familiar', status: 'DONE',
+      data: details.groups_family?.items || [],
+    });
+  }
+  if (hasConsultaClientePayload && details.groups_economic) {
+    grupoItems.push({
+      key: 'grupo-economico', label: 'Grupo Econômico', status: 'DONE',
+      data: details.groups_economic?.items || [],
+    });
+  }
+  if (grupoItems.length > 0) {
+    result['grupos'] = grupoItems;
+  }
+  if (!result['grupos']) {
+    result['grupos'] = [
+      { key: 'grupo-familiar', label: 'Grupo Familiar', status: 'NOT_CONSULTED', data: null },
+      { key: 'grupo-economico', label: 'Grupo Econômico', status: 'NOT_CONSULTED', data: null },
+    ];
+  }
 
   // ── Compliance (Ambiental + Trabalhista merged) ──
   const compliance = hasConsultaClientePayload ? (details.compliance?.item || details.compliance) : null;
   const complianceItems: SubItem[] = [];
 
-  // Ambiental sub-items
   const envData = compliance?.environmental;
   if (envData) {
     const ambientalEntries: any[] = [];
@@ -265,7 +263,6 @@ function normalizeResponseData(rawData: Record<string, any>, consultaType?: stri
     });
   }
 
-  // Trabalhista sub-items
   if (compliance?.labour || compliance?.criminal) {
     const l = compliance.labour || {};
     const c = compliance.criminal || {};
@@ -314,8 +311,14 @@ function normalizeResponseData(rawData: Record<string, any>, consultaType?: stri
   if (complianceItems.length > 0) {
     result['compliance'] = complianceItems;
   }
+  if (!result['compliance']) {
+    result['compliance'] = [
+      { key: 'ambiental', label: 'Ambiental', status: 'NOT_CONSULTED', data: null },
+      { key: 'trabalhista', label: 'Trabalhista', status: 'NOT_CONSULTED', data: null },
+    ];
+  }
 
-  // ── Lawsuits ──
+  // ── Judicial ──
   if (hasConsultaClientePayload && details.lawsuits) {
     result['juridico'] = [{
       key: 'lawsuits',
@@ -324,7 +327,13 @@ function normalizeResponseData(rawData: Record<string, any>, consultaType?: stri
       data: details.lawsuits,
     }];
   }
+  if (!result['juridico']) {
+    result['juridico'] = [
+      { key: 'lawsuits', label: 'Processos Judiciais', status: 'NOT_CONSULTED', data: null },
+    ];
+  }
 
+  // ── Imóveis ──
   result['imoveis'] = [
     {
       key: 'imoveis-simples',
@@ -345,35 +354,6 @@ function normalizeResponseData(rawData: Record<string, any>, consultaType?: stri
       data: details.imoveis_car || null,
     },
   ];
-
-  // ── Grupos ──
-  const grupoItems: SubItem[] = [];
-  if (hasConsultaClientePayload && details.groups_family) {
-    grupoItems.push({
-      key: 'grupo-familiar', label: 'Grupo Familiar', status: 'DONE',
-      data: details.groups_family?.items || [],
-    });
-  }
-  if (hasConsultaClientePayload && details.groups_economic) {
-    grupoItems.push({
-      key: 'grupo-economico', label: 'Grupo Economico', status: 'DONE',
-      data: details.groups_economic?.items || [],
-    });
-  }
-  if (grupoItems.length > 0) {
-    result['grupos'] = grupoItems;
-  }
-
-  if (!result['compliance']) {
-    result['compliance'] = [
-      { key: 'ambiental', label: 'Ambiental', status: 'NOT_CONSULTED', data: null },
-      { key: 'trabalhista', label: 'Trabalhista', status: 'NOT_CONSULTED', data: null },
-    ];
-  }
-
-  if (!result['juridico']) {
-    result['juridico'] = [
-      { key: 'lawsuits', label: 'Processos Judiciais', status: 'NOT_CONSULTED', data: null },
     ];
   }
 
