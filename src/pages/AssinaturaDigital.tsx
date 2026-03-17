@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Upload, FileText, Send, X, Search, Loader2, Building2 } from 'lucide-react';
+import { Upload, FileText, Send, X, Search, Loader2, Building2, Link2, Copy, CheckCircle2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://goldsign.onrender.com';
 
 const TIPOS_DOCUMENTO = [
   { value: 'contrato-mae', label: 'Contrato Mãe', desc: 'Contrato de cedente com a securitizadora (início do relacionamento)' },
@@ -117,19 +119,70 @@ export default function AssinaturaDigital() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  // Result state
+  const [signLink, setSignLink] = useState('');
+  const [linkCopied, setLinkCopied] = useState(false);
+
   const handleSubmit = async () => {
     if (!tipoDocumento || !cedenteName || !file) {
       toast({ title: 'Preencha todos os campos obrigatórios', variant: 'destructive' });
       return;
     }
     setSending(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setSending(false);
-    toast({ title: 'Documento enviado!', description: 'O cedente receberá o documento para assinatura.' });
+    setSignLink('');
+    setLinkCopied(false);
+
+    try {
+      const formData = new FormData();
+      formData.append('tipo_documento', tipoDocumento);
+      formData.append('cedente_nome', cedenteName);
+      formData.append('cedente_cpf_cnpj', cedenteCnpj);
+      formData.append('observacao', observacao);
+      formData.append('arquivo', file);
+
+      const res = await fetch(`${BACKEND_URL}/api/assinatura/criar`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        throw new Error(errBody || `Erro ${res.status}`);
+      }
+
+      const data = await res.json();
+      const token = data.token || data.token_acesso;
+      if (!token) throw new Error('Token não retornado pelo servidor.');
+
+      const link = `${window.location.origin}/assinar/${token}`;
+      setSignLink(link);
+
+      toast({ title: 'Documento enviado com sucesso!', description: 'O link de assinatura foi gerado.' });
+    } catch (e: any) {
+      toast({ title: 'Erro ao enviar documento', description: e.message || 'Tente novamente.', variant: 'destructive' });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(signLink);
+      setLinkCopied(true);
+      toast({ title: 'Link copiado!' });
+      setTimeout(() => setLinkCopied(false), 3000);
+    } catch {
+      toast({ title: 'Erro ao copiar', variant: 'destructive' });
+    }
+  };
+
+  const handleNewDocument = () => {
     setTipoDocumento('');
     handleClearCedente();
     setObservacao('');
     handleRemoveFile();
+    setSignLink('');
+    setLinkCopied(false);
   };
 
   const selectedTipo = TIPOS_DOCUMENTO.find((t) => t.value === tipoDocumento);
@@ -306,23 +359,61 @@ export default function AssinaturaDigital() {
       </Card>
 
       {/* Submit */}
-      <div className="flex justify-end">
-        <Button
-          size="lg"
-          className="gap-2"
-          onClick={handleSubmit}
-          disabled={sending || !tipoDocumento || !cedenteName || !file}
-        >
-          {sending ? (
-            <>Enviando...</>
-          ) : (
-            <>
-              <Send className="h-4 w-4" />
-              Enviar para Assinatura
-            </>
-          )}
-        </Button>
-      </div>
+      {!signLink && (
+        <div className="flex justify-end">
+          <Button
+            size="lg"
+            className="gap-2"
+            onClick={handleSubmit}
+            disabled={sending || !tipoDocumento || !cedenteName || !file}
+          >
+            {sending ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</>
+            ) : (
+              <><Send className="h-4 w-4" /> Enviar para Assinatura</>
+            )}
+          </Button>
+        </div>
+      )}
+
+      {/* Link de assinatura gerado */}
+      {signLink && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="pt-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="h-6 w-6 text-primary shrink-0" />
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Documento enviado com sucesso!</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Copie o link abaixo e envie para o cedente assinar digitalmente.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex-1 bg-background border border-border rounded-md px-3 py-2.5 flex items-center gap-2 min-w-0">
+                <Link2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-sm text-foreground truncate select-all">{signLink}</span>
+              </div>
+              <Button variant="outline" size="sm" className="gap-1.5 shrink-0" onClick={handleCopyLink}>
+                {linkCopied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {linkCopied ? 'Copiado' : 'Copiar'}
+              </Button>
+              <Button variant="outline" size="sm" className="gap-1.5 shrink-0" asChild>
+                <a href={signLink} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4" /> Abrir
+                </a>
+              </Button>
+            </div>
+
+            <div className="pt-2">
+              <Button variant="ghost" size="sm" onClick={handleNewDocument} className="text-muted-foreground">
+                Enviar outro documento
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
