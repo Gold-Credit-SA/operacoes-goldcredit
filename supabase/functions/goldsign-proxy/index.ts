@@ -14,7 +14,7 @@ serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    const path = url.searchParams.get('path');
+    const path = url.searchParams.get('target');
     if (!path) {
       return new Response(JSON.stringify({ error: 'Missing path parameter' }), {
         status: 400,
