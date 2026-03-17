@@ -250,7 +250,7 @@ export async function assinarLocal(payload: AssinaturaLocalPayload) {
   });
 
   if (!data.sucesso) {
-    throw new Error(data.erro || 'Falha ao assinar com o certificado local.');
+    throw new Error('erro' in data && data.erro ? data.erro : 'Falha ao assinar com o certificado local.');
   }
 
   return data;
