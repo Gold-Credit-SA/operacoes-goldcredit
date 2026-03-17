@@ -1130,9 +1130,9 @@ function ConsultaClienteTopicContent({ data }: { data: Record<string, any> }) {
           {addresses.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum endereço retornado.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {addresses.slice(0, 5).map((address: any, index: number) => (
-                <div key={index} className="rounded-md border border-border px-3 py-2">
+                <div key={index} className="px-1 py-1.5">
                   <p className="text-sm text-foreground">
                     {[
                       address.street || address.logradouro,
