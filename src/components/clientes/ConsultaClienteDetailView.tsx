@@ -1081,7 +1081,51 @@ function ImovelDetailDialog({ property, tipo }: { property: any; tipo: string })
   const valorAtribuido = parseFloat(property.value || insertInfo.value || 0);
   const uf = property.state || insertInfo.state || cafir.state || '—';
   const municipio = property.city || insertInfo.city || cafir.city || '—';
-  const hasGeo = property.isGEORef ?? false;
+
+  const parseGeoFlag = (value: unknown): boolean => {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value === 1;
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      return ['true', '1', 'sim', 's', 'yes', 'y'].includes(normalized);
+    }
+    return false;
+  };
+
+  const geoEntries = [
+    ...(Array.isArray(property.geo) ? property.geo : []),
+    ...(Array.isArray(details.geo) ? details.geo : []),
+    ...(Array.isArray(insertInfo.geo) ? insertInfo.geo : []),
+    ...(Array.isArray(cafir.geo) ? cafir.geo : []),
+  ];
+
+  const hasGeoCoordinates = geoEntries.some((entry: any) => {
+    const coordinates = entry?.geoJson?.coordinates || entry?.coordinates || [];
+    return Array.isArray(coordinates) && coordinates.length > 0;
+  });
+
+  const hasGeoLocationObject = [
+    property.geo_location,
+    details.geo_location,
+    insertInfo.geo_location,
+    cafir.geo_location,
+  ].some((geoLocation: any) => {
+    if (!geoLocation || typeof geoLocation !== 'object') return false;
+    const latitude = geoLocation.latitude ?? geoLocation.lat;
+    const longitude = geoLocation.longitude ?? geoLocation.lng;
+    return latitude != null && longitude != null;
+  });
+
+  const hasGeo = [
+    property.isGEORef,
+    property.isGeoRef,
+    details.isGEORef,
+    details.isGeoRef,
+    insertInfo.isGEORef,
+    insertInfo.isGeoRef,
+    cafir.isGEORef,
+    cafir.isGeoRef,
+  ].some(parseGeoFlag) || hasGeoCoordinates || hasGeoLocationObject;
 
   // Matrículas from insertInfo
   const matriculas: any[] = Array.isArray(insertInfo.registrations) ? insertInfo.registrations : [];
