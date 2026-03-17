@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Building2 } from 'lucide-react';
 import { DtbEntry } from './scr-types';
-import { formatCnpj, getRaizDocumento, formatDate, formatCurrency } from './scr-utils';
+import { formatCnpj, getRaizDocumento, formatDate, formatCurrency, calcCarteiraAtiva } from './scr-utils';
 
 interface SCRHeaderProps {
   cdCli: string;
@@ -61,7 +61,7 @@ export function SCRHeader({ cdCli, dtbConsult, entityName, latestDtb, totalOpera
           </div>
           <div>
             <span className="text-muted-foreground">Risco direto:</span>
-            <p className="font-medium">{formatCurrency(0)}</p>
+            <p className="font-medium">{formatCurrency(calcCarteiraAtiva(latestDtb))}</p>
           </div>
           {riskClassification && (
             <div>

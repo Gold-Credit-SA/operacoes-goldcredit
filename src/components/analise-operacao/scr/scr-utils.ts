@@ -72,26 +72,27 @@ export function separateVencBuckets(resVenc: ResVenc): { vencidos: Record<string
 /**
  * Determines if an operation is a credit limit.
  * 
- * Known limit mod codes: 1909, 1905 are ALWAYS limits.
- * For other mod codes (0208, 0214, 0207, and any others):
- * - If the operation has ONLY low-number buckets (v10-v100) and NO "a vencer" 
- *   buckets (v110+), it represents a credit limit, not an overdue credit.
- *   This is because real credit operations always have "a vencer" buckets.
- * - If it has v110+ buckets, it's a real credit operation (may have overdue portions).
+ * 1909, 1905: ALWAYS limits (known limit-only modal codes).
+ * 0208 (Cheque especial), 0214 (Cheque especial), 0207 (Cartão de crédito):
+ *   These are limits ONLY when they have no "a vencer" buckets (v110+).
+ *   When they DO have a-vencer buckets, they represent active credit usage.
+ * All other mod codes: NEVER limits. A fully overdue loan (only vencido buckets)
+ *   is still a credit operation, not a limit.
  */
 export function isLimiteOp(op: Operacao): boolean {
-  const ALWAYS_LIMITE = ['1909', '1905', '0208', '0214', '0207'];
+  const ALWAYS_LIMITE = ['1909', '1905'];
   if (ALWAYS_LIMITE.includes(op.mod)) return true;
   
-  // Any operation with ONLY low buckets (v10-v100) and NO a-vencer buckets (v110+)
-  // is a credit limit, not an overdue credit
-  const hasAVencer = Object.keys(op.resVenc).some(k => {
-    const num = parseInt(k.replace('v', ''));
-    return num >= 110;
-  });
-  
-  // If no a-vencer buckets exist, this is a limit operation
-  if (!hasAVencer) return true;
+  // Mod codes that can be either limit or active credit
+  const CONDITIONAL_LIMITE = ['0208', '0214', '0207'];
+  if (CONDITIONAL_LIMITE.includes(op.mod)) {
+    const hasAVencer = Object.entries(op.resVenc).some(([k, v]) => {
+      const num = parseInt(k.replace('v', ''));
+      return num >= 110 && num < 250 && v > 0;
+    });
+    // If no a-vencer buckets with value > 0, it's a limit
+    return !hasAVencer;
+  }
   
   return false;
 }
