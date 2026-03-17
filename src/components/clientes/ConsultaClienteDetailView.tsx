@@ -1250,15 +1250,19 @@ function ImovelDetailDialog({ property, tipo }: { property: any; tipo: string })
                     <TableRow>
                       <TableHead className="text-xs">Nome</TableHead>
                       <TableHead className="text-xs">CPF/CNPJ</TableHead>
+                      <TableHead className="text-xs">Tipo</TableHead>
                       <TableHead className="text-xs">Participação</TableHead>
+                      <TableHead className="text-xs">Situação</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {proprietarios.map((p: any, i: number) => (
                       <TableRow key={i}>
-                        <TableCell className="text-sm">{p.name || p.nome || '—'}</TableCell>
-                        <TableCell className="text-sm">{p.taxId || p.cpfCnpj || p.document || '—'}</TableCell>
-                        <TableCell className="text-sm">{p.participation || p.participacao || '—'}</TableCell>
+                        <TableCell className="text-sm">{p.name || '—'}</TableCell>
+                        <TableCell className="text-sm">{p.taxId || '—'}</TableCell>
+                        <TableCell className="text-sm">{p.type || p.legalNature || '—'}</TableCell>
+                        <TableCell className="text-sm">{p.share != null ? `${p.share}%` : '—'}</TableCell>
+                        <TableCell className="text-sm">{p.situation || '—'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
