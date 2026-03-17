@@ -29,6 +29,7 @@ const Profile = lazy(() => import("./pages/Profile"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Contratos = lazy(() => import("./pages/Documentos"));
 const AssinaturaDigital = lazy(() => import("./pages/AssinaturaDigital"));
+const AssinaturaToken = lazy(() => import("./pages/AssinaturaToken"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,6 +66,8 @@ function App() {
           <AuthProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
+              {/* Public signing route – no auth required */}
+              <Route path="/assinar/:token" element={<Suspense fallback={<PageFallback />}><AssinaturaToken /></Suspense>} />
               <Route path="/alterar-senha" element={<ProtectedRoute><Suspense fallback={<PageFallback />}><ChangePassword /></Suspense></ProtectedRoute>} />
               <Route path="/" element={<ProtectedRoute><Navigate to="/painel" replace /></ProtectedRoute>} />
               <Route path="/painel" element={<ProtectedRoute><AppLayout><GestorDashboard /></AppLayout></ProtectedRoute>} />
