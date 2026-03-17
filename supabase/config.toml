@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.goldsign-proxy]
 verify_jwt = false
+
+[functions.goldsign-settings]
+verify_jwt = false

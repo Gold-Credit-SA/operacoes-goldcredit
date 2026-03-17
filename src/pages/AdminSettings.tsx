@@ -59,6 +59,7 @@ interface GestorOverview {
 const MASTER_EMAIL = 'renan@goldcreditsa.com.br';
 
 export default function AdminSettings() {
+  const [activeTab, setActiveTab] = useState('usuarios');
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -82,6 +83,7 @@ export default function AdminSettings() {
   const [loadingLocalCerts, setLoadingLocalCerts] = useState(false);
   const [savingSigningSettings, setSavingSigningSettings] = useState(false);
   const [signerOnline, setSignerOnline] = useState(false);
+  const [signingSettingsError, setSigningSettingsError] = useState('');
 
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
@@ -123,11 +125,13 @@ export default function AdminSettings() {
 
   const fetchSigningSettings = async () => {
     setLoadingSigningSettings(true);
+    setSigningSettingsError('');
     try {
       const data = await getGoldCreditCertificatePreference();
       setPreferredGoldCreditCert(data);
     } catch (error: any) {
-      toast({ title: 'Erro ao carregar certificado vinculado', description: error.message, variant: 'destructive' });
+      setPreferredGoldCreditCert(null);
+      setSigningSettingsError(error.message || 'Nao foi possivel carregar as configuracoes de assinatura.');
     } finally {
       setLoadingSigningSettings(false);
     }
@@ -159,15 +163,21 @@ export default function AdminSettings() {
   useEffect(() => {
     fetchUsers();
     fetchPortfolioData();
-    fetchSigningSettings();
   }, []);
 
   useEffect(() => {
-    if (!currentUser || currentUser.email !== MASTER_EMAIL) {
+    if (activeTab !== 'assinatura' || !currentUser || currentUser.email !== MASTER_EMAIL) {
+      return;
+    }
+    fetchSigningSettings();
+  }, [activeTab, currentUser]);
+
+  useEffect(() => {
+    if (activeTab !== 'assinatura' || !currentUser || currentUser.email !== MASTER_EMAIL) {
       return;
     }
     fetchLocalCertificates();
-  }, [currentUser, preferredGoldCreditCert]);
+  }, [activeTab, currentUser, preferredGoldCreditCert]);
 
   const handleOpenDialog = (user?: UserData) => {
     setEditingUser(user || null);
@@ -325,7 +335,7 @@ export default function AdminSettings() {
   return (
     <MainLayout title="Configurações" subtitle="Gerencie usuários, permissões e carteiras do sistema">
       <div className="space-y-6 max-w-5xl">
-        <Tabs defaultValue="usuarios" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList>
             <TabsTrigger value="usuarios" className="gap-2">
               <Users className="h-4 w-4" /> Usuários
@@ -436,6 +446,13 @@ export default function AdminSettings() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
+                {signingSettingsError ? (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                    Nao foi possivel carregar o certificado vinculado da Gold Credit. Finalize o deploy da migration e da edge function `goldsign-settings` no Supabase para habilitar esse recurso.
+                    <div className="mt-2 text-xs opacity-80">{signingSettingsError}</div>
+                  </div>
+                ) : null}
+
                 {loadingSigningSettings ? (
                   <div className="space-y-3">
                     <Skeleton className="h-20 w-full" />
@@ -495,11 +512,11 @@ export default function AdminSettings() {
                       </div>
 
                       <div className="flex flex-wrap gap-2">
-                        <Button onClick={handleSavePreferredCertificate} disabled={!selectedCert || savingSigningSettings}>
+                        <Button onClick={handleSavePreferredCertificate} disabled={!selectedCert || savingSigningSettings || Boolean(signingSettingsError)}>
                           {savingSigningSettings ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Link2 className="h-4 w-4 mr-2" />}
                           Vincular certificado
                         </Button>
-                        <Button variant="outline" onClick={handleClearPreferredCertificate} disabled={savingSigningSettings || !preferredGoldCreditCert?.gold_credit_cert_document}>
+                        <Button variant="outline" onClick={handleClearPreferredCertificate} disabled={savingSigningSettings || !preferredGoldCreditCert?.gold_credit_cert_document || Boolean(signingSettingsError)}>
                           <Trash2 className="h-4 w-4 mr-2" />
                           Remover vinculo
                         </Button>
