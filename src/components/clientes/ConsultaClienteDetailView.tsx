@@ -1408,7 +1408,9 @@ export function ConsultaClienteDetailView({ data: rawData, agriskClientId, consu
     { key: 'grupos', label: 'Grupos', icon: Users },
     { key: 'compliance', label: 'Compliance', icon: Shield },
     { key: 'juridico', label: 'Judicial', icon: Scale },
-    { key: 'imoveis', label: 'Imóveis', icon: Leaf },
+    { key: 'armazens', label: 'Armazéns', icon: Warehouse },
+    { key: 'veicular', label: 'Veicular', icon: Car },
+    { key: 'imoveis', label: 'Imóveis Rurais', icon: Leaf },
   ];
 
   const categorizedData = categoryDefs
