@@ -6,6 +6,7 @@ export interface ContratoData {
   documento_id: string;
   titulo: string;
   nome_arquivo: string;
+  papel_assinatura?: 'cedente' | 'cessionaria_gold_credit';
   signatario_nome: string;
   signatario_email: string;
   mensagem?: string;
@@ -21,6 +22,7 @@ export interface SolicitacaoResumo {
   documento_id: string;
   titulo: string;
   nome_arquivo: string;
+  papel_assinatura?: 'cedente' | 'cessionaria_gold_credit';
   signatario_nome: string;
   signatario_email: string;
   assinatura_obrigatoria_cpf_cnpj?: string;
@@ -115,10 +117,32 @@ export function getDownloadUrl(token: string) {
 export interface CriarSolicitacaoPayload {
   arquivo: File;
   titulo: string;
+  tipo_documento?: string;
   signatario_nome: string;
   signatario_email: string;
   signatario_cpf_cnpj: string;
   mensagem?: string;
+  contrato_mae?: boolean;
+  incluir_assinatura_gold_credit?: boolean;
+}
+
+export interface CriarSolicitacaoItem {
+  id: string;
+  documento_id: string;
+  titulo: string;
+  nome_arquivo: string;
+  token_acesso: string;
+  papel_assinatura?: 'cedente' | 'cessionaria_gold_credit';
+  signatario_nome?: string;
+  signatario_email?: string;
+  assinatura_obrigatoria_cpf_cnpj?: string;
+  status: string;
+  expira_em: string;
+  link_assinatura: string;
+}
+
+export interface CriarSolicitacaoResponse extends CriarSolicitacaoItem {
+  solicitacoes?: CriarSolicitacaoItem[];
 }
 
 export async function listarSolicitacoes(limit = 50) {
@@ -129,10 +153,13 @@ export async function criarSolicitacao(payload: CriarSolicitacaoPayload) {
   const formData = new FormData();
   formData.append('arquivo', payload.arquivo);
   formData.append('titulo', payload.titulo);
+  formData.append('tipo_documento', payload.tipo_documento || '');
   formData.append('signatario_nome', payload.signatario_nome);
   formData.append('signatario_email', payload.signatario_email);
   formData.append('signatario_cpf_cnpj', payload.signatario_cpf_cnpj);
   formData.append('mensagem', payload.mensagem || '');
+  formData.append('contrato_mae', String(Boolean(payload.contrato_mae)));
+  formData.append('incluir_assinatura_gold_credit', String(Boolean(payload.incluir_assinatura_gold_credit)));
 
   const res = await fetch(`${BACKEND_URL}/api/assinatura/criar`, {
     method: 'POST',
@@ -142,7 +169,7 @@ export async function criarSolicitacao(payload: CriarSolicitacaoPayload) {
     const body = await res.text();
     throw new Error(body || `Erro ${res.status}`);
   }
-  return res.json();
+  return res.json() as Promise<CriarSolicitacaoResponse>;
 }
 
 export interface SignerStatus {

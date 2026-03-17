@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
-import { AlertCircle, CheckCircle2, Clock, Copy, Eye, FileText, Link2, Loader2, RefreshCw, Send } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Copy, Eye, FileText, Link2, Loader2, RefreshCw, Send, Share2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -155,11 +155,18 @@ export default function Documentos() {
                             >
                               <Copy className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" title="Abrir link" asChild>
-                              <a href={`/assinar/${item.token_acesso}`} target="_blank" rel="noopener noreferrer">
+                            <Button variant="ghost" size="icon" title="Ver detalhes" asChild>
+                              <Link to={`/contratos/documentos/${item.token_acesso}`}>
                                 <Eye className="h-4 w-4" />
-                              </a>
+                              </Link>
                             </Button>
+                            {item.link_assinatura && (
+                              <Button variant="ghost" size="icon" title="Abrir link publico" asChild>
+                                <a href={item.link_assinatura} target="_blank" rel="noopener noreferrer">
+                                  <Share2 className="h-4 w-4" />
+                                </a>
+                              </Button>
+                            )}
                             {item.link_assinatura && (
                               <Button variant="ghost" size="icon" title="Copiar URL completa" onClick={() => navigator.clipboard.writeText(item.link_assinatura || '')}>
                                 <Link2 className="h-4 w-4" />

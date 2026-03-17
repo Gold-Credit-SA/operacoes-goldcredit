@@ -28,6 +28,7 @@ const ChangePassword = lazy(() => import("./pages/ChangePassword"));
 const Profile = lazy(() => import("./pages/Profile"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Contratos = lazy(() => import("./pages/Documentos"));
+const DocumentoDetalhe = lazy(() => import("./pages/DocumentoDetalhe"));
 const AssinaturaDigital = lazy(() => import("./pages/AssinaturaDigital"));
 const AssinaturaToken = lazy(() => import("./pages/AssinaturaToken"));
 
@@ -86,6 +87,7 @@ function App() {
               <Route path="/analise-consulta" element={<Navigate to="/consultas" replace />} />
               <Route path="/perfil" element={<ProtectedRoute><AppLayout><Profile /></AppLayout></ProtectedRoute>} />
               <Route path="/contratos/documentos" element={<ProtectedRoute><AppLayout><Contratos /></AppLayout></ProtectedRoute>} />
+              <Route path="/contratos/documentos/:token" element={<ProtectedRoute><AppLayout><DocumentoDetalhe /></AppLayout></ProtectedRoute>} />
               <Route path="/contratos/assinatura-digital" element={<ProtectedRoute><AppLayout><AssinaturaDigital /></AppLayout></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute requireAdmin><AppLayout><AdminSettings /></AppLayout></ProtectedRoute>} />
               {/* Legacy redirects */}

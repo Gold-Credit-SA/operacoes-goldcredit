@@ -14,7 +14,7 @@ import {
   assinarLocal, submeterAssinatura, getDownloadUrl,
 } from '@/lib/assinatura-api';
 
-type Step = 'loading' | 'pronto' | 'assinando' | 'sucesso' | 'erro';
+type Step = 'loading' | 'selecionar-certificado' | 'detalhes' | 'assinando' | 'sucesso' | 'erro';
 type ValidationState = 'idle' | 'checking' | 'invalid';
 
 export default function AssinaturaToken() {
@@ -96,14 +96,16 @@ export default function AssinaturaToken() {
         return;
       }
 
-      setStatusMsg('Certificado validado. Iniciando assinatura...');
+      setValidationState('idle');
+      setValidationMessage('');
+      setStatusMsg('Certificado validado.');
       setProgress(10);
-      await iniciarAssinatura(cert);
+      setStep('detalhes');
     } catch (e: any) {
       setValidationState('invalid');
       setValidationMessage(e.message || 'Nao foi possivel validar o certificado selecionado.');
     }
-  }, [iniciarAssinatura, token]);
+  }, [token]);
 
   const carregarFluxo = useCallback(async () => {
     if (!token) {
@@ -128,13 +130,13 @@ export default function AssinaturaToken() {
 
       if (!status.online) {
         setCertificados([]);
-        setStep('pronto');
+        setStep('selecionar-certificado');
         return;
       }
 
       const certs = await listarCertificados();
       setCertificados(certs);
-      setStep('pronto');
+      setStep('selecionar-certificado');
     } catch (e: any) {
       setError(e.message || 'Erro ao carregar o fluxo de assinatura.');
       setStep('erro');
@@ -185,15 +187,13 @@ export default function AssinaturaToken() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl space-y-6 px-6 py-8">
-        {contrato && <ContratoCard contrato={contrato} pdfUrl={pdfUrl} />}
-
-        {step === 'pronto' && (
-          <Card>
+      {step === 'selecionar-certificado' && (
+        <CenteredLayout>
+          <Card className="w-full max-w-xl">
             <CardHeader>
               <CardTitle className="text-base">Selecionar certificado</CardTitle>
               <CardDescription>
-                Ao escolher um certificado valido, a assinatura comeca automaticamente sem nova selecao.
+                Escolha o certificado digital para validar o signatario antes de continuar.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -229,7 +229,7 @@ export default function AssinaturaToken() {
                       disabled={validationState === 'checking'}
                     >
                       <SelectTrigger className="h-12">
-                        <SelectValue placeholder="Selecione o certificado para assinar" />
+                        <SelectValue placeholder="Selecione o certificado para continuar" />
                       </SelectTrigger>
                       <SelectContent>
                         {certificados.map((cert) => (
@@ -239,27 +239,6 @@ export default function AssinaturaToken() {
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
-
-                  <div className="rounded-lg border bg-muted/30 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-medium text-foreground">Assinador local</p>
-                        <p className="text-xs text-muted-foreground">
-                          Conectado{signerStatus.versao ? ` · versao ${signerStatus.versao}` : ''}.
-                        </p>
-                      </div>
-                      <Badge variant="outline">Online</Badge>
-                    </div>
-
-                    {selectedCert && (
-                      <div className="mt-4 space-y-1 text-xs text-muted-foreground">
-                        <p>Certificado: <span className="font-medium text-foreground">{selectedCert.subject_cn}</span></p>
-                        <p>CPF/CNPJ: {selectedCert.cpf_cnpj}</p>
-                        <p>Emitido por: {selectedCert.issuer_cn}</p>
-                        <p>Validade: {new Date(selectedCert.not_after).toLocaleDateString('pt-BR')}</p>
-                      </div>
-                    )}
                   </div>
 
                   {validationState === 'checking' && (
@@ -287,42 +266,83 @@ export default function AssinaturaToken() {
               </Button>
             </CardContent>
           </Card>
-        )}
+        </CenteredLayout>
+      )}
 
-        {step === 'assinando' && (
-          <Card>
-            <CardContent className="space-y-4 pt-6">
-              <div className="flex items-center gap-3">
-                <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" />
-                <p className="text-sm font-medium text-foreground">{statusMsg}</p>
-              </div>
-              <Progress value={progress} className="h-2" />
-              {selectedCert && (
-                <p className="text-xs text-muted-foreground">Certificado: {selectedCert.subject_cn}</p>
-              )}
-            </CardContent>
-          </Card>
-        )}
+      {(step === 'detalhes' || step === 'assinando' || step === 'sucesso') && (
+        <main className="mx-auto max-w-3xl space-y-6 px-6 py-8">
+          {contrato && <ContratoCard contrato={contrato} pdfUrl={pdfUrl} />}
 
-        {step === 'sucesso' && token && (
-          <Card>
-            <CardContent className="space-y-4 pt-6 text-center">
-              <CheckCircle2 className="mx-auto h-12 w-12 text-primary" />
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">Documento assinado com sucesso!</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  A assinatura digital foi aplicada e registrada.
-                </p>
-              </div>
-              <Button size="lg" className="gap-2" asChild>
-                <a href={getDownloadUrl(token)} target="_blank" rel="noopener noreferrer">
-                  <Download className="h-4 w-4" /> Baixar PDF assinado
-                </a>
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-      </main>
+          {step === 'detalhes' && selectedCert && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Certificado validado</CardTitle>
+                <CardDescription>
+                  O certificado ja foi conferido. Revise as informacoes abaixo e prossiga para assinar.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="rounded-lg border bg-muted/30 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{selectedCert.subject_cn}</p>
+                      <p className="text-xs text-muted-foreground">{selectedCert.cpf_cnpj}</p>
+                    </div>
+                    <Badge variant="outline">{selectedCert.tipo}</Badge>
+                  </div>
+                  <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                    <p>Emitido por: {selectedCert.issuer_cn}</p>
+                    <p>Validade: {new Date(selectedCert.not_after).toLocaleDateString('pt-BR')}</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                  <Button variant="outline" onClick={() => setStep('selecionar-certificado')}>
+                    Trocar certificado
+                  </Button>
+                  <Button onClick={() => void iniciarAssinatura(selectedCert)}>
+                    Assinar documento
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {step === 'assinando' && (
+            <Card>
+              <CardContent className="space-y-4 pt-6">
+                <div className="flex items-center gap-3">
+                  <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" />
+                  <p className="text-sm font-medium text-foreground">{statusMsg}</p>
+                </div>
+                <Progress value={progress} className="h-2" />
+                {selectedCert && (
+                  <p className="text-xs text-muted-foreground">Certificado: {selectedCert.subject_cn}</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {step === 'sucesso' && token && (
+            <Card>
+              <CardContent className="space-y-4 pt-6 text-center">
+                <CheckCircle2 className="mx-auto h-12 w-12 text-primary" />
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">Documento assinado com sucesso!</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    A assinatura digital foi aplicada e registrada.
+                  </p>
+                </div>
+                <Button size="lg" className="gap-2" asChild>
+                  <a href={getDownloadUrl(token)} target="_blank" rel="noopener noreferrer">
+                    <Download className="h-4 w-4" /> Baixar PDF assinado
+                  </a>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </main>
+      )}
     </div>
   );
 }

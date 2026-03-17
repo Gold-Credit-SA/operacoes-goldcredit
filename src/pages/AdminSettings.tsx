@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,11 +13,19 @@ import { UserFormDialog } from '@/components/admin/UserFormDialog';
 import { UserCard } from '@/components/admin/UserCard';
 import { StatsCard } from '@/components/admin/StatsCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { checkSignerStatus, listarCertificados, type Certificado } from '@/lib/assinatura-api';
+import {
+  clearGoldCreditCertificatePreference,
+  getGoldCreditCertificatePreference,
+  matchGoldCreditCertificate,
+  saveGoldCreditCertificatePreference,
+  type GoldCreditCertificatePreference,
+} from '@/lib/goldsign-settings';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { 
-  Plus, Users, Shield, UserCheck, Info, Briefcase, Check, X, Clock, RefreshCw,
+  Plus, Users, Shield, UserCheck, Info, Briefcase, Check, X, Clock, RefreshCw, FileSignature, Link2, Trash2, Loader2,
 } from 'lucide-react';
 
 interface UserData {
@@ -46,6 +55,8 @@ interface GestorOverview {
   pending_requests: number;
 }
 
+const MASTER_EMAIL = 'renan@goldcreditsa.com.br';
+
 export default function AdminSettings() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +74,13 @@ export default function AdminSettings() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectingAssignment, setRejectingAssignment] = useState<Assignment | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [preferredGoldCreditCert, setPreferredGoldCreditCert] = useState<GoldCreditCertificatePreference | null>(null);
+  const [certificadosLocais, setCertificadosLocais] = useState<Certificado[]>([]);
+  const [selectedCertId, setSelectedCertId] = useState('');
+  const [loadingSigningSettings, setLoadingSigningSettings] = useState(true);
+  const [loadingLocalCerts, setLoadingLocalCerts] = useState(false);
+  const [savingSigningSettings, setSavingSigningSettings] = useState(false);
+  const [signerOnline, setSignerOnline] = useState(false);
 
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
@@ -102,10 +120,53 @@ export default function AdminSettings() {
     }
   };
 
+  const fetchSigningSettings = async () => {
+    setLoadingSigningSettings(true);
+    try {
+      const data = await getGoldCreditCertificatePreference();
+      setPreferredGoldCreditCert(data);
+    } catch (error: any) {
+      toast({ title: 'Erro ao carregar certificado vinculado', description: error.message, variant: 'destructive' });
+    } finally {
+      setLoadingSigningSettings(false);
+    }
+  };
+
+  const fetchLocalCertificates = async () => {
+    setLoadingLocalCerts(true);
+    try {
+      const status = await checkSignerStatus();
+      setSignerOnline(status.online);
+      if (!status.online) {
+        setCertificadosLocais([]);
+        return;
+      }
+
+      const certs = await listarCertificados();
+      setCertificadosLocais(certs);
+
+      const matched = matchGoldCreditCertificate(certs, preferredGoldCreditCert);
+      setSelectedCertId(matched?.cert_id || certs[0]?.cert_id || '');
+    } catch (error: any) {
+      setCertificadosLocais([]);
+      toast({ title: 'Erro ao carregar certificados locais', description: error.message, variant: 'destructive' });
+    } finally {
+      setLoadingLocalCerts(false);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
     fetchPortfolioData();
+    fetchSigningSettings();
   }, []);
+
+  useEffect(() => {
+    if (!currentUser || currentUser.email !== MASTER_EMAIL) {
+      return;
+    }
+    fetchLocalCertificates();
+  }, [currentUser, preferredGoldCreditCert]);
 
   const handleOpenDialog = (user?: UserData) => {
     setEditingUser(user || null);
@@ -226,6 +287,39 @@ export default function AdminSettings() {
   const totalUsers = users.length;
   const adminCount = users.filter(u => u.email === 'renan@goldcreditsa.com.br').length;
   const regularUsers = totalUsers - adminCount;
+  const selectedCert = certificadosLocais.find((cert) => cert.cert_id === selectedCertId) || null;
+
+  const handleSavePreferredCertificate = async () => {
+    if (!selectedCert) {
+      toast({ title: 'Selecione um certificado', description: 'Escolha o certificado da Gold Credit para vincular.', variant: 'destructive' });
+      return;
+    }
+
+    setSavingSigningSettings(true);
+    try {
+      const saved = await saveGoldCreditCertificatePreference(selectedCert);
+      setPreferredGoldCreditCert(saved);
+      toast({ title: 'Certificado vinculado', description: 'A Gold Credit agora sera auto-selecionada nas telas internas quando esse certificado estiver instalado.' });
+    } catch (error: any) {
+      toast({ title: 'Erro ao vincular certificado', description: error.message, variant: 'destructive' });
+    } finally {
+      setSavingSigningSettings(false);
+    }
+  };
+
+  const handleClearPreferredCertificate = async () => {
+    setSavingSigningSettings(true);
+    try {
+      await clearGoldCreditCertificatePreference();
+      setPreferredGoldCreditCert(null);
+      setSelectedCertId('');
+      toast({ title: 'Vinculo removido', description: 'A selecao automatica do certificado da Gold Credit foi desativada.' });
+    } catch (error: any) {
+      toast({ title: 'Erro ao remover vinculo', description: error.message, variant: 'destructive' });
+    } finally {
+      setSavingSigningSettings(false);
+    }
+  };
 
   return (
     <MainLayout title="Configurações" subtitle="Gerencie usuários, permissões e carteiras do sistema">
@@ -234,6 +328,9 @@ export default function AdminSettings() {
           <TabsList>
             <TabsTrigger value="usuarios" className="gap-2">
               <Users className="h-4 w-4" /> Usuários
+            </TabsTrigger>
+            <TabsTrigger value="assinatura" className="gap-2">
+              <FileSignature className="h-4 w-4" /> Assinatura
             </TabsTrigger>
             <TabsTrigger value="carteiras" className="gap-2">
               <Briefcase className="h-4 w-4" /> Carteiras
@@ -322,6 +419,92 @@ export default function AdminSettings() {
                       <strong> Usuários comuns</strong> acessam todas as funcionalidades exceto esta área.
                     </p>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="assinatura" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Link2 className="h-5 w-5 text-primary" /> Certificado preferencial da Gold Credit
+                </CardTitle>
+                <CardDescription>
+                  O master define qual certificado da Gold Credit deve ser usado como preferencial. Nas telas internas de contrato-mae, esse certificado sera auto-selecionado quando estiver instalado na maquina do usuario.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {loadingSigningSettings ? (
+                  <div className="space-y-3">
+                    <Skeleton className="h-20 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                ) : (
+                  <div className="rounded-lg border bg-muted/20 p-4">
+                    <p className="text-sm font-medium">Certificado atualmente vinculado</p>
+                    {preferredGoldCreditCert?.gold_credit_cert_document ? (
+                      <div className="mt-3 space-y-1 text-sm text-muted-foreground">
+                        <p><strong className="text-foreground">Titular:</strong> {preferredGoldCreditCert.gold_credit_cert_subject_cn || 'Nao informado'}</p>
+                        <p><strong className="text-foreground">Documento:</strong> {preferredGoldCreditCert.gold_credit_cert_document}</p>
+                        <p><strong className="text-foreground">Serie:</strong> {preferredGoldCreditCert.gold_credit_cert_serial_number || 'Nao informada'}</p>
+                        <p><strong className="text-foreground">Vinculado por:</strong> {preferredGoldCreditCert.gold_credit_cert_linked_by_email || 'Nao informado'}</p>
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        Nenhum certificado foi vinculado ainda. Enquanto isso, as pessoas continuam precisando selecionar manualmente o certificado da Gold Credit.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="rounded-lg border p-4 space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium">Certificados instalados nesta maquina</p>
+                      <p className="text-xs text-muted-foreground">
+                        O vinculo nao envia a chave privada para lugar nenhum. Ele so serve para auto-selecionar o certificado correto quando ele estiver instalado localmente.
+                      </p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={fetchLocalCertificates} disabled={loadingLocalCerts || savingSigningSettings}>
+                      {loadingLocalCerts ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    </Button>
+                  </div>
+
+                  {!signerOnline ? (
+                    <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                      O assinador local nao foi detectado em <code>localhost:8765</code>. Abra o assinador para listar e vincular o certificado da Gold Credit.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label>Selecionar certificado da Gold Credit</Label>
+                        <Select value={selectedCertId} onValueChange={setSelectedCertId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Escolha um certificado instalado" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {certificadosLocais.map((cert) => (
+                              <SelectItem key={cert.cert_id} value={cert.cert_id}>
+                                {cert.subject_cn} · {cert.cpf_cnpj}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Button onClick={handleSavePreferredCertificate} disabled={!selectedCert || savingSigningSettings}>
+                          {savingSigningSettings ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Link2 className="h-4 w-4 mr-2" />}
+                          Vincular certificado
+                        </Button>
+                        <Button variant="outline" onClick={handleClearPreferredCertificate} disabled={savingSigningSettings || !preferredGoldCreditCert?.gold_credit_cert_document}>
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Remover vinculo
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
