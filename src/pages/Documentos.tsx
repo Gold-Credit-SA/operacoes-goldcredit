@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Link } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://goldsign.onrender.com';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 type ContratoStatus = 'pendente' | 'assinado' | 'expirado' | 'enviado';
 
@@ -50,7 +51,9 @@ export default function Documentos() {
   const fetchContratos = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/assinatura/listar`);
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/goldsign-proxy?path=/api/assinatura/listar`, {
+        headers: { 'apikey': SUPABASE_KEY },
+      });
       if (!res.ok) throw new Error(`Erro ${res.status}`);
       const data = await res.json();
       setContratos(Array.isArray(data) ? data : data.documentos || []);

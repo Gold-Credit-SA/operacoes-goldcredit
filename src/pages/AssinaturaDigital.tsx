@@ -9,7 +9,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://goldsign.onrender.com';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 const TIPOS_DOCUMENTO = [
   { value: 'contrato-mae', label: 'Contrato Mãe', desc: 'Contrato de cedente com a securitizadora (início do relacionamento)' },
@@ -140,8 +141,10 @@ export default function AssinaturaDigital() {
       formData.append('observacao', observacao);
       formData.append('arquivo', file);
 
-      const res = await fetch(`${BACKEND_URL}/api/assinatura/criar`, {
+      const proxyUrl = `${SUPABASE_URL}/functions/v1/goldsign-proxy?path=/api/assinatura/criar`;
+      const res = await fetch(proxyUrl, {
         method: 'POST',
+        headers: { 'apikey': SUPABASE_KEY },
         body: formData,
       });
 
