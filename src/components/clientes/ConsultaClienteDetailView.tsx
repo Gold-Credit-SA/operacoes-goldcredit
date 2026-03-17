@@ -1004,10 +1004,24 @@ function GruposContent({ items }: { items: SubItem[] }) {
   );
 }
 
+function GenericTopicContent({ title, items }: { title: string; items: SubItem[] }) {
+  const item = items[0];
+  if (!item || item.status !== 'DONE' || !item.data) {
+    return <EmptyState title={`${title} não consultado`} description="Esse tópico não foi consultado nesta execução." />;
+  }
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold text-foreground">{title}</h2>
+      <AgriskDetailView data={item.data} title={title} />
+    </div>
+  );
+}
+
 function ImoveisContent({ items }: { items: SubItem[] }) {
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-foreground">Imóveis</h2>
+      <h2 className="text-2xl font-bold text-foreground">Imóveis Rurais</h2>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {items.map((section) => {
