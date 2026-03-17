@@ -1060,11 +1060,65 @@ function ImoveisContent({ items }: { items: SubItem[] }) {
   );
 }
 
+function PropertyMap({ parcels }: { parcels: any[] }) {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
+
+    const map = L.map(mapRef.current, {
+      zoomControl: true,
+      attributionControl: true,
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap',
+    }).addTo(map);
+
+    const allBounds: L.LatLngBounds[] = [];
+
+    parcels.forEach((parcel: any) => {
+      const geometry = parcel.geometry;
+      if (!geometry?.coordinates?.length) return;
+
+      // GeoJSON coordinates are [lng, lat, alt?] — Leaflet needs [lat, lng]
+      const coords: L.LatLngExpression[][] = geometry.coordinates.map((ring: number[][]) =>
+        ring.map((pt: number[]) => [pt[1], pt[0]] as L.LatLngExpression)
+      );
+
+      const polygon = L.polygon(coords, {
+        color: '#F59E0B',
+        weight: 2,
+        fillColor: '#F59E0B',
+        fillOpacity: 0.2,
+      }).addTo(map);
+
+      allBounds.push(polygon.getBounds());
+    });
+
+    if (allBounds.length > 0) {
+      const combined = allBounds.reduce((acc, b) => acc.extend(b), allBounds[0]);
+      map.fitBounds(combined, { padding: [30, 30] });
+    } else {
+      map.setView([-15.78, -47.93], 4);
+    }
+
+    mapInstanceRef.current = map;
+
+    return () => {
+      map.remove();
+      mapInstanceRef.current = null;
+    };
+  }, [parcels]);
+
+  return <div ref={mapRef} className="w-full h-full min-h-[350px] rounded-lg z-0" />;
+}
+
 function ImovelDetailDialog({ property, tipo }: { property: any; tipo: string }) {
   const [open, setOpen] = useState(false);
   const [detailTab, setDetailTab] = useState('matriculas');
   
-  // The edge function merges detail data as { ...item, details: { insertInfo, cafir, car, parcels } }
   const details = property.details || {};
   const insertInfo = details.insertInfo || {};
   const cafir = details.cafir || {};
@@ -1073,7 +1127,6 @@ function ImovelDetailDialog({ property, tipo }: { property: any; tipo: string })
   const tipoLower = (tipo || '').toString().toLowerCase();
   const isSociedade = tipoLower.includes('sociedade') || tipoLower.includes('society') || tipoLower.includes('partner');
 
-  // Use insertInfo/cafir for detailed fields, fallback to list-level fields
   const nirf = insertInfo.nirf || cafir.nirf || '—';
   const incra = insertInfo.numIncra || cafir.numIncra || '—';
   const area = parseFloat(property.totalArea || insertInfo.totalArea || cafir.totalArea || 0);
@@ -1084,60 +1137,55 @@ function ImovelDetailDialog({ property, tipo }: { property: any; tipo: string })
   const uf = property.state || insertInfo.state || cafir.state || '—';
   const municipio = property.city || insertInfo.city || cafir.city || '—';
 
+  // Parcels with geometry for the map
+  const parcels: any[] = Array.isArray(details.parcels) ? details.parcels : [];
+  const hasParcels = parcels.some((p: any) => p.geometry?.coordinates?.length > 0);
+
+  // Geo flag detection
   const parseGeoFlag = (value: unknown): boolean => {
     if (typeof value === 'boolean') return value;
-    if (typeof value === 'number') return value === 1;
-    if (typeof value === 'string') {
-      const normalized = value.trim().toLowerCase();
-      return ['true', '1', 'sim', 's', 'yes', 'y'].includes(normalized);
-    }
+    if (typeof value === 'string') return ['true', '1', 'sim'].includes(value.trim().toLowerCase());
     return false;
   };
-
-  const geoEntries = [
-    ...(Array.isArray(property.geo) ? property.geo : []),
-    ...(Array.isArray(details.geo) ? details.geo : []),
-    ...(Array.isArray(insertInfo.geo) ? insertInfo.geo : []),
-    ...(Array.isArray(cafir.geo) ? cafir.geo : []),
-  ];
-
-  const hasGeoCoordinates = geoEntries.some((entry: any) => {
-    const coordinates = entry?.geoJson?.coordinates || entry?.coordinates || [];
-    return Array.isArray(coordinates) && coordinates.length > 0;
-  });
-
-  const hasGeoLocationObject = [
-    property.geo_location,
-    details.geo_location,
-    insertInfo.geo_location,
-    cafir.geo_location,
-  ].some((geoLocation: any) => {
-    if (!geoLocation || typeof geoLocation !== 'object') return false;
-    const latitude = geoLocation.latitude ?? geoLocation.lat;
-    const longitude = geoLocation.longitude ?? geoLocation.lng;
-    return latitude != null && longitude != null;
-  });
-
   const hasGeo = [
-    property.isGEORef,
-    property.isGeoRef,
-    details.isGEORef,
-    details.isGeoRef,
-    insertInfo.isGEORef,
-    insertInfo.isGeoRef,
-    cafir.isGEORef,
-    cafir.isGeoRef,
-  ].some(parseGeoFlag) || hasGeoCoordinates || hasGeoLocationObject;
+    property.isGEORef, details.isGEORef, insertInfo.isGEORef, cafir.isGEORef,
+  ].some(parseGeoFlag) || hasParcels;
 
-  // Matrículas from insertInfo
-  const matriculas: any[] = Array.isArray(insertInfo.registrations) ? insertInfo.registrations : [];
-  // CAR from detail root or insertInfo
+  // Matrículas: use parcels (which have registry, area, farmName) as primary source, fallback to insertInfo.registrations
+  const matriculasFromParcels = parcels.map((p: any) => ({
+    registration: p.registry || p.registration || 'None',
+    area: p.area,
+    name: p.farmName || p.name || '—',
+  }));
+  const matriculasFromInsert: any[] = Array.isArray(insertInfo.registrations) ? insertInfo.registrations : [];
+  const matriculas = matriculasFromParcels.length > 0 ? matriculasFromParcels : matriculasFromInsert;
+
+  // CAR
   const cars: any[] = Array.isArray(details.car) ? details.car
     : Array.isArray(insertInfo.car) ? insertInfo.car : [];
-  // Proprietários from cafir.owners
+  // Proprietários
   const proprietarios: any[] = Array.isArray(cafir.owners) ? cafir.owners : [];
 
   const fmtCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(isNaN(v) ? 0 : v);
+
+  // KML export from parcels
+  const handleDownloadKml = () => {
+    if (!parcels.length) return;
+    const placemarks = parcels.map((p: any, i: number) => {
+      const coords = (p.geometry?.coordinates?.[0] || [])
+        .map((pt: number[]) => `${pt[0]},${pt[1]},${pt[2] || 0}`)
+        .join(' ');
+      return `<Placemark><name>${p.farmName || `Parcela ${i + 1}`}</name><Polygon><outerBoundaryIs><LinearRing><coordinates>${coords}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`;
+    }).join('\n');
+    const kml = `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${nome}</name>\n${placemarks}\n</Document></kml>`;
+    const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${nome.replace(/\s+/g, '_')}.kml`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <>
@@ -1145,10 +1193,13 @@ function ImovelDetailDialog({ property, tipo }: { property: any; tipo: string })
         Ver mais
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 pt-6 pb-2">
             <div className="flex items-center gap-3">
-              <DialogTitle className="text-xl">{nome}</DialogTitle>
+              <DialogHeader className="p-0">
+                <DialogTitle className="text-xl font-bold">{nome}</DialogTitle>
+              </DialogHeader>
               <Badge
                 variant="outline"
                 className={cn(
@@ -1161,15 +1212,28 @@ function ImovelDetailDialog({ property, tipo }: { property: any; tipo: string })
                 {isSociedade ? 'DE SOCIEDADE' : 'PRÓPRIA'}
               </Badge>
             </div>
-          </DialogHeader>
+            {hasParcels && (
+              <Button variant="outline" size="sm" className="text-primary border-primary/30" onClick={handleDownloadKml}>
+                <Download className="h-4 w-4 mr-1.5" />
+                Baixar KML
+              </Button>
+            )}
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-            {/* Geo panel */}
-            <div className="flex items-center justify-center rounded-lg border border-border bg-muted/20 min-h-[200px]">
-              {hasGeo ? (
-                <p className="text-sm text-muted-foreground">Geo-referenciamento disponível</p>
+          {/* Map + Info grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-0 px-6">
+            {/* Map */}
+            <div className="rounded-lg overflow-hidden border border-border min-h-[350px]">
+              {hasGeo && hasParcels ? (
+                <PropertyMap parcels={parcels} />
+              ) : hasGeo ? (
+                <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground bg-muted/20">
+                  <MapPin className="h-10 w-10 text-primary/40" />
+                  <p className="text-sm font-medium text-foreground">Geo-referenciamento disponível</p>
+                  <p className="text-xs text-muted-foreground">Sem coordenadas para exibição no mapa</p>
+                </div>
               ) : (
-                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground bg-muted/20">
                   <MapPinOff className="h-10 w-10" />
                   <p className="text-sm font-medium text-foreground">Imóvel sem geo-referenciamento</p>
                 </div>
@@ -1177,147 +1241,145 @@ function ImovelDetailDialog({ property, tipo }: { property: any; tipo: string })
             </div>
 
             {/* Info panel */}
-            <div className="space-y-5">
+            <div className="pl-6 space-y-4">
+              <h4 className="text-lg font-semibold text-foreground">Informações</h4>
               <div>
-                <h4 className="text-lg font-semibold text-foreground mb-3">Informações</h4>
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Nome</p>
-                    <p className="text-base text-foreground">{nome}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">NIRF / CIB</p>
-                      <p className="text-base text-foreground">{nirf}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Núm. INCRA</p>
-                      <p className="text-base text-foreground">{incra}</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Área</p>
-                      <p className="text-base text-foreground">{isNaN(area) ? '—' : `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(area)} ha`}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Área Produtiva</p>
-                      <p className="text-base text-foreground">{areaProdutiva ?? '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Mod. Fiscal</p>
-                      <p className="text-base text-foreground">{modFiscal ?? '—'}</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Valor estimado</p>
-                      <p className="text-base text-foreground">{valorEstimado ? fmtCurrency(parseFloat(valorEstimado)) : '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Valor atribuído</p>
-                      <p className="text-base text-foreground">{fmtCurrency(valorAtribuido)}</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Estado</p>
-                      <p className="text-base text-foreground">{uf}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Município</p>
-                      <p className="text-base text-foreground">{municipio}</p>
-                    </div>
-                  </div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Nome</p>
+                <p className="text-base text-foreground">{nome}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">NIRF / CIB</p>
+                  <p className="text-base text-foreground">{nirf}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Núm. INCRA</p>
+                  <p className="text-base text-foreground">{incra}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Área</p>
+                  <p className="text-base text-foreground">{isNaN(area) ? '—' : `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(area)} ha`}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Área Produtiva</p>
+                  <p className="text-base text-foreground">{areaProdutiva ?? '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Mod. Fiscal</p>
+                  <p className="text-base text-foreground">{modFiscal ?? '—'}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Valor estimado</p>
+                  <p className="text-base text-foreground">{valorEstimado ? fmtCurrency(parseFloat(valorEstimado)) : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Valor atribuído</p>
+                  <p className="text-base text-foreground">{fmtCurrency(valorAtribuido)}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Estado</p>
+                  <p className="text-base text-foreground">{uf}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Município</p>
+                  <p className="text-base text-foreground">{municipio}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Tabs: Matrículas, CAR, Proprietários */}
-          <Tabs defaultValue="matriculas" className="mt-4">
-            <TabsList className="w-full justify-start">
-              <TabsTrigger value="matriculas">Matrículas</TabsTrigger>
-              <TabsTrigger value="car">CAR</TabsTrigger>
-              <TabsTrigger value="proprietarios">Proprietários</TabsTrigger>
-            </TabsList>
-            <TabsContent value="matriculas">
-              {matriculas.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs">Matrícula</TableHead>
-                      <TableHead className="text-xs">Área</TableHead>
-                      <TableHead className="text-xs">Nome</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {matriculas.map((m: any, i: number) => (
-                      <TableRow key={i}>
-                        <TableCell className="text-sm">{m.registration || m.matricula || m.number || '—'}</TableCell>
-                        <TableCell className="text-sm">{m.area ?? '—'}</TableCell>
-                        <TableCell className="text-sm">{m.name || m.nome || '—'}</TableCell>
+          {/* Tabs */}
+          <div className="px-6 pb-6 pt-4">
+            <Tabs defaultValue="matriculas">
+              <TabsList className="w-full justify-start">
+                <TabsTrigger value="matriculas">Matrículas</TabsTrigger>
+                <TabsTrigger value="car">CAR</TabsTrigger>
+                <TabsTrigger value="proprietarios">Proprietários</TabsTrigger>
+              </TabsList>
+              <TabsContent value="matriculas">
+                {matriculas.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Matrícula</TableHead>
+                        <TableHead className="text-xs">Área</TableHead>
+                        <TableHead className="text-xs">Nome</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <p className="text-sm text-muted-foreground py-4 text-center">não há itens na lista</p>
-              )}
-            </TabsContent>
-            <TabsContent value="car">
-              {cars.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs">Código CAR</TableHead>
-                      <TableHead className="text-xs">Área</TableHead>
-                      <TableHead className="text-xs">Situação</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {cars.map((c: any, i: number) => (
-                      <TableRow key={i}>
-                        <TableCell className="text-sm">{c.code || c.codigo || c.carCode || '—'}</TableCell>
-                        <TableCell className="text-sm">{c.area ?? '—'}</TableCell>
-                        <TableCell className="text-sm">{c.status || c.situacao || '—'}</TableCell>
+                    </TableHeader>
+                    <TableBody>
+                      {matriculas.map((m: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-sm">{m.registration || m.matricula || m.number || '—'}</TableCell>
+                          <TableCell className="text-sm">{m.area ?? '—'}</TableCell>
+                          <TableCell className="text-sm">{m.name || m.nome || '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-sm text-muted-foreground py-4 text-center">não há itens na lista</p>
+                )}
+              </TabsContent>
+              <TabsContent value="car">
+                {cars.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Código CAR</TableHead>
+                        <TableHead className="text-xs">Área</TableHead>
+                        <TableHead className="text-xs">Situação</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <p className="text-sm text-muted-foreground py-4 text-center">não há itens na lista</p>
-              )}
-            </TabsContent>
-            <TabsContent value="proprietarios">
-              {proprietarios.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs">Nome</TableHead>
-                      <TableHead className="text-xs">CPF/CNPJ</TableHead>
-                      <TableHead className="text-xs">Tipo</TableHead>
-                      <TableHead className="text-xs">Participação</TableHead>
-                      <TableHead className="text-xs">Situação</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {proprietarios.map((p: any, i: number) => (
-                      <TableRow key={i}>
-                        <TableCell className="text-sm">{p.name || '—'}</TableCell>
-                        <TableCell className="text-sm">{p.taxId || '—'}</TableCell>
-                        <TableCell className="text-sm">{p.type || p.legalNature || '—'}</TableCell>
-                        <TableCell className="text-sm">{p.share != null ? `${p.share}%` : '—'}</TableCell>
-                        <TableCell className="text-sm">{p.situation || '—'}</TableCell>
+                    </TableHeader>
+                    <TableBody>
+                      {cars.map((c: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-sm">{c.code || c.codigo || c.carCode || '—'}</TableCell>
+                          <TableCell className="text-sm">{c.area ?? '—'}</TableCell>
+                          <TableCell className="text-sm">{c.status || c.situacao || '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-sm text-muted-foreground py-4 text-center">não há itens na lista</p>
+                )}
+              </TabsContent>
+              <TabsContent value="proprietarios">
+                {proprietarios.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Nome</TableHead>
+                        <TableHead className="text-xs">CPF/CNPJ</TableHead>
+                        <TableHead className="text-xs">Tipo</TableHead>
+                        <TableHead className="text-xs">Participação</TableHead>
+                        <TableHead className="text-xs">Situação</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <p className="text-sm text-muted-foreground py-4 text-center">não há itens na lista</p>
-              )}
-            </TabsContent>
-          </Tabs>
+                    </TableHeader>
+                    <TableBody>
+                      {proprietarios.map((p: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-sm">{p.name || '—'}</TableCell>
+                          <TableCell className="text-sm">{p.taxId || '—'}</TableCell>
+                          <TableCell className="text-sm">{p.type || p.legalNature || '—'}</TableCell>
+                          <TableCell className="text-sm">{p.share != null ? `${p.share}%` : '—'}</TableCell>
+                          <TableCell className="text-sm">{p.situation || '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-sm text-muted-foreground py-4 text-center">não há itens na lista</p>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>
         </DialogContent>
       </Dialog>
     </>
