@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { FileText, Search, Filter, Clock, CheckCircle2, AlertCircle, Send } from 'lucide-react';
+import { FileText, Search, Filter, Clock, CheckCircle2, AlertCircle, Send, Eye } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Link } from 'react-router-dom';
 
 type ContratoStatus = 'pendente' | 'assinado' | 'expirado' | 'enviado';
 
@@ -34,61 +36,35 @@ const STATUS_CONFIG: Record<ContratoStatus, { label: string; variant: 'default' 
   expirado: { label: 'Expirado', variant: 'destructive', icon: AlertCircle },
 };
 
-// Mock data for demonstration
 const mockContratos: Contrato[] = [
   {
-    id: '1',
-    tipo: 'contrato-mae',
-    cedente: 'Empresa ABC Ltda',
-    cpfCnpj: '12.345.678/0001-90',
-    dataEnvio: '2025-03-10',
-    dataAssinatura: '2025-03-12',
-    status: 'assinado',
+    id: '1', tipo: 'contrato-mae', cedente: 'Empresa ABC Ltda', cpfCnpj: '12.345.678/0001-90',
+    dataEnvio: '2025-03-10', dataAssinatura: '2025-03-12', status: 'assinado',
     descricao: 'Contrato de cedente com a securitizadora – início do relacionamento',
   },
   {
-    id: '2',
-    tipo: 'aditivo',
-    cedente: 'Empresa ABC Ltda',
-    cpfCnpj: '12.345.678/0001-90',
-    dataEnvio: '2025-03-14',
-    dataAssinatura: null,
-    status: 'pendente',
+    id: '2', tipo: 'aditivo', cedente: 'Empresa ABC Ltda', cpfCnpj: '12.345.678/0001-90',
+    dataEnvio: '2025-03-14', dataAssinatura: null, status: 'pendente',
     descricao: 'Aditivo da operação #1042 – Duplicatas – Deságio 2,5%',
   },
   {
-    id: '3',
-    tipo: 'carta-cessao',
-    cedente: 'Comércio XYZ S.A.',
-    cpfCnpj: '98.765.432/0001-10',
-    dataEnvio: '2025-03-13',
-    dataAssinatura: null,
-    status: 'enviado',
+    id: '3', tipo: 'carta-cessao', cedente: 'Comércio XYZ S.A.', cpfCnpj: '98.765.432/0001-10',
+    dataEnvio: '2025-03-13', dataAssinatura: null, status: 'enviado',
     descricao: 'Cessão de títulos – Operação #1038',
   },
   {
-    id: '4',
-    tipo: 'np',
-    cedente: 'Comércio XYZ S.A.',
-    cpfCnpj: '98.765.432/0001-10',
-    dataEnvio: '2025-03-01',
-    dataAssinatura: null,
-    status: 'expirado',
+    id: '4', tipo: 'np', cedente: 'Comércio XYZ S.A.', cpfCnpj: '98.765.432/0001-10',
+    dataEnvio: '2025-03-01', dataAssinatura: null, status: 'expirado',
     descricao: 'NP referente operação #1035 – R$ 150.000,00',
   },
   {
-    id: '5',
-    tipo: 'duplicata',
-    cedente: 'Indústria Delta Ltda',
-    cpfCnpj: '11.222.333/0001-44',
-    dataEnvio: '2025-03-15',
-    dataAssinatura: '2025-03-16',
-    status: 'assinado',
+    id: '5', tipo: 'duplicata', cedente: 'Indústria Delta Ltda', cpfCnpj: '11.222.333/0001-44',
+    dataEnvio: '2025-03-15', dataAssinatura: '2025-03-16', status: 'assinado',
     descricao: 'Duplicata mercantil – NF 4521 – Sacado: Loja Beta',
   },
 ];
 
-export default function Contratos() {
+export default function Documentos() {
   const [search, setSearch] = useState('');
   const [filterTipo, setFilterTipo] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -112,11 +88,19 @@ export default function Contratos() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Contratos</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Gerencie todos os contratos enviados para assinatura digital
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Documentos</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Histórico de todos os documentos enviados para assinatura
+          </p>
+        </div>
+        <Link to="/contratos/assinatura-digital">
+          <Button className="gap-2">
+            <Send className="h-4 w-4" />
+            Enviar Documento
+          </Button>
+        </Link>
       </div>
 
       {/* Stats */}
@@ -228,13 +212,14 @@ export default function Contratos() {
                 <TableHead>Envio</TableHead>
                 <TableHead>Assinatura</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    Nenhum contrato encontrado
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    Nenhum documento encontrado
                   </TableCell>
                 </TableRow>
               ) : (
@@ -242,7 +227,7 @@ export default function Contratos() {
                   const statusCfg = STATUS_CONFIG[contrato.status];
                   const StatusIcon = statusCfg.icon;
                   return (
-                    <TableRow key={contrato.id} className="cursor-pointer">
+                    <TableRow key={contrato.id}>
                       <TableCell>
                         <Badge variant="outline" className="text-xs whitespace-nowrap">
                           {TIPO_LABELS[contrato.tipo] || contrato.tipo}
@@ -268,6 +253,11 @@ export default function Contratos() {
                           <StatusIcon className="h-3 w-3" />
                           {statusCfg.label}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Eye className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );

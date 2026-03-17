@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, LogOut, Settings, Briefcase, ChevronDown, RefreshCw, BarChart3, Settings2, LayoutDashboard, Users, FileSignature, PenTool } from 'lucide-react';
+import { Search, LogOut, Settings, Briefcase, ChevronDown, RefreshCw, BarChart3, Settings2, LayoutDashboard, Users, FileSignature, PenTool, FileText } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,6 +27,7 @@ export function AppSidebar() {
   );
 
   const contratosItems = [
+    { path: '/contratos/documentos', label: 'Documentos', icon: FileText },
     { path: '/contratos/assinatura-digital', label: 'Assinatura Digital', icon: PenTool },
   ];
 
