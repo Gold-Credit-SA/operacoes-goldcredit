@@ -66,6 +66,8 @@ function App() {
           <AuthProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
+              {/* Public signing route – no auth required */}
+              <Route path="/assinar/:token" element={<Suspense fallback={<PageFallback />}><AssinaturaToken /></Suspense>} />
               <Route path="/alterar-senha" element={<ProtectedRoute><Suspense fallback={<PageFallback />}><ChangePassword /></Suspense></ProtectedRoute>} />
               <Route path="/" element={<ProtectedRoute><Navigate to="/painel" replace /></ProtectedRoute>} />
               <Route path="/painel" element={<ProtectedRoute><AppLayout><GestorDashboard /></AppLayout></ProtectedRoute>} />
