@@ -141,8 +141,10 @@ export default function AssinaturaDigital() {
       formData.append('observacao', observacao);
       formData.append('arquivo', file);
 
-      const res = await fetch(`${BACKEND_URL}/api/assinatura/criar`, {
+      const proxyUrl = `${SUPABASE_URL}/functions/v1/goldsign-proxy?path=/api/assinatura/criar`;
+      const res = await fetch(proxyUrl, {
         method: 'POST',
+        headers: { 'apikey': SUPABASE_KEY },
         body: formData,
       });
 

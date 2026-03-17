@@ -51,7 +51,9 @@ export default function Documentos() {
   const fetchContratos = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/assinatura/listar`);
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/goldsign-proxy?path=/api/assinatura/listar`, {
+        headers: { 'apikey': SUPABASE_KEY },
+      });
       if (!res.ok) throw new Error(`Erro ${res.status}`);
       const data = await res.json();
       setContratos(Array.isArray(data) ? data : data.documentos || []);
