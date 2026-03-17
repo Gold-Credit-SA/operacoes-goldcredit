@@ -1058,6 +1058,213 @@ function ImoveisContent({ items }: { items: SubItem[] }) {
   );
 }
 
+function ImovelDetailDialog({ property, tipo }: { property: any; tipo: string }) {
+  const [open, setOpen] = useState(false);
+  const nome = property.name || property.nome || property.propertyName || property.fazenda || '—';
+  const tipoLower = tipo.toString().toLowerCase();
+  const isSociedade = tipoLower.includes('sociedade') || tipoLower.includes('society') || tipoLower.includes('partner');
+
+  const nirf = property.nirf || property.nirfCib || property.cib || '—';
+  const incra = property.incra || property.incraNumber || property.numIncra || '—';
+  const area = parseFloat(property.totalArea || property.areaTotal || property.area || 0);
+  const areaProdutiva = property.productiveArea || property.areaProdutiva || null;
+  const modFiscal = property.fiscalModule || property.moduloFiscal || property.modFiscal || null;
+  const valorEstimado = property.estimatedValue || property.valorEstimado || null;
+  const valorAtribuido = parseFloat(property.value || property.valor || property.totalValue || 0);
+  const uf = property.state || property.uf || property.estado || '—';
+  const municipio = property.city || property.municipio || property.cidade || property.municipality || '—';
+  const hasGeo = property.hasGeoRef || property.geoReferenced || property.geo || false;
+
+  const matriculas: any[] = Array.isArray(property.registrations) ? property.registrations
+    : Array.isArray(property.matriculas) ? property.matriculas : [];
+  const cars: any[] = Array.isArray(property.car) ? property.car
+    : Array.isArray(property.cars) ? property.cars : [];
+  const proprietarios: any[] = Array.isArray(property.owners) ? property.owners
+    : Array.isArray(property.proprietarios) ? property.proprietarios : [];
+
+  const fmtCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(isNaN(v) ? 0 : v);
+
+  return (
+    <>
+      <Button variant="ghost" size="sm" className="text-xs text-primary" onClick={() => setOpen(true)}>
+        Ver mais
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <DialogTitle className="text-xl">{nome}</DialogTitle>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[10px] font-semibold",
+                  isSociedade
+                    ? "border-cyan-500/40 text-cyan-700 bg-cyan-50"
+                    : "border-green-500/40 text-green-700 bg-green-50"
+                )}
+              >
+                {isSociedade ? 'DE SOCIEDADE' : 'PRÓPRIA'}
+              </Badge>
+            </div>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+            {/* Geo panel */}
+            <div className="flex items-center justify-center rounded-lg border border-border bg-muted/20 min-h-[200px]">
+              {hasGeo ? (
+                <p className="text-sm text-muted-foreground">Geo-referenciamento disponível</p>
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <MapPinOff className="h-10 w-10" />
+                  <p className="text-sm font-medium text-foreground">Imóvel sem geo-referenciamento</p>
+                </div>
+              )}
+            </div>
+
+            {/* Info panel */}
+            <div className="space-y-5">
+              <div>
+                <h4 className="text-lg font-semibold text-foreground mb-3">Informações</h4>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Nome</p>
+                    <p className="text-base text-foreground">{nome}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">NIRF / CIB</p>
+                      <p className="text-base text-foreground">{nirf}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Núm. INCRA</p>
+                      <p className="text-base text-foreground">{incra}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Área</p>
+                      <p className="text-base text-foreground">{isNaN(area) ? '—' : `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(area)} ha`}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Área Produtiva</p>
+                      <p className="text-base text-foreground">{areaProdutiva ?? '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Mod. Fiscal</p>
+                      <p className="text-base text-foreground">{modFiscal ?? '—'}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Valor estimado</p>
+                      <p className="text-base text-foreground">{valorEstimado ? fmtCurrency(parseFloat(valorEstimado)) : '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Valor atribuído</p>
+                      <p className="text-base text-foreground">{fmtCurrency(valorAtribuido)}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Estado</p>
+                      <p className="text-base text-foreground">{uf}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Município</p>
+                      <p className="text-base text-foreground">{municipio}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabs: Matrículas, CAR, Proprietários */}
+          <Tabs defaultValue="matriculas" className="mt-4">
+            <TabsList className="w-full justify-start">
+              <TabsTrigger value="matriculas">Matrículas</TabsTrigger>
+              <TabsTrigger value="car">CAR</TabsTrigger>
+              <TabsTrigger value="proprietarios">Proprietários</TabsTrigger>
+            </TabsList>
+            <TabsContent value="matriculas">
+              {matriculas.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Matrícula</TableHead>
+                      <TableHead className="text-xs">Área</TableHead>
+                      <TableHead className="text-xs">Nome</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {matriculas.map((m: any, i: number) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-sm">{m.registration || m.matricula || m.number || '—'}</TableCell>
+                        <TableCell className="text-sm">{m.area ?? '—'}</TableCell>
+                        <TableCell className="text-sm">{m.name || m.nome || '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <p className="text-sm text-muted-foreground py-4 text-center">não há itens na lista</p>
+              )}
+            </TabsContent>
+            <TabsContent value="car">
+              {cars.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Código CAR</TableHead>
+                      <TableHead className="text-xs">Área</TableHead>
+                      <TableHead className="text-xs">Situação</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {cars.map((c: any, i: number) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-sm">{c.code || c.codigo || c.carCode || '—'}</TableCell>
+                        <TableCell className="text-sm">{c.area ?? '—'}</TableCell>
+                        <TableCell className="text-sm">{c.status || c.situacao || '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <p className="text-sm text-muted-foreground py-4 text-center">não há itens na lista</p>
+              )}
+            </TabsContent>
+            <TabsContent value="proprietarios">
+              {proprietarios.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Nome</TableHead>
+                      <TableHead className="text-xs">CPF/CNPJ</TableHead>
+                      <TableHead className="text-xs">Participação</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {proprietarios.map((p: any, i: number) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-sm">{p.name || p.nome || '—'}</TableCell>
+                        <TableCell className="text-sm">{p.taxId || p.cpfCnpj || p.document || '—'}</TableCell>
+                        <TableCell className="text-sm">{p.participation || p.participacao || '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <p className="text-sm text-muted-foreground py-4 text-center">não há itens na lista</p>
+              )}
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 function ImoveisSimplesView({ data }: { data: Record<string, any> }) {
   // Extract properties array from various possible structures
   const rawRural = data.rural || data;
