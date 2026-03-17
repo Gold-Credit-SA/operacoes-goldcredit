@@ -62,6 +62,18 @@ function formatDocument(value?: string | null): string {
   return String(value);
 }
 
+function formatPhone(value: unknown): string {
+  if (!value) return '—';
+  let raw = String(value).replace(/\D/g, '');
+  // Remove country code 55
+  if (raw.startsWith('55') && raw.length > 11) raw = raw.slice(2);
+  if (raw.length === 11) return `(${raw.slice(0, 2)}) ${raw.slice(2, 7)}-${raw.slice(7)}`;
+  if (raw.length === 10) return `(${raw.slice(0, 2)}) ${raw.slice(2, 6)}-${raw.slice(6)}`;
+  if (raw.length === 9) return `${raw.slice(0, 5)}-${raw.slice(5)}`;
+  if (raw.length === 8) return `${raw.slice(0, 4)}-${raw.slice(4)}`;
+  return String(value);
+}
+
 function isPlainObject(value: unknown): value is Record<string, any> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
@@ -1118,9 +1130,9 @@ function ConsultaClienteTopicContent({ data }: { data: Record<string, any> }) {
           {addresses.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum endereço retornado.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {addresses.slice(0, 5).map((address: any, index: number) => (
-                <div key={index} className="rounded-md border border-border px-3 py-2">
+                <div key={index} className="px-1 py-1.5">
                   <p className="text-sm text-foreground">
                     {[
                       address.street || address.logradouro,
@@ -1144,11 +1156,11 @@ function ConsultaClienteTopicContent({ data }: { data: Record<string, any> }) {
           {phones.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum telefone retornado.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {phones.slice(0, 5).map((phone: any, index: number) => (
-                <div key={index} className="rounded-md border border-border px-3 py-2">
+                <div key={index} className="px-1 py-1.5">
                   <p className="text-sm font-medium text-foreground">
-                    {formatPrimitive(phone.phone_number || phone.number || phone.numero || phone.phone || phone.phoneNumber || phone.telefone)}
+                    {formatPhone(phone.phone_number || phone.number || phone.numero || phone.phone || phone.phoneNumber || phone.telefone)}
                   </p>
                   <p className="text-[11px] text-muted-foreground uppercase">
                     {formatPrimitive(phone.type || phone.tipo || phone.classification || 'Não informado')}
@@ -1167,9 +1179,9 @@ function ConsultaClienteTopicContent({ data }: { data: Record<string, any> }) {
           {emails.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum email retornado.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {emails.slice(0, 5).map((email: any, index: number) => (
-                <div key={index} className="rounded-md border border-border px-3 py-2">
+                <div key={index} className="px-1 py-1.5">
                   <p className="text-sm font-medium text-foreground">{formatPrimitive(email.email || email.address || email.value)}</p>
                   <p className="text-[11px] text-muted-foreground uppercase">
                     {formatPrimitive(email.type || email.tipo || 'Não informado')}
@@ -1245,9 +1257,9 @@ function ConsultaClienteTopicContentClean({ data }: { data: Record<string, any> 
           {addresses.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum endereço retornado.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {addresses.slice(0, 5).map((address: any, index: number) => (
-                <div key={index} className="rounded-md border border-border px-3 py-2">
+                <div key={index} className="px-1 py-1.5">
                   <p className="text-sm text-foreground">
                     {[
                       address.street || address.logradouro,
@@ -1272,11 +1284,11 @@ function ConsultaClienteTopicContentClean({ data }: { data: Record<string, any> 
           {phones.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum telefone retornado.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {phones.slice(0, 5).map((phone: any, index: number) => (
-                <div key={index} className="rounded-md border border-border px-3 py-2">
+                <div key={index} className="px-1 py-1.5">
                   <p className="text-sm font-medium text-foreground">
-                    {formatPrimitive(phone.phone_number || phone.number || phone.numero || phone.phone || phone.phoneNumber || phone.telefone)}
+                    {formatPhone(phone.phone_number || phone.number || phone.numero || phone.phone || phone.phoneNumber || phone.telefone)}
                   </p>
                   <p className="text-[11px] text-muted-foreground uppercase">
                     {formatPrimitive(phone.type || phone.tipo || phone.classification || 'Não informado')}
@@ -1296,9 +1308,9 @@ function ConsultaClienteTopicContentClean({ data }: { data: Record<string, any> 
           {emails.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum email retornado.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {emails.slice(0, 5).map((email: any, index: number) => (
-                <div key={index} className="rounded-md border border-border px-3 py-2">
+                <div key={index} className="px-1 py-1.5">
                   <p className="text-sm font-medium text-foreground">{formatPrimitive(email.email || email.address || email.value)}</p>
                   <p className="text-[11px] text-muted-foreground uppercase">
                     {formatPrimitive(email.type || email.tipo || 'Não informado')}
