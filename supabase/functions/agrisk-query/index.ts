@@ -17,7 +17,8 @@ type ConsultaType =
   | "cpr"
   | "imoveis_simples"
   | "imoveis_car"
-  | "patrimonio_veicular";
+  | "patrimonio_veicular"
+  | "armazens";
 
 type Product = {
   _id?: string;
@@ -48,6 +49,7 @@ const PRODUCT_HINTS: Record<ConsultaType, string[]> = {
   imoveis_simples: ["pesquisa-imoveis", "imoveis rurais - simples", "rural simples"],
   imoveis_car: ["car", "cadastro ambiental rural", "imoveis rurais - car"],
   patrimonio_veicular: ["vehicle-assets", "veicular", "patrimonio veicular"],
+  armazens: ["armazem", "armazens", "warehouse", "conab", "silo", "armazéns"],
 };
 
 const KNOWN_QUERY_SERVICES = [
@@ -289,6 +291,9 @@ async function handleConsulta(body: Record<string, unknown>): Promise<Response> 
       break;
     case "patrimonio_veicular":
       resultData = await fetchPatrimonioVeicular(token, queryRefs);
+      break;
+    case "armazens":
+      resultData = await fetchArmazens(token, clientId, queryRefs);
       break;
   }
 
@@ -883,6 +888,22 @@ async function fetchPatrimonioVeicular(token: string, queryRefs: QueryRef[]): Pr
   return data as Record<string, unknown> | null;
 }
 
+async function fetchArmazens(
+  token: string,
+  clientId: string,
+  queryRefs: QueryRef[],
+): Promise<Record<string, unknown> | null> {
+  const ref = findQueryRef(queryRefs, ["armazem", "armazens", "warehouse", "conab", "silo"]);
+  if (!ref?.queryId) return null;
+
+  const data = await pollForReadyData(
+    () => tryJson(`${AGRISK_BASE}/queries/clients/${clientId}/armazens/${ref.queryId}`, token, 15000),
+    isReadyResult,
+  );
+
+  return data as Record<string, unknown> | null;
+}
+
 function findQueryRef(queryRefs: QueryRef[], matchers: string[]): QueryRef | null {
   const normalizedMatchers = matchers.map(normalizeText);
   const ranked = queryRefs
@@ -1051,6 +1072,7 @@ function asConsultaType(value: unknown): ConsultaType | null {
     "imoveis_simples",
     "imoveis_car",
     "patrimonio_veicular",
+    "armazens",
   ];
 
   return allowed.includes(value as ConsultaType) ? (value as ConsultaType) : null;

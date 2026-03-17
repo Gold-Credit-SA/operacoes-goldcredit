@@ -20,12 +20,10 @@ export const CONSULTA_GROUPS: ConsultaGroup[] = [
     provider: 'Agrisk',
     items: [
       { id: 'consulta_cliente', label: 'Consulta Cliente' },
-      { id: 'restritivos', label: 'Restritivos Nacional' },
-      { id: 'endividamento', label: 'Endividamento Financeiro' },
-      { id: 'cpr', label: 'Consulta CPR' },
+      { id: 'armazens', label: 'Armazéns' },
+      { id: 'patrimonio_veicular', label: 'Patrimônio Veicular' },
       { id: 'imoveis_simples', label: 'Pesquisa de Imóveis - Simples' },
       { id: 'imoveis_car', label: 'Pesquisa Imóveis - CAR' },
-      { id: 'patrimonio_veicular', label: 'Patrimônio Veicular' },
     ],
   },
   {
@@ -67,13 +65,10 @@ export function ConsultaSelection({ cnpj, onExecute, onBack }: ConsultaSelection
   const [selected, setSelected] = useState<Set<ConsultaTypeId>>(new Set());
   const isCpf = cnpj.replace(/\D/g, '').length === 11;
 
-  // Filter groups based on document type
   const filteredGroups = CONSULTA_GROUPS.map(group => ({
     ...group,
     items: group.items.filter(item => {
-      // PF-only reports require CPF
       if ((item.id === 'serasa_basico_pf' || item.id === 'serasa_avancado_top_score_pf') && !isCpf) return false;
-      // PJ-only reports require CNPJ
       if ((item.id === 'serasa_basico_pj' || item.id === 'serasa_avancado_pj' || item.id === 'serasa_avancado_pj_analitico') && isCpf) return false;
       return true;
     }),
@@ -99,7 +94,6 @@ export function ConsultaSelection({ cnpj, onExecute, onBack }: ConsultaSelection
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      {/* CNPJ context */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0">
           <ArrowLeft className="h-4 w-4" />

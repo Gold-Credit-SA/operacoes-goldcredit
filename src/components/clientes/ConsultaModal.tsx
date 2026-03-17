@@ -34,10 +34,19 @@ interface ConsultaModalProps {
 }
 
 const AGRISK_TOPIC_GROUPS = [
-  { title: 'Cliente', items: ['consulta_cliente'] },
-  { title: 'Restritivos', items: ['restritivos'] },
-  { title: 'Financeiro', items: ['endividamento', 'cpr'] },
-  { title: 'Patrimônio', items: ['imoveis_simples', 'imoveis_car', 'patrimonio_veicular'] },
+  {
+    title: 'Cliente',
+    items: ['consulta_cliente'],
+    description: 'Sintegra, Grupos, Compliance, Judicial',
+  },
+  {
+    title: 'Patrimônio',
+    items: ['armazens', 'patrimonio_veicular'],
+  },
+  {
+    title: 'Imóveis Rurais',
+    items: ['imoveis_simples', 'imoveis_car'],
+  },
 ] as const;
 
 const SMART_GROUP = {
@@ -55,9 +64,7 @@ const CODE_TO_FRONTEND_ID: Record<string, string> = {
 
 const AGRISK_PRODUCT_MATCHERS: Record<string, string[]> = {
   consulta_cliente: ['consulta-cliente', 'consulta cliente'],
-  restritivos: ['credit-restrictive', 'restritivo nacional', 'restritivo'],
-  endividamento: ['scr', 'endividamento'],
-  cpr: ['cpr'],
+  armazens: ['armazem', 'armazens', 'armazéns', 'warehouse', 'conab', 'silo'],
   imoveis_simples: ['pesquisa-imoveis', 'imoveis rurais - simples', 'rural simples'],
   imoveis_car: ['car', 'cadastro ambiental rural', 'imoveis rurais - car'],
   patrimonio_veicular: ['vehicle-assets', 'veicular', 'patrimonio veicular'],
@@ -208,9 +215,7 @@ export function ConsultaModal({ cpfCnpj, clientName, open, onClose, onDone }: Co
   // Only show specific AgRisk items (adding gradually)
   const allowedAgriskItems = new Set([
     'consulta_cliente',
-    'restritivos',
-    'endividamento',
-    'cpr',
+    'armazens',
     'imoveis_simples',
     'imoveis_car',
     'patrimonio_veicular',
