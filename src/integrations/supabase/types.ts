@@ -206,6 +206,48 @@ export type Database = {
         }
         Relationships: []
       }
+      goldsign_settings: {
+        Row: {
+          created_at: string
+          gold_credit_cert_document: string | null
+          gold_credit_cert_issuer_cn: string | null
+          gold_credit_cert_linked_at: string | null
+          gold_credit_cert_linked_by: string | null
+          gold_credit_cert_linked_by_email: string | null
+          gold_credit_cert_serial_number: string | null
+          gold_credit_cert_subject_cn: string | null
+          gold_credit_cert_tipo: string | null
+          id: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          gold_credit_cert_document?: string | null
+          gold_credit_cert_issuer_cn?: string | null
+          gold_credit_cert_linked_at?: string | null
+          gold_credit_cert_linked_by?: string | null
+          gold_credit_cert_linked_by_email?: string | null
+          gold_credit_cert_serial_number?: string | null
+          gold_credit_cert_subject_cn?: string | null
+          gold_credit_cert_tipo?: string | null
+          id?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          gold_credit_cert_document?: string | null
+          gold_credit_cert_issuer_cn?: string | null
+          gold_credit_cert_linked_at?: string | null
+          gold_credit_cert_linked_by?: string | null
+          gold_credit_cert_linked_by_email?: string | null
+          gold_credit_cert_serial_number?: string | null
+          gold_credit_cert_subject_cn?: string | null
+          gold_credit_cert_tipo?: string | null
+          id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       operacao_notas: {
         Row: {
           cedente_cpf_cnpj: string
