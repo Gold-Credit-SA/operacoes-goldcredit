@@ -212,6 +212,7 @@ export function AppSidebar() {
         )}
 
 
+        {navItemsAfter.map((item) => {
           const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
           return (
             <Link
