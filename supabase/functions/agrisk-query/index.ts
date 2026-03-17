@@ -888,6 +888,22 @@ async function fetchPatrimonioVeicular(token: string, queryRefs: QueryRef[]): Pr
   return data as Record<string, unknown> | null;
 }
 
+async function fetchArmazens(
+  token: string,
+  clientId: string,
+  queryRefs: QueryRef[],
+): Promise<Record<string, unknown> | null> {
+  const ref = findQueryRef(queryRefs, ["armazem", "armazens", "warehouse", "conab", "silo"]);
+  if (!ref?.queryId) return null;
+
+  const data = await pollForReadyData(
+    () => tryJson(`${AGRISK_BASE}/queries/clients/${clientId}/armazens/${ref.queryId}`, token, 15000),
+    isReadyResult,
+  );
+
+  return data as Record<string, unknown> | null;
+}
+
 function findQueryRef(queryRefs: QueryRef[], matchers: string[]): QueryRef | null {
   const normalizedMatchers = matchers.map(normalizeText);
   const ranked = queryRefs
