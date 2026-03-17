@@ -22,6 +22,14 @@ export function AppSidebar() {
     { path: '/carteira/gestao', label: 'Gestão de Carteira', icon: Settings2 },
   ];
 
+  const [contratosOpen, setContratosOpen] = useState(
+    location.pathname.startsWith('/contratos')
+  );
+
+  const contratosItems = [
+    { path: '/contratos/assinatura-digital', label: 'Assinatura Digital', icon: PenTool },
+  ];
+
   const navItemsAfter = [
     { path: '/clientes', label: 'Clientes', icon: Users },
     { path: '/consulta', label: 'Cedentes', icon: Search },
