@@ -1060,10 +1060,11 @@ function ImoveisContent({ items }: { items: SubItem[] }) {
 function ImoveisSimplesView({ data }: { data: Record<string, any> }) {
   // Extract properties array from various possible structures
   const rawRural = data.rural || data;
-  const properties: any[] =
-    rawRural.properties || rawRural.items || rawRural.imoveis ||
-    rawRural.ruralDetails || data.ruralDetails ||
-    (Array.isArray(rawRural) ? rawRural : []);
+  const candidates = [
+    rawRural.properties, rawRural.items, rawRural.imoveis,
+    rawRural.ruralDetails, data.ruralDetails, rawRural,
+  ];
+  const properties: any[] = candidates.find(c => Array.isArray(c)) || [];
 
   // Compute summary stats
   const totalArea = properties.reduce((sum: number, p: any) => {
