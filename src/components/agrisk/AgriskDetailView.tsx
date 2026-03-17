@@ -4,9 +4,28 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronUp, Database, FileText, List } from 'lucide-react';
+import { ChevronDown, ChevronUp, Database, FileText, Info, List } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+
+// ─── Metadata keys to strip from display ───
+
+const METADATA_KEYS = new Set([
+  'statusCode', 'status_code', 'httpStatus', 'http_status',
+  'requestStatus', 'queryStatus', 'ok', 'success',
+  'completedAt', 'completed_at', 'createdAt', 'created_at', 'updatedAt', 'updated_at',
+  'queryId', 'query_id', 'requestId', 'request_id',
+  'taxId', 'tax_id', 'clientId', 'client_id',
+  'companyId', 'company_id', '_id', 'id',
+  'token', 'serviceKey', 'service_key',
+]);
+
+/** Keys whose value is a user-facing message (not data) */
+const MESSAGE_KEYS = new Set(['message', 'msg', 'error', 'errorMessage', 'error_message', 'description']);
+
+function isMetadataKey(key: string): boolean {
+  return METADATA_KEYS.has(key);
+}
 
 // ─── Helpers ───
 
@@ -27,10 +46,6 @@ function formatValue(value: unknown): string {
   if (typeof value === 'boolean') return value ? 'Sim' : 'Não';
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) return '—';
-    // Format currency-like numbers
-    if (value > 100 && Number.isInteger(value * 100)) {
-      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-    }
     return new Intl.NumberFormat('pt-BR').format(value);
   }
   if (typeof value === 'string') {
@@ -50,7 +65,24 @@ function formatValue(value: unknown): string {
 
 function getRootData(data: Record<string, unknown>): Record<string, unknown> {
   if (isPlainObject(data.details)) return data.details;
+  if (isPlainObject(data.result)) return data.result;
   return data;
+}
+
+/** Extract user-facing messages from the data (e.g. "Cliente não possui dados") */
+function extractMessages(data: Record<string, unknown>): string[] {
+  const messages: string[] = [];
+  for (const [key, value] of Object.entries(data)) {
+    if (MESSAGE_KEYS.has(key) && typeof value === 'string' && value.trim()) {
+      messages.push(value.trim());
+    }
+  }
+  return messages;
+}
+
+/** Filter out metadata and message keys, keep only real data */
+function filterDataEntries(entries: [string, unknown][]): [string, unknown][] {
+  return entries.filter(([key]) => !isMetadataKey(key) && !MESSAGE_KEYS.has(key));
 }
 
 /** Check if all items in an array are flat objects (no nested objects/arrays) */
@@ -302,9 +334,13 @@ export function AgriskDetailView({
   title?: string;
 }) {
   const root = getRootData(data);
-  const entries = Object.entries(root).filter(([, value]) => value !== null && value !== undefined);
+  const messages = extractMessages(root);
+  const allEntries = Object.entries(root).filter(([, value]) => value !== null && value !== undefined);
+  const entries = filterDataEntries(allEntries);
   const scalarEntries = entries.filter(([, value]) => !Array.isArray(value) && !isPlainObject(value));
   const structuredEntries = entries.filter(([, value]) => Array.isArray(value) || isPlainObject(value));
+
+  const hasData = scalarEntries.length > 0 || structuredEntries.length > 0;
 
   return (
     <div className="space-y-4">
@@ -312,6 +348,20 @@ export function AgriskDetailView({
         <div className="flex items-center gap-2">
           <FileText className="h-5 w-5 text-primary" />
           <h2 className="text-xl font-bold text-foreground">{title}</h2>
+        </div>
+      )}
+
+      {/* Show API messages as info banners */}
+      {messages.map((msg, i) => (
+        <div key={i} className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/30 px-4 py-3">
+          <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+          <p className="text-sm text-foreground">{msg}</p>
+        </div>
+      ))}
+
+      {!hasData && messages.length === 0 && (
+        <div className="text-center py-8 text-muted-foreground">
+          <p className="text-sm">Nenhum dado retornado para esta consulta.</p>
         </div>
       )}
 
