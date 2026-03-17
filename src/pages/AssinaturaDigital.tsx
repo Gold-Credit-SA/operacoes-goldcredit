@@ -87,7 +87,9 @@ export default function AssinaturaDigital() {
   const [mensagemCertificado, setMensagemCertificado] = useState('');
   const [assinandoGoldCredit, setAssinandoGoldCredit] = useState(false);
   const [goldCreditPreference, setGoldCreditPreference] = useState<GoldCreditCertificatePreference | null>(null);
+  const [assinaturaAutomaticaGoldCredit, setAssinaturaAutomaticaGoldCredit] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const ultimaAssinaturaAutomaticaRef = useRef('');
 
   const isContratoMae = tipoDocumento === 'contrato_mae';
 
@@ -101,6 +103,15 @@ export default function AssinaturaDigital() {
   const certificadoSelecionado = useMemo(
     () => certificados.find((cert) => cert.cert_id === certificadoSelecionadoId) || null,
     [certificados, certificadoSelecionadoId],
+  );
+
+  const assinaturaAutomaticaKey = useMemo(
+    () =>
+      resultadosGoldCreditPendentes
+        .map((item) => item.goldCredit?.token_acesso)
+        .filter(Boolean)
+        .join('|'),
+    [resultadosGoldCreditPendentes],
   );
 
   useEffect(() => {
@@ -124,9 +135,31 @@ export default function AssinaturaDigital() {
       return;
     }
 
+    setAssinaturaAutomaticaGoldCredit(true);
     setMensagemCertificado('Certificado preferencial da Gold Credit encontrado nesta maquina. Validando automaticamente...');
     void validarCertificadoGoldCredit(matched.cert_id);
   }, [isContratoMae, goldCreditPreference, certificados, certificadoSelecionadoId]);
+
+  useEffect(() => {
+    if (!assinaturaAutomaticaGoldCredit || !certificadoAutorizado || assinandoGoldCredit || !assinaturaAutomaticaKey || !certificadoSelecionadoId) {
+      return;
+    }
+
+    const tentativaAtual = `${certificadoSelecionadoId}:${assinaturaAutomaticaKey}`;
+    if (ultimaAssinaturaAutomaticaRef.current === tentativaAtual) {
+      return;
+    }
+
+    ultimaAssinaturaAutomaticaRef.current = tentativaAtual;
+    setMensagemCertificado('Certificado vinculado validado. Aplicando a assinatura da Gold Credit automaticamente...');
+    void assinarGoldCredit();
+  }, [
+    assinaturaAutomaticaGoldCredit,
+    assinaturaAutomaticaKey,
+    assinandoGoldCredit,
+    certificadoAutorizado,
+    certificadoSelecionadoId,
+  ]);
 
   useEffect(() => {
     const termo = cedenteSearch.trim();
@@ -246,6 +279,8 @@ export default function AssinaturaDigital() {
     setCertificadoAutorizado(false);
     setMensagemCertificado('');
     setAssinandoGoldCredit(false);
+    setAssinaturaAutomaticaGoldCredit(false);
+    ultimaAssinaturaAutomaticaRef.current = '';
     if (inputRef.current) inputRef.current.value = '';
   };
 
@@ -267,10 +302,12 @@ export default function AssinaturaDigital() {
       setCertificados(lista);
       const matched = matchGoldCreditCertificate(lista, goldCreditPreference);
       if (matched) {
+        setAssinaturaAutomaticaGoldCredit(true);
         setCertificadoSelecionadoId(matched.cert_id);
         setMensagemCertificado('Certificado preferencial da Gold Credit encontrado nesta maquina. Validando automaticamente...');
         void validarCertificadoGoldCredit(matched.cert_id);
       } else if (goldCreditPreference?.gold_credit_cert_document) {
+        setAssinaturaAutomaticaGoldCredit(false);
         setMensagemCertificado('Nenhum certificado vinculado da Gold Credit foi encontrado nesta maquina. Selecione outro certificado ou atualize o vinculo nas configuracoes do master.');
       }
     } catch (e: any) {
@@ -380,13 +417,19 @@ export default function AssinaturaDigital() {
     try {
       const validation = await validarCertificado(solicitacaoGoldCredit.token_acesso, cert.cpf_cnpj);
       if (!validation.autorizado) {
+        setAssinaturaAutomaticaGoldCredit(false);
         setMensagemCertificado(validation.mensagem || 'O certificado selecionado nao pertence a cessionaria Gold Credit.');
         return;
       }
 
       setCertificadoAutorizado(true);
-      setMensagemCertificado('Certificado da cessionaria validado. Agora voce pode aplicar a assinatura interna.');
+      setMensagemCertificado(
+        assinaturaAutomaticaGoldCredit
+          ? 'Certificado da cessionaria validado. A assinatura da Gold Credit sera aplicada automaticamente.'
+          : 'Certificado da cessionaria validado. Agora voce pode aplicar a assinatura interna.',
+      );
     } catch (e: any) {
+      setAssinaturaAutomaticaGoldCredit(false);
       setMensagemCertificado(e.message || 'Nao foi possivel validar o certificado da cessionaria.');
     } finally {
       setValidandoCertificado(false);
@@ -733,6 +776,7 @@ export default function AssinaturaDigital() {
                     <Select
                       value={certificadoSelecionadoId}
                       onValueChange={(value) => {
+                        setAssinaturaAutomaticaGoldCredit(false);
                         void validarCertificadoGoldCredit(value);
                       }}
                       disabled={!signerStatus.online || carregandoCertificados || assinandoGoldCredit}
