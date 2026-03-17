@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { FileText, Search, Filter, Clock, CheckCircle2, AlertCircle, Send, Eye } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { FileText, Search, Filter, Clock, CheckCircle2, AlertCircle, Send, Eye, Loader2, RefreshCw, Copy, Link2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,18 +7,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link } from 'react-router-dom';
+import { toast } from '@/hooks/use-toast';
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://goldsign.onrender.com';
 
 type ContratoStatus = 'pendente' | 'assinado' | 'expirado' | 'enviado';
 
 interface Contrato {
   id: string;
   tipo: string;
-  cedente: string;
-  cpfCnpj: string;
-  dataEnvio: string;
-  dataAssinatura: string | null;
+  cedente_nome: string;
+  cedente_cpf_cnpj: string;
+  data_envio: string;
+  data_assinatura: string | null;
   status: ContratoStatus;
-  descricao: string;
+  observacao: string;
+  token_acesso: string;
 }
 
 const TIPO_LABELS: Record<string, string> = {
@@ -36,54 +40,55 @@ const STATUS_CONFIG: Record<ContratoStatus, { label: string; variant: 'default' 
   expirado: { label: 'Expirado', variant: 'destructive', icon: AlertCircle },
 };
 
-const mockContratos: Contrato[] = [
-  {
-    id: '1', tipo: 'contrato-mae', cedente: 'Empresa ABC Ltda', cpfCnpj: '12.345.678/0001-90',
-    dataEnvio: '2025-03-10', dataAssinatura: '2025-03-12', status: 'assinado',
-    descricao: 'Contrato de cedente com a securitizadora – início do relacionamento',
-  },
-  {
-    id: '2', tipo: 'aditivo', cedente: 'Empresa ABC Ltda', cpfCnpj: '12.345.678/0001-90',
-    dataEnvio: '2025-03-14', dataAssinatura: null, status: 'pendente',
-    descricao: 'Aditivo da operação #1042 – Duplicatas – Deságio 2,5%',
-  },
-  {
-    id: '3', tipo: 'carta-cessao', cedente: 'Comércio XYZ S.A.', cpfCnpj: '98.765.432/0001-10',
-    dataEnvio: '2025-03-13', dataAssinatura: null, status: 'enviado',
-    descricao: 'Cessão de títulos – Operação #1038',
-  },
-  {
-    id: '4', tipo: 'np', cedente: 'Comércio XYZ S.A.', cpfCnpj: '98.765.432/0001-10',
-    dataEnvio: '2025-03-01', dataAssinatura: null, status: 'expirado',
-    descricao: 'NP referente operação #1035 – R$ 150.000,00',
-  },
-  {
-    id: '5', tipo: 'duplicata', cedente: 'Indústria Delta Ltda', cpfCnpj: '11.222.333/0001-44',
-    dataEnvio: '2025-03-15', dataAssinatura: '2025-03-16', status: 'assinado',
-    descricao: 'Duplicata mercantil – NF 4521 – Sacado: Loja Beta',
-  },
-];
-
 export default function Documentos() {
+  const [contratos, setContratos] = useState<Contrato[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterTipo, setFilterTipo] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
-  const filtered = mockContratos.filter((c) => {
+  const fetchContratos = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/assinatura/listar`);
+      if (!res.ok) throw new Error(`Erro ${res.status}`);
+      const data = await res.json();
+      setContratos(Array.isArray(data) ? data : data.documentos || []);
+    } catch (e: any) {
+      console.error('Erro ao buscar documentos:', e);
+      setContratos([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchContratos(); }, [fetchContratos]);
+
+  const filtered = contratos.filter((c) => {
     const matchSearch =
-      c.cedente.toLowerCase().includes(search.toLowerCase()) ||
-      c.cpfCnpj.includes(search) ||
-      c.descricao.toLowerCase().includes(search.toLowerCase());
+      (c.cedente_nome || '').toLowerCase().includes(search.toLowerCase()) ||
+      (c.cedente_cpf_cnpj || '').includes(search) ||
+      (c.observacao || '').toLowerCase().includes(search.toLowerCase());
     const matchTipo = filterTipo === 'all' || c.tipo === filterTipo;
     const matchStatus = filterStatus === 'all' || c.status === filterStatus;
     return matchSearch && matchTipo && matchStatus;
   });
 
   const stats = {
-    total: mockContratos.length,
-    pendentes: mockContratos.filter((c) => c.status === 'pendente').length,
-    assinados: mockContratos.filter((c) => c.status === 'assinado').length,
-    expirados: mockContratos.filter((c) => c.status === 'expirado').length,
+    total: contratos.length,
+    pendentes: contratos.filter((c) => c.status === 'pendente' || c.status === 'enviado').length,
+    assinados: contratos.filter((c) => c.status === 'assinado').length,
+    expirados: contratos.filter((c) => c.status === 'expirado').length,
+  };
+
+  const handleCopyLink = async (token: string) => {
+    const link = `${window.location.origin}/assinar/${token}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      toast({ title: 'Link copiado!' });
+    } catch {
+      toast({ title: 'Erro ao copiar', variant: 'destructive' });
+    }
   };
 
   return (
@@ -95,12 +100,17 @@ export default function Documentos() {
             Histórico de todos os documentos enviados para assinatura
           </p>
         </div>
-        <Link to="/contratos/assinatura-digital">
-          <Button className="gap-2">
-            <Send className="h-4 w-4" />
-            Enviar Documento
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={fetchContratos} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
-        </Link>
+          <Link to="/contratos/assinatura-digital">
+            <Button className="gap-2">
+              <Send className="h-4 w-4" />
+              Enviar Documento
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Stats */}
@@ -129,8 +139,8 @@ export default function Documentos() {
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg" style={{ background: 'hsl(var(--success) / 0.1)' }}>
-              <CheckCircle2 className="h-5 w-5" style={{ color: 'hsl(var(--success))' }} />
+            <div className="p-2 rounded-lg bg-primary/10">
+              <CheckCircle2 className="h-5 w-5 text-primary" />
             </div>
             <div>
               <p className="text-2xl font-bold text-foreground">{stats.assinados}</p>
@@ -140,7 +150,7 @@ export default function Documentos() {
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg" style={{ background: 'hsl(var(--destructive) / 0.1)' }}>
+            <div className="p-2 rounded-lg bg-destructive/10">
               <AlertCircle className="h-5 w-5 text-destructive" />
             </div>
             <div>
@@ -202,69 +212,97 @@ export default function Documentos() {
       {/* Table */}
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Cedente</TableHead>
-                <TableHead>CPF/CNPJ</TableHead>
-                <TableHead>Descrição</TableHead>
-                <TableHead>Envio</TableHead>
-                <TableHead>Assinatura</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-10"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.length === 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span className="text-sm">Carregando documentos...</span>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                    Nenhum documento encontrado
-                  </TableCell>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Cedente</TableHead>
+                  <TableHead>CPF/CNPJ</TableHead>
+                  <TableHead>Observação</TableHead>
+                  <TableHead>Envio</TableHead>
+                  <TableHead>Assinatura</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-20">Ações</TableHead>
                 </TableRow>
-              ) : (
-                filtered.map((contrato) => {
-                  const statusCfg = STATUS_CONFIG[contrato.status];
-                  const StatusIcon = statusCfg.icon;
-                  return (
-                    <TableRow key={contrato.id}>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs whitespace-nowrap">
-                          {TIPO_LABELS[contrato.tipo] || contrato.tipo}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">{contrato.cedente}</TableCell>
-                      <TableCell className="text-muted-foreground text-xs font-mono">
-                        {contrato.cpfCnpj}
-                      </TableCell>
-                      <TableCell className="max-w-[250px] truncate text-xs text-muted-foreground">
-                        {contrato.descricao}
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {new Date(contrato.dataEnvio).toLocaleDateString('pt-BR')}
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {contrato.dataAssinatura
-                          ? new Date(contrato.dataAssinatura).toLocaleDateString('pt-BR')
-                          : '—'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={statusCfg.variant} className="gap-1">
-                          <StatusIcon className="h-3 w-3" />
-                          {statusCfg.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      {contratos.length === 0
+                        ? 'Nenhum documento enviado ainda'
+                        : 'Nenhum documento encontrado com os filtros aplicados'}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filtered.map((contrato) => {
+                    const statusCfg = STATUS_CONFIG[contrato.status] || STATUS_CONFIG.pendente;
+                    const StatusIcon = statusCfg.icon;
+                    return (
+                      <TableRow key={contrato.id}>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs whitespace-nowrap">
+                            {TIPO_LABELS[contrato.tipo] || contrato.tipo}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-medium">{contrato.cedente_nome}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs font-mono">
+                          {contrato.cedente_cpf_cnpj}
+                        </TableCell>
+                        <TableCell className="max-w-[250px] truncate text-xs text-muted-foreground">
+                          {contrato.observacao || '—'}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {contrato.data_envio
+                            ? new Date(contrato.data_envio).toLocaleDateString('pt-BR')
+                            : '—'}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {contrato.data_assinatura
+                            ? new Date(contrato.data_assinatura).toLocaleDateString('pt-BR')
+                            : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={statusCfg.variant} className="gap-1">
+                            <StatusIcon className="h-3 w-3" />
+                            {statusCfg.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {contrato.token_acesso && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                title="Copiar link de assinatura"
+                                onClick={() => handleCopyLink(contrato.token_acesso)}
+                              >
+                                <Link2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {contrato.token_acesso && (
+                              <Button variant="ghost" size="icon" className="h-8 w-8" title="Abrir" asChild>
+                                <a href={`/assinar/${contrato.token_acesso}`} target="_blank" rel="noopener noreferrer">
+                                  <Eye className="h-4 w-4" />
+                                </a>
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>
