@@ -1275,33 +1275,31 @@ function ImovelDetailDialog({ property, tipo }: { property: any; tipo: string })
 }
 
 function ImoveisSimplesView({ data }: { data: Record<string, any> }) {
-  // Extract properties array from various possible structures
+  // Data structure from edge function: { rural: { items, areas, properties, totalArea, totalValue }, ruralDetails: [...items with details merged] }
   const rawRural = data.rural || data;
-  const candidates = [
-    rawRural.properties, rawRural.items, rawRural.imoveis,
-    rawRural.ruralDetails, data.ruralDetails, rawRural,
-  ];
-  const properties: any[] = candidates.find(c => Array.isArray(c)) || [];
+  
+  // Use ruralDetails (items enriched with detail data) for the table, fallback to items
+  const properties: any[] = Array.isArray(data.ruralDetails) ? data.ruralDetails
+    : Array.isArray(rawRural.items) ? rawRural.items
+    : Array.isArray(rawRural.properties) ? rawRural.properties
+    : [];
 
-  // Compute summary stats
-  const totalArea = properties.reduce((sum: number, p: any) => {
-    const area = parseFloat(p.totalArea || p.areaTotal || p.area || 0);
+  // Use API pre-computed summary when available
+  const apiAreas = rawRural.areas || {};
+  const apiProps = rawRural.properties || {};
+  
+  const totalArea = rawRural.totalArea ?? properties.reduce((sum: number, p: any) => {
+    const area = parseFloat(p.totalArea || 0);
     return sum + (isNaN(area) ? 0 : area);
   }, 0);
 
-  const tipoCount = (tipo: string) =>
-    properties.filter((p: any) => {
-      const t = (p.type || p.tipo || p.ownershipType || '').toString().toLowerCase();
-      return t.includes(tipo);
-    }).length;
+  const propria = apiProps.owned ?? 0;
+  const sociedade = apiProps.inSociety ?? 0;
+  const arrendada = apiProps.leased ?? 0;
+  const parceria = apiProps.partnership ?? 0;
 
-  const propria = tipoCount('própria') || tipoCount('propria') || tipoCount('own');
-  const sociedade = tipoCount('sociedade') || tipoCount('society') || tipoCount('partner');
-  const arrendada = tipoCount('arrendad');
-  const parceria = tipoCount('parceria') || tipoCount('partnership');
-
-  const totalValue = properties.reduce((sum: number, p: any) => {
-    const val = parseFloat(p.value || p.valor || p.totalValue || 0);
+  const totalValue = rawRural.totalValue ?? properties.reduce((sum: number, p: any) => {
+    const val = parseFloat(p.value || 0);
     return sum + (isNaN(val) ? 0 : val);
   }, 0);
 
