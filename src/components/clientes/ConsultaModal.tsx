@@ -215,9 +215,7 @@ export function ConsultaModal({ cpfCnpj, clientName, open, onClose, onDone }: Co
   // Only show specific AgRisk items (adding gradually)
   const allowedAgriskItems = new Set([
     'consulta_cliente',
-    'restritivos',
-    'endividamento',
-    'cpr',
+    'armazens',
     'imoveis_simples',
     'imoveis_car',
     'patrimonio_veicular',
