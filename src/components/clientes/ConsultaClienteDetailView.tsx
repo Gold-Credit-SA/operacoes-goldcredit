@@ -1367,14 +1367,14 @@ function ImoveisSimplesView({ data }: { data: Record<string, any> }) {
               </TableHeader>
               <TableBody>
                 {properties.map((prop: any, idx: number) => {
-                  const tipo = prop.type || prop.tipo || prop.ownershipType || '—';
-                  const nome = prop.name || prop.nome || prop.propertyName || prop.fazenda || '—';
-                  const areaTotal = parseFloat(prop.totalArea || prop.areaTotal || prop.area || 0);
-                  const areaPropria = parseFloat(prop.ownArea || prop.areaPropria || prop.areaOwn || 0);
-                  const pct = areaTotal > 0 ? Math.round((areaPropria / areaTotal) * 100) : 0;
-                  const valor = parseFloat(prop.value || prop.valor || prop.totalValue || 0);
-                  const uf = prop.state || prop.uf || prop.estado || '—';
-                  const municipio = prop.city || prop.municipio || prop.cidade || prop.municipality || '—';
+                  const tipo = prop.type || '—';
+                  const nome = prop.name || '—';
+                  const areaTotal = parseFloat(prop.totalArea || 0);
+                  const areaPropria = parseFloat(prop.areaOwned || 0);
+                  const pct = prop.areaOwnedPercent ?? (areaTotal > 0 ? Math.round((areaPropria / areaTotal) * 100) : 0);
+                  const valor = parseFloat(prop.value || 0);
+                  const uf = prop.state || '—';
+                  const municipio = prop.city || '—';
 
                   const tipoLower = tipo.toString().toLowerCase();
                   const isSociedade = tipoLower.includes('sociedade') || tipoLower.includes('society') || tipoLower.includes('partner');
