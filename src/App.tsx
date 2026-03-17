@@ -29,6 +29,7 @@ const Profile = lazy(() => import("./pages/Profile"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Contratos = lazy(() => import("./pages/Documentos"));
 const AssinaturaDigital = lazy(() => import("./pages/AssinaturaDigital"));
+const AssinaturaToken = lazy(() => import("./pages/AssinaturaToken"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
