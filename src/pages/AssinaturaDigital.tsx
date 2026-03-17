@@ -9,7 +9,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://goldsign.onrender.com';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 const TIPOS_DOCUMENTO = [
   { value: 'contrato-mae', label: 'Contrato Mãe', desc: 'Contrato de cedente com a securitizadora (início do relacionamento)' },

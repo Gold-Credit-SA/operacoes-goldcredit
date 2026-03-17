@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Link } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://goldsign.onrender.com';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 type ContratoStatus = 'pendente' | 'assinado' | 'expirado' | 'enviado';
 
