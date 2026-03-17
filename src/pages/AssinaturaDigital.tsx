@@ -359,23 +359,61 @@ export default function AssinaturaDigital() {
       </Card>
 
       {/* Submit */}
-      <div className="flex justify-end">
-        <Button
-          size="lg"
-          className="gap-2"
-          onClick={handleSubmit}
-          disabled={sending || !tipoDocumento || !cedenteName || !file}
-        >
-          {sending ? (
-            <>Enviando...</>
-          ) : (
-            <>
-              <Send className="h-4 w-4" />
-              Enviar para Assinatura
-            </>
-          )}
-        </Button>
-      </div>
+      {!signLink && (
+        <div className="flex justify-end">
+          <Button
+            size="lg"
+            className="gap-2"
+            onClick={handleSubmit}
+            disabled={sending || !tipoDocumento || !cedenteName || !file}
+          >
+            {sending ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</>
+            ) : (
+              <><Send className="h-4 w-4" /> Enviar para Assinatura</>
+            )}
+          </Button>
+        </div>
+      )}
+
+      {/* Link de assinatura gerado */}
+      {signLink && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="pt-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="h-6 w-6 text-primary shrink-0" />
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Documento enviado com sucesso!</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Copie o link abaixo e envie para o cedente assinar digitalmente.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex-1 bg-background border border-border rounded-md px-3 py-2.5 flex items-center gap-2 min-w-0">
+                <Link2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-sm text-foreground truncate select-all">{signLink}</span>
+              </div>
+              <Button variant="outline" size="sm" className="gap-1.5 shrink-0" onClick={handleCopyLink}>
+                {linkCopied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {linkCopied ? 'Copiado' : 'Copiar'}
+              </Button>
+              <Button variant="outline" size="sm" className="gap-1.5 shrink-0" asChild>
+                <a href={signLink} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4" /> Abrir
+                </a>
+              </Button>
+            </div>
+
+            <div className="pt-2">
+              <Button variant="ghost" size="sm" onClick={handleNewDocument} className="text-muted-foreground">
+                Enviar outro documento
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
