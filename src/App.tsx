@@ -27,6 +27,7 @@ const AdminSettings = lazy(() => import("./pages/AdminSettings"));
 const ChangePassword = lazy(() => import("./pages/ChangePassword"));
 const Profile = lazy(() => import("./pages/Profile"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const Contratos = lazy(() => import("./pages/Contratos"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -80,6 +81,7 @@ function App() {
               <Route path="/analise-operacao" element={<Navigate to="/consultas" replace />} />
               <Route path="/analise-consulta" element={<Navigate to="/consultas" replace />} />
               <Route path="/perfil" element={<ProtectedRoute><AppLayout><Profile /></AppLayout></ProtectedRoute>} />
+              <Route path="/contratos/assinatura-digital" element={<ProtectedRoute><AppLayout><Contratos /></AppLayout></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute requireAdmin><AppLayout><AdminSettings /></AppLayout></ProtectedRoute>} />
               {/* Legacy redirects */}
               <Route path="/giro-carteira" element={<Navigate to="/carteira/giro" replace />} />
