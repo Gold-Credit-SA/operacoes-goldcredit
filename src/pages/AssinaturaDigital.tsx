@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { Upload, FileText, Send, X, CheckCircle2 } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Upload, FileText, Send, X, Search, Loader2, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const TIPOS_DOCUMENTO = [
   { value: 'contrato-mae', label: 'Contrato Mãe', desc: 'Contrato de cedente com a securitizadora (início do relacionamento)' },
@@ -16,6 +17,13 @@ const TIPOS_DOCUMENTO = [
   { value: 'duplicata', label: 'Duplicata', desc: 'Documento da negociação cedente × sacado (apenas para NF)' },
 ];
 
+interface CedenteResult {
+  nome: string;
+  cpf_cnpj: string;
+  cidade?: string;
+  uf?: string;
+}
+
 export default function AssinaturaDigital() {
   const [tipoDocumento, setTipoDocumento] = useState('');
   const [cedenteName, setCedenteName] = useState('');
@@ -24,6 +32,74 @@ export default function AssinaturaDigital() {
   const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Cedente search state
+  const [cedenteSearch, setCedenteSearch] = useState('');
+  const [cedenteResults, setCedenteResults] = useState<CedenteResult[]>([]);
+  const [searchingCedente, setSearchingCedente] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [cedenteSelected, setCedenteSelected] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const searchCedentes = useCallback(async (term: string) => {
+    if (term.length < 2) { setCedenteResults([]); return; }
+    setSearchingCedente(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('portfolio-data', {
+        body: { action: 'search-cedentes', cedente_cpf_cnpj: term },
+      });
+      if (!error && data?.success && Array.isArray(data.results)) {
+        setCedenteResults(data.results.map((r: any) => ({
+          nome: r.nome || r.cedente_nome || '',
+          cpf_cnpj: r.cpf_cnpj || r.cedente_cpf_cnpj || '',
+          cidade: r.cidade || '',
+          uf: r.uf || '',
+        })));
+      } else {
+        setCedenteResults([]);
+      }
+    } catch {
+      setCedenteResults([]);
+    } finally {
+      setSearchingCedente(false);
+    }
+  }, []);
+
+  const handleSearchChange = (value: string) => {
+    setCedenteSearch(value);
+    setCedenteSelected(false);
+    setShowDropdown(true);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => searchCedentes(value), 400);
+  };
+
+  const handleSelectCedente = (c: CedenteResult) => {
+    setCedenteName(c.nome);
+    setCedenteCnpj(c.cpf_cnpj);
+    setCedenteSearch(c.nome);
+    setCedenteSelected(true);
+    setShowDropdown(false);
+  };
+
+  const handleClearCedente = () => {
+    setCedenteName('');
+    setCedenteCnpj('');
+    setCedenteSearch('');
+    setCedenteSelected(false);
+    setCedenteResults([]);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -47,13 +123,11 @@ export default function AssinaturaDigital() {
       return;
     }
     setSending(true);
-    // Simulate sending
     await new Promise((r) => setTimeout(r, 1500));
     setSending(false);
     toast({ title: 'Documento enviado!', description: 'O cedente receberá o documento para assinatura.' });
     setTipoDocumento('');
-    setCedenteName('');
-    setCedenteCnpj('');
+    handleClearCedente();
     setObservacao('');
     handleRemoveFile();
   };
@@ -96,33 +170,82 @@ export default function AssinaturaDigital() {
         </CardContent>
       </Card>
 
-      {/* Cedente */}
+      {/* Cedente – autocomplete search */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">2. Cedente</CardTitle>
-          <CardDescription>Informe o cedente que receberá o documento</CardDescription>
+          <CardDescription>Pesquise e selecione o cedente cadastrado no sistema</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="cedente-name">Nome / Razão Social *</Label>
+          <div ref={dropdownRef} className="relative">
+            <Label htmlFor="cedente-search">Buscar cedente *</Label>
+            <div className="relative mt-1.5">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                id="cedente-name"
-                placeholder="Nome do cedente"
-                value={cedenteName}
-                onChange={(e) => setCedenteName(e.target.value)}
+                id="cedente-search"
+                placeholder="Digite nome ou CPF/CNPJ do cedente..."
+                value={cedenteSearch}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                onFocus={() => cedenteSearch.length >= 2 && !cedenteSelected && setShowDropdown(true)}
+                className="pl-9 pr-9"
               />
+              {searchingCedente && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+              )}
+              {cedenteSelected && (
+                <button
+                  onClick={handleClearCedente}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="cedente-cnpj">CPF/CNPJ</Label>
-              <Input
-                id="cedente-cnpj"
-                placeholder="00.000.000/0000-00"
-                value={cedenteCnpj}
-                onChange={(e) => setCedenteCnpj(e.target.value)}
-              />
-            </div>
+
+            {/* Dropdown */}
+            {showDropdown && !cedenteSelected && (
+              <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-64 overflow-auto">
+                {cedenteSearch.length < 2 ? (
+                  <p className="p-3 text-xs text-muted-foreground">Digite ao menos 2 caracteres...</p>
+                ) : searchingCedente ? (
+                  <div className="p-3 flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Buscando...
+                  </div>
+                ) : cedenteResults.length === 0 ? (
+                  <p className="p-3 text-xs text-muted-foreground">Nenhum cedente encontrado.</p>
+                ) : (
+                  cedenteResults.map((c, i) => (
+                    <button
+                      key={`${c.cpf_cnpj}-${i}`}
+                      onClick={() => handleSelectCedente(c)}
+                      className="w-full text-left px-3 py-2.5 hover:bg-accent/50 transition-colors flex items-start gap-3 border-b border-border last:border-0"
+                    >
+                      <Building2 className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{c.nome}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {c.cpf_cnpj}
+                          {c.cidade && ` · ${c.cidade}`}
+                          {c.uf && `/${c.uf}`}
+                        </p>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
           </div>
+
+          {/* Selected cedente info */}
+          {cedenteSelected && cedenteName && (
+            <div className="bg-muted/50 border border-border rounded-lg p-3 flex items-center gap-3">
+              <Building2 className="h-5 w-5 text-primary shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">{cedenteName}</p>
+                <p className="text-xs text-muted-foreground">{cedenteCnpj}</p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -157,9 +280,7 @@ export default function AssinaturaDigital() {
               <FileText className="h-8 w-8 text-primary shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{file.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {(file.size / 1024).toFixed(0)} KB
-                </p>
+                <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(0)} KB</p>
               </div>
               <Button variant="ghost" size="icon" onClick={handleRemoveFile} className="shrink-0">
                 <X className="h-4 w-4" />
