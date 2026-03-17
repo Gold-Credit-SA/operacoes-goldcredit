@@ -1,9 +1,11 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   CheckCircle2, AlertTriangle, Shield, Scale, Leaf,
   Users, Ban, ChevronUp, ChevronDown, Search, Briefcase, Eye, X, UserRound,
-  Warehouse, Car, MapPinOff, ExternalLink
+  Warehouse, Car, MapPinOff, MapPin, ExternalLink, Download
 } from 'lucide-react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
