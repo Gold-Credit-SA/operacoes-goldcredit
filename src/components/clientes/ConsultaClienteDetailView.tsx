@@ -1060,27 +1060,36 @@ function ImoveisContent({ items }: { items: SubItem[] }) {
 
 function ImovelDetailDialog({ property, tipo }: { property: any; tipo: string }) {
   const [open, setOpen] = useState(false);
-  const nome = property.name || property.nome || property.propertyName || property.fazenda || '—';
-  const tipoLower = tipo.toString().toLowerCase();
+  const [detailTab, setDetailTab] = useState('matriculas');
+  
+  // The edge function merges detail data as { ...item, details: { insertInfo, cafir, car, parcels } }
+  const details = property.details || {};
+  const insertInfo = details.insertInfo || {};
+  const cafir = details.cafir || {};
+
+  const nome = property.name || insertInfo.name || cafir.farmName || '—';
+  const tipoLower = (tipo || '').toString().toLowerCase();
   const isSociedade = tipoLower.includes('sociedade') || tipoLower.includes('society') || tipoLower.includes('partner');
 
-  const nirf = property.nirf || property.nirfCib || property.cib || '—';
-  const incra = property.incra || property.incraNumber || property.numIncra || '—';
-  const area = parseFloat(property.totalArea || property.areaTotal || property.area || 0);
-  const areaProdutiva = property.productiveArea || property.areaProdutiva || null;
-  const modFiscal = property.fiscalModule || property.moduloFiscal || property.modFiscal || null;
-  const valorEstimado = property.estimatedValue || property.valorEstimado || null;
-  const valorAtribuido = parseFloat(property.value || property.valor || property.totalValue || 0);
-  const uf = property.state || property.uf || property.estado || '—';
-  const municipio = property.city || property.municipio || property.cidade || property.municipality || '—';
-  const hasGeo = property.hasGeoRef || property.geoReferenced || property.geo || false;
+  // Use insertInfo/cafir for detailed fields, fallback to list-level fields
+  const nirf = insertInfo.nirf || cafir.nirf || '—';
+  const incra = insertInfo.numIncra || cafir.numIncra || '—';
+  const area = parseFloat(property.totalArea || insertInfo.totalArea || cafir.totalArea || 0);
+  const areaProdutiva = insertInfo.productiveArea || cafir.productiveArea || null;
+  const modFiscal = insertInfo.fiscalModule || cafir.fiscalModule || null;
+  const valorEstimado = insertInfo.estimatedValue || cafir.estimatedValue || null;
+  const valorAtribuido = parseFloat(property.value || insertInfo.value || 0);
+  const uf = property.state || insertInfo.state || cafir.state || '—';
+  const municipio = property.city || insertInfo.city || cafir.city || '—';
+  const hasGeo = property.isGEORef ?? false;
 
-  const matriculas: any[] = Array.isArray(property.registrations) ? property.registrations
-    : Array.isArray(property.matriculas) ? property.matriculas : [];
-  const cars: any[] = Array.isArray(property.car) ? property.car
-    : Array.isArray(property.cars) ? property.cars : [];
-  const proprietarios: any[] = Array.isArray(property.owners) ? property.owners
-    : Array.isArray(property.proprietarios) ? property.proprietarios : [];
+  // Matrículas from insertInfo
+  const matriculas: any[] = Array.isArray(insertInfo.registrations) ? insertInfo.registrations : [];
+  // CAR from detail root or insertInfo
+  const cars: any[] = Array.isArray(details.car) ? details.car
+    : Array.isArray(insertInfo.car) ? insertInfo.car : [];
+  // Proprietários from cafir.owners
+  const proprietarios: any[] = Array.isArray(cafir.owners) ? cafir.owners : [];
 
   const fmtCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(isNaN(v) ? 0 : v);
 
@@ -1241,15 +1250,19 @@ function ImovelDetailDialog({ property, tipo }: { property: any; tipo: string })
                     <TableRow>
                       <TableHead className="text-xs">Nome</TableHead>
                       <TableHead className="text-xs">CPF/CNPJ</TableHead>
+                      <TableHead className="text-xs">Tipo</TableHead>
                       <TableHead className="text-xs">Participação</TableHead>
+                      <TableHead className="text-xs">Situação</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {proprietarios.map((p: any, i: number) => (
                       <TableRow key={i}>
-                        <TableCell className="text-sm">{p.name || p.nome || '—'}</TableCell>
-                        <TableCell className="text-sm">{p.taxId || p.cpfCnpj || p.document || '—'}</TableCell>
-                        <TableCell className="text-sm">{p.participation || p.participacao || '—'}</TableCell>
+                        <TableCell className="text-sm">{p.name || '—'}</TableCell>
+                        <TableCell className="text-sm">{p.taxId || '—'}</TableCell>
+                        <TableCell className="text-sm">{p.type || p.legalNature || '—'}</TableCell>
+                        <TableCell className="text-sm">{p.share != null ? `${p.share}%` : '—'}</TableCell>
+                        <TableCell className="text-sm">{p.situation || '—'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -1266,33 +1279,31 @@ function ImovelDetailDialog({ property, tipo }: { property: any; tipo: string })
 }
 
 function ImoveisSimplesView({ data }: { data: Record<string, any> }) {
-  // Extract properties array from various possible structures
+  // Data structure from edge function: { rural: { items, areas, properties, totalArea, totalValue }, ruralDetails: [...items with details merged] }
   const rawRural = data.rural || data;
-  const candidates = [
-    rawRural.properties, rawRural.items, rawRural.imoveis,
-    rawRural.ruralDetails, data.ruralDetails, rawRural,
-  ];
-  const properties: any[] = candidates.find(c => Array.isArray(c)) || [];
+  
+  // Use ruralDetails (items enriched with detail data) for the table, fallback to items
+  const properties: any[] = Array.isArray(data.ruralDetails) ? data.ruralDetails
+    : Array.isArray(rawRural.items) ? rawRural.items
+    : Array.isArray(rawRural.properties) ? rawRural.properties
+    : [];
 
-  // Compute summary stats
-  const totalArea = properties.reduce((sum: number, p: any) => {
-    const area = parseFloat(p.totalArea || p.areaTotal || p.area || 0);
+  // Use API pre-computed summary when available
+  const apiAreas = rawRural.areas || {};
+  const apiProps = rawRural.properties || {};
+  
+  const totalArea = rawRural.totalArea ?? properties.reduce((sum: number, p: any) => {
+    const area = parseFloat(p.totalArea || 0);
     return sum + (isNaN(area) ? 0 : area);
   }, 0);
 
-  const tipoCount = (tipo: string) =>
-    properties.filter((p: any) => {
-      const t = (p.type || p.tipo || p.ownershipType || '').toString().toLowerCase();
-      return t.includes(tipo);
-    }).length;
+  const propria = apiProps.owned ?? 0;
+  const sociedade = apiProps.inSociety ?? 0;
+  const arrendada = apiProps.leased ?? 0;
+  const parceria = apiProps.partnership ?? 0;
 
-  const propria = tipoCount('própria') || tipoCount('propria') || tipoCount('own');
-  const sociedade = tipoCount('sociedade') || tipoCount('society') || tipoCount('partner');
-  const arrendada = tipoCount('arrendad');
-  const parceria = tipoCount('parceria') || tipoCount('partnership');
-
-  const totalValue = properties.reduce((sum: number, p: any) => {
-    const val = parseFloat(p.value || p.valor || p.totalValue || 0);
+  const totalValue = rawRural.totalValue ?? properties.reduce((sum: number, p: any) => {
+    const val = parseFloat(p.value || 0);
     return sum + (isNaN(val) ? 0 : val);
   }, 0);
 
@@ -1360,14 +1371,14 @@ function ImoveisSimplesView({ data }: { data: Record<string, any> }) {
               </TableHeader>
               <TableBody>
                 {properties.map((prop: any, idx: number) => {
-                  const tipo = prop.type || prop.tipo || prop.ownershipType || '—';
-                  const nome = prop.name || prop.nome || prop.propertyName || prop.fazenda || '—';
-                  const areaTotal = parseFloat(prop.totalArea || prop.areaTotal || prop.area || 0);
-                  const areaPropria = parseFloat(prop.ownArea || prop.areaPropria || prop.areaOwn || 0);
-                  const pct = areaTotal > 0 ? Math.round((areaPropria / areaTotal) * 100) : 0;
-                  const valor = parseFloat(prop.value || prop.valor || prop.totalValue || 0);
-                  const uf = prop.state || prop.uf || prop.estado || '—';
-                  const municipio = prop.city || prop.municipio || prop.cidade || prop.municipality || '—';
+                  const tipo = prop.type || '—';
+                  const nome = prop.name || '—';
+                  const areaTotal = parseFloat(prop.totalArea || 0);
+                  const areaPropria = parseFloat(prop.areaOwned || 0);
+                  const pct = prop.areaOwnedPercent ?? (areaTotal > 0 ? Math.round((areaPropria / areaTotal) * 100) : 0);
+                  const valor = parseFloat(prop.value || 0);
+                  const uf = prop.state || '—';
+                  const municipio = prop.city || '—';
 
                   const tipoLower = tipo.toString().toLowerCase();
                   const isSociedade = tipoLower.includes('sociedade') || tipoLower.includes('society') || tipoLower.includes('partner');
