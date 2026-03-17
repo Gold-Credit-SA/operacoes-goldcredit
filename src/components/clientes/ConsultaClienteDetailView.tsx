@@ -1,7 +1,8 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import {
   CheckCircle2, AlertTriangle, Shield, Scale, Leaf,
-  Users, Ban, ChevronUp, ChevronDown, Search, Briefcase, Eye, X, UserRound
+  Users, Ban, ChevronUp, ChevronDown, Search, Briefcase, Eye, X, UserRound,
+  Warehouse, Car
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -333,11 +334,29 @@ function normalizeResponseData(rawData: Record<string, any>, consultaType?: stri
     ];
   }
 
-  // ── Imóveis ──
+  // ── Armazéns ──
+  const armazensData = details.armazens || details.warehouses || details.conab;
+  result['armazens'] = [{
+    key: 'armazens',
+    label: 'Armazéns',
+    status: armazensData ? 'DONE' : 'NOT_CONSULTED',
+    data: armazensData || null,
+  }];
+
+  // ── Veicular ──
+  const veicularData = details.veicular || details.vehicleAssets || details.vehicles;
+  result['veicular'] = [{
+    key: 'veicular',
+    label: 'Veicular',
+    status: veicularData ? 'DONE' : 'NOT_CONSULTED',
+    data: veicularData || null,
+  }];
+
+  // ── Imóveis Rurais ──
   result['imoveis'] = [
     {
       key: 'imoveis-simples',
-      label: 'Imóveis Simples',
+      label: 'Simples',
       status: details.rural || details.urban || details.ruralDetails ? 'DONE' : 'NOT_CONSULTED',
       data: details.rural || details.urban || details.ruralDetails
         ? {
@@ -985,10 +1004,24 @@ function GruposContent({ items }: { items: SubItem[] }) {
   );
 }
 
+function GenericTopicContent({ title, items }: { title: string; items: SubItem[] }) {
+  const item = items[0];
+  if (!item || item.status !== 'DONE' || !item.data) {
+    return <EmptyState title={`${title} não consultado`} description="Esse tópico não foi consultado nesta execução." />;
+  }
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold text-foreground">{title}</h2>
+      <AgriskDetailView data={item.data} title={title} />
+    </div>
+  );
+}
+
 function ImoveisContent({ items }: { items: SubItem[] }) {
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-foreground">Imóveis</h2>
+      <h2 className="text-2xl font-bold text-foreground">Imóveis Rurais</h2>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {items.map((section) => {
@@ -1389,7 +1422,9 @@ export function ConsultaClienteDetailView({ data: rawData, agriskClientId, consu
     { key: 'grupos', label: 'Grupos', icon: Users },
     { key: 'compliance', label: 'Compliance', icon: Shield },
     { key: 'juridico', label: 'Judicial', icon: Scale },
-    { key: 'imoveis', label: 'Imóveis', icon: Leaf },
+    { key: 'armazens', label: 'Armazéns', icon: Warehouse },
+    { key: 'veicular', label: 'Veicular', icon: Car },
+    { key: 'imoveis', label: 'Imóveis Rurais', icon: Leaf },
   ];
 
   const categorizedData = categoryDefs
@@ -1435,6 +1470,8 @@ export function ConsultaClienteDetailView({ data: rawData, agriskClientId, consu
           selectedCat.key === 'compliance' ? <ComplianceContent items={selectedCat.items} /> :
           selectedCat.key === 'juridico' ? <LawsuitsContent items={selectedCat.items} agriskClientId={agriskClientId} /> :
           selectedCat.key === 'grupos' ? <GruposContent items={selectedCat.items} /> :
+          selectedCat.key === 'armazens' ? <GenericTopicContent title="Armazéns" items={selectedCat.items} /> :
+          selectedCat.key === 'veicular' ? <GenericTopicContent title="Veicular" items={selectedCat.items} /> :
           selectedCat.key === 'imoveis' ? <ImoveisContent items={selectedCat.items} /> :
           null
         ) : (
