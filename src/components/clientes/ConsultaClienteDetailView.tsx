@@ -1162,9 +1162,6 @@ function ConsultaClienteTopicContent({ data }: { data: Record<string, any> }) {
                   <p className="text-sm font-medium text-foreground">
                     {formatPhone(phone.phone_number || phone.number || phone.numero || phone.phone || phone.phoneNumber || phone.telefone)}
                   </p>
-                  <p className="text-[11px] text-muted-foreground uppercase">
-                    {formatPrimitive(phone.type || phone.tipo || phone.classification || 'Não informado')}
-                  </p>
                 </div>
               ))}
             </div>
@@ -1289,9 +1286,6 @@ function ConsultaClienteTopicContentClean({ data }: { data: Record<string, any> 
                 <div key={index} className="px-1 py-1.5">
                   <p className="text-sm font-medium text-foreground">
                     {formatPhone(phone.phone_number || phone.number || phone.numero || phone.phone || phone.phoneNumber || phone.telefone)}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground uppercase">
-                    {formatPrimitive(phone.type || phone.tipo || phone.classification || 'Não informado')}
                   </p>
                 </div>
               ))}
