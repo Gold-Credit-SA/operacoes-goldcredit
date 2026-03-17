@@ -49,6 +49,7 @@ const PRODUCT_HINTS: Record<ConsultaType, string[]> = {
   imoveis_simples: ["pesquisa-imoveis", "imoveis rurais - simples", "rural simples"],
   imoveis_car: ["car", "cadastro ambiental rural", "imoveis rurais - car"],
   patrimonio_veicular: ["vehicle-assets", "veicular", "patrimonio veicular"],
+  armazens: ["armazem", "armazens", "warehouse", "conab", "silo", "armazéns"],
 };
 
 const KNOWN_QUERY_SERVICES = [
