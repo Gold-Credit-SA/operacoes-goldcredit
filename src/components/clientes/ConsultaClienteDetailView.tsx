@@ -1439,18 +1439,8 @@ function SintegraContent({ items }: { items: SubItem[] }) {
     </div>
   );
 }
-            <AgriskDetailView data={selectedItem.data} title={selectedItem.label} />
-          )
-        ) : (
-          <EmptyState
-            title={`${sanitizeUiText(selectedItem.label)} nao consultado`}
-            description="Esse topico faz parte da estrutura AgRisk, mas nao foi consultado nesta execucao."
-          />
-        )
-      )}
-    </div>
-  );
-}
+
+
 
 function EmptyState({ title, description }: { title: string; description: string }) {
   return (
