@@ -1308,9 +1308,9 @@ function ConsultaClienteTopicContentClean({ data }: { data: Record<string, any> 
           {emails.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum email retornado.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {emails.slice(0, 5).map((email: any, index: number) => (
-                <div key={index} className="rounded-md border border-border px-3 py-2">
+                <div key={index} className="px-1 py-1.5">
                   <p className="text-sm font-medium text-foreground">{formatPrimitive(email.email || email.address || email.value)}</p>
                   <p className="text-[11px] text-muted-foreground uppercase">
                     {formatPrimitive(email.type || email.tipo || 'Não informado')}
