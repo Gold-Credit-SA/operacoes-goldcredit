@@ -62,6 +62,18 @@ function formatDocument(value?: string | null): string {
   return String(value);
 }
 
+function formatPhone(value: unknown): string {
+  if (!value) return '—';
+  let raw = String(value).replace(/\D/g, '');
+  // Remove country code 55
+  if (raw.startsWith('55') && raw.length > 11) raw = raw.slice(2);
+  if (raw.length === 11) return `(${raw.slice(0, 2)}) ${raw.slice(2, 7)}-${raw.slice(7)}`;
+  if (raw.length === 10) return `(${raw.slice(0, 2)}) ${raw.slice(2, 6)}-${raw.slice(6)}`;
+  if (raw.length === 9) return `${raw.slice(0, 5)}-${raw.slice(5)}`;
+  if (raw.length === 8) return `${raw.slice(0, 4)}-${raw.slice(4)}`;
+  return String(value);
+}
+
 function isPlainObject(value: unknown): value is Record<string, any> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
