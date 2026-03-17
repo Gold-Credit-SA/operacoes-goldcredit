@@ -333,11 +333,29 @@ function normalizeResponseData(rawData: Record<string, any>, consultaType?: stri
     ];
   }
 
-  // ── Imóveis ──
+  // ── Armazéns ──
+  const armazensData = details.armazens || details.warehouses || details.conab;
+  result['armazens'] = [{
+    key: 'armazens',
+    label: 'Armazéns',
+    status: armazensData ? 'DONE' : 'NOT_CONSULTED',
+    data: armazensData || null,
+  }];
+
+  // ── Veicular ──
+  const veicularData = details.veicular || details.vehicleAssets || details.vehicles;
+  result['veicular'] = [{
+    key: 'veicular',
+    label: 'Veicular',
+    status: veicularData ? 'DONE' : 'NOT_CONSULTED',
+    data: veicularData || null,
+  }];
+
+  // ── Imóveis Rurais ──
   result['imoveis'] = [
     {
       key: 'imoveis-simples',
-      label: 'Imóveis Simples',
+      label: 'Simples',
       status: details.rural || details.urban || details.ruralDetails ? 'DONE' : 'NOT_CONSULTED',
       data: details.rural || details.urban || details.ruralDetails
         ? {
