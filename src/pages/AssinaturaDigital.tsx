@@ -60,10 +60,10 @@ export default function AssinaturaDigital() {
       const { data, error } = await supabase.functions.invoke('portfolio-data', {
         body: { action: 'search-cedentes', cedente_cpf_cnpj: term },
       });
-      if (!error && data?.success && Array.isArray(data.results)) {
-        setCedenteResults(data.results.map((r: any) => ({
-          nome: r.nome || r.cedente_nome || '',
-          cpf_cnpj: r.cpf_cnpj || r.cedente_cpf_cnpj || '',
+      if (!error && data?.success && Array.isArray(data.cedentes)) {
+        setCedenteResults(data.cedentes.map((r: any) => ({
+          nome: r.nome || '',
+          cpf_cnpj: r.cpf_cnpj || '',
           cidade: r.cidade || '',
           uf: r.uf || '',
         })));
