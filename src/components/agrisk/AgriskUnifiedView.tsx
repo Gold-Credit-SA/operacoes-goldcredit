@@ -107,57 +107,22 @@ function buildSections(rawData: Record<string, any>, consultaType?: string): Top
       ],
     },
     {
-      key: 'restritivos',
-      label: 'Restritivos',
-      icon: AlertTriangle,
-      items: [
-        {
-          key: 'restritivos',
-          label: 'Restritivos Nacional',
-          status: restritivosData ? 'consulted' : 'not_consulted',
-          data: restritivosData,
-          summary: buildSummary(restritivosData),
-        },
-        {
-          key: 'bvs',
-          label: 'Boa Vista',
-          status: 'not_consulted',
-          data: null,
-          summary: 'Não consultado nesta execução.',
-        },
-        {
-          key: 'quod',
-          label: 'Quod',
-          status: 'not_consulted',
-          data: null,
-          summary: 'Não consultado nesta execução.',
-        },
-      ],
-    },
-    {
-      key: 'financeiro',
-      label: 'Financeiro',
-      icon: Briefcase,
-      items: [
-        {
-          key: 'endividamento',
-          label: 'Endividamento Financeiro',
-          status: endividamentoData ? 'consulted' : 'not_consulted',
-          data: endividamentoData,
-          summary: buildSummary(endividamentoData),
-        },
-        {
-          key: 'cpr',
-          label: 'Consulta CPR',
-          status: cprData ? 'consulted' : 'not_consulted',
-          data: cprData,
-          summary: buildSummary(cprData),
-        },
-      ],
-    },
-    {
       key: 'patrimonio',
       label: 'Patrimônio',
+      icon: Leaf,
+      items: [
+        {
+          key: 'patrimonio_veicular',
+          label: 'Patrimônio Veicular',
+          status: patrimonioVeicularData ? 'consulted' : 'not_consulted',
+          data: patrimonioVeicularData,
+          summary: buildSummary(patrimonioVeicularData),
+        },
+      ],
+    },
+    {
+      key: 'imoveis',
+      label: 'Imóveis Rurais',
       icon: Leaf,
       items: [
         {
@@ -173,13 +138,6 @@ function buildSections(rawData: Record<string, any>, consultaType?: string): Top
           status: imoveisCarData ? 'consulted' : 'not_consulted',
           data: imoveisCarData,
           summary: buildSummary(imoveisCarData),
-        },
-        {
-          key: 'patrimonio_veicular',
-          label: 'Patrimônio Veicular',
-          status: patrimonioVeicularData ? 'consulted' : 'not_consulted',
-          data: patrimonioVeicularData,
-          summary: buildSummary(patrimonioVeicularData),
         },
       ],
     },
