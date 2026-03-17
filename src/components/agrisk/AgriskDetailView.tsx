@@ -334,9 +334,13 @@ export function AgriskDetailView({
   title?: string;
 }) {
   const root = getRootData(data);
-  const entries = Object.entries(root).filter(([, value]) => value !== null && value !== undefined);
+  const messages = extractMessages(root);
+  const allEntries = Object.entries(root).filter(([, value]) => value !== null && value !== undefined);
+  const entries = filterDataEntries(allEntries);
   const scalarEntries = entries.filter(([, value]) => !Array.isArray(value) && !isPlainObject(value));
   const structuredEntries = entries.filter(([, value]) => Array.isArray(value) || isPlainObject(value));
+
+  const hasData = scalarEntries.length > 0 || structuredEntries.length > 0;
 
   return (
     <div className="space-y-4">
@@ -344,6 +348,20 @@ export function AgriskDetailView({
         <div className="flex items-center gap-2">
           <FileText className="h-5 w-5 text-primary" />
           <h2 className="text-xl font-bold text-foreground">{title}</h2>
+        </div>
+      )}
+
+      {/* Show API messages as info banners */}
+      {messages.map((msg, i) => (
+        <div key={i} className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/30 px-4 py-3">
+          <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+          <p className="text-sm text-foreground">{msg}</p>
+        </div>
+      ))}
+
+      {!hasData && messages.length === 0 && (
+        <div className="text-center py-8 text-muted-foreground">
+          <p className="text-sm">Nenhum dado retornado para esta consulta.</p>
         </div>
       )}
 
