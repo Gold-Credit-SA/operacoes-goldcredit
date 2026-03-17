@@ -1,7 +1,8 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import {
   CheckCircle2, AlertTriangle, Shield, Scale, Leaf,
-  Users, Ban, ChevronUp, ChevronDown, Search, Briefcase, Eye, X, UserRound
+  Users, Ban, ChevronUp, ChevronDown, Search, Briefcase, Eye, X, UserRound,
+  Warehouse, Car
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
