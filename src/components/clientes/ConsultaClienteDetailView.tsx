@@ -1088,9 +1088,9 @@ function PropertyMap({ parcels }: { parcels: any[] }) {
       );
 
       const polygon = L.polygon(coords, {
-        color: '#F59E0B',
+        color: '#22C55E',
         weight: 2,
-        fillColor: '#F59E0B',
+        fillColor: '#22C55E',
         fillOpacity: 0.2,
       }).addTo(map);
 
