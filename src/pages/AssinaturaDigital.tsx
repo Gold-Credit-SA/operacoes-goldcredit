@@ -1,12 +1,16 @@
-import { type ChangeEvent, useRef, useState } from 'react';
-import { CheckCircle2, Copy, ExternalLink, FileText, Loader2, Send, Upload, X } from 'lucide-react';
+import { type ChangeEvent, useEffect, useRef, useState } from 'react';
+import { Building2, Check, CheckCircle2, ChevronsUpDown, Copy, ExternalLink, FileText, Loader2, Send, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
+import { buscarCedentePorDocumento, buscarCedentesCadastrados, type CedenteCadastroResumo } from '@/lib/cedente-api';
 import { criarSolicitacao } from '@/lib/assinatura-api';
+import { cn } from '@/lib/utils';
 
 interface ResultadoCriacao {
   token_acesso: string;
@@ -22,7 +26,79 @@ export default function AssinaturaDigital() {
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<ResultadoCriacao | null>(null);
+  const [cedenteOpen, setCedenteOpen] = useState(false);
+  const [cedenteSearch, setCedenteSearch] = useState('');
+  const [cedentes, setCedentes] = useState<CedenteCadastroResumo[]>([]);
+  const [cedenteSelecionado, setCedenteSelecionado] = useState<CedenteCadastroResumo | null>(null);
+  const [buscandoCedentes, setBuscandoCedentes] = useState(false);
+  const [carregandoCedente, setCarregandoCedente] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const termo = cedenteSearch.trim();
+
+    if (!cedenteOpen || termo.length < 2) {
+      setCedentes([]);
+      setBuscandoCedentes(false);
+      return;
+    }
+
+    const debounce = window.setTimeout(async () => {
+      setBuscandoCedentes(true);
+      try {
+        const data = await buscarCedentesCadastrados(termo);
+        setCedentes(data);
+      } catch (e: any) {
+        setCedentes([]);
+        toast({
+          title: 'Erro ao buscar cedentes',
+          description: e.message || 'Nao foi possivel consultar os cedentes cadastrados.',
+          variant: 'destructive',
+        });
+      } finally {
+        setBuscandoCedentes(false);
+      }
+    }, 300);
+
+    return () => window.clearTimeout(debounce);
+  }, [cedenteOpen, cedenteSearch]);
+
+  const formatarCpfCnpj = (valor: string) => {
+    const limpo = valor.replace(/\D/g, '');
+    if (limpo.length === 11) return limpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    if (limpo.length === 14) return limpo.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+    return valor;
+  };
+
+  const preencherSignatario = (cedente: CedenteCadastroResumo) => {
+    setCedenteSelecionado(cedente);
+    setSignatarioNome(cedente.nome || '');
+    setSignatarioEmail(cedente.email || '');
+    setSignatarioCpfCnpj(formatarCpfCnpj(cedente.cpf_cnpj || ''));
+  };
+
+  const selecionarCedente = async (cedente: CedenteCadastroResumo) => {
+    setCarregandoCedente(true);
+    try {
+      const detalhe = await buscarCedentePorDocumento(cedente.cpf_cnpj);
+      preencherSignatario(detalhe);
+      setCedenteOpen(false);
+      setCedenteSearch('');
+      setCedentes([]);
+      toast({
+        title: 'Cedente carregado',
+        description: 'Nome, e-mail e CPF/CNPJ foram preenchidos e continuam editaveis.',
+      });
+    } catch (e: any) {
+      toast({
+        title: 'Erro ao carregar cedente',
+        description: e.message || 'Nao foi possivel preencher os dados do cedente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setCarregandoCedente(false);
+    }
+  };
 
   const onSelecionarArquivo = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -49,6 +125,10 @@ export default function AssinaturaDigital() {
     setMensagem('');
     setArquivo(null);
     setResultado(null);
+    setCedenteOpen(false);
+    setCedenteSearch('');
+    setCedentes([]);
+    setCedenteSelecionado(null);
     if (inputRef.current) inputRef.current.value = '';
   };
 
@@ -109,9 +189,102 @@ export default function AssinaturaDigital() {
       <Card>
         <CardHeader>
           <CardTitle>Dados do documento</CardTitle>
-          <CardDescription>Essas informacoes serao usadas para criar a solicitacao no backend.</CardDescription>
+          <CardDescription>
+            Escolha um cedente cadastrado para preencher o signatario automaticamente ou informe os dados manualmente.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Cedente cadastrado</Label>
+            <Popover open={cedenteOpen} onOpenChange={setCedenteOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={cedenteOpen}
+                  className="h-auto w-full justify-between px-3 py-3 text-left font-normal"
+                  disabled={carregandoCedente}
+                >
+                  <div className="flex min-w-0 items-start gap-3">
+                    {carregandoCedente ? (
+                      <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+                    ) : (
+                      <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    )}
+                    <div className="min-w-0">
+                      {cedenteSelecionado ? (
+                        <>
+                          <p className="truncate text-sm font-medium text-foreground">{cedenteSelecionado.nome}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {formatarCpfCnpj(cedenteSelecionado.cpf_cnpj)}
+                            {cedenteSelecionado.email ? ` · ${cedenteSelecionado.email}` : ''}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm text-foreground">Buscar nos cedentes cadastrados</p>
+                          <p className="text-xs text-muted-foreground">Pesquise por nome ou CPF/CNPJ para preencher o signatario.</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <ChevronsUpDown className="ml-3 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-[420px] p-0">
+                <Command shouldFilter={false}>
+                  <CommandInput
+                    value={cedenteSearch}
+                    onValueChange={setCedenteSearch}
+                    placeholder="Digite nome ou CPF/CNPJ do cedente..."
+                  />
+                  <CommandList>
+                    {cedenteSearch.trim().length < 2 ? (
+                      <CommandEmpty>Digite pelo menos 2 caracteres para buscar.</CommandEmpty>
+                    ) : buscandoCedentes ? (
+                      <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Buscando cedentes...
+                      </div>
+                    ) : cedentes.length === 0 ? (
+                      <CommandEmpty>Nenhum cedente encontrado.</CommandEmpty>
+                    ) : (
+                      <CommandGroup heading="Cedentes">
+                        {cedentes.map((cedente) => (
+                          <CommandItem
+                            key={cedente.cpf_cnpj}
+                            value={`${cedente.nome} ${cedente.cpf_cnpj}`}
+                            onSelect={() => selecionarCedente(cedente)}
+                            className="flex items-start gap-3 py-3"
+                          >
+                            <Check
+                              className={cn(
+                                'mt-0.5 h-4 w-4 shrink-0',
+                                cedenteSelecionado?.cpf_cnpj.replace(/\D/g, '') === cedente.cpf_cnpj.replace(/\D/g, '')
+                                  ? 'opacity-100'
+                                  : 'opacity-0',
+                              )}
+                            />
+                            <div className="min-w-0">
+                              <p className="truncate font-medium text-foreground">{cedente.nome || 'Cedente sem nome'}</p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {formatarCpfCnpj(cedente.cpf_cnpj)}
+                                {cedente.email ? ` · ${cedente.email}` : ' · Sem email cadastrado'}
+                              </p>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    )}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <p className="text-xs text-muted-foreground">
+              Ao selecionar um cedente, o nome, e-mail e CPF/CNPJ abaixo sao preenchidos automaticamente, mas podem ser alterados.
+            </p>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="titulo">Titulo do documento</Label>
             <Input id="titulo" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ex.: Contrato de cessao" />
