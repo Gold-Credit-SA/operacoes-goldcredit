@@ -75,9 +75,9 @@ function buildSections(rawData: Record<string, any>, consultaType?: string): Top
       ? rawData
       : null;
 
-  const restritivosData = type === 'restritivos' ? details : toRecord(details.restritivos);
-  const endividamentoData = type === 'endividamento' ? details : toRecord(details.scr);
-  const cprData = type === 'cpr' ? details : toRecord(details.cpr);
+  const restritivosData = null;
+  const endividamentoData = null;
+  const cprData = null;
   const imoveisSimplesData =
     type === 'imoveis_simples'
       ? details
