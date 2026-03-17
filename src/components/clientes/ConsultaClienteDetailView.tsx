@@ -1146,7 +1146,8 @@ function ImoveisSimplesView({ data }: { data: Record<string, any> }) {
                   <TableHead className="text-xs">Área Própria</TableHead>
                   <TableHead className="text-xs">Valor</TableHead>
                   <TableHead className="text-xs">UF</TableHead>
-                  <TableHead className="text-xs">Município</TableHead>
+                 <TableHead className="text-xs">Município</TableHead>
+                  <TableHead className="text-xs w-20"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1190,6 +1191,9 @@ function ImoveisSimplesView({ data }: { data: Record<string, any> }) {
                       </TableCell>
                       <TableCell className="text-sm text-foreground">{uf}</TableCell>
                       <TableCell className="text-sm text-foreground">{municipio}</TableCell>
+                      <TableCell>
+                        <ImovelDetailDialog property={prop} tipo={tipo} />
+                      </TableCell>
                     </TableRow>
                   );
                 })}
