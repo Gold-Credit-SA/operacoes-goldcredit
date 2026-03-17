@@ -1407,13 +1407,11 @@ export function ConsultaClienteDetailView({ data: rawData, agriskClientId, consu
 
   const normalized = normalizeResponseData(rawData, consultaType);
   const categoryDefs = [
-    { key: 'cliente', label: 'Cliente', icon: UserRound },
-    { key: 'restritivos', label: 'Restritivos', icon: AlertTriangle },
-    { key: 'financeiro', label: 'Financeiro', icon: Briefcase },
-    { key: 'patrimonio', label: 'Patrimônio', icon: Leaf },
-    { key: 'compliance', label: 'Compliance', icon: Shield },
-    { key: 'juridico', label: 'Processos Judiciais', icon: Scale },
+    { key: 'sintegra', label: 'Sintegra', icon: Search },
     { key: 'grupos', label: 'Grupos', icon: Users },
+    { key: 'compliance', label: 'Compliance', icon: Shield },
+    { key: 'juridico', label: 'Judicial', icon: Scale },
+    { key: 'imoveis', label: 'Imóveis', icon: Leaf },
   ];
 
   const categorizedData = categoryDefs
