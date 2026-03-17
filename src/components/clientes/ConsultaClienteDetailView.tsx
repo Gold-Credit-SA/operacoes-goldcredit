@@ -1284,11 +1284,11 @@ function ConsultaClienteTopicContentClean({ data }: { data: Record<string, any> 
           {phones.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum telefone retornado.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {phones.slice(0, 5).map((phone: any, index: number) => (
-                <div key={index} className="rounded-md border border-border px-3 py-2">
+                <div key={index} className="px-1 py-1.5">
                   <p className="text-sm font-medium text-foreground">
-                    {formatPrimitive(phone.phone_number || phone.number || phone.numero || phone.phone || phone.phoneNumber || phone.telefone)}
+                    {formatPhone(phone.phone_number || phone.number || phone.numero || phone.phone || phone.phoneNumber || phone.telefone)}
                   </p>
                   <p className="text-[11px] text-muted-foreground uppercase">
                     {formatPrimitive(phone.type || phone.tipo || phone.classification || 'Não informado')}
