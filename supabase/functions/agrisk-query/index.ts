@@ -1072,6 +1072,7 @@ function asConsultaType(value: unknown): ConsultaType | null {
     "imoveis_simples",
     "imoveis_car",
     "patrimonio_veicular",
+    "armazens",
   ];
 
   return allowed.includes(value as ConsultaType) ? (value as ConsultaType) : null;
