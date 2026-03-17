@@ -27,14 +27,18 @@ export default function AssinaturaToken() {
   const [statusMsg, setStatusMsg] = useState('');
   const [error, setError] = useState('');
 
-  // Step 1 – Load contract
   useEffect(() => {
-    if (!token) { setError('Token não informado.'); setStep('erro'); return; }
+    if (!token) {
+      setError('Token nao informado.');
+      setStep('erro');
+      return;
+    }
+
     (async () => {
       try {
         const data = await fetchContrato(token);
         setContrato(data);
-        setPdfUrl(await fetchContratoPdfUrl(token));
+        setPdfUrl(fetchContratoPdfUrl(token));
         setStep('contrato');
       } catch (e: any) {
         setError(e.message || 'Erro ao buscar contrato.');
@@ -43,63 +47,61 @@ export default function AssinaturaToken() {
     })();
   }, [token]);
 
-  // Step 2 – Check local signer
   const checkSigner = useCallback(async () => {
     setStep('signer');
     const status = await checkSignerStatus();
     setSignerStatus(status);
-    if (status.online) {
-      try {
-        const certs = await listarCertificados();
-        setCertificados(certs);
-        setStep('certificados');
-      } catch (e: any) {
-        setError('Não foi possível listar certificados: ' + e.message);
-        setStep('erro');
-      }
+
+    if (!status.online) {
+      return;
+    }
+
+    try {
+      const certs = await listarCertificados();
+      setCertificados(certs);
+      setStep('certificados');
+    } catch (e: any) {
+      setError('Nao foi possivel listar certificados: ' + e.message);
+      setStep('erro');
     }
   }, []);
 
-  // Steps 3-6 – Full signing flow
   const handleSign = useCallback(async (cert: Certificado) => {
-    if (!token || !contrato) return;
+    if (!token) return;
+
     setSelectedCert(cert);
     setStep('assinando');
     setProgress(0);
 
     try {
-      // Validate certificate
       setStatusMsg('Validando certificado...');
       setProgress(15);
       const validation = await validarCertificado(token, cert.cpf_cnpj);
-      if (!validation.valido) {
-        setError(validation.mensagem || 'CPF/CNPJ do certificado não corresponde ao signatário.');
+      if (!validation.autorizado) {
+        setError(validation.mensagem || 'CPF/CNPJ do certificado nao corresponde ao signatario.');
         setStep('erro');
         return;
       }
 
-      // Prepare signature
       setStatusMsg('Preparando assinatura no servidor...');
       setProgress(35);
       const prep = await prepararAssinatura(token);
 
-      // Sign locally
       setStatusMsg('Assinando com certificado digital...');
       setProgress(55);
       const signed = await assinarLocal({
-        hash_b64: prep.hash_b64,
+        hash_b64: prep.hash_bytes_b64,
         algoritmo: prep.algoritmo,
-        thumbprint: cert.thumbprint,
+        cert_id: cert.cert_id,
       });
 
-      // Submit
       setStatusMsg('Enviando assinatura...');
       setProgress(80);
       const result = await submeterAssinatura({
         token_acesso: token,
         assinatura_cms_b64: signed.assinatura_cms_b64,
         cert_pem: signed.cert_pem,
-        cert_tipo: cert.tipo,
+        cert_tipo: signed.cert_tipo || cert.tipo,
       });
 
       if (!result.sucesso) {
@@ -109,21 +111,19 @@ export default function AssinaturaToken() {
       }
 
       setProgress(100);
-      setStatusMsg('Assinatura concluída!');
+      setStatusMsg('Assinatura concluida!');
       setTimeout(() => setStep('sucesso'), 600);
     } catch (e: any) {
       setError(e.message || 'Erro durante o processo de assinatura.');
       setStep('erro');
     }
-  }, [token, contrato]);
-
-  // ── Render ──
+  }, [token]);
 
   if (step === 'loading') {
     return (
       <CenteredLayout>
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground mt-4">Carregando contrato...</p>
+        <p className="mt-4 text-sm text-muted-foreground">Carregando contrato...</p>
       </CenteredLayout>
     );
   }
@@ -149,9 +149,8 @@ export default function AssinaturaToken() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b bg-card">
-        <div className="max-w-3xl mx-auto px-6 py-4 flex items-center gap-3">
+        <div className="mx-auto flex max-w-3xl items-center gap-3 px-6 py-4">
           <Shield className="h-6 w-6 text-primary" />
           <div>
             <h1 className="text-lg font-semibold text-foreground">Assinatura Digital</h1>
@@ -160,33 +159,30 @@ export default function AssinaturaToken() {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-6 py-8 space-y-6">
-        {/* Contract info – always visible after loading */}
+      <main className="mx-auto max-w-3xl space-y-6 px-6 py-8">
         {contrato && <ContratoCard contrato={contrato} pdfUrl={pdfUrl} />}
 
-        {/* Step: Show contract + start button */}
         {step === 'contrato' && (
           <Card>
             <CardContent className="pt-6 text-center">
-              <p className="text-sm text-muted-foreground mb-4">
-                Para assinar este documento, o aplicativo assinador local deve estar em execução.
+              <p className="mb-4 text-sm text-muted-foreground">
+                Para assinar este documento, o assinador local deve estar em execucao.
               </p>
               <Button size="lg" className="gap-2" onClick={checkSigner}>
-                <MonitorSmartphone className="h-4 w-4" /> Iniciar Assinatura
+                <MonitorSmartphone className="h-4 w-4" /> Iniciar assinatura
               </Button>
             </CardContent>
           </Card>
         )}
 
-        {/* Step: Signer offline */}
         {step === 'signer' && !signerStatus.online && (
           <Card>
             <CardContent className="pt-6">
               <Alert>
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Assinador não detectado</AlertTitle>
+                <AlertTitle>Assinador nao detectado</AlertTitle>
                 <AlertDescription>
-                  O aplicativo assinador local não está em execução em <code className="text-xs bg-muted px-1 py-0.5 rounded">localhost:8765</code>.
+                  O assinador local nao esta em execucao em <code className="rounded bg-muted px-1 py-0.5 text-xs">localhost:8765</code>.
                   Inicie o assinador e tente novamente.
                 </AlertDescription>
               </Alert>
@@ -197,7 +193,6 @@ export default function AssinaturaToken() {
           </Card>
         )}
 
-        {/* Step: Select certificate */}
         {step === 'certificados' && (
           <Card>
             <CardHeader>
@@ -212,16 +207,18 @@ export default function AssinaturaToken() {
               ) : (
                 certificados.map((cert) => (
                   <button
-                    key={cert.thumbprint}
+                    key={cert.cert_id}
                     onClick={() => handleSign(cert)}
-                    className="w-full text-left border rounded-lg p-4 hover:border-primary/50 hover:bg-accent/30 transition-colors"
+                    className="w-full rounded-lg border p-4 text-left transition-colors hover:border-primary/50 hover:bg-accent/30"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{cert.subject}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">CPF/CNPJ: {cert.cpf_cnpj}</p>
-                        <p className="text-xs text-muted-foreground">Emitido por: {cert.issuer}</p>
-                        <p className="text-xs text-muted-foreground">Validade: {cert.validade}</p>
+                        <p className="truncate text-sm font-medium text-foreground">{cert.subject_cn}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">CPF/CNPJ: {cert.cpf_cnpj}</p>
+                        <p className="text-xs text-muted-foreground">Emitido por: {cert.issuer_cn}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Validade: {new Date(cert.not_after).toLocaleDateString('pt-BR')}
+                        </p>
                       </div>
                       <Badge variant="outline" className="shrink-0">{cert.tipo}</Badge>
                     </div>
@@ -232,36 +229,34 @@ export default function AssinaturaToken() {
           </Card>
         )}
 
-        {/* Step: Signing in progress */}
         {step === 'assinando' && (
           <Card>
-            <CardContent className="pt-6 space-y-4">
+            <CardContent className="space-y-4 pt-6">
               <div className="flex items-center gap-3">
-                <Loader2 className="h-5 w-5 animate-spin text-primary shrink-0" />
+                <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" />
                 <p className="text-sm font-medium text-foreground">{statusMsg}</p>
               </div>
               <Progress value={progress} className="h-2" />
               {selectedCert && (
-                <p className="text-xs text-muted-foreground">Certificado: {selectedCert.subject}</p>
+                <p className="text-xs text-muted-foreground">Certificado: {selectedCert.subject_cn}</p>
               )}
             </CardContent>
           </Card>
         )}
 
-        {/* Step: Success */}
         {step === 'sucesso' && token && (
           <Card>
-            <CardContent className="pt-6 text-center space-y-4">
-              <CheckCircle2 className="h-12 w-12 text-primary mx-auto" />
+            <CardContent className="space-y-4 pt-6 text-center">
+              <CheckCircle2 className="mx-auto h-12 w-12 text-primary" />
               <div>
                 <h2 className="text-lg font-semibold text-foreground">Documento assinado com sucesso!</h2>
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="mt-1 text-sm text-muted-foreground">
                   A assinatura digital foi aplicada e registrada.
                 </p>
               </div>
               <Button size="lg" className="gap-2" asChild>
                 <a href={getDownloadUrl(token)} target="_blank" rel="noopener noreferrer">
-                  <Download className="h-4 w-4" /> Baixar PDF Assinado
+                  <Download className="h-4 w-4" /> Baixar PDF assinado
                 </a>
               </Button>
             </CardContent>
@@ -272,12 +267,10 @@ export default function AssinaturaToken() {
   );
 }
 
-// ── Sub-components ──
-
 function CenteredLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <div className="text-center w-full max-w-lg">{children}</div>
+    <div className="flex min-h-screen items-center justify-center bg-background p-6">
+      <div className="w-full max-w-lg text-center">{children}</div>
     </div>
   );
 }
@@ -290,28 +283,35 @@ function ContratoCard({ contrato, pdfUrl }: { contrato: ContratoData; pdfUrl: st
       <CardHeader>
         <div className="flex items-start justify-between">
           <div>
-            <CardTitle className="text-base">{contrato.tipo_documento}</CardTitle>
-            <CardDescription className="mt-1">
-              {contrato.cedente_nome} — {contrato.cedente_cpf_cnpj}
-            </CardDescription>
+            <CardTitle className="text-base">{contrato.titulo}</CardTitle>
+            <CardDescription className="mt-1">{contrato.nome_arquivo}</CardDescription>
           </div>
           <Badge variant="secondary">{contrato.status}</Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+        <div className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm md:grid-cols-2">
           <div>
-            <span className="text-muted-foreground">Signatário:</span>
+            <span className="text-muted-foreground">Signatario:</span>
             <p className="font-medium text-foreground">{contrato.signatario_nome}</p>
           </div>
           <div>
-            <span className="text-muted-foreground">CPF/CNPJ:</span>
-            <p className="font-medium text-foreground">{contrato.signatario_cpf_cnpj}</p>
+            <span className="text-muted-foreground">Email:</span>
+            <p className="font-medium text-foreground">{contrato.signatario_email}</p>
           </div>
         </div>
 
-        {contrato.observacao && (
-          <p className="text-xs text-muted-foreground bg-muted px-3 py-2 rounded-md">{contrato.observacao}</p>
+        {contrato.mensagem && (
+          <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">{contrato.mensagem}</p>
+        )}
+
+        {contrato.assinatura_obrigatoria_cpf_cnpj && (
+          <div className="space-y-1 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+            <p>Documento exigido no certificado: {contrato.assinatura_obrigatoria_cpf_cnpj}</p>
+            {contrato.assinatura_obrigatoria_nome && (
+              <p>Assinante esperado: {contrato.assinatura_obrigatoria_nome}</p>
+            )}
+          </div>
         )}
 
         <Button variant="outline" size="sm" className="gap-2" onClick={() => setShowPdf(!showPdf)}>
@@ -319,8 +319,8 @@ function ContratoCard({ contrato, pdfUrl }: { contrato: ContratoData; pdfUrl: st
         </Button>
 
         {showPdf && (
-          <div className="border rounded-lg overflow-hidden mt-2">
-            <iframe src={pdfUrl} className="w-full h-[500px]" title="Preview do contrato" />
+          <div className="mt-2 overflow-hidden rounded-lg border">
+            <iframe src={pdfUrl} className="h-[500px] w-full" title="Preview do contrato" />
           </div>
         )}
       </CardContent>

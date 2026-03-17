@@ -1,300 +1,168 @@
-import { useState, useEffect, useCallback } from 'react';
-import { FileText, Search, Filter, Clock, CheckCircle2, AlertCircle, Send, Eye, Loader2, RefreshCw, Copy, Link2 } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import { AlertCircle, CheckCircle2, Clock, Copy, Eye, FileText, Link2, Loader2, RefreshCw, Send } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Link } from 'react-router-dom';
+import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
+import { listarSolicitacoes, type SolicitacaoResumo } from '@/lib/assinatura-api';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-type ContratoStatus = 'pendente' | 'assinado' | 'expirado' | 'enviado';
-
-interface Contrato {
-  id: string;
-  tipo: string;
-  cedente_nome: string;
-  cedente_cpf_cnpj: string;
-  data_envio: string;
-  data_assinatura: string | null;
-  status: ContratoStatus;
-  observacao: string;
-  token_acesso: string;
-}
-
-const TIPO_LABELS: Record<string, string> = {
-  'contrato-mae': 'Contrato Mãe',
-  'aditivo': 'Aditivo',
-  'carta-cessao': 'Carta de Cessão',
-  'np': 'Nota Promissória',
-  'duplicata': 'Duplicata',
-};
-
-const STATUS_CONFIG: Record<ContratoStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: typeof CheckCircle2 }> = {
-  pendente: { label: 'Pendente', variant: 'outline', icon: Clock },
-  enviado: { label: 'Enviado', variant: 'secondary', icon: Send },
-  assinado: { label: 'Assinado', variant: 'default', icon: CheckCircle2 },
-  expirado: { label: 'Expirado', variant: 'destructive', icon: AlertCircle },
+const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+  pendente: { label: 'Pendente', variant: 'outline' },
+  visualizado: { label: 'Visualizado', variant: 'secondary' },
+  assinado: { label: 'Assinado', variant: 'default' },
+  expirado: { label: 'Expirado', variant: 'destructive' },
 };
 
 export default function Documentos() {
-  const [contratos, setContratos] = useState<Contrato[]>([]);
+  const [items, setItems] = useState<SolicitacaoResumo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [filterTipo, setFilterTipo] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
 
-  const fetchContratos = useCallback(async () => {
+  const carregar = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/goldsign-proxy?target=/api/assinatura/listar`, {
-        headers: { 'apikey': SUPABASE_KEY },
-      });
-      if (!res.ok) throw new Error(`Erro ${res.status}`);
-      const data = await res.json();
-      setContratos(Array.isArray(data) ? data : data.documentos || []);
+      const data = await listarSolicitacoes(100);
+      setItems(data);
     } catch (e: any) {
-      console.error('Erro ao buscar documentos:', e);
-      setContratos([]);
+      toast({
+        title: 'Erro ao carregar documentos',
+        description: e.message || 'Nao foi possivel listar as solicitacoes.',
+        variant: 'destructive',
+      });
+      setItems([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetchContratos(); }, [fetchContratos]);
-
-  const filtered = contratos.filter((c) => {
-    const matchSearch =
-      (c.cedente_nome || '').toLowerCase().includes(search.toLowerCase()) ||
-      (c.cedente_cpf_cnpj || '').includes(search) ||
-      (c.observacao || '').toLowerCase().includes(search.toLowerCase());
-    const matchTipo = filterTipo === 'all' || c.tipo === filterTipo;
-    const matchStatus = filterStatus === 'all' || c.status === filterStatus;
-    return matchSearch && matchTipo && matchStatus;
-  });
-
-  const stats = {
-    total: contratos.length,
-    pendentes: contratos.filter((c) => c.status === 'pendente' || c.status === 'enviado').length,
-    assinados: contratos.filter((c) => c.status === 'assinado').length,
-    expirados: contratos.filter((c) => c.status === 'expirado').length,
-  };
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
 
   const handleCopyLink = async (token: string) => {
     const link = `${window.location.origin}/assinar/${token}`;
     try {
       await navigator.clipboard.writeText(link);
-      toast({ title: 'Link copiado!' });
+      toast({ title: 'Link copiado com sucesso.' });
     } catch {
-      toast({ title: 'Erro ao copiar', variant: 'destructive' });
+      toast({ title: 'Nao foi possivel copiar o link.', variant: 'destructive' });
     }
   };
 
+  const stats = {
+    total: items.length,
+    pendentes: items.filter((item) => item.status === 'pendente' || item.status === 'visualizado').length,
+    assinados: items.filter((item) => item.status === 'assinado').length,
+    expirados: items.filter((item) => item.status === 'expirado').length,
+  };
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="max-w-6xl space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Documentos</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Histórico de todos os documentos enviados para assinatura
+          <p className="mt-1 text-sm text-muted-foreground">
+            Lista de solicitacoes de assinatura criadas no fluxo publico.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={fetchContratos} disabled={loading}>
+          <Button variant="outline" size="icon" onClick={carregar} disabled={loading}>
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
           <Link to="/contratos/assinatura-digital">
             <Button className="gap-2">
               <Send className="h-4 w-4" />
-              Enviar Documento
+              Novo documento
             </Button>
           </Link>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-accent">
-              <FileText className="h-5 w-5 text-accent-foreground" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{stats.total}</p>
-              <p className="text-xs text-muted-foreground">Total</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-secondary">
-              <Clock className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{stats.pendentes}</p>
-              <p className="text-xs text-muted-foreground">Pendentes</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <CheckCircle2 className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{stats.assinados}</p>
-              <p className="text-xs text-muted-foreground">Assinados</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-destructive/10">
-              <AlertCircle className="h-5 w-5 text-destructive" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{stats.expirados}</p>
-              <p className="text-xs text-muted-foreground">Expirados</p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <StatsCard title="Total" value={stats.total} icon={<FileText className="h-5 w-5 text-primary" />} />
+        <StatsCard title="Pendentes" value={stats.pendentes} icon={<Clock className="h-5 w-5 text-amber-600" />} />
+        <StatsCard title="Assinados" value={stats.assinados} icon={<CheckCircle2 className="h-5 w-5 text-green-600" />} />
+        <StatsCard title="Expirados" value={stats.expirados} icon={<AlertCircle className="h-5 w-5 text-destructive" />} />
       </div>
 
-      {/* Filters */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Filter className="h-4 w-4" />
-            Filtros
-          </CardTitle>
+        <CardHeader>
+          <CardTitle>Solicitacoes recentes</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por cedente, CNPJ ou descrição..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={filterTipo} onValueChange={setFilterTipo}>
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os tipos</SelectItem>
-                <SelectItem value="contrato-mae">Contrato Mãe</SelectItem>
-                <SelectItem value="aditivo">Aditivo</SelectItem>
-                <SelectItem value="carta-cessao">Carta de Cessão</SelectItem>
-                <SelectItem value="np">Nota Promissória</SelectItem>
-                <SelectItem value="duplicata">Duplicata</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os status</SelectItem>
-                <SelectItem value="pendente">Pendente</SelectItem>
-                <SelectItem value="enviado">Enviado</SelectItem>
-                <SelectItem value="assinado">Assinado</SelectItem>
-                <SelectItem value="expirado">Expirado</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Table */}
-      <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
+            <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
-              <span className="text-sm">Carregando documentos...</span>
+              <span>Carregando solicitacoes...</span>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Cedente</TableHead>
+                  <TableHead>Documento</TableHead>
+                  <TableHead>Signatario</TableHead>
                   <TableHead>CPF/CNPJ</TableHead>
-                  <TableHead>Observação</TableHead>
-                  <TableHead>Envio</TableHead>
-                  <TableHead>Assinatura</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-20">Ações</TableHead>
+                  <TableHead>Criado em</TableHead>
+                  <TableHead>Assinado em</TableHead>
+                  <TableHead className="w-[120px]">Acoes</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.length === 0 ? (
+                {items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      {contratos.length === 0
-                        ? 'Nenhum documento enviado ainda'
-                        : 'Nenhum documento encontrado com os filtros aplicados'}
+                    <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                      Nenhuma solicitacao encontrada.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map((contrato) => {
-                    const statusCfg = STATUS_CONFIG[contrato.status] || STATUS_CONFIG.pendente;
-                    const StatusIcon = statusCfg.icon;
+                  items.map((item) => {
+                    const status = STATUS_LABELS[item.status] || STATUS_LABELS.pendente;
                     return (
-                      <TableRow key={contrato.id}>
+                      <TableRow key={item.id}>
                         <TableCell>
-                          <Badge variant="outline" className="text-xs whitespace-nowrap">
-                            {TIPO_LABELS[contrato.tipo] || contrato.tipo}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-medium">{contrato.cedente_nome}</TableCell>
-                        <TableCell className="text-muted-foreground text-xs font-mono">
-                          {contrato.cedente_cpf_cnpj}
-                        </TableCell>
-                        <TableCell className="max-w-[250px] truncate text-xs text-muted-foreground">
-                          {contrato.observacao || '—'}
-                        </TableCell>
-                        <TableCell className="text-xs">
-                          {contrato.data_envio
-                            ? new Date(contrato.data_envio).toLocaleDateString('pt-BR')
-                            : '—'}
-                        </TableCell>
-                        <TableCell className="text-xs">
-                          {contrato.data_assinatura
-                            ? new Date(contrato.data_assinatura).toLocaleDateString('pt-BR')
-                            : '—'}
+                          <div className="space-y-1">
+                            <p className="font-medium text-foreground">{item.titulo}</p>
+                            <p className="text-xs text-muted-foreground">{item.nome_arquivo}</p>
+                          </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={statusCfg.variant} className="gap-1">
-                            <StatusIcon className="h-3 w-3" />
-                            {statusCfg.label}
-                          </Badge>
+                          <div className="space-y-1">
+                            <p className="font-medium text-foreground">{item.signatario_nome || 'Nao informado'}</p>
+                            <p className="text-xs text-muted-foreground">{item.signatario_email}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {item.assinatura_obrigatoria_cpf_cnpj || '—'}
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-1">
-                            {contrato.token_acesso && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                title="Copiar link de assinatura"
-                                onClick={() => handleCopyLink(contrato.token_acesso)}
-                              >
+                          <Badge variant={status.variant}>{status.label}</Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {item.criado_em ? new Date(item.criado_em).toLocaleString('pt-BR') : '—'}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {item.assinado_em ? new Date(item.assinado_em).toLocaleString('pt-BR') : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Copiar link"
+                              onClick={() => handleCopyLink(item.token_acesso)}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" title="Abrir link" asChild>
+                              <a href={`/assinar/${item.token_acesso}`} target="_blank" rel="noopener noreferrer">
+                                <Eye className="h-4 w-4" />
+                              </a>
+                            </Button>
+                            {item.link_assinatura && (
+                              <Button variant="ghost" size="icon" title="Copiar URL completa" onClick={() => navigator.clipboard.writeText(item.link_assinatura || '')}>
                                 <Link2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {contrato.token_acesso && (
-                              <Button variant="ghost" size="icon" className="h-8 w-8" title="Abrir" asChild>
-                                <a href={`/assinar/${contrato.token_acesso}`} target="_blank" rel="noopener noreferrer">
-                                  <Eye className="h-4 w-4" />
-                                </a>
                               </Button>
                             )}
                           </div>
@@ -309,5 +177,19 @@ export default function Documentos() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function StatsCard({ title, value, icon }: { title: string; value: number; icon: ReactNode }) {
+  return (
+    <Card>
+      <CardContent className="flex items-center gap-3 p-4">
+        <div className="rounded-lg bg-muted p-2">{icon}</div>
+        <div>
+          <p className="text-2xl font-bold text-foreground">{value}</p>
+          <p className="text-xs text-muted-foreground">{title}</p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

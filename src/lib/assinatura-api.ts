@@ -1,29 +1,54 @@
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://goldsign.onrender.com';
 const LOCAL_SIGNER_URL = import.meta.env.VITE_LOCAL_SIGNER_URL || 'http://localhost:8765';
 
-// ── Backend API ──
-
 export interface ContratoData {
-  id: string;
-  tipo_documento: string;
-  cedente_nome: string;
-  cedente_cpf_cnpj: string;
+  solicitacao_id: string;
+  documento_id: string;
+  titulo: string;
+  nome_arquivo: string;
   signatario_nome: string;
-  signatario_cpf_cnpj: string;
+  signatario_email: string;
+  mensagem?: string;
+  assinatura_obrigatoria_tipo?: string;
+  assinatura_obrigatoria_cpf_cnpj?: string;
+  assinatura_obrigatoria_nome?: string;
+  status: string;
+  expira_em: string;
+}
+
+export interface SolicitacaoResumo {
+  id: string;
+  documento_id: string;
+  titulo: string;
+  nome_arquivo: string;
+  signatario_nome: string;
+  signatario_email: string;
+  assinatura_obrigatoria_cpf_cnpj?: string;
+  mensagem?: string;
   status: string;
   criado_em: string;
-  observacao?: string;
-  documentos?: { id: string; nome: string; url_preview?: string }[];
+  assinado_em?: string;
+  expira_em?: string;
+  token_acesso: string;
+  tem_assinado: boolean;
+  link_assinatura?: string;
 }
 
 export interface ValidacaoCertificadoResponse {
-  valido: boolean;
+  autorizado: boolean;
+  cert_doc: string;
+  cliente_nome?: string;
+  assinatura_obrigatoria_cpf_cnpj?: string;
+  assinatura_obrigatoria_nome?: string;
   mensagem?: string;
 }
 
 export interface PreparacaoResponse {
-  hash_b64: string;
+  hash_bytes_b64: string;
+  hash_hex: string;
   algoritmo: string;
+  documento_id: string;
+  solicitacao_id: string;
 }
 
 export interface SubmissaoPayload {
@@ -34,9 +59,14 @@ export interface SubmissaoPayload {
 }
 
 async function backendFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers = new Headers(options?.headers);
+  if (options?.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
   const res = await fetch(`${BACKEND_URL}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers,
   });
   if (!res.ok) {
     const body = await res.text();
@@ -53,7 +83,7 @@ export async function fetchContrato(token: string) {
   return backendFetch<ContratoData>(`/api/assinatura/${token}`);
 }
 
-export async function fetchContratoPdfUrl(token: string) {
+export function fetchContratoPdfUrl(token: string) {
   return `${BACKEND_URL}/api/assinatura/${token}/pdf`;
 }
 
@@ -82,7 +112,38 @@ export function getDownloadUrl(token: string) {
   return `${BACKEND_URL}/api/assinatura/${token}/download-assinado`;
 }
 
-// ── Local Signer API ──
+export interface CriarSolicitacaoPayload {
+  arquivo: File;
+  titulo: string;
+  signatario_nome: string;
+  signatario_email: string;
+  signatario_cpf_cnpj: string;
+  mensagem?: string;
+}
+
+export async function listarSolicitacoes(limit = 50) {
+  return backendFetch<SolicitacaoResumo[]>(`/api/assinatura/listar?limit=${limit}`);
+}
+
+export async function criarSolicitacao(payload: CriarSolicitacaoPayload) {
+  const formData = new FormData();
+  formData.append('arquivo', payload.arquivo);
+  formData.append('titulo', payload.titulo);
+  formData.append('signatario_nome', payload.signatario_nome);
+  formData.append('signatario_email', payload.signatario_email);
+  formData.append('signatario_cpf_cnpj', payload.signatario_cpf_cnpj);
+  formData.append('mensagem', payload.mensagem || '');
+
+  const res = await fetch(`${BACKEND_URL}/api/assinatura/criar`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(body || `Erro ${res.status}`);
+  }
+  return res.json();
+}
 
 export interface SignerStatus {
   online: boolean;
@@ -90,30 +151,37 @@ export interface SignerStatus {
 }
 
 export interface Certificado {
-  subject: string;
-  issuer: string;
+  cert_id: string;
+  subject_cn: string;
+  issuer_cn: string;
   cpf_cnpj: string;
-  validade: string;
+  not_after: string;
   tipo: 'A1' | 'A3';
-  serial: string;
-  thumbprint: string;
+  serial_number?: string;
+  valido?: boolean;
 }
 
 export interface AssinaturaLocalPayload {
   hash_b64: string;
   algoritmo: string;
-  thumbprint: string;
+  cert_id: string;
 }
 
 export interface AssinaturaLocalResponse {
   assinatura_cms_b64: string;
   cert_pem: string;
+  cert_tipo: 'A1' | 'A3';
 }
 
 async function localFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers = new Headers(options?.headers);
+  if (options?.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
   const res = await fetch(`${LOCAL_SIGNER_URL}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers,
   });
   if (!res.ok) {
     const body = await res.text();
@@ -132,12 +200,31 @@ export async function checkSignerStatus(): Promise<SignerStatus> {
 }
 
 export async function listarCertificados() {
-  return localFetch<Certificado[]>('/api/certificados');
+  const data = await localFetch<{
+    sucesso: boolean;
+    certificados?: Certificado[];
+    erro?: string;
+  }>('/api/certificados');
+
+  if (!data.sucesso) {
+    throw new Error(data.erro || 'Nao foi possivel listar os certificados.');
+  }
+
+  return data.certificados || [];
 }
 
 export async function assinarLocal(payload: AssinaturaLocalPayload) {
-  return localFetch<AssinaturaLocalResponse>('/api/assinar', {
+  const data = await localFetch<
+    ({ sucesso: true } & AssinaturaLocalResponse) |
+    { sucesso: false; erro?: string }
+  >('/api/assinar', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+
+  if (!data.sucesso) {
+    throw new Error(data.erro || 'Falha ao assinar com o certificado local.');
+  }
+
+  return data;
 }
