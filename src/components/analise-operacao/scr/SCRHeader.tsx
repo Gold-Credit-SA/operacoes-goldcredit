@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Building2 } from 'lucide-react';
 import { DtbEntry } from './scr-types';
-import { formatCnpj, getRaizDocumento, formatDate, formatCurrency } from './scr-utils';
+import { formatCnpj, getRaizDocumento, formatDate, formatCurrency, calcCarteiraAtiva } from './scr-utils';
 
 interface SCRHeaderProps {
   cdCli: string;
