@@ -1453,13 +1453,11 @@ export function ConsultaClienteDetailView({ data: rawData, agriskClientId, consu
       {/* Content */}
       <div className="min-h-[400px]">
         {selectedCat ? (
-          selectedCat.key === 'cliente' ? <TopicSectionsContent title="Cliente" items={selectedCat.items} /> :
-          selectedCat.key === 'restritivos' ? <TopicSectionsContent title="Restritivos" items={selectedCat.items} /> :
-          selectedCat.key === 'financeiro' ? <TopicSectionsContent title="Financeiro" items={selectedCat.items} /> :
-          selectedCat.key === 'patrimonio' ? <TopicSectionsContent title="Patrimônio" items={selectedCat.items} /> :
+          selectedCat.key === 'sintegra' ? <TopicSectionsContent title="Sintegra" items={selectedCat.items} /> :
           selectedCat.key === 'compliance' ? <ComplianceContent items={selectedCat.items} /> :
           selectedCat.key === 'juridico' ? <LawsuitsContent items={selectedCat.items} agriskClientId={agriskClientId} /> :
           selectedCat.key === 'grupos' ? <GruposContent items={selectedCat.items} /> :
+          selectedCat.key === 'imoveis' ? <ImoveisContent items={selectedCat.items} /> :
           null
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground py-12">
