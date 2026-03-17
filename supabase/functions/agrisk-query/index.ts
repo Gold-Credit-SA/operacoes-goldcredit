@@ -17,7 +17,8 @@ type ConsultaType =
   | "cpr"
   | "imoveis_simples"
   | "imoveis_car"
-  | "patrimonio_veicular";
+  | "patrimonio_veicular"
+  | "armazens";
 
 type Product = {
   _id?: string;
