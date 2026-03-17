@@ -292,6 +292,9 @@ async function handleConsulta(body: Record<string, unknown>): Promise<Response> 
     case "patrimonio_veicular":
       resultData = await fetchPatrimonioVeicular(token, queryRefs);
       break;
+    case "armazens":
+      resultData = await fetchArmazens(token, clientId, queryRefs);
+      break;
   }
 
   if (!resultData) {
