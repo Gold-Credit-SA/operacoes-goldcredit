@@ -1019,66 +1019,189 @@ function GenericTopicContent({ title, items }: { title: string; items: SubItem[]
 }
 
 function ImoveisContent({ items }: { items: SubItem[] }) {
+  // Find the "Simples" sub-item
+  const simplesItem = items.find(i => i.key === 'imoveis-simples');
+  const carItem = items.find(i => i.key === 'imoveis-car');
+
+  return (
+    <div className="space-y-6">
+      {/* ── Imóveis Rurais - Simples ── */}
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold text-foreground">Imóveis Rurais</h2>
+
+        {simplesItem?.status === 'DONE' && simplesItem.data ? (
+          <ImoveisSimplesView data={simplesItem.data as Record<string, any>} />
+        ) : (
+          <EmptyState
+            title="Imóveis Simples não consultado"
+            description="Esse tópico faz parte do bloco AgRisk, mas não foi consultado nesta execução."
+          />
+        )}
+      </div>
+
+      {/* ── CAR ── */}
+      {carItem && (
+        <div className="space-y-4">
+          <h3 className="text-xl font-bold text-foreground">CAR – Cadastro Ambiental Rural</h3>
+          {carItem.status === 'DONE' && carItem.data ? (
+            <AgriskDetailView data={carItem.data as Record<string, unknown>} />
+          ) : (
+            <EmptyState
+              title="CAR não consultado"
+              description="Esse tópico faz parte do bloco AgRisk, mas não foi consultado nesta execução."
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ImoveisSimplesView({ data }: { data: Record<string, any> }) {
+  // Extract properties array from various possible structures
+  const rawRural = data.rural || data;
+  const properties: any[] =
+    rawRural.properties || rawRural.items || rawRural.imoveis ||
+    rawRural.ruralDetails || data.ruralDetails ||
+    (Array.isArray(rawRural) ? rawRural : []);
+
+  // Compute summary stats
+  const totalArea = properties.reduce((sum: number, p: any) => {
+    const area = parseFloat(p.totalArea || p.areaTotal || p.area || 0);
+    return sum + (isNaN(area) ? 0 : area);
+  }, 0);
+
+  const tipoCount = (tipo: string) =>
+    properties.filter((p: any) => {
+      const t = (p.type || p.tipo || p.ownershipType || '').toString().toLowerCase();
+      return t.includes(tipo);
+    }).length;
+
+  const propria = tipoCount('própria') || tipoCount('propria') || tipoCount('own');
+  const sociedade = tipoCount('sociedade') || tipoCount('society') || tipoCount('partner');
+  const arrendada = tipoCount('arrendad');
+  const parceria = tipoCount('parceria') || tipoCount('partnership');
+
+  const totalValue = properties.reduce((sum: number, p: any) => {
+    const val = parseFloat(p.value || p.valor || p.totalValue || 0);
+    return sum + (isNaN(val) ? 0 : val);
+  }, 0);
+
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-foreground">Imóveis Rurais</h2>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {items.map((section) => {
-          const consulted = section.status === 'DONE' && section.data;
-
-          return (
-            <Card key={section.key}>
-              <CardContent className="p-5 space-y-4">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-xl font-bold text-foreground">{section.label}</h3>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "text-[10px] font-semibold",
-                      consulted
-                        ? "border-green-500/40 text-green-600 bg-green-50"
-                        : "border-amber-500/40 text-amber-700 bg-amber-50",
-                    )}
-                  >
-                    {consulted ? 'CONSULTADO' : 'NÃO CONSULTADO'}
-                  </Badge>
+      {/* Summary cards */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-wrap items-center gap-0 divide-x divide-border">
+            {/* Áreas */}
+            <div className="px-4 first:pl-0">
+              <p className="text-xs text-muted-foreground">Áreas (ha)</p>
+              <p className="text-2xl font-bold text-foreground">
+                {new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(totalArea)}
+              </p>
+              <p className="text-[10px] text-muted-foreground">Total</p>
+            </div>
+            <div className="flex items-center gap-0 divide-x divide-border">
+              {[
+                { label: 'Própria', value: propria },
+                { label: 'De sociedades', value: sociedade },
+                { label: 'Arrendada', value: arrendada },
+                { label: 'Parcerias', value: parceria },
+              ].map(s => (
+                <div key={s.label} className="px-4">
+                  <p className="text-lg font-bold text-foreground">{s.value}</p>
+                  <p className="text-[10px] text-muted-foreground">{s.label}</p>
                 </div>
+              ))}
+            </div>
 
-                {consulted ? (
-                  <div className="space-y-3">
-                    {isPlainObject(section.data) ? (
-                      Object.entries(section.data)
-                        .filter(([, value]) => value !== null && value !== undefined)
-                        .map(([key, value]) => (
-                          <div key={key} className="rounded-lg border border-border p-3">
-                            <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
-                              {formatLabel(key)}
-                            </p>
-                            {Array.isArray(value) ? (
-                              <p className="text-sm text-foreground">{`${value.length} item(ns)`}</p>
-                            ) : isPlainObject(value) ? (
-                              <p className="text-sm text-foreground">{`${Object.keys(value).length} campo(s)`}</p>
-                            ) : (
-                              <p className="text-sm text-foreground">{formatPrimitive(value)}</p>
-                            )}
-                          </div>
-                        ))
-                    ) : (
-                      <p className="text-sm text-foreground">Consulta carregada.</p>
-                    )}
-                  </div>
-                ) : (
-                  <EmptyState
-                    title={`${section.label} não consultado`}
-                    description="Esse tópico faz parte do bloco AgRisk, mas não foi consultado nesta execução."
-                  />
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+            {/* Imóveis */}
+            <div className="px-4">
+              <p className="text-xs text-muted-foreground">Imóveis</p>
+              <p className="text-lg font-bold text-foreground">{properties.length}</p>
+            </div>
+
+            {/* Valor total */}
+            <div className="px-4 ml-auto text-right">
+              <p className="text-xs text-muted-foreground">Valor total</p>
+              <p className="text-2xl font-bold text-foreground">
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValue)}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Properties table */}
+      {properties.length > 0 ? (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Tipo</TableHead>
+                  <TableHead className="text-xs">Nome</TableHead>
+                  <TableHead className="text-xs">Área Total</TableHead>
+                  <TableHead className="text-xs">Área Própria</TableHead>
+                  <TableHead className="text-xs">Valor</TableHead>
+                  <TableHead className="text-xs">UF</TableHead>
+                  <TableHead className="text-xs">Município</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {properties.map((prop: any, idx: number) => {
+                  const tipo = prop.type || prop.tipo || prop.ownershipType || '—';
+                  const nome = prop.name || prop.nome || prop.propertyName || prop.fazenda || '—';
+                  const areaTotal = parseFloat(prop.totalArea || prop.areaTotal || prop.area || 0);
+                  const areaPropria = parseFloat(prop.ownArea || prop.areaPropria || prop.areaOwn || 0);
+                  const pct = areaTotal > 0 ? Math.round((areaPropria / areaTotal) * 100) : 0;
+                  const valor = parseFloat(prop.value || prop.valor || prop.totalValue || 0);
+                  const uf = prop.state || prop.uf || prop.estado || '—';
+                  const municipio = prop.city || prop.municipio || prop.cidade || prop.municipality || '—';
+
+                  const tipoLower = tipo.toString().toLowerCase();
+                  const isSociedade = tipoLower.includes('sociedade') || tipoLower.includes('society') || tipoLower.includes('partner');
+
+                  return (
+                    <TableRow key={idx}>
+                      <TableCell className="py-3">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10px] font-semibold whitespace-nowrap",
+                            isSociedade
+                              ? "border-cyan-500/40 text-cyan-700 bg-cyan-50"
+                              : "border-green-500/40 text-green-700 bg-green-50"
+                          )}
+                        >
+                          {isSociedade ? 'DE SOCIEDADE' : 'PRÓPRIA'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm font-medium text-foreground">{nome}</TableCell>
+                      <TableCell className="text-sm text-foreground">
+                        {isNaN(areaTotal) ? '—' : `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(areaTotal)} ha`}
+                      </TableCell>
+                      <TableCell className="text-sm text-foreground">
+                        {isNaN(areaPropria) ? '—' : `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(areaPropria)} ha (${pct}%)`}
+                      </TableCell>
+                      <TableCell className="text-sm text-foreground">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(isNaN(valor) ? 0 : valor)}
+                      </TableCell>
+                      <TableCell className="text-sm text-foreground">{uf}</TableCell>
+                      <TableCell className="text-sm text-foreground">{municipio}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : (
+        <EmptyState
+          title="Nenhum imóvel encontrado"
+          description="A consulta não retornou imóveis rurais para este cliente."
+        />
+      )}
     </div>
   );
 }
