@@ -1060,27 +1060,36 @@ function ImoveisContent({ items }: { items: SubItem[] }) {
 
 function ImovelDetailDialog({ property, tipo }: { property: any; tipo: string }) {
   const [open, setOpen] = useState(false);
-  const nome = property.name || property.nome || property.propertyName || property.fazenda || '—';
-  const tipoLower = tipo.toString().toLowerCase();
+  const [detailTab, setDetailTab] = useState('matriculas');
+  
+  // The edge function merges detail data as { ...item, details: { insertInfo, cafir, car, parcels } }
+  const details = property.details || {};
+  const insertInfo = details.insertInfo || {};
+  const cafir = details.cafir || {};
+
+  const nome = property.name || insertInfo.name || cafir.farmName || '—';
+  const tipoLower = (tipo || '').toString().toLowerCase();
   const isSociedade = tipoLower.includes('sociedade') || tipoLower.includes('society') || tipoLower.includes('partner');
 
-  const nirf = property.nirf || property.nirfCib || property.cib || '—';
-  const incra = property.incra || property.incraNumber || property.numIncra || '—';
-  const area = parseFloat(property.totalArea || property.areaTotal || property.area || 0);
-  const areaProdutiva = property.productiveArea || property.areaProdutiva || null;
-  const modFiscal = property.fiscalModule || property.moduloFiscal || property.modFiscal || null;
-  const valorEstimado = property.estimatedValue || property.valorEstimado || null;
-  const valorAtribuido = parseFloat(property.value || property.valor || property.totalValue || 0);
-  const uf = property.state || property.uf || property.estado || '—';
-  const municipio = property.city || property.municipio || property.cidade || property.municipality || '—';
-  const hasGeo = property.hasGeoRef || property.geoReferenced || property.geo || false;
+  // Use insertInfo/cafir for detailed fields, fallback to list-level fields
+  const nirf = insertInfo.nirf || cafir.nirf || '—';
+  const incra = insertInfo.numIncra || cafir.numIncra || '—';
+  const area = parseFloat(property.totalArea || insertInfo.totalArea || cafir.totalArea || 0);
+  const areaProdutiva = insertInfo.productiveArea || cafir.productiveArea || null;
+  const modFiscal = insertInfo.fiscalModule || cafir.fiscalModule || null;
+  const valorEstimado = insertInfo.estimatedValue || cafir.estimatedValue || null;
+  const valorAtribuido = parseFloat(property.value || insertInfo.value || 0);
+  const uf = property.state || insertInfo.state || cafir.state || '—';
+  const municipio = property.city || insertInfo.city || cafir.city || '—';
+  const hasGeo = property.isGEORef ?? false;
 
-  const matriculas: any[] = Array.isArray(property.registrations) ? property.registrations
-    : Array.isArray(property.matriculas) ? property.matriculas : [];
-  const cars: any[] = Array.isArray(property.car) ? property.car
-    : Array.isArray(property.cars) ? property.cars : [];
-  const proprietarios: any[] = Array.isArray(property.owners) ? property.owners
-    : Array.isArray(property.proprietarios) ? property.proprietarios : [];
+  // Matrículas from insertInfo
+  const matriculas: any[] = Array.isArray(insertInfo.registrations) ? insertInfo.registrations : [];
+  // CAR from detail root or insertInfo
+  const cars: any[] = Array.isArray(details.car) ? details.car
+    : Array.isArray(insertInfo.car) ? insertInfo.car : [];
+  // Proprietários from cafir.owners
+  const proprietarios: any[] = Array.isArray(cafir.owners) ? cafir.owners : [];
 
   const fmtCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(isNaN(v) ? 0 : v);
 
