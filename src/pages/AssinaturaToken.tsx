@@ -252,7 +252,7 @@ export default function AssinaturaToken() {
         {step === 'sucesso' && token && (
           <Card>
             <CardContent className="pt-6 text-center space-y-4">
-              <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
+              <CheckCircle2 className="h-12 w-12 text-primary mx-auto" />
               <div>
                 <h2 className="text-lg font-semibold text-foreground">Documento assinado com sucesso!</h2>
                 <p className="text-sm text-muted-foreground mt-1">
