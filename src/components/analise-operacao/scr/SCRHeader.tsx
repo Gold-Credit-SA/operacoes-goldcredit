@@ -61,7 +61,7 @@ export function SCRHeader({ cdCli, dtbConsult, entityName, latestDtb, totalOpera
           </div>
           <div>
             <span className="text-muted-foreground">Risco direto:</span>
-            <p className="font-medium">{formatCurrency(0)}</p>
+            <p className="font-medium">{formatCurrency(calcCarteiraAtiva(latestDtb))}</p>
           </div>
           {riskClassification && (
             <div>
