@@ -1074,114 +1074,111 @@ function ConsultaClienteTopicContent({ data }: { data: Record<string, any> }) {
     { label: 'CPF/CNPJ', value: formatDocument(clientData.taxId || clientData.document || clientData.cpfCnpj || details?.taxId) },
     { label: 'Nascimento', value: clientData.birthDate ? formatDate(clientData.birthDate) : clientData.dataNascimento },
     { label: 'Idade', value: clientData.age ? `${clientData.age} anos` : null },
-    { label: 'GÃªnero', value: clientData.gender || clientData.genero || clientData.sexo },
-    { label: 'Nome da mÃ£e', value: clientData.motherName || clientData.nomeMae },
+    { label: 'Gênero', value: clientData.gender || clientData.genero || clientData.sexo },
+    { label: 'Nome da mãe', value: clientData.motherName || clientData.nomeMae },
     { label: 'Receita Federal', value: clientData.taxIdStatus || validations.receitaFederal },
-    { label: 'Ã“bito', value: typeof clientData.hasObitIndication === 'boolean' ? (clientData.hasObitIndication ? 'PossÃ­vel indicaÃ§Ã£o' : 'Negativo') : validations.obito },
+    { label: 'Óbito', value: typeof clientData.hasObitIndication === 'boolean' ? (clientData.hasObitIndication ? 'Possível indicação' : 'Negativo') : validations.obito },
   ].filter((field) => field.value);
 
   const hasContent = infoFields.length > 0 || addresses.length > 0 || phones.length > 0 || emails.length > 0;
   if (!hasContent) {
     return (
       <EmptyState
-        title="Consulta Cliente nÃ£o consultado"
-        description="Esse tÃ³pico faz parte da estrutura AgRisk, mas nÃ£o foi consultado nesta execuÃ§Ã£o."
+        title="Consulta Cliente não consultado"
+        description="Esse tópico faz parte da estrutura AgRisk, mas não foi consultado nesta execução."
       />
     );
   }
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardContent className="p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <UserRound className="h-5 w-5 text-primary" />
-            <h3 className="text-xl font-bold text-foreground">InformaÃ§Ãµes Cadastrais</h3>
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <UserRound className="h-5 w-5 text-primary" />
+          <h3 className="text-lg font-semibold text-foreground">Informações Cadastrais</h3>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-4">
+          {infoFields.map((field) => (
+            <div key={field.label}>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">{field.label}</p>
+              <p className="text-sm text-foreground mt-0.5">{String(field.value)}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="border-t border-border" />
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <h4 className="text-sm font-semibold text-foreground">Endereços</h4>
+            <span className="inline-flex items-center justify-center h-5 min-w-5 rounded-full bg-muted px-1.5 text-[10px] font-semibold text-muted-foreground">{addresses.length}</span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            {infoFields.map((field) => (
-              <DetailField key={field.label} label={field.label} value={String(field.value)} />
-            ))}
+          {addresses.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum endereço retornado.</p>
+          ) : (
+            <div className="space-y-2">
+              {addresses.slice(0, 5).map((address: any, index: number) => (
+                <div key={index} className="rounded-md border border-border px-3 py-2">
+                  <p className="text-sm text-foreground">
+                    {[
+                      address.street || address.logradouro,
+                      address.number || address.numero,
+                      address.district || address.bairro,
+                      address.city || address.cidade,
+                      address.state || address.uf,
+                    ].filter(Boolean).join(', ') || 'Endereço sem detalhamento'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <h4 className="text-sm font-semibold text-foreground">Telefones</h4>
+            <span className="inline-flex items-center justify-center h-5 min-w-5 rounded-full bg-muted px-1.5 text-[10px] font-semibold text-muted-foreground">{phones.length}</span>
           </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-foreground">EndereÃ§os</h3>
-              <Badge variant="secondary">{addresses.length}</Badge>
+          {phones.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum telefone retornado.</p>
+          ) : (
+            <div className="space-y-2">
+              {phones.slice(0, 5).map((phone: any, index: number) => (
+                <div key={index} className="rounded-md border border-border px-3 py-2">
+                  <p className="text-sm font-medium text-foreground">
+                    {formatPrimitive(phone.phone_number || phone.number || phone.numero || phone.phone || phone.phoneNumber || phone.telefone)}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground uppercase">
+                    {formatPrimitive(phone.type || phone.tipo || phone.classification || 'Não informado')}
+                  </p>
+                </div>
+              ))}
             </div>
-            {addresses.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum endereÃ§o retornado.</p>
-            ) : (
-              <div className="space-y-3">
-                {addresses.slice(0, 3).map((address, index) => (
-                  <div key={index} className="rounded-lg border border-border p-3">
-                    <p className="text-sm text-foreground">
-                      {[
-                        address.street || address.logradouro,
-                        address.number || address.numero,
-                        address.district || address.bairro,
-                        address.city || address.cidade,
-                        address.state || address.uf,
-                      ].filter(Boolean).join(', ') || 'EndereÃ§o sem detalhamento'}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          )}
+        </div>
 
-        <Card>
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-foreground">Telefones</h3>
-              <Badge variant="secondary">{phones.length}</Badge>
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <h4 className="text-sm font-semibold text-foreground">Emails</h4>
+            <span className="inline-flex items-center justify-center h-5 min-w-5 rounded-full bg-muted px-1.5 text-[10px] font-semibold text-muted-foreground">{emails.length}</span>
+          </div>
+          {emails.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum email retornado.</p>
+          ) : (
+            <div className="space-y-2">
+              {emails.slice(0, 5).map((email: any, index: number) => (
+                <div key={index} className="rounded-md border border-border px-3 py-2">
+                  <p className="text-sm font-medium text-foreground">{formatPrimitive(email.email || email.address || email.value)}</p>
+                  <p className="text-[11px] text-muted-foreground uppercase">
+                    {formatPrimitive(email.type || email.tipo || 'Não informado')}
+                  </p>
+                </div>
+              ))}
             </div>
-            {phones.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum telefone retornado.</p>
-            ) : (
-              <div className="space-y-3">
-                {phones.slice(0, 4).map((phone, index) => (
-                  <div key={index} className="rounded-lg border border-border p-3">
-                    <p className="text-sm font-medium text-foreground">
-                      {formatPrimitive(phone.phone_number || phone.number || phone.numero || phone.phone || phone.phoneNumber || phone.telefone)}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {formatPrimitive(phone.type || phone.tipo || phone.classification || 'Nao informado')}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-foreground">Emails</h3>
-              <Badge variant="secondary">{emails.length}</Badge>
-            </div>
-            {emails.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum email retornado.</p>
-            ) : (
-              <div className="space-y-3">
-                {emails.slice(0, 4).map((email, index) => (
-                  <div key={index} className="rounded-lg border border-border p-3">
-                    <p className="text-sm font-medium text-foreground">{formatPrimitive(email.email || email.address || email.value)}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {formatPrimitive(email.type || email.tipo || 'Nao informado')}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1201,114 +1198,116 @@ function ConsultaClienteTopicContentClean({ data }: { data: Record<string, any> 
     { label: 'CPF/CNPJ', value: formatDocument(clientData.taxId || clientData.document || clientData.cpfCnpj || details?.taxId) },
     { label: 'Nascimento', value: clientData.birthDate ? formatDate(clientData.birthDate) : clientData.dataNascimento },
     { label: 'Idade', value: clientData.age ? `${clientData.age} anos` : null },
-    { label: 'Genero', value: clientData.gender || clientData.genero || clientData.sexo },
-    { label: 'Nome da mae', value: clientData.motherName || clientData.nomeMae },
+    { label: 'Gênero', value: clientData.gender || clientData.genero || clientData.sexo },
+    { label: 'Nome da mãe', value: clientData.motherName || clientData.nomeMae },
     { label: 'Receita Federal', value: clientData.taxIdStatus || validations.receitaFederal },
-    { label: 'Obito', value: typeof clientData.hasObitIndication === 'boolean' ? (clientData.hasObitIndication ? 'Possivel indicacao' : 'Negativo') : validations.obito },
+    { label: 'Óbito', value: typeof clientData.hasObitIndication === 'boolean' ? (clientData.hasObitIndication ? 'Possível indicação' : 'Negativo') : validations.obito },
   ].filter((field) => field.value);
 
   const hasContent = infoFields.length > 0 || addresses.length > 0 || phones.length > 0 || emails.length > 0;
   if (!hasContent) {
     return (
       <EmptyState
-        title="Consulta Cliente nao consultado"
-        description="Esse topico faz parte da estrutura AgRisk, mas nao foi consultado nesta execucao."
+        title="Consulta Cliente não consultado"
+        description="Esse tópico faz parte da estrutura AgRisk, mas não foi consultado nesta execução."
       />
     );
   }
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardContent className="p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <UserRound className="h-5 w-5 text-primary" />
-            <h3 className="text-xl font-bold text-foreground">Informacoes Cadastrais</h3>
+    <div className="space-y-6">
+      {/* Informações Cadastrais - flat grid, no card wrapper */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <UserRound className="h-5 w-5 text-primary" />
+          <h3 className="text-lg font-semibold text-foreground">Informações Cadastrais</h3>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-4">
+          {infoFields.map((field) => (
+            <div key={field.label}>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">{field.label}</p>
+              <p className="text-sm text-foreground mt-0.5">{String(field.value)}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="border-t border-border" />
+
+      {/* Contatos - 3 columns, simple lists */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* Endereços */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <h4 className="text-sm font-semibold text-foreground">Endereços</h4>
+            <span className="inline-flex items-center justify-center h-5 min-w-5 rounded-full bg-muted px-1.5 text-[10px] font-semibold text-muted-foreground">{addresses.length}</span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            {infoFields.map((field) => (
-              <DetailField key={field.label} label={field.label} value={String(field.value)} />
-            ))}
+          {addresses.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum endereço retornado.</p>
+          ) : (
+            <div className="space-y-2">
+              {addresses.slice(0, 5).map((address: any, index: number) => (
+                <div key={index} className="rounded-md border border-border px-3 py-2">
+                  <p className="text-sm text-foreground">
+                    {[
+                      address.street || address.logradouro,
+                      address.number || address.numero,
+                      address.district || address.bairro,
+                      address.city || address.cidade,
+                      address.state || address.uf,
+                    ].filter(Boolean).join(', ') || 'Endereço sem detalhamento'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Telefones */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <h4 className="text-sm font-semibold text-foreground">Telefones</h4>
+            <span className="inline-flex items-center justify-center h-5 min-w-5 rounded-full bg-muted px-1.5 text-[10px] font-semibold text-muted-foreground">{phones.length}</span>
           </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-foreground">Enderecos</h3>
-              <Badge variant="secondary">{addresses.length}</Badge>
+          {phones.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum telefone retornado.</p>
+          ) : (
+            <div className="space-y-2">
+              {phones.slice(0, 5).map((phone: any, index: number) => (
+                <div key={index} className="rounded-md border border-border px-3 py-2">
+                  <p className="text-sm font-medium text-foreground">
+                    {formatPrimitive(phone.phone_number || phone.number || phone.numero || phone.phone || phone.phoneNumber || phone.telefone)}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground uppercase">
+                    {formatPrimitive(phone.type || phone.tipo || phone.classification || 'Não informado')}
+                  </p>
+                </div>
+              ))}
             </div>
-            {addresses.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum endereco retornado.</p>
-            ) : (
-              <div className="space-y-3">
-                {addresses.slice(0, 3).map((address, index) => (
-                  <div key={index} className="rounded-lg border border-border p-3">
-                    <p className="text-sm text-foreground">
-                      {[
-                        address.street || address.logradouro,
-                        address.number || address.numero,
-                        address.district || address.bairro,
-                        address.city || address.cidade,
-                        address.state || address.uf,
-                      ].filter(Boolean).join(', ') || 'Endereco sem detalhamento'}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          )}
+        </div>
 
-        <Card>
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-foreground">Telefones</h3>
-              <Badge variant="secondary">{phones.length}</Badge>
+        {/* Emails */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <h4 className="text-sm font-semibold text-foreground">Emails</h4>
+            <span className="inline-flex items-center justify-center h-5 min-w-5 rounded-full bg-muted px-1.5 text-[10px] font-semibold text-muted-foreground">{emails.length}</span>
+          </div>
+          {emails.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum email retornado.</p>
+          ) : (
+            <div className="space-y-2">
+              {emails.slice(0, 5).map((email: any, index: number) => (
+                <div key={index} className="rounded-md border border-border px-3 py-2">
+                  <p className="text-sm font-medium text-foreground">{formatPrimitive(email.email || email.address || email.value)}</p>
+                  <p className="text-[11px] text-muted-foreground uppercase">
+                    {formatPrimitive(email.type || email.tipo || 'Não informado')}
+                  </p>
+                </div>
+              ))}
             </div>
-            {phones.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum telefone retornado.</p>
-            ) : (
-              <div className="space-y-3">
-                {phones.slice(0, 4).map((phone, index) => (
-                  <div key={index} className="rounded-lg border border-border p-3">
-                    <p className="text-sm font-medium text-foreground">
-                      {formatPrimitive(phone.phone_number || phone.number || phone.numero || phone.phone || phone.phoneNumber || phone.telefone)}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {formatPrimitive(phone.type || phone.tipo || phone.classification || 'Nao informado')}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-foreground">Emails</h3>
-              <Badge variant="secondary">{emails.length}</Badge>
-            </div>
-            {emails.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum email retornado.</p>
-            ) : (
-              <div className="space-y-3">
-                {emails.slice(0, 4).map((email, index) => (
-                  <div key={index} className="rounded-lg border border-border p-3">
-                    <p className="text-sm font-medium text-foreground">{formatPrimitive(email.email || email.address || email.value)}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {formatPrimitive(email.type || email.tipo || 'Nao informado')}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          )}
+        </div>
       </div>
     </div>
   );
