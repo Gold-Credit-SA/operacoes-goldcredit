@@ -1330,59 +1330,115 @@ function ConsultaClienteTopicContentClean({ data }: { data: Record<string, any> 
   );
 }
 
-function TopicSectionsContent({ title, items }: { title: string; items: SubItem[] }) {
-  const [selectedKey, setSelectedKey] = useState<string | null>(() => items.find((item) => item.status === 'DONE')?.key || items[0]?.key || null);
-  const selectedItem = items.find((item) => item.key === selectedKey) || items[0] || null;
+function SintegraContent({ items }: { items: SubItem[] }) {
+  const item = items[0];
+  if (!item || item.status !== 'DONE' || !item.data) {
+    return <EmptyState title="Sintegra não consultado" description="Esse tópico não foi consultado nesta execução." />;
+  }
 
-  useEffect(() => {
-    setSelectedKey(items.find((item) => item.status === 'DONE')?.key || items[0]?.key || null);
-  }, [items]);
+  const raw = item.data;
+  // Sintegra can return an object with items/registrations arrays, or be an array itself
+  const registrations: any[] = Array.isArray(raw)
+    ? raw
+    : raw.items || raw.registrations || raw.cadastros || raw.content || (raw.result ? (Array.isArray(raw.result) ? raw.result : [raw.result]) : []);
+
+  // Extract estados (states consulted sidebar)
+  const states: any[] = raw.states || raw.estados || [];
+
+  function getAge(item: any): string {
+    if (item.age || item.idade) return String(item.age || item.idade);
+    const date = item.registrationDate || item.dataRegistro || item.startDate;
+    if (!date) return '—';
+    try {
+      const years = Math.floor((Date.now() - new Date(date).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+      return `${years} anos`;
+    } catch { return '—'; }
+  }
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-foreground">{sanitizeUiText(title)}</h2>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {items.map((item) => {
-          const consulted = item.status === 'DONE' && item.data;
-          const isActive = selectedItem?.key === item.key;
-          return (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => setSelectedKey(item.key)}
-              className={cn(
-                "text-left rounded-xl border p-5 transition-colors",
-                isActive ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/30',
-              )}
-            >
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <h3 className="text-lg font-bold text-foreground">{sanitizeUiText(item.label)}</h3>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "text-[10px] font-semibold",
-                    consulted
-                      ? "border-green-500/40 text-green-600 bg-green-50"
-                      : "border-amber-500/40 text-amber-700 bg-amber-50",
-                  )}
-                >
-                  {consulted ? 'CONSULTADO' : 'NAO CONSULTADO'}
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {consulted ? 'Consulta disponivel para detalhamento.' : 'Esse topico nao foi consultado nesta execucao.'}
-              </p>
-            </button>
-          );
-        })}
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-foreground">Cadastros de Produtor</h2>
       </div>
 
-      {selectedItem && (
-        selectedItem.status === 'DONE' && selectedItem.data ? (
-          selectedItem.key === 'consulta_cliente' ? (
-            <ConsultaClienteTopicContentClean data={selectedItem.data} />
+      <div className="flex gap-6">
+        {/* Main table */}
+        <div className="flex-1 min-w-0">
+          {registrations.length === 0 ? (
+            <EmptyState title="Nenhum cadastro encontrado" description="Não foram encontrados cadastros de produtor no Sintegra." />
           ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="font-semibold text-foreground">Fazenda</TableHead>
+                  <TableHead className="font-semibold text-foreground">I.E.</TableHead>
+                  <TableHead className="font-semibold text-foreground">Status</TableHead>
+                  <TableHead className="font-semibold text-foreground">Idade</TableHead>
+                  <TableHead className="font-semibold text-foreground">Atividade</TableHead>
+                  <TableHead className="font-semibold text-foreground">UF</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {registrations.map((reg: any, idx: number) => {
+                  const status = (reg.status || reg.situacao || reg.Status || '').toUpperCase();
+                  const isActive = status === 'ATIVO' || status === 'ACTIVE' || status === 'HABILITADO';
+                  return (
+                    <TableRow key={idx}>
+                      <TableCell className="text-sm text-foreground font-medium max-w-[200px]">
+                        {reg.name || reg.nome || reg.farmName || reg.razaoSocial || reg.companyName || '—'}
+                      </TableCell>
+                      <TableCell className="text-sm text-foreground tabular-nums">
+                        {reg.stateRegistration || reg.inscricaoEstadual || reg.ie || reg.IE || '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={cn(
+                          "text-[11px] font-semibold border-0",
+                          isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                        )}>
+                          {status || '—'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-foreground">{getAge(reg)}</TableCell>
+                      <TableCell className="text-sm text-foreground max-w-[300px]">
+                        {reg.activity || reg.atividade || reg.mainActivity || reg.atividadePrincipal || '—'}
+                      </TableCell>
+                      <TableCell className="text-sm text-foreground font-medium">
+                        {reg.state || reg.uf || reg.UF || reg.estado || '—'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+
+        {/* States sidebar */}
+        {states.length > 0 && (
+          <div className="w-56 shrink-0 border-l border-border pl-4">
+            <h3 className="text-sm font-bold text-foreground mb-3">Estados Consultados</h3>
+            <div className="space-y-2">
+              {states.map((s: any, idx: number) => {
+                const stateLabel = typeof s === 'string' ? s : (s.state || s.uf || s.sigla || '');
+                const stateStatus = typeof s === 'string' ? 'FINALIZADO' : (s.status || 'FINALIZADO');
+                const isDone = stateStatus.toUpperCase().includes('FINAL') || stateStatus.toUpperCase().includes('DONE') || stateStatus.toUpperCase().includes('OK');
+                return (
+                  <div key={idx} className="flex items-center gap-2">
+                    <CheckCircle2 className={cn("h-4 w-4", isDone ? "text-green-500" : "text-muted-foreground")} />
+                    <span className="text-sm text-foreground font-medium">{stateLabel}</span>
+                    <span className="text-[10px] text-muted-foreground uppercase">
+                      {stateStatus.length > 12 ? stateStatus.slice(0, 12) + '…' : stateStatus}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
             <AgriskDetailView data={selectedItem.data} title={selectedItem.label} />
           )
         ) : (
