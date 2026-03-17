@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Loader2, AlertCircle, Shield, FileText, CheckCircle2, Download, RefreshCw, MonitorSmartphone } from 'lucide-react';
+import { Loader2, AlertCircle, Shield, FileText, CheckCircle2, Download, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   type ContratoData, type Certificado, type SignerStatus,
   fetchContrato, fetchContratoPdfUrl, checkSignerStatus,
@@ -13,7 +14,8 @@ import {
   assinarLocal, submeterAssinatura, getDownloadUrl,
 } from '@/lib/assinatura-api';
 
-type Step = 'loading' | 'contrato' | 'signer' | 'certificados' | 'assinando' | 'sucesso' | 'erro';
+type Step = 'loading' | 'pronto' | 'assinando' | 'sucesso' | 'erro';
+type ValidationState = 'idle' | 'checking' | 'invalid';
 
 export default function AssinaturaToken() {
   const { token } = useParams<{ token: string }>();
@@ -23,72 +25,30 @@ export default function AssinaturaToken() {
   const [signerStatus, setSignerStatus] = useState<SignerStatus>({ online: false });
   const [certificados, setCertificados] = useState<Certificado[]>([]);
   const [selectedCert, setSelectedCert] = useState<Certificado | null>(null);
+  const [validationState, setValidationState] = useState<ValidationState>('idle');
+  const [validationMessage, setValidationMessage] = useState('');
   const [progress, setProgress] = useState(0);
   const [statusMsg, setStatusMsg] = useState('');
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  const iniciarAssinatura = useCallback(async (cert: Certificado) => {
     if (!token) {
-      setError('Token nao informado.');
-      setStep('erro');
       return;
     }
-
-    (async () => {
-      try {
-        const data = await fetchContrato(token);
-        setContrato(data);
-        setPdfUrl(fetchContratoPdfUrl(token));
-        setStep('contrato');
-      } catch (e: any) {
-        setError(e.message || 'Erro ao buscar contrato.');
-        setStep('erro');
-      }
-    })();
-  }, [token]);
-
-  const checkSigner = useCallback(async () => {
-    setStep('signer');
-    const status = await checkSignerStatus();
-    setSignerStatus(status);
-
-    if (!status.online) {
-      return;
-    }
-
-    try {
-      const certs = await listarCertificados();
-      setCertificados(certs);
-      setStep('certificados');
-    } catch (e: any) {
-      setError('Nao foi possivel listar certificados: ' + e.message);
-      setStep('erro');
-    }
-  }, []);
-
-  const handleSign = useCallback(async (cert: Certificado) => {
-    if (!token) return;
 
     setSelectedCert(cert);
+    setValidationState('idle');
+    setValidationMessage('');
     setStep('assinando');
-    setProgress(0);
+    setProgress(20);
 
     try {
-      setStatusMsg('Validando certificado...');
-      setProgress(15);
-      const validation = await validarCertificado(token, cert.cpf_cnpj);
-      if (!validation.autorizado) {
-        setError(validation.mensagem || 'CPF/CNPJ do certificado nao corresponde ao signatario.');
-        setStep('erro');
-        return;
-      }
-
       setStatusMsg('Preparando assinatura no servidor...');
-      setProgress(35);
+      setProgress(40);
       const prep = await prepararAssinatura(token);
 
       setStatusMsg('Assinando com certificado digital...');
-      setProgress(55);
+      setProgress(65);
       const signed = await assinarLocal({
         hash_b64: prep.hash_bytes_b64,
         algoritmo: prep.algoritmo,
@@ -96,7 +56,7 @@ export default function AssinaturaToken() {
       });
 
       setStatusMsg('Enviando assinatura...');
-      setProgress(80);
+      setProgress(85);
       const result = await submeterAssinatura({
         token_acesso: token,
         assinatura_cms_b64: signed.assinatura_cms_b64,
@@ -119,11 +79,77 @@ export default function AssinaturaToken() {
     }
   }, [token]);
 
+  const validarCertificadoSelecionado = useCallback(async (cert: Certificado) => {
+    if (!token) {
+      return;
+    }
+
+    setSelectedCert(cert);
+    setValidationState('checking');
+    setValidationMessage('');
+
+    try {
+      const validation = await validarCertificado(token, cert.cpf_cnpj);
+      if (!validation.autorizado) {
+        setValidationState('invalid');
+        setValidationMessage(validation.mensagem || 'CPF/CNPJ do certificado nao corresponde ao signatario esperado.');
+        return;
+      }
+
+      setStatusMsg('Certificado validado. Iniciando assinatura...');
+      setProgress(10);
+      await iniciarAssinatura(cert);
+    } catch (e: any) {
+      setValidationState('invalid');
+      setValidationMessage(e.message || 'Nao foi possivel validar o certificado selecionado.');
+    }
+  }, [iniciarAssinatura, token]);
+
+  const carregarFluxo = useCallback(async () => {
+    if (!token) {
+      setError('Token nao informado.');
+      setStep('erro');
+      return;
+    }
+
+    setError('');
+    setSelectedCert(null);
+    setValidationState('idle');
+    setValidationMessage('');
+    setStep('loading');
+
+    try {
+      const data = await fetchContrato(token);
+      setContrato(data);
+      setPdfUrl(fetchContratoPdfUrl(token));
+
+      const status = await checkSignerStatus();
+      setSignerStatus(status);
+
+      if (!status.online) {
+        setCertificados([]);
+        setStep('pronto');
+        return;
+      }
+
+      const certs = await listarCertificados();
+      setCertificados(certs);
+      setStep('pronto');
+    } catch (e: any) {
+      setError(e.message || 'Erro ao carregar o fluxo de assinatura.');
+      setStep('erro');
+    }
+  }, [token]);
+
+  useEffect(() => {
+    carregarFluxo();
+  }, [carregarFluxo]);
+
   if (step === 'loading') {
     return (
       <CenteredLayout>
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="mt-4 text-sm text-muted-foreground">Carregando contrato...</p>
+        <p className="mt-4 text-sm text-muted-foreground">Carregando contrato e certificados...</p>
       </CenteredLayout>
     );
   }
@@ -138,7 +164,7 @@ export default function AssinaturaToken() {
               <AlertTitle>Erro</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
-            <Button variant="outline" className="mt-4 w-full gap-2" onClick={() => window.location.reload()}>
+            <Button variant="outline" className="mt-4 w-full gap-2" onClick={carregarFluxo}>
               <RefreshCw className="h-4 w-4" /> Tentar novamente
             </Button>
           </CardContent>
@@ -162,69 +188,103 @@ export default function AssinaturaToken() {
       <main className="mx-auto max-w-3xl space-y-6 px-6 py-8">
         {contrato && <ContratoCard contrato={contrato} pdfUrl={pdfUrl} />}
 
-        {step === 'contrato' && (
-          <Card>
-            <CardContent className="pt-6 text-center">
-              <p className="mb-4 text-sm text-muted-foreground">
-                Para assinar este documento, o assinador local deve estar em execucao.
-              </p>
-              <Button size="lg" className="gap-2" onClick={checkSigner}>
-                <MonitorSmartphone className="h-4 w-4" /> Iniciar assinatura
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {step === 'signer' && !signerStatus.online && (
-          <Card>
-            <CardContent className="pt-6">
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Assinador nao detectado</AlertTitle>
-                <AlertDescription>
-                  O assinador local nao esta em execucao em <code className="rounded bg-muted px-1 py-0.5 text-xs">localhost:8765</code>.
-                  Inicie o assinador e tente novamente.
-                </AlertDescription>
-              </Alert>
-              <Button variant="outline" className="mt-4 w-full gap-2" onClick={checkSigner}>
-                <RefreshCw className="h-4 w-4" /> Verificar novamente
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {step === 'certificados' && (
+        {step === 'pronto' && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Selecione o certificado</CardTitle>
+              <CardTitle className="text-base">Selecionar certificado</CardTitle>
               <CardDescription>
-                Assinador conectado{signerStatus.versao ? ` (v${signerStatus.versao})` : ''}. Escolha o certificado para assinar.
+                Ao escolher um certificado valido, a assinatura comeca automaticamente sem nova selecao.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {certificados.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nenhum certificado encontrado.</p>
+            <CardContent className="space-y-4">
+              {!signerStatus.online ? (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Assinador nao detectado</AlertTitle>
+                  <AlertDescription>
+                    O assinador local nao esta em execucao em <code className="rounded bg-muted px-1 py-0.5 text-xs">localhost:8765</code>.
+                    Inicie o assinador e clique em verificar novamente.
+                  </AlertDescription>
+                </Alert>
+              ) : certificados.length === 0 ? (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Nenhum certificado encontrado</AlertTitle>
+                  <AlertDescription>
+                    O assinador foi detectado{signerStatus.versao ? ` (v${signerStatus.versao})` : ''}, mas nenhum certificado disponivel foi retornado.
+                  </AlertDescription>
+                </Alert>
               ) : (
-                certificados.map((cert) => (
-                  <button
-                    key={cert.cert_id}
-                    onClick={() => handleSign(cert)}
-                    className="w-full rounded-lg border p-4 text-left transition-colors hover:border-primary/50 hover:bg-accent/30"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-foreground">{cert.subject_cn}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">CPF/CNPJ: {cert.cpf_cnpj}</p>
-                        <p className="text-xs text-muted-foreground">Emitido por: {cert.issuer_cn}</p>
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">Certificado digital</label>
+                    <Select
+                      value={selectedCert?.cert_id || ''}
+                      onValueChange={(certId) => {
+                        const cert = certificados.find((item) => item.cert_id === certId);
+                        if (cert) {
+                          void validarCertificadoSelecionado(cert);
+                        }
+                      }}
+                      disabled={validationState === 'checking'}
+                    >
+                      <SelectTrigger className="h-12">
+                        <SelectValue placeholder="Selecione o certificado para assinar" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {certificados.map((cert) => (
+                          <SelectItem key={cert.cert_id} value={cert.cert_id}>
+                            {cert.subject_cn} · {cert.cpf_cnpj}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="rounded-lg border bg-muted/30 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Assinador local</p>
                         <p className="text-xs text-muted-foreground">
-                          Validade: {new Date(cert.not_after).toLocaleDateString('pt-BR')}
+                          Conectado{signerStatus.versao ? ` · versao ${signerStatus.versao}` : ''}.
                         </p>
                       </div>
-                      <Badge variant="outline" className="shrink-0">{cert.tipo}</Badge>
+                      <Badge variant="outline">Online</Badge>
                     </div>
-                  </button>
-                ))
+
+                    {selectedCert && (
+                      <div className="mt-4 space-y-1 text-xs text-muted-foreground">
+                        <p>Certificado: <span className="font-medium text-foreground">{selectedCert.subject_cn}</span></p>
+                        <p>CPF/CNPJ: {selectedCert.cpf_cnpj}</p>
+                        <p>Emitido por: {selectedCert.issuer_cn}</p>
+                        <p>Validade: {new Date(selectedCert.not_after).toLocaleDateString('pt-BR')}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {validationState === 'checking' && (
+                    <Alert>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <AlertTitle>Validando certificado</AlertTitle>
+                      <AlertDescription>
+                        Estamos conferindo se o certificado pertence a pessoa ou empresa esperada para esta assinatura.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {validationState === 'invalid' && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Certificado nao autorizado</AlertTitle>
+                      <AlertDescription>{validationMessage}</AlertDescription>
+                    </Alert>
+                  )}
+                </>
               )}
+
+              <Button variant="outline" className="w-full gap-2" onClick={carregarFluxo} disabled={validationState === 'checking'}>
+                <RefreshCw className="h-4 w-4" /> Verificar novamente
+              </Button>
             </CardContent>
           </Card>
         )}
