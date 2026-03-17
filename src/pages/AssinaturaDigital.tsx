@@ -119,19 +119,70 @@ export default function AssinaturaDigital() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  // Result state
+  const [signLink, setSignLink] = useState('');
+  const [linkCopied, setLinkCopied] = useState(false);
+
   const handleSubmit = async () => {
     if (!tipoDocumento || !cedenteName || !file) {
       toast({ title: 'Preencha todos os campos obrigatórios', variant: 'destructive' });
       return;
     }
     setSending(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setSending(false);
-    toast({ title: 'Documento enviado!', description: 'O cedente receberá o documento para assinatura.' });
+    setSignLink('');
+    setLinkCopied(false);
+
+    try {
+      const formData = new FormData();
+      formData.append('tipo_documento', tipoDocumento);
+      formData.append('cedente_nome', cedenteName);
+      formData.append('cedente_cpf_cnpj', cedenteCnpj);
+      formData.append('observacao', observacao);
+      formData.append('arquivo', file);
+
+      const res = await fetch(`${BACKEND_URL}/api/assinatura/criar`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        throw new Error(errBody || `Erro ${res.status}`);
+      }
+
+      const data = await res.json();
+      const token = data.token || data.token_acesso;
+      if (!token) throw new Error('Token não retornado pelo servidor.');
+
+      const link = `${window.location.origin}/assinar/${token}`;
+      setSignLink(link);
+
+      toast({ title: 'Documento enviado com sucesso!', description: 'O link de assinatura foi gerado.' });
+    } catch (e: any) {
+      toast({ title: 'Erro ao enviar documento', description: e.message || 'Tente novamente.', variant: 'destructive' });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(signLink);
+      setLinkCopied(true);
+      toast({ title: 'Link copiado!' });
+      setTimeout(() => setLinkCopied(false), 3000);
+    } catch {
+      toast({ title: 'Erro ao copiar', variant: 'destructive' });
+    }
+  };
+
+  const handleNewDocument = () => {
     setTipoDocumento('');
     handleClearCedente();
     setObservacao('');
     handleRemoveFile();
+    setSignLink('');
+    setLinkCopied(false);
   };
 
   const selectedTipo = TIPOS_DOCUMENTO.find((t) => t.value === tipoDocumento);
