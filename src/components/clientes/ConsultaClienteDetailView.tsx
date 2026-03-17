@@ -1512,7 +1512,7 @@ export function ConsultaClienteDetailView({ data: rawData, agriskClientId, consu
       {/* Content */}
       <div className="min-h-[400px]">
         {selectedCat ? (
-          selectedCat.key === 'sintegra' ? <TopicSectionsContent title="Sintegra" items={selectedCat.items} /> :
+          selectedCat.key === 'sintegra' ? <SintegraContent items={selectedCat.items} /> :
           selectedCat.key === 'compliance' ? <ComplianceContent items={selectedCat.items} /> :
           selectedCat.key === 'juridico' ? <LawsuitsContent items={selectedCat.items} agriskClientId={agriskClientId} /> :
           selectedCat.key === 'grupos' ? <GruposContent items={selectedCat.items} /> :
