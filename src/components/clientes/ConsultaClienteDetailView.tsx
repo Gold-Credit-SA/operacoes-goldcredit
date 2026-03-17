@@ -354,8 +354,6 @@ function normalizeResponseData(rawData: Record<string, any>, consultaType?: stri
       data: details.imoveis_car || null,
     },
   ];
-    ];
-  }
 
   if (!result['grupos']) {
     result['grupos'] = [
