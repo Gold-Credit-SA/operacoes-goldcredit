@@ -27,6 +27,7 @@ const AdminSettings = lazy(() => import("./pages/AdminSettings"));
 const ChangePassword = lazy(() => import("./pages/ChangePassword"));
 const Profile = lazy(() => import("./pages/Profile"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const Contratos = lazy(() => import("./pages/Contratos"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
