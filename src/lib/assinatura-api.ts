@@ -124,6 +124,19 @@ export interface CriarSolicitacaoPayload {
   mensagem?: string;
   contrato_mae?: boolean;
   incluir_assinatura_gold_credit?: boolean;
+  assinatura_pagina_cedente?: number;
+  assinatura_x_cedente?: number;
+  assinatura_y_cedente?: number;
+  assinatura_largura_cedente?: number;
+  assinatura_altura_cedente?: number;
+  responsavel_solidario_nome?: string;
+  responsavel_solidario_email?: string;
+  responsavel_solidario_cpf_cnpj?: string;
+  assinatura_pagina_rs?: number;
+  assinatura_x_rs?: number;
+  assinatura_y_rs?: number;
+  assinatura_largura_rs?: number;
+  assinatura_altura_rs?: number;
 }
 
 export interface CriarSolicitacaoItem {
@@ -132,7 +145,7 @@ export interface CriarSolicitacaoItem {
   titulo: string;
   nome_arquivo: string;
   token_acesso: string;
-  papel_assinatura?: 'cedente' | 'cessionaria_gold_credit';
+  papel_assinatura?: 'cedente' | 'cessionaria_gold_credit' | 'responsavel_solidario';
   signatario_nome?: string;
   signatario_email?: string;
   assinatura_obrigatoria_cpf_cnpj?: string;
@@ -160,6 +173,21 @@ export async function criarSolicitacao(payload: CriarSolicitacaoPayload) {
   formData.append('mensagem', payload.mensagem || '');
   formData.append('contrato_mae', String(Boolean(payload.contrato_mae)));
   formData.append('incluir_assinatura_gold_credit', String(Boolean(payload.incluir_assinatura_gold_credit)));
+  formData.append('assinatura_pagina', String(payload.assinatura_pagina_cedente ?? 0));
+  formData.append('assinatura_x', String(payload.assinatura_x_cedente ?? 0.06));
+  formData.append('assinatura_y', String(payload.assinatura_y_cedente ?? 0.06));
+  formData.append('assinatura_largura', String(payload.assinatura_largura_cedente ?? 0.42));
+  formData.append('assinatura_altura', String(payload.assinatura_altura_cedente ?? 0.10));
+  if (payload.responsavel_solidario_email) {
+    formData.append('responsavel_solidario_nome', payload.responsavel_solidario_nome ?? '');
+    formData.append('responsavel_solidario_email', payload.responsavel_solidario_email);
+    formData.append('responsavel_solidario_cpf_cnpj', payload.responsavel_solidario_cpf_cnpj ?? '');
+    formData.append('assinatura_pagina_rs', String(payload.assinatura_pagina_rs ?? 0));
+    formData.append('assinatura_x_rs', String(payload.assinatura_x_rs ?? 0.54));
+    formData.append('assinatura_y_rs', String(payload.assinatura_y_rs ?? 0.08));
+    formData.append('assinatura_largura_rs', String(payload.assinatura_largura_rs ?? 0.42));
+    formData.append('assinatura_altura_rs', String(payload.assinatura_altura_rs ?? 0.10));
+  }
 
   const res = await fetch(`${BACKEND_URL}/api/assinatura/criar`, {
     method: 'POST',

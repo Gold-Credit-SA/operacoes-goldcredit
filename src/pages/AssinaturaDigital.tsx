@@ -1,17 +1,19 @@
-import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import {
   Building2,
   Check,
   CheckCircle2,
   ChevronsUpDown,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   ExternalLink,
   FileText,
   Loader2,
-  RefreshCw,
   Send,
-  Shield,
   Upload,
+  UserCheck,
+  Users,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,946 +22,656 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { buscarCedentePorDocumento, buscarCedentesCadastrados, type CedenteCadastroResumo } from '@/lib/cedente-api';
-import {
-  assinarLocal,
-  checkSignerStatus,
-  criarSolicitacao,
-  listarCertificados,
-  prepararAssinatura,
-  submeterAssinatura,
-  validarCertificado,
-  type Certificado,
-  type CriarSolicitacaoItem,
-  type SignerStatus,
-} from '@/lib/assinatura-api';
-import {
-  getGoldCreditCertificatePreference,
-  matchGoldCreditCertificate,
-  type GoldCreditCertificatePreference,
-} from '@/lib/goldsign-settings';
+import { criarSolicitacao, type CriarSolicitacaoItem } from '@/lib/assinatura-api';
 import { cn } from '@/lib/utils';
+import * as pdfjsLib from 'pdfjs-dist';
+import type { PDFDocumentProxy } from 'pdfjs-dist';
 
-type TipoDocumento = 'padrao' | 'contrato_mae';
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs`;
 
-interface ResultadoLink {
-  token_acesso: string;
-  link_assinatura: string;
-  papel_assinatura: 'cedente' | 'cessionaria_gold_credit';
-  signatario_nome?: string;
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type Step = 'dados' | 'posicoes' | 'resultado';
+
+interface SignForm {
+  nome: string;
+  email: string;
+  cpfCnpj: string;
 }
 
-interface ResultadoArquivo {
-  arquivo_nome: string;
-  titulo: string;
-  documento_id: string;
-  cedente?: ResultadoLink;
-  goldCredit?: ResultadoLink;
-  goldCreditStatus: 'nao_aplicavel' | 'pendente' | 'assinado' | 'erro';
-  goldCreditErro?: string;
+/** Normalized position: x/y from left/BOTTOM (PDF coords), w/h as fraction of page */
+interface BoxPos {
+  page: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
-export default function AssinaturaDigital() {
-  const [tipoDocumento, setTipoDocumento] = useState<TipoDocumento>('padrao');
-  const [titulo, setTitulo] = useState('');
-  const [signatarioNome, setSignatarioNome] = useState('');
-  const [signatarioEmail, setSignatarioEmail] = useState('');
-  const [signatarioCpfCnpj, setSignatarioCpfCnpj] = useState('');
-  const [mensagem, setMensagem] = useState('');
-  const [arquivos, setArquivos] = useState<File[]>([]);
-  const [enviando, setEnviando] = useState(false);
-  const [resultados, setResultados] = useState<ResultadoArquivo[]>([]);
-  const [cedenteOpen, setCedenteOpen] = useState(false);
-  const [cedenteSearch, setCedenteSearch] = useState('');
-  const [cedentes, setCedentes] = useState<CedenteCadastroResumo[]>([]);
-  const [cedenteSelecionado, setCedenteSelecionado] = useState<CedenteCadastroResumo | null>(null);
-  const [buscandoCedentes, setBuscandoCedentes] = useState(false);
-  const [carregandoCedente, setCarregandoCedente] = useState(false);
-  const [signerStatus, setSignerStatus] = useState<SignerStatus>({ online: false });
-  const [carregandoCertificados, setCarregandoCertificados] = useState(false);
-  const [certificados, setCertificados] = useState<Certificado[]>([]);
-  const [certificadoSelecionadoId, setCertificadoSelecionadoId] = useState('');
-  const [validandoCertificado, setValidandoCertificado] = useState(false);
-  const [certificadoAutorizado, setCertificadoAutorizado] = useState(false);
-  const [mensagemCertificado, setMensagemCertificado] = useState('');
-  const [assinandoGoldCredit, setAssinandoGoldCredit] = useState(false);
-  const [goldCreditPreference, setGoldCreditPreference] = useState<GoldCreditCertificatePreference | null>(null);
-  const [assinaturaAutomaticaGoldCredit, setAssinaturaAutomaticaGoldCredit] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const ultimaAssinaturaAutomaticaRef = useRef('');
+interface ResultLink {
+  role: 'cedente' | 'responsavel_solidario';
+  label: string;
+  nome: string;
+  link: string;
+  token: string;
+  status: string;
+}
 
-  const isContratoMae = tipoDocumento === 'contrato_mae';
+// ─── PdfPositioner ────────────────────────────────────────────────────────────
 
-  const resultadosGoldCreditPendentes = useMemo(
-    () => resultados.filter((item) => item.goldCredit && item.goldCreditStatus !== 'assinado'),
-    [resultados],
-  );
+interface PdfBox {
+  id: string;
+  label: string;
+  color: 'blue' | 'emerald';
+  pos: BoxPos;
+}
 
-  const linksCedenteLiberados = !isContratoMae || resultadosGoldCreditPendentes.length === 0;
+interface PdfPositionerProps {
+  objectUrl: string;
+  boxes: PdfBox[];
+  onChange: (id: string, pos: BoxPos) => void;
+}
 
-  const certificadoSelecionado = useMemo(
-    () => certificados.find((cert) => cert.cert_id === certificadoSelecionadoId) || null,
-    [certificados, certificadoSelecionadoId],
-  );
+function PdfPositioner({ objectUrl, boxes, onChange }: PdfPositionerProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const pdfRef = useRef<PDFDocumentProxy | null>(null);
+  const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
+  const [numPages, setNumPages] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [canvasW, setCanvasW] = useState(0);
+  const [canvasH, setCanvasH] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  const assinaturaAutomaticaKey = useMemo(
-    () =>
-      resultadosGoldCreditPendentes
-        .map((item) => item.goldCredit?.token_acesso)
-        .filter(Boolean)
-        .join('|'),
-    [resultadosGoldCreditPendentes],
-  );
+  const renderPage = useCallback(async (pdf: PDFDocumentProxy, pageNum: number) => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+
+    if (renderTaskRef.current) {
+      try { renderTaskRef.current.cancel(); } catch {}
+    }
+
+    const page = await pdf.getPage(pageNum);
+    const containerWidth = container.clientWidth || 640;
+    const unscaled = page.getViewport({ scale: 1 });
+    const scale = Math.min(containerWidth / unscaled.width, 1.8);
+    const vp = page.getViewport({ scale });
+
+    canvas.width = vp.width;
+    canvas.height = vp.height;
+    setCanvasW(vp.width);
+    setCanvasH(vp.height);
+
+    const ctx = canvas.getContext('2d')!;
+    const task = page.render({ canvasContext: ctx, viewport: vp });
+    renderTaskRef.current = task as any;
+    try { await task.promise; } catch {}
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
-    if (!isContratoMae) {
-      setGoldCreditPreference(null);
-      return;
-    }
-
-    void getGoldCreditCertificatePreference()
-      .then(setGoldCreditPreference)
-      .catch(() => setGoldCreditPreference(null));
-  }, [isContratoMae]);
-
-  useEffect(() => {
-    if (!isContratoMae || !goldCreditPreference || certificados.length === 0 || certificadoSelecionadoId) {
-      return;
-    }
-
-    const matched = matchGoldCreditCertificate(certificados, goldCreditPreference);
-    if (!matched) {
-      return;
-    }
-
-    setAssinaturaAutomaticaGoldCredit(true);
-    setMensagemCertificado('Certificado preferencial da Gold Credit encontrado nesta maquina. Validando automaticamente...');
-    void validarCertificadoGoldCredit(matched.cert_id);
-  }, [isContratoMae, goldCreditPreference, certificados, certificadoSelecionadoId]);
+    let cancelled = false;
+    setLoading(true);
+    pdfjsLib.getDocument(objectUrl).promise.then((pdf) => {
+      if (cancelled) return;
+      pdfRef.current = pdf;
+      setNumPages(pdf.numPages);
+      void renderPage(pdf, 1);
+    }).catch(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [objectUrl, renderPage]);
 
   useEffect(() => {
-    if (!assinaturaAutomaticaGoldCredit || !certificadoAutorizado || assinandoGoldCredit || !assinaturaAutomaticaKey || !certificadoSelecionadoId) {
-      return;
-    }
+    const pdf = pdfRef.current;
+    if (!pdf) return;
+    setLoading(true);
+    void renderPage(pdf, currentPage);
+  }, [currentPage, renderPage]);
 
-    const tentativaAtual = `${certificadoSelecionadoId}:${assinaturaAutomaticaKey}`;
-    if (ultimaAssinaturaAutomaticaRef.current === tentativaAtual) {
-      return;
-    }
-
-    ultimaAssinaturaAutomaticaRef.current = tentativaAtual;
-    setMensagemCertificado('Certificado vinculado validado. Aplicando a assinatura da Gold Credit automaticamente...');
-    void assinarGoldCredit();
-  }, [
-    assinaturaAutomaticaGoldCredit,
-    assinaturaAutomaticaKey,
-    assinandoGoldCredit,
-    certificadoAutorizado,
-    certificadoSelecionadoId,
-  ]);
-
-  useEffect(() => {
-    const termo = cedenteSearch.trim();
-
-    if (!cedenteOpen || termo.length < 2) {
-      setCedentes([]);
-      setBuscandoCedentes(false);
-      return;
-    }
-
-    const debounce = window.setTimeout(async () => {
-      setBuscandoCedentes(true);
-      try {
-        const data = await buscarCedentesCadastrados(termo);
-        setCedentes(data);
-      } catch (e: any) {
-        setCedentes([]);
-        toast({
-          title: 'Erro ao buscar cedentes',
-          description: e.message || 'Nao foi possivel consultar os cedentes cadastrados.',
-          variant: 'destructive',
-        });
-      } finally {
-        setBuscandoCedentes(false);
-      }
-    }, 300);
-
-    return () => window.clearTimeout(debounce);
-  }, [cedenteOpen, cedenteSearch]);
-
-  const formatarCpfCnpj = (valor: string) => {
-    const limpo = valor.replace(/\D/g, '');
-    if (limpo.length === 11) return limpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-    if (limpo.length === 14) return limpo.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
-    return valor;
-  };
-
-  const preencherSignatario = (cedente: CedenteCadastroResumo) => {
-    setCedenteSelecionado(cedente);
-    setSignatarioNome(cedente.nome || '');
-    setSignatarioEmail(cedente.email || '');
-    setSignatarioCpfCnpj(formatarCpfCnpj(cedente.cpf_cnpj || ''));
-  };
-
-  const selecionarCedente = async (cedente: CedenteCadastroResumo) => {
-    setCarregandoCedente(true);
-    try {
-      const detalhe = await buscarCedentePorDocumento(cedente.cpf_cnpj);
-      preencherSignatario(detalhe);
-      setCedenteOpen(false);
-      setCedenteSearch('');
-      setCedentes([]);
-      toast({
-        title: 'Cedente carregado',
-        description: 'Nome, e-mail e CPF/CNPJ foram preenchidos e continuam editaveis.',
-      });
-    } catch (e: any) {
-      toast({
-        title: 'Erro ao carregar cedente',
-        description: e.message || 'Nao foi possivel preencher os dados do cedente.',
-        variant: 'destructive',
-      });
-    } finally {
-      setCarregandoCedente(false);
-    }
-  };
-
-  const onSelecionarArquivo = (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    if (files.length === 0) return;
-
-    const validos: File[] = [];
-    for (const file of files) {
-      if (!file.name.toLowerCase().endsWith('.pdf')) {
-        toast({ title: `O arquivo ${file.name} nao e um PDF.`, variant: 'destructive' });
-        continue;
-      }
-      if (file.size > 50 * 1024 * 1024) {
-        toast({ title: `O arquivo ${file.name} excede 50MB.`, variant: 'destructive' });
-        continue;
-      }
-      validos.push(file);
-    }
-
-    if (validos.length === 0) {
-      if (inputRef.current) inputRef.current.value = '';
-      return;
-    }
-
-    setArquivos((prev) => {
-      const existentes = new Set(prev.map((file) => `${file.name}-${file.size}-${file.lastModified}`));
-      const novos = validos.filter((file) => !existentes.has(`${file.name}-${file.size}-${file.lastModified}`));
-      return [...prev, ...novos];
-    });
-
-    if (inputRef.current) inputRef.current.value = '';
-  };
-
-  const limpar = () => {
-    setTipoDocumento('padrao');
-    setTitulo('');
-    setSignatarioNome('');
-    setSignatarioEmail('');
-    setSignatarioCpfCnpj('');
-    setMensagem('');
-    setArquivos([]);
-    setResultados([]);
-    setCedenteOpen(false);
-    setCedenteSearch('');
-    setCedentes([]);
-    setCedenteSelecionado(null);
-    setSignerStatus({ online: false });
-    setCarregandoCertificados(false);
-    setCertificados([]);
-    setCertificadoSelecionadoId('');
-    setValidandoCertificado(false);
-    setCertificadoAutorizado(false);
-    setMensagemCertificado('');
-    setAssinandoGoldCredit(false);
-    setAssinaturaAutomaticaGoldCredit(false);
-    ultimaAssinaturaAutomaticaRef.current = '';
-    if (inputRef.current) inputRef.current.value = '';
-  };
-
-  const recarregarCertificadosGoldCredit = async () => {
-    setCarregandoCertificados(true);
-    setMensagemCertificado('');
-    setCertificadoAutorizado(false);
-
-    try {
-      const status = await checkSignerStatus();
-      setSignerStatus(status);
-
-      if (!status.online) {
-        setCertificados([]);
-        return;
-      }
-
-      const lista = await listarCertificados();
-      setCertificados(lista);
-      const matched = matchGoldCreditCertificate(lista, goldCreditPreference);
-      if (matched) {
-        setAssinaturaAutomaticaGoldCredit(true);
-        setCertificadoSelecionadoId(matched.cert_id);
-        setMensagemCertificado('Certificado preferencial da Gold Credit encontrado nesta maquina. Validando automaticamente...');
-        void validarCertificadoGoldCredit(matched.cert_id);
-      } else if (goldCreditPreference?.gold_credit_cert_document) {
-        setAssinaturaAutomaticaGoldCredit(false);
-        setMensagemCertificado('Nenhum certificado vinculado da Gold Credit foi encontrado nesta maquina. Selecione outro certificado ou atualize o vinculo nas configuracoes do master.');
-      }
-    } catch (e: any) {
-      setCertificados([]);
-      toast({
-        title: 'Erro ao carregar certificados',
-        description: e.message || 'Nao foi possivel consultar os certificados da Gold Credit.',
-        variant: 'destructive',
-      });
-    } finally {
-      setCarregandoCertificados(false);
-    }
-  };
-
-  const normalizarSolicitacao = (solicitacao: CriarSolicitacaoItem): ResultadoLink => ({
-    token_acesso: solicitacao.token_acesso,
-    link_assinatura: solicitacao.link_assinatura,
-    papel_assinatura: solicitacao.papel_assinatura || 'cedente',
-    signatario_nome: solicitacao.signatario_nome,
+  // Convert PDF coords → CSS % relative to canvas container
+  const toPct = (pos: BoxPos) => ({
+    left: `${(pos.x * 100).toFixed(3)}%`,
+    top: `${((1 - pos.y - pos.h) * 100).toFixed(3)}%`,
+    width: `${(pos.w * 100).toFixed(3)}%`,
+    height: `${(pos.h * 100).toFixed(3)}%`,
   });
 
-  const enviar = async () => {
-    if (!signatarioNome || !signatarioEmail || !signatarioCpfCnpj || arquivos.length === 0) {
-      toast({
-        title: 'Preencha os dados obrigatorios e selecione ao menos um PDF.',
-        variant: 'destructive',
+  const handleDragStart = (e: React.MouseEvent, boxId: string) => {
+    e.preventDefault();
+    if (!canvasW || !canvasH) return;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const box = boxes.find((b) => b.id === boxId)!;
+    const { x: ix, y: iy, w, h } = box.pos;
+
+    const onMove = (ev: MouseEvent) => {
+      const dx = (ev.clientX - startX) / canvasW;
+      const dy = (ev.clientY - startY) / canvasH;
+      onChange(boxId, {
+        x: Math.max(0, Math.min(1 - w, ix + dx)),
+        y: Math.max(0, Math.min(1 - h, iy - dy)), // invert: screen-down = pdf-y-decrease
+        w,
+        h,
+        page: currentPage,
       });
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  const boxesOnPage = boxes.filter((b) => b.pos.page === currentPage);
+
+  return (
+    <div className="space-y-3">
+      {/* Page nav */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage <= 1}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm text-muted-foreground tabular-nums">
+            Página {currentPage} / {numPages}
+          </span>
+          <Button variant="outline" size="icon" onClick={() => setCurrentPage((p) => Math.min(numPages, p + 1))} disabled={currentPage >= numPages}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">Arraste as caixas para posicionar as assinaturas</p>
+      </div>
+
+      {/* Canvas + overlays */}
+      <div ref={containerRef} className="relative w-full overflow-hidden rounded-lg border bg-muted shadow-inner">
+        {loading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        )}
+        <canvas ref={canvasRef} className="block w-full" />
+
+        {canvasW > 0 && boxesOnPage.map((box) => (
+          <div
+            key={box.id}
+            className={cn(
+              'absolute cursor-grab select-none active:cursor-grabbing',
+              'flex items-center justify-center rounded border-2 text-xs font-semibold',
+              box.color === 'blue'
+                ? 'border-blue-500 bg-blue-500/25 text-blue-800'
+                : 'border-emerald-500 bg-emerald-500/25 text-emerald-800',
+            )}
+            style={toPct(box.pos)}
+            onMouseDown={(e) => handleDragStart(e, box.id)}
+          >
+            <span className="truncate px-1">{box.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Box info chips */}
+      <div className="flex flex-wrap gap-2">
+        {boxes.map((box) => (
+          <div
+            key={box.id}
+            className={cn(
+              'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm',
+              box.color === 'blue' ? 'border-blue-200 bg-blue-50' : 'border-emerald-200 bg-emerald-50',
+            )}
+          >
+            <span className={cn('h-3 w-3 rounded-sm border-2', box.color === 'blue' ? 'border-blue-500 bg-blue-200' : 'border-emerald-500 bg-emerald-200')} />
+            <span className="font-medium">{box.label}</span>
+            <span className="text-muted-foreground">
+              · Pág. {box.pos.page}
+              {box.pos.page !== currentPage && (
+                <button className="ml-1 underline" onClick={() => setCurrentPage(box.pos.page)}>
+                  (ver)
+                </button>
+              )}
+            </span>
+            {box.pos.page !== currentPage && (
+              <button
+                className="ml-1 text-xs underline text-muted-foreground"
+                onClick={() => onChange(box.id, { ...box.pos, page: currentPage })}
+              >
+                Mover p/ pág. {currentPage}
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+const EMPTY_FORM: SignForm = { nome: '', email: '', cpfCnpj: '' };
+const DEFAULT_BOX_W = 0.42;
+const DEFAULT_BOX_H = 0.10;
+
+export default function AssinaturaDigital() {
+  const [step, setStep] = useState<Step>('dados');
+
+  // Step 1 state
+  const [arquivo, setArquivo] = useState<File | null>(null);
+  const [titulo, setTitulo] = useState('');
+  const [mensagem, setMensagem] = useState('');
+  const [cedente, setCedente] = useState<SignForm>(EMPTY_FORM);
+  const [responsavel, setResponsavel] = useState<SignForm>(EMPTY_FORM);
+  const [cedenteOpen, setCedenteOpen] = useState(false);
+  const [cedenteSearch, setCedenteSearch] = useState('');
+  const [cedenteSugestoes, setCedenteSugestoes] = useState<CedenteCadastroResumo[]>([]);
+  const [buscandoCedentes, setBuscandoCedentes] = useState(false);
+  const [cedenteSelecionado, setCedenteSelecionado] = useState<CedenteCadastroResumo | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Step 2 state
+  const [pdfObjectUrl, setPdfObjectUrl] = useState('');
+  const [boxCedente, setBoxCedente] = useState<BoxPos>({ page: 1, x: 0.06, y: 0.08, w: DEFAULT_BOX_W, h: DEFAULT_BOX_H });
+  const [boxResponsavel, setBoxResponsavel] = useState<BoxPos>({ page: 1, x: 0.54, y: 0.08, w: DEFAULT_BOX_W, h: DEFAULT_BOX_H });
+
+  // Step 3 state
+  const [enviando, setEnviando] = useState(false);
+  const [links, setLinks] = useState<ResultLink[]>([]);
+
+  const temResponsavel = Boolean(responsavel.email && responsavel.cpfCnpj);
+
+  const formatarCpfCnpj = (v: string) => {
+    const d = v.replace(/\D/g, '');
+    if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+    return v;
+  };
+
+  // Busca de cedentes cadastrados
+  useEffect(() => {
+    const termo = cedenteSearch.trim();
+    if (!cedenteOpen || termo.length < 2) {
+      setCedenteSugestoes([]);
       return;
     }
+    const t = window.setTimeout(async () => {
+      setBuscandoCedentes(true);
+      try { setCedenteSugestoes(await buscarCedentesCadastrados(termo)); }
+      catch { setCedenteSugestoes([]); }
+      finally { setBuscandoCedentes(false); }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [cedenteOpen, cedenteSearch]);
 
+  const selecionarCedente = async (c: CedenteCadastroResumo) => {
+    try {
+      const det = await buscarCedentePorDocumento(c.cpf_cnpj);
+      setCedente({ nome: det.nome || '', email: det.email || '', cpfCnpj: formatarCpfCnpj(det.cpf_cnpj || '') });
+      setCedenteSelecionado(det);
+    } catch {
+      setCedente({ nome: c.nome || '', email: c.email || '', cpfCnpj: formatarCpfCnpj(c.cpf_cnpj || '') });
+      setCedenteSelecionado(c);
+    }
+    setCedenteOpen(false);
+    setCedenteSearch('');
+    setCedenteSugestoes([]);
+  };
+
+  const onSelecionarArquivo = (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.name.toLowerCase().endsWith('.pdf')) { toast({ title: 'Selecione um arquivo PDF.', variant: 'destructive' }); return; }
+    if (f.size > 50 * 1024 * 1024) { toast({ title: 'Arquivo excede 50MB.', variant: 'destructive' }); return; }
+    setArquivo(f);
+    if (inputRef.current) inputRef.current.value = '';
+  };
+
+  const irParaPosicoes = () => {
+    if (!arquivo) { toast({ title: 'Selecione um arquivo PDF.', variant: 'destructive' }); return; }
+    if (!cedente.email || !cedente.cpfCnpj || !cedente.nome) {
+      toast({ title: 'Preencha nome, e-mail e CPF/CNPJ do cedente.', variant: 'destructive' }); return;
+    }
+    if (pdfObjectUrl) URL.revokeObjectURL(pdfObjectUrl);
+    setPdfObjectUrl(URL.createObjectURL(arquivo));
+    setStep('posicoes');
+  };
+
+  const gerar = async () => {
     setEnviando(true);
     try {
-      const novosResultados: ResultadoArquivo[] = [];
-
-      for (const [index, arquivo] of arquivos.entries()) {
-        const tituloArquivo = titulo.trim()
-          ? arquivos.length > 1
-            ? `${titulo.trim()} - ${arquivo.name.replace(/\.pdf$/i, '')}`
-            : titulo.trim()
-          : arquivo.name.replace(/\.pdf$/i, '');
-
-        const data = await criarSolicitacao({
-          arquivo,
-          titulo: tituloArquivo,
-          tipo_documento: isContratoMae ? 'contrato_mae' : 'padrao',
-          signatario_nome: signatarioNome,
-          signatario_email: signatarioEmail,
-          signatario_cpf_cnpj: signatarioCpfCnpj,
-          mensagem,
-          contrato_mae: isContratoMae,
-          incluir_assinatura_gold_credit: isContratoMae,
-        });
-
-        const solicitacoesCriadas = data.solicitacoes?.length ? data.solicitacoes : [data];
-        const cedente = solicitacoesCriadas.find((solicitacao) => (solicitacao.papel_assinatura || 'cedente') === 'cedente');
-        const goldCredit = solicitacoesCriadas.find((solicitacao) => solicitacao.papel_assinatura === 'cessionaria_gold_credit');
-
-        novosResultados.push({
-          arquivo_nome: arquivo.name,
-          titulo: tituloArquivo,
-          documento_id: data.documento_id,
-          cedente: cedente ? normalizarSolicitacao(cedente) : undefined,
-          goldCredit: goldCredit ? normalizarSolicitacao(goldCredit) : undefined,
-          goldCreditStatus: goldCredit ? 'pendente' : 'nao_aplicavel',
-        });
-
-        setResultados([...novosResultados]);
-
-        if (index < arquivos.length - 1) {
-          toast({ title: `${index + 1} de ${arquivos.length} documentos enviados.` });
-        }
-      }
-
-      if (isContratoMae) {
-        await recarregarCertificadosGoldCredit();
-      }
-
-      toast({
-        title: arquivos.length > 1 ? 'Lote criado com sucesso.' : 'Documento criado com sucesso.',
-        description: isContratoMae
-          ? 'Assine primeiro a cessionaria Gold Credit para liberar o link do cedente.'
-          : 'O link do cedente ja esta pronto para envio.',
+      const tituloFinal = titulo.trim() || arquivo!.name.replace(/\.pdf$/i, '');
+      const data = await criarSolicitacao({
+        arquivo: arquivo!,
+        titulo: tituloFinal,
+        tipo_documento: 'contrato_mae',
+        signatario_nome: cedente.nome,
+        signatario_email: cedente.email,
+        signatario_cpf_cnpj: cedente.cpfCnpj,
+        mensagem,
+        contrato_mae: true,
+        incluir_assinatura_gold_credit: true,
+        assinatura_pagina_cedente: boxCedente.page,
+        assinatura_x_cedente: boxCedente.x,
+        assinatura_y_cedente: boxCedente.y,
+        assinatura_largura_cedente: boxCedente.w,
+        assinatura_altura_cedente: boxCedente.h,
+        ...(temResponsavel && {
+          responsavel_solidario_nome: responsavel.nome,
+          responsavel_solidario_email: responsavel.email,
+          responsavel_solidario_cpf_cnpj: responsavel.cpfCnpj,
+          assinatura_pagina_rs: boxResponsavel.page,
+          assinatura_x_rs: boxResponsavel.x,
+          assinatura_y_rs: boxResponsavel.y,
+          assinatura_largura_rs: boxResponsavel.w,
+          assinatura_altura_rs: boxResponsavel.h,
+        }),
       });
+
+      const solicitacoes: CriarSolicitacaoItem[] = data.solicitacoes?.length ? data.solicitacoes : [data];
+      const cedenteSol = solicitacoes.filter((s) => (s.papel_assinatura || 'cedente') === 'cedente');
+
+      const novosLinks: ResultLink[] = [];
+      if (cedenteSol[0]) {
+        novosLinks.push({ role: 'cedente', label: 'Cedente', nome: cedenteSol[0].signatario_nome || cedente.nome, link: cedenteSol[0].link_assinatura, token: cedenteSol[0].token_acesso, status: cedenteSol[0].status });
+      }
+      if (cedenteSol[1]) {
+        novosLinks.push({ role: 'responsavel_solidario', label: 'Responsável Solidário', nome: cedenteSol[1].signatario_nome || responsavel.nome, link: cedenteSol[1].link_assinatura, token: cedenteSol[1].token_acesso, status: cedenteSol[1].status });
+      }
+
+      setLinks(novosLinks);
+      setStep('resultado');
+
+      toast({ title: 'Fluxo criado com sucesso.', description: 'Cessionária Gold Credit assinada automaticamente. Links prontos para envio.' });
     } catch (e: any) {
-      toast({
-        title: 'Erro ao criar solicitacao',
-        description: e.message || 'Nao foi possivel enviar o documento.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Erro ao gerar fluxo', description: e.message || 'Tente novamente.', variant: 'destructive' });
     } finally {
       setEnviando(false);
     }
   };
 
-  const validarCertificadoGoldCredit = async (certId: string) => {
-    setCertificadoSelecionadoId(certId);
-    setCertificadoAutorizado(false);
-    setMensagemCertificado('');
-
-    const cert = certificados.find((item) => item.cert_id === certId);
-    const solicitacaoGoldCredit = resultadosGoldCreditPendentes[0]?.goldCredit;
-    if (!cert || !solicitacaoGoldCredit) {
-      return;
-    }
-
-    setValidandoCertificado(true);
-    try {
-      const validation = await validarCertificado(solicitacaoGoldCredit.token_acesso, cert.cpf_cnpj);
-      if (!validation.autorizado) {
-        setAssinaturaAutomaticaGoldCredit(false);
-        setMensagemCertificado(validation.mensagem || 'O certificado selecionado nao pertence a cessionaria Gold Credit.');
-        return;
-      }
-
-      setCertificadoAutorizado(true);
-      setMensagemCertificado(
-        assinaturaAutomaticaGoldCredit
-          ? 'Certificado da cessionaria validado. A assinatura da Gold Credit sera aplicada automaticamente.'
-          : 'Certificado da cessionaria validado. Agora voce pode aplicar a assinatura interna.',
-      );
-    } catch (e: any) {
-      setAssinaturaAutomaticaGoldCredit(false);
-      setMensagemCertificado(e.message || 'Nao foi possivel validar o certificado da cessionaria.');
-    } finally {
-      setValidandoCertificado(false);
-    }
-  };
-
-  const assinarGoldCredit = async () => {
-    if (!certificadoSelecionado || !certificadoAutorizado) {
-      toast({
-        title: 'Selecione e valide o certificado da Gold Credit antes de continuar.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const pendentes = resultados.filter((item) => item.goldCredit && item.goldCreditStatus !== 'assinado');
-    if (pendentes.length === 0) {
-      return;
-    }
-
-    setAssinandoGoldCredit(true);
-    try {
-      for (const item of pendentes) {
-        const token = item.goldCredit?.token_acesso;
-        if (!token) {
-          continue;
-        }
-
-        const prep = await prepararAssinatura(token);
-        const assinaturaLocal = await assinarLocal({
-          hash_b64: prep.hash_bytes_b64,
-          algoritmo: prep.algoritmo,
-          cert_id: certificadoSelecionado.cert_id,
-        });
-
-        const resultado = await submeterAssinatura({
-          token_acesso: token,
-          assinatura_cms_b64: assinaturaLocal.assinatura_cms_b64,
-          cert_pem: assinaturaLocal.cert_pem,
-          cert_tipo: assinaturaLocal.cert_tipo || certificadoSelecionado.tipo,
-        });
-
-        if (!resultado.sucesso) {
-          throw new Error(resultado.mensagem || 'Falha ao aplicar a assinatura da cessionaria.');
-        }
-
-        setResultados((prev) =>
-          prev.map((registro) =>
-            registro.goldCredit?.token_acesso === token
-              ? { ...registro, goldCreditStatus: 'assinado', goldCreditErro: undefined }
-              : registro,
-          ),
-        );
-      }
-
-      toast({
-        title: 'Cessionaria assinada com sucesso.',
-        description: 'Os links do cedente foram liberados para envio.',
-      });
-    } catch (e: any) {
-      const mensagem = e.message || 'Nao foi possivel aplicar a assinatura da cessionaria.';
-      setResultados((prev) =>
-        prev.map((registro) =>
-          registro.goldCreditStatus === 'pendente'
-            ? { ...registro, goldCreditStatus: 'erro', goldCreditErro: mensagem }
-            : registro,
-        ),
-      );
-      toast({
-        title: 'Erro ao assinar com a Gold Credit',
-        description: mensagem,
-        variant: 'destructive',
-      });
-    } finally {
-      setAssinandoGoldCredit(false);
-    }
-  };
-
-  const removerArquivo = (arquivoRemovido: File) => {
-    setArquivos((prev) => prev.filter((arquivo) => arquivo !== arquivoRemovido));
+  const reiniciar = () => {
+    if (pdfObjectUrl) URL.revokeObjectURL(pdfObjectUrl);
+    setStep('dados');
+    setArquivo(null);
+    setTitulo('');
+    setMensagem('');
+    setCedente(EMPTY_FORM);
+    setResponsavel(EMPTY_FORM);
+    setCedenteSelecionado(null);
+    setPdfObjectUrl('');
+    setBoxCedente({ page: 1, x: 0.06, y: 0.08, w: DEFAULT_BOX_W, h: DEFAULT_BOX_H });
+    setBoxResponsavel({ page: 1, x: 0.54, y: 0.08, w: DEFAULT_BOX_W, h: DEFAULT_BOX_H });
+    setLinks([]);
   };
 
   const copiarLink = async (link: string) => {
-    try {
-      await navigator.clipboard.writeText(link);
-      toast({ title: 'Link copiado com sucesso.' });
-    } catch {
-      toast({ title: 'Nao foi possivel copiar o link.', variant: 'destructive' });
-    }
+    try { await navigator.clipboard.writeText(link); toast({ title: 'Link copiado.' }); }
+    catch { toast({ title: 'Não foi possível copiar.', variant: 'destructive' }); }
   };
+
+  // ── Step indicator ──────────────────────────────────────────────────────────
+  const steps = [
+    { key: 'dados', label: 'Signatários' },
+    { key: 'posicoes', label: 'Posicionamento' },
+    { key: 'resultado', label: 'Links gerados' },
+  ] as const;
 
   return (
     <div className="max-w-4xl space-y-6 p-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Assinatura Digital</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Crie um fluxo de assinatura e, no contrato-mae, aplique primeiro a assinatura da cessionaria Gold Credit antes de enviar o link ao cedente.
+          Configure os signatários, posicione visualmente as assinaturas e gere os links.
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Dados do documento</CardTitle>
-          <CardDescription>
-            Escolha o tipo de documento para usar o posicionamento predefinido da assinatura e preencher o signatario automaticamente a partir dos cedentes cadastrados.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Tipo do documento</Label>
-              <Select value={tipoDocumento} onValueChange={(value: TipoDocumento) => setTipoDocumento(value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o tipo do documento" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="padrao">Documento padrao</SelectItem>
-                  <SelectItem value="contrato_mae">Contrato mae</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {isContratoMae
-                  ? 'Contrato-mae posiciona automaticamente o cedente e a cessionaria na pagina 12.'
-                  : 'Documento padrao usa o posicionamento padrao de assinatura.'}
-              </p>
+      {/* Step indicator */}
+      <div className="flex items-center gap-2">
+        {steps.map((s, i) => (
+          <div key={s.key} className="flex items-center gap-2">
+            <div className={cn(
+              'flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold',
+              step === s.key ? 'bg-primary text-primary-foreground'
+                : steps.findIndex((x) => x.key === step) > i ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground',
+            )}>
+              {steps.findIndex((x) => x.key === step) > i ? <Check className="h-4 w-4" /> : i + 1}
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="titulo">Titulo do documento</Label>
-              <Input
-                id="titulo"
-                value={titulo}
-                onChange={(e) => setTitulo(e.target.value)}
-                placeholder={isContratoMae ? 'Ex.: Contrato Mae de Cessao' : 'Ex.: Contrato de cessao'}
-              />
-            </div>
+            <span className={cn('text-sm', step === s.key ? 'font-semibold text-foreground' : 'text-muted-foreground')}>{s.label}</span>
+            {i < steps.length - 1 && <div className="mx-2 h-px w-8 bg-border" />}
           </div>
+        ))}
+      </div>
 
-          <div className="space-y-2">
-            <Label>Cedente cadastrado</Label>
-            <Popover open={cedenteOpen} onOpenChange={setCedenteOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={cedenteOpen}
-                  className="h-auto w-full justify-between px-3 py-3 text-left font-normal"
-                  disabled={carregandoCedente}
-                >
-                  <div className="flex min-w-0 items-start gap-3">
-                    {carregandoCedente ? (
-                      <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
-                    ) : (
-                      <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                    )}
-                    <div className="min-w-0">
-                      {cedenteSelecionado ? (
-                        <>
-                          <p className="truncate text-sm font-medium text-foreground">{cedenteSelecionado.nome}</p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {formatarCpfCnpj(cedenteSelecionado.cpf_cnpj)}
-                            {cedenteSelecionado.email ? ` · ${cedenteSelecionado.email}` : ''}
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-sm text-foreground">Buscar nos cedentes cadastrados</p>
-                          <p className="text-xs text-muted-foreground">Pesquise por nome ou CPF/CNPJ para preencher o signatario.</p>
-                        </>
-                      )}
-                    </div>
+      {/* ── Step 1: Dados ─────────────────────────────────────────────────── */}
+      {step === 'dados' && (
+        <div className="space-y-6">
+          {/* Upload */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Documento PDF</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!arquivo ? (
+                <label className="flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed p-8 hover:border-primary/50 hover:bg-accent/30 transition-colors">
+                  <Upload className="h-8 w-8 text-muted-foreground" />
+                  <div className="text-center">
+                    <p className="text-sm font-medium">Clique para selecionar um PDF</p>
+                    <p className="text-xs text-muted-foreground">Limite de 50 MB</p>
                   </div>
-                  <ChevronsUpDown className="ml-3 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-[420px] p-0">
-                <Command shouldFilter={false}>
-                  <CommandInput
-                    value={cedenteSearch}
-                    onValueChange={setCedenteSearch}
-                    placeholder="Digite nome ou CPF/CNPJ do cedente..."
-                  />
-                  <CommandList>
-                    {cedenteSearch.trim().length < 2 ? (
-                      <CommandEmpty>Digite pelo menos 2 caracteres para buscar.</CommandEmpty>
-                    ) : buscandoCedentes ? (
-                      <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Buscando cedentes...
-                      </div>
-                    ) : cedentes.length === 0 ? (
-                      <CommandEmpty>Nenhum cedente encontrado.</CommandEmpty>
-                    ) : (
-                      <CommandGroup heading="Cedentes">
-                        {cedentes.map((cedente) => (
-                          <CommandItem
-                            key={cedente.cpf_cnpj}
-                            value={`${cedente.nome} ${cedente.cpf_cnpj}`}
-                            onSelect={() => selecionarCedente(cedente)}
-                            className="flex items-start gap-3 py-3"
-                          >
-                            <Check
-                              className={cn(
-                                'mt-0.5 h-4 w-4 shrink-0',
-                                cedenteSelecionado?.cpf_cnpj.replace(/\D/g, '') === cedente.cpf_cnpj.replace(/\D/g, '')
-                                  ? 'opacity-100'
-                                  : 'opacity-0',
-                              )}
-                            />
-                            <div className="min-w-0">
-                              <p className="truncate font-medium text-foreground">{cedente.nome || 'Cedente sem nome'}</p>
-                              <p className="truncate text-xs text-muted-foreground">
-                                {formatarCpfCnpj(cedente.cpf_cnpj)}
-                                {cedente.email ? ` · ${cedente.email}` : ' · Sem email cadastrado'}
-                              </p>
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    )}
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            <p className="text-xs text-muted-foreground">
-              Ao selecionar um cedente, o nome, e-mail e CPF/CNPJ abaixo sao preenchidos automaticamente, mas podem ser alterados.
-            </p>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="nome">Nome do signatario</Label>
-              <Input id="nome" value={signatarioNome} onChange={(e) => setSignatarioNome(e.target.value)} placeholder="Nome completo" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email do signatario</Label>
-              <Input id="email" type="email" value={signatarioEmail} onChange={(e) => setSignatarioEmail(e.target.value)} placeholder="email@dominio.com" />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="cpfcnpj">CPF/CNPJ obrigatorio para assinar</Label>
-            <Input id="cpfcnpj" value={signatarioCpfCnpj} onChange={(e) => setSignatarioCpfCnpj(e.target.value)} placeholder="Somente o documento do certificado que pode assinar" />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="mensagem">Mensagem opcional</Label>
-            <Textarea id="mensagem" rows={4} value={mensagem} onChange={(e) => setMensagem(e.target.value)} placeholder="Mensagem exibida ao abrir o link de assinatura" />
-          </div>
-
-          {isContratoMae && (
-            <div className="rounded-lg border bg-muted/20 p-4">
-              <div className="flex items-start gap-3">
-                <Shield className="mt-0.5 h-4 w-4 text-primary" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">Fluxo automatico de contrato-mae</p>
-                  <p className="text-xs text-muted-foreground">
-                    Ao gerar o documento, a assinatura da cessionaria Gold Credit sera preparada antes do link do cedente ser liberado. O posicionamento da pagina 12 fica predefinido no backend.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Arquivos PDF</CardTitle>
-          <CardDescription>Importe um ou varios PDFs. Limite de 50MB por arquivo.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {arquivos.length === 0 ? (
-            <label className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-border p-8 transition-colors hover:border-primary/50 hover:bg-accent/30">
-              <Upload className="h-8 w-8 text-muted-foreground" />
-              <div className="text-center">
-                <p className="text-sm font-medium text-foreground">Clique para selecionar um ou varios PDFs</p>
-                <p className="text-xs text-muted-foreground">Os documentos serao enviados para o mesmo signatario</p>
-              </div>
-              <input ref={inputRef} type="file" accept=".pdf" multiple className="hidden" onChange={onSelecionarArquivo} />
-            </label>
-          ) : (
-            <>
-              <div className="space-y-3">
-                {arquivos.map((arquivo) => (
-                  <div key={`${arquivo.name}-${arquivo.size}-${arquivo.lastModified}`} className="flex items-center gap-3 rounded-lg border bg-muted/30 p-4">
+                  <input ref={inputRef} type="file" accept=".pdf" className="hidden" onChange={onSelecionarArquivo} />
+                </label>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-4">
                     <FileText className="h-8 w-8 shrink-0 text-primary" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-foreground">{arquivo.name}</p>
+                      <p className="truncate text-sm font-medium">{arquivo.name}</p>
                       <p className="text-xs text-muted-foreground">{(arquivo.size / 1024).toFixed(0)} KB</p>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => removerArquivo(arquivo)}>
-                      <X className="h-4 w-4" />
-                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => setArquivo(null)}><X className="h-4 w-4" /></Button>
                   </div>
-                ))}
+                  <div className="space-y-2">
+                    <Label htmlFor="titulo">Título do documento</Label>
+                    <Input id="titulo" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder={arquivo.name.replace(/\.pdf$/i, '')} />
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Cedente */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><UserCheck className="h-5 w-5 text-blue-500" /> Cedente</CardTitle>
+              <CardDescription>Signatário principal do contrato.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Buscar cedente cadastrado</Label>
+                <Popover open={cedenteOpen} onOpenChange={setCedenteOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="h-auto w-full justify-between px-3 py-3 text-left font-normal">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div className="min-w-0">
+                          {cedenteSelecionado
+                            ? <><p className="truncate text-sm font-medium">{cedenteSelecionado.nome}</p><p className="truncate text-xs text-muted-foreground">{formatarCpfCnpj(cedenteSelecionado.cpf_cnpj)}</p></>
+                            : <><p className="text-sm">Pesquisar cedentes cadastrados</p><p className="text-xs text-muted-foreground">Nome ou CPF/CNPJ</p></>}
+                        </div>
+                      </div>
+                      <ChevronsUpDown className="ml-3 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-[400px] p-0">
+                    <Command shouldFilter={false}>
+                      <CommandInput value={cedenteSearch} onValueChange={setCedenteSearch} placeholder="Nome ou CPF/CNPJ..." />
+                      <CommandList>
+                        {cedenteSearch.trim().length < 2 ? (
+                          <CommandEmpty>Digite ao menos 2 caracteres.</CommandEmpty>
+                        ) : buscandoCedentes ? (
+                          <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Buscando...</div>
+                        ) : cedenteSugestoes.length === 0 ? (
+                          <CommandEmpty>Nenhum cedente encontrado.</CommandEmpty>
+                        ) : (
+                          <CommandGroup>
+                            {cedenteSugestoes.map((c) => (
+                              <CommandItem key={c.cpf_cnpj} value={`${c.nome} ${c.cpf_cnpj}`} onSelect={() => selecionarCedente(c)} className="flex items-start gap-3 py-3">
+                                <Check className={cn('mt-0.5 h-4 w-4 shrink-0', cedenteSelecionado?.cpf_cnpj === c.cpf_cnpj ? 'opacity-100' : 'opacity-0')} />
+                                <div>
+                                  <p className="font-medium">{c.nome || 'Sem nome'}</p>
+                                  <p className="text-xs text-muted-foreground">{formatarCpfCnpj(c.cpf_cnpj)}{c.email ? ` · ${c.email}` : ''}</p>
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
-              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border px-4 py-3 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:bg-accent/30">
-                <Upload className="h-4 w-4" />
-                Adicionar mais PDFs
-                <input ref={inputRef} type="file" accept=".pdf" multiple className="hidden" onChange={onSelecionarArquivo} />
-              </label>
-            </>
-          )}
-        </CardContent>
-      </Card>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Nome</Label>
+                  <Input value={cedente.nome} onChange={(e) => setCedente((p) => ({ ...p, nome: e.target.value }))} placeholder="Nome completo" />
+                </div>
+                <div className="space-y-2">
+                  <Label>E-mail</Label>
+                  <Input type="email" value={cedente.email} onChange={(e) => setCedente((p) => ({ ...p, email: e.target.value }))} placeholder="email@dominio.com" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>CPF/CNPJ obrigatório para assinar</Label>
+                <Input value={cedente.cpfCnpj} onChange={(e) => setCedente((p) => ({ ...p, cpfCnpj: e.target.value }))} placeholder="000.000.000-00" />
+              </div>
+            </CardContent>
+          </Card>
 
-      {resultados.length === 0 ? (
-        <div className="flex justify-end">
-          <Button size="lg" className="gap-2" onClick={enviar} disabled={enviando}>
-            {enviando ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Enviando lote...
-              </>
-            ) : (
-              <>
-                <Send className="h-4 w-4" />
-                {arquivos.length > 1 ? 'Gerar lote de assinatura' : 'Gerar fluxo de assinatura'}
-              </>
-            )}
-          </Button>
+          {/* Responsável Solidário */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-emerald-500" /> Responsável Solidário <span className="text-sm font-normal text-muted-foreground">(opcional)</span></CardTitle>
+              <CardDescription>Segundo signatário do contrato. Deixe em branco se não houver.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Nome</Label>
+                  <Input value={responsavel.nome} onChange={(e) => setResponsavel((p) => ({ ...p, nome: e.target.value }))} placeholder="Nome completo" />
+                </div>
+                <div className="space-y-2">
+                  <Label>E-mail</Label>
+                  <Input type="email" value={responsavel.email} onChange={(e) => setResponsavel((p) => ({ ...p, email: e.target.value }))} placeholder="email@dominio.com" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>CPF/CNPJ obrigatório para assinar</Label>
+                <Input value={responsavel.cpfCnpj} onChange={(e) => setResponsavel((p) => ({ ...p, cpfCnpj: e.target.value }))} placeholder="000.000.000-00" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Mensagem */}
+          <Card>
+            <CardContent className="pt-6 space-y-2">
+              <Label htmlFor="mensagem">Mensagem para os signatários (opcional)</Label>
+              <Textarea id="mensagem" rows={3} value={mensagem} onChange={(e) => setMensagem(e.target.value)} placeholder="Texto exibido ao abrir o link de assinatura" />
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end">
+            <Button size="lg" className="gap-2" onClick={irParaPosicoes}>
+              Próximo: Posicionar assinaturas
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-      ) : (
+      )}
+
+      {/* ── Step 2: Posicionamento ─────────────────────────────────────────── */}
+      {step === 'posicoes' && (
         <div className="space-y-6">
-          {isContratoMae && (
-            <Card className="border-primary/30 bg-primary/5">
+          <Card>
+            <CardHeader>
+              <CardTitle>Posicionamento das assinaturas</CardTitle>
+              <CardDescription>
+                Navegue pelas páginas e arraste as caixas coloridas para o local onde cada assinatura deve aparecer.
+                A assinatura da Gold Credit é posicionada automaticamente pelo sistema.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PdfPositioner
+                objectUrl={pdfObjectUrl}
+                boxes={[
+                  { id: 'cedente', label: `Cedente · ${cedente.nome}`, color: 'blue', pos: boxCedente },
+                  ...(temResponsavel ? [{ id: 'responsavel', label: `Resp. Solidário · ${responsavel.nome || 'Responsável'}`, color: 'emerald' as const, pos: boxResponsavel }] : []),
+                ]}
+                onChange={(id, pos) => {
+                  if (id === 'cedente') setBoxCedente(pos);
+                  else setBoxResponsavel(pos);
+                }}
+              />
+            </CardContent>
+          </Card>
+
+          <div className="flex items-center justify-between">
+            <Button variant="outline" className="gap-2" onClick={() => setStep('dados')}>
+              <ChevronLeft className="h-4 w-4" />
+              Voltar
+            </Button>
+            <Button size="lg" className="gap-2" onClick={gerar} disabled={enviando}>
+              {enviando ? <><Loader2 className="h-4 w-4 animate-spin" />Gerando fluxo...</> : <><Send className="h-4 w-4" />Gerar links de assinatura</>}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Step 3: Resultado ─────────────────────────────────────────────── */}
+      {step === 'resultado' && (
+        <div className="space-y-6">
+          {/* GC status — sempre assinado automaticamente (backend obriga) */}
+          <Card className="border-2 border-primary/30 bg-primary/5">
+            <CardContent className="flex items-center gap-3 pt-6">
+              <CheckCircle2 className="h-6 w-6 shrink-0 text-primary" />
+              <div>
+                <p className="text-sm font-semibold">Cessionária Gold Credit assinada automaticamente</p>
+                <p className="text-xs text-muted-foreground">A assinatura interna foi aplicada pelo servidor. Os links estão prontos para envio.</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Links */}
+          {links.map((link) => (
+            <Card key={link.token}>
               <CardHeader>
-                <CardTitle>Passo 1: assinar a cessionaria Gold Credit</CardTitle>
-                <CardDescription>
-                  Antes de liberar o link do cedente, aplique a assinatura da cessionaria nos contratos-mae. Os certificados instalados na sua maquina sao carregados abaixo.
-                </CardDescription>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <span className={cn('h-3 w-3 rounded-sm', link.role === 'cedente' ? 'bg-blue-500' : 'bg-emerald-500')} />
+                  {link.label}
+                </CardTitle>
+                <CardDescription>{link.nome}</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {!signerStatus.online ? (
-                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-                    O assinador local nao foi detectado em <code>localhost:8765</code>. Inicie o assinador e recarregue os certificados.
-                  </div>
-                ) : null}
-
-                <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
-                  <div className="space-y-2">
-                    <Label>Certificado da Gold Credit</Label>
-                    <Select
-                      value={certificadoSelecionadoId}
-                      onValueChange={(value) => {
-                        setAssinaturaAutomaticaGoldCredit(false);
-                        void validarCertificadoGoldCredit(value);
-                      }}
-                      disabled={!signerStatus.online || carregandoCertificados || assinandoGoldCredit}
-                    >
-                      <SelectTrigger className="h-12">
-                        <SelectValue placeholder="Selecione o certificado da cessionaria" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {certificados.map((cert) => (
-                          <SelectItem key={cert.cert_id} value={cert.cert_id}>
-                            {cert.subject_cn} · {cert.cpf_cnpj}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {goldCreditPreference?.gold_credit_cert_document ? (
-                      <p className="text-xs text-muted-foreground">
-                        O sistema tenta selecionar automaticamente o certificado vinculado pelo master. Se ele estiver instalado nesta maquina, voce nao precisa escolher manualmente.
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <Button
-                    variant="outline"
-                    className="gap-2"
-                    onClick={() => void recarregarCertificadosGoldCredit()}
-                    disabled={carregandoCertificados || assinandoGoldCredit}
-                  >
-                    {carregandoCertificados ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                    Recarregar certificados
+              <CardContent className="space-y-3">
+                <p className="truncate text-xs text-muted-foreground">{link.link}</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" className="gap-2" onClick={() => copiarLink(link.link)}>
+                    <Copy className="h-4 w-4" />Copiar link
                   </Button>
-                </div>
-
-                {validandoCertificado && (
-                  <div className="rounded-lg border bg-background p-4 text-sm text-muted-foreground">
-                    Estamos validando se o certificado pertence a Gold Credit.
-                  </div>
-                )}
-
-                {mensagemCertificado && (
-                  <div
-                    className={cn(
-                      'rounded-lg border p-4 text-sm',
-                      certificadoAutorizado
-                        ? 'border-primary/30 bg-primary/5 text-foreground'
-                        : 'border-destructive/30 bg-destructive/5 text-destructive',
-                    )}
-                  >
-                    {mensagemCertificado}
-                  </div>
-                )}
-
-                <div className="rounded-lg border bg-background p-4">
-                  <p className="text-sm font-medium text-foreground">Contratos aguardando assinatura da cessionaria</p>
-                  <div className="mt-3 space-y-2">
-                    {resultados.map((resultado) => (
-                      <div key={`${resultado.documento_id}-${resultado.arquivo_nome}`} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                        <span className="text-foreground">{resultado.arquivo_nome}</span>
-                        <span
-                          className={cn(
-                            'rounded-full px-2 py-1 text-[11px] font-medium',
-                            resultado.goldCreditStatus === 'assinado'
-                              ? 'bg-primary/10 text-primary'
-                              : resultado.goldCreditStatus === 'erro'
-                                ? 'bg-destructive/10 text-destructive'
-                                : 'bg-muted text-muted-foreground',
-                          )}
-                        >
-                          {resultado.goldCreditStatus === 'nao_aplicavel'
-                            ? 'Nao aplicavel'
-                            : resultado.goldCreditStatus === 'assinado'
-                              ? 'Cessionaria assinada'
-                              : resultado.goldCreditStatus === 'erro'
-                                ? 'Falha na assinatura'
-                                : 'Aguardando assinatura'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <Button
-                    size="lg"
-                    className="gap-2"
-                    onClick={() => void assinarGoldCredit()}
-                    disabled={!signerStatus.online || !certificadoAutorizado || assinandoGoldCredit}
-                  >
-                    {assinandoGoldCredit ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Assinando cessionaria...
-                      </>
-                    ) : (
-                      <>
-                        <Shield className="h-4 w-4" />
-                        Assinar Gold Credit e liberar links
-                      </>
-                    )}
+                  <Button variant="outline" size="sm" className="gap-2" asChild>
+                    <a href={link.link} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-4 w-4" />Abrir link
+                    </a>
                   </Button>
                 </div>
               </CardContent>
             </Card>
-          )}
+          ))}
 
-          <Card className="border-primary/30 bg-primary/5">
-            <CardContent className="space-y-4 pt-6">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-6 w-6 text-primary" />
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground">
-                    {linksCedenteLiberados ? 'Fluxo pronto para envio' : 'Fluxo criado e aguardando assinatura da cessionaria'}
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    {linksCedenteLiberados
-                      ? 'Os links do cedente ja podem ser copiados e enviados.'
-                      : 'Os links do cedente ficam ocultos ate a Gold Credit concluir a assinatura interna do contrato-mae.'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {resultados.map((resultado) => (
-                  <div key={`${resultado.documento_id}-${resultado.arquivo_nome}`} className="rounded-lg border bg-background p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-foreground">{resultado.arquivo_nome}</p>
-                        <p className="truncate text-xs text-muted-foreground">{resultado.titulo}</p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground">
-                          Cedente
-                        </span>
-                        {resultado.goldCredit ? (
-                          <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
-                            Gold Credit
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    {resultado.goldCredit ? (
-                      <div className="mt-3 rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
-                        {resultado.goldCreditStatus === 'assinado'
-                          ? 'Cessionaria assinada na pagina 12. O link do cedente esta liberado.'
-                          : resultado.goldCreditStatus === 'erro'
-                            ? resultado.goldCreditErro || 'Falha ao assinar com a cessionaria.'
-                            : 'Contrato-mae criado. Falta aplicar a assinatura da cessionaria Gold Credit antes de enviar ao cedente.'}
-                      </div>
-                    ) : null}
-
-                    {linksCedenteLiberados && resultado.cedente ? (
-                      <>
-                        <p className="mt-3 truncate text-xs text-muted-foreground">{resultado.cedente.link_assinatura}</p>
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <Button variant="outline" size="sm" className="gap-2" onClick={() => copiarLink(resultado.cedente.link_assinatura)}>
-                            <Copy className="h-4 w-4" />
-                            Copiar link do cedente
-                          </Button>
-                          <Button variant="outline" size="sm" className="gap-2" asChild>
-                            <a href={resultado.cedente.link_assinatura} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="h-4 w-4" />
-                              Abrir link
-                            </a>
-                          </Button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="mt-3 rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
-                        O link publico do cedente sera exibido aqui assim que a assinatura interna da Gold Credit for concluida.
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <Button variant="ghost" onClick={limpar}>
-                  Criar novo lote
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="flex justify-end">
+            <Button variant="ghost" onClick={reiniciar}>Criar novo fluxo</Button>
+          </div>
         </div>
       )}
     </div>
