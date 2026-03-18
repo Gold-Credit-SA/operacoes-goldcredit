@@ -65,7 +65,7 @@ interface ResultLink {
 interface PdfBox {
   id: string;
   label: string;
-  color: 'blue' | 'emerald';
+  color: 'blue' | 'amber' | 'emerald';
   pos: BoxPos;
 }
 
@@ -116,14 +116,16 @@ function PdfPositioner({ objectUrl, boxes, onChange }: PdfPositionerProps) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    const initialPage = boxes[0]?.pos.page || 1;
+    setCurrentPage(initialPage);
     pdfjsLib.getDocument(objectUrl).promise.then((pdf) => {
       if (cancelled) return;
       pdfRef.current = pdf;
       setNumPages(pdf.numPages);
-      void renderPage(pdf, 1);
+      void renderPage(pdf, initialPage);
     }).catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [objectUrl, renderPage]);
+  }, [boxes, objectUrl, renderPage]);
 
   useEffect(() => {
     const pdf = pdfRef.current;
@@ -204,6 +206,8 @@ function PdfPositioner({ objectUrl, boxes, onChange }: PdfPositionerProps) {
               'flex items-center justify-center rounded border-2 text-xs font-semibold',
               box.color === 'blue'
                 ? 'border-blue-500 bg-blue-500/25 text-blue-800'
+                : box.color === 'amber'
+                  ? 'border-amber-500 bg-amber-500/25 text-amber-900'
                 : 'border-emerald-500 bg-emerald-500/25 text-emerald-800',
             )}
             style={toPct(box.pos)}
@@ -221,10 +225,23 @@ function PdfPositioner({ objectUrl, boxes, onChange }: PdfPositionerProps) {
             key={box.id}
             className={cn(
               'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm',
-              box.color === 'blue' ? 'border-blue-200 bg-blue-50' : 'border-emerald-200 bg-emerald-50',
+              box.color === 'blue'
+                ? 'border-blue-200 bg-blue-50'
+                : box.color === 'amber'
+                  ? 'border-amber-200 bg-amber-50'
+                  : 'border-emerald-200 bg-emerald-50',
             )}
           >
-            <span className={cn('h-3 w-3 rounded-sm border-2', box.color === 'blue' ? 'border-blue-500 bg-blue-200' : 'border-emerald-500 bg-emerald-200')} />
+            <span
+              className={cn(
+                'h-3 w-3 rounded-sm border-2',
+                box.color === 'blue'
+                  ? 'border-blue-500 bg-blue-200'
+                  : box.color === 'amber'
+                    ? 'border-amber-500 bg-amber-200'
+                    : 'border-emerald-500 bg-emerald-200',
+              )}
+            />
             <span className="font-medium">{box.label}</span>
             <span className="text-muted-foreground">
               · Pág. {box.pos.page}
@@ -252,8 +269,9 @@ function PdfPositioner({ objectUrl, boxes, onChange }: PdfPositionerProps) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const EMPTY_FORM: SignForm = { nome: '', email: '', cpfCnpj: '' };
-const DEFAULT_BOX_W = 0.42;
-const DEFAULT_BOX_H = 0.10;
+const CONTRACT_MOTHER_CEDENTE_DEFAULT: BoxPos = { page: 12, x: 0.07, y: 0.67, w: 0.64, h: 0.04 };
+const CONTRACT_MOTHER_CESSIONARIA_DEFAULT: BoxPos = { page: 12, x: 0.07, y: 0.545, w: 0.64, h: 0.04 };
+const CONTRACT_MOTHER_RESPONSAVEL_DEFAULT: BoxPos = { page: 12, x: 0.07, y: 0.44, w: 0.43, h: 0.04 };
 
 export default function AssinaturaDigital() {
   const [step, setStep] = useState<Step>('dados');
@@ -273,8 +291,9 @@ export default function AssinaturaDigital() {
 
   // Step 2 state
   const [pdfObjectUrl, setPdfObjectUrl] = useState('');
-  const [boxCedente, setBoxCedente] = useState<BoxPos>({ page: 1, x: 0.06, y: 0.08, w: DEFAULT_BOX_W, h: DEFAULT_BOX_H });
-  const [boxResponsavel, setBoxResponsavel] = useState<BoxPos>({ page: 1, x: 0.54, y: 0.08, w: DEFAULT_BOX_W, h: DEFAULT_BOX_H });
+  const [boxCedente, setBoxCedente] = useState<BoxPos>(CONTRACT_MOTHER_CEDENTE_DEFAULT);
+  const [boxCessionaria, setBoxCessionaria] = useState<BoxPos>(CONTRACT_MOTHER_CESSIONARIA_DEFAULT);
+  const [boxResponsavel, setBoxResponsavel] = useState<BoxPos>(CONTRACT_MOTHER_RESPONSAVEL_DEFAULT);
 
   // Step 3 state
   const [enviando, setEnviando] = useState(false);
@@ -357,6 +376,11 @@ export default function AssinaturaDigital() {
         assinatura_y_cedente: boxCedente.y,
         assinatura_largura_cedente: boxCedente.w,
         assinatura_altura_cedente: boxCedente.h,
+        assinatura_pagina_gc: boxCessionaria.page,
+        assinatura_x_gc: boxCessionaria.x,
+        assinatura_y_gc: boxCessionaria.y,
+        assinatura_largura_gc: boxCessionaria.w,
+        assinatura_altura_gc: boxCessionaria.h,
         ...(temResponsavel && {
           responsavel_solidario_nome: responsavel.nome,
           responsavel_solidario_email: responsavel.email,
@@ -401,8 +425,9 @@ export default function AssinaturaDigital() {
     setResponsavel(EMPTY_FORM);
     setCedenteSelecionado(null);
     setPdfObjectUrl('');
-    setBoxCedente({ page: 1, x: 0.06, y: 0.08, w: DEFAULT_BOX_W, h: DEFAULT_BOX_H });
-    setBoxResponsavel({ page: 1, x: 0.54, y: 0.08, w: DEFAULT_BOX_W, h: DEFAULT_BOX_H });
+    setBoxCedente(CONTRACT_MOTHER_CEDENTE_DEFAULT);
+    setBoxCessionaria(CONTRACT_MOTHER_CESSIONARIA_DEFAULT);
+    setBoxResponsavel(CONTRACT_MOTHER_RESPONSAVEL_DEFAULT);
     setLinks([]);
   };
 
@@ -599,7 +624,7 @@ export default function AssinaturaDigital() {
               <CardTitle>Posicionamento das assinaturas</CardTitle>
               <CardDescription>
                 Navegue pelas páginas e arraste as caixas coloridas para o local onde cada assinatura deve aparecer.
-                A assinatura da Gold Credit é posicionada automaticamente pelo sistema.
+                A assinatura da Gold Credit continua automática, mas agora usa exatamente a caixa da cessionária definida aqui.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -607,10 +632,12 @@ export default function AssinaturaDigital() {
                 objectUrl={pdfObjectUrl}
                 boxes={[
                   { id: 'cedente', label: `Cedente · ${cedente.nome}`, color: 'blue', pos: boxCedente },
+                  { id: 'cessionaria', label: 'Cessionaria · Gold Credit', color: 'amber', pos: boxCessionaria },
                   ...(temResponsavel ? [{ id: 'responsavel', label: `Resp. Solidário · ${responsavel.nome || 'Responsável'}`, color: 'emerald' as const, pos: boxResponsavel }] : []),
                 ]}
                 onChange={(id, pos) => {
                   if (id === 'cedente') setBoxCedente(pos);
+                  else if (id === 'cessionaria') setBoxCessionaria(pos);
                   else setBoxResponsavel(pos);
                 }}
               />

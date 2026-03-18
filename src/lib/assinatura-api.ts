@@ -129,6 +129,11 @@ export interface CriarSolicitacaoPayload {
   assinatura_y_cedente?: number;
   assinatura_largura_cedente?: number;
   assinatura_altura_cedente?: number;
+  assinatura_pagina_gc?: number;
+  assinatura_x_gc?: number;
+  assinatura_y_gc?: number;
+  assinatura_largura_gc?: number;
+  assinatura_altura_gc?: number;
   responsavel_solidario_nome?: string;
   responsavel_solidario_email?: string;
   responsavel_solidario_cpf_cnpj?: string;
@@ -178,6 +183,11 @@ export async function criarSolicitacao(payload: CriarSolicitacaoPayload) {
   formData.append('assinatura_y', String(payload.assinatura_y_cedente ?? 0.06));
   formData.append('assinatura_largura', String(payload.assinatura_largura_cedente ?? 0.42));
   formData.append('assinatura_altura', String(payload.assinatura_altura_cedente ?? 0.10));
+  formData.append('assinatura_pagina_gc', String(payload.assinatura_pagina_gc ?? 0));
+  formData.append('assinatura_x_gc', String(payload.assinatura_x_gc ?? 0.06));
+  formData.append('assinatura_y_gc', String(payload.assinatura_y_gc ?? 0.41));
+  formData.append('assinatura_largura_gc', String(payload.assinatura_largura_gc ?? 0.34));
+  formData.append('assinatura_altura_gc', String(payload.assinatura_altura_gc ?? 0.07));
   if (payload.responsavel_solidario_email) {
     formData.append('responsavel_solidario_nome', payload.responsavel_solidario_nome ?? '');
     formData.append('responsavel_solidario_email', payload.responsavel_solidario_email);
