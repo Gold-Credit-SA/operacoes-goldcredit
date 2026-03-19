@@ -22,6 +22,12 @@ function formatarData(valor?: string) {
   return new Date(valor).toLocaleString('pt-BR');
 }
 
+function formatarPapel(papel?: string) {
+  if (papel === 'cessionaria_gold_credit') return 'Cessionaria';
+  if (papel === 'responsavel_solidario') return 'Responsavel solidario';
+  return 'Cedente';
+}
+
 export default function DocumentoDetalhe() {
   const { token } = useParams<{ token: string }>();
   const [items, setItems] = useState<SolicitacaoResumo[]>([]);
@@ -56,16 +62,8 @@ export default function DocumentoDetalhe() {
 
   const documentosRelacionados = useMemo(() => {
     if (!documento) return [];
-    const chaveDoc = (documento.assinatura_obrigatoria_cpf_cnpj || '').replace(/\D/g, '');
-    const chaveEmail = (documento.signatario_email || '').trim().toLowerCase();
-
     return items
-      .filter((item) => {
-        const itemDoc = (item.assinatura_obrigatoria_cpf_cnpj || '').replace(/\D/g, '');
-        const itemEmail = (item.signatario_email || '').trim().toLowerCase();
-        if (chaveDoc && itemDoc) return itemDoc === chaveDoc;
-        return chaveEmail && itemEmail === chaveEmail;
-      })
+      .filter((item) => item.documento_id === documento.documento_id)
       .sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime());
   }, [documento, items]);
 
@@ -156,7 +154,7 @@ export default function DocumentoDetalhe() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <ResumoCard titulo="Total do signatario" valor={stats.total} />
+        <ResumoCard titulo="Participantes da operacao" valor={stats.total} />
         <ResumoCard titulo="Assinados" valor={stats.assinados} />
         <ResumoCard titulo="Pendentes" valor={stats.pendentes} />
         <ResumoCard titulo="Expirados" valor={stats.expirados} />
@@ -165,8 +163,8 @@ export default function DocumentoDetalhe() {
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <Card>
           <CardHeader>
-            <CardTitle>Resumo da solicitacao</CardTitle>
-            <CardDescription>Detalhes do documento atual e do signatario vinculado.</CardDescription>
+            <CardTitle>Resumo da operacao</CardTitle>
+            <CardDescription>Detalhes do documento atual e dos dados do participante selecionado.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <div className="grid gap-4 md:grid-cols-2">
@@ -189,9 +187,9 @@ export default function DocumentoDetalhe() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Controle do signatario</CardTitle>
+            <CardTitle>Controle da operacao</CardTitle>
             <CardDescription>
-              Acompanhe todos os documentos recentes vinculados ao mesmo signatario para saber o que ja foi e o que ainda falta assinar.
+              Acompanhe todos os participantes deste mesmo documento para saber quem ja assinou e quem ainda falta assinar.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -265,6 +263,7 @@ function TabelaRelacionados({ items }: { items: SolicitacaoResumo[] }) {
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead>Papel</TableHead>
             <TableHead>Documento</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Criado em</TableHead>
@@ -275,10 +274,13 @@ function TabelaRelacionados({ items }: { items: SolicitacaoResumo[] }) {
             const status = STATUS_LABELS[item.status] || STATUS_LABELS.pendente;
             return (
               <TableRow key={item.id}>
+                <TableCell className="text-sm text-foreground">
+                  {formatarPapel(item.papel_assinatura)}
+                </TableCell>
                 <TableCell>
                   <div className="space-y-1">
-                    <p className="font-medium text-foreground">{item.titulo}</p>
-                    <p className="text-xs text-muted-foreground">{item.nome_arquivo}</p>
+                    <p className="font-medium text-foreground">{item.signatario_nome || item.titulo}</p>
+                    <p className="text-xs text-muted-foreground">{item.signatario_email || item.nome_arquivo}</p>
                   </div>
                 </TableCell>
                 <TableCell>
