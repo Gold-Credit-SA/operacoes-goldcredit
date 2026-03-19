@@ -529,10 +529,35 @@ export default function AssinaturaDigital() {
       {/* ── Step 1: Dados ─────────────────────────────────────────────────── */}
       {step === 'dados' && (
         <div className="space-y-6">
+          {/* Tipo de Documento */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Tipo de Documento</CardTitle>
+              <CardDescription>Selecione o tipo de documento antes de importar o PDF.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Select value={tipoDocumento} onValueChange={(v) => handleTipoDocumentoChange(v as TipoDocumento)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecione o tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.entries(DOC_TYPE_CONFIGS) as [TipoDocumento, DocTypeConfig][]).map(([key, cfg]) => (
+                    <SelectItem key={key} value={key}>
+                      <div className="flex flex-col">
+                        <span>{cfg.label}</span>
+                        <span className="text-xs text-muted-foreground">{cfg.description}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+
           {/* Upload */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Documento PDF</CardTitle>
+              <CardTitle className="flex items-center gap-2"><Upload className="h-5 w-5" /> Documento PDF</CardTitle>
             </CardHeader>
             <CardContent>
               {!arquivo ? (
