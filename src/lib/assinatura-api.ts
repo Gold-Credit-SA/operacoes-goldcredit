@@ -1,5 +1,8 @@
+import { supabase } from '@/integrations/supabase/client';
+
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://goldsign.onrender.com';
 const LOCAL_SIGNER_URL = import.meta.env.VITE_LOCAL_SIGNER_URL || 'http://localhost:8765';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 export interface ContratoData {
   solicitacao_id: string;
@@ -164,7 +167,25 @@ export interface CriarSolicitacaoResponse extends CriarSolicitacaoItem {
 }
 
 export async function listarSolicitacoes(limit = 50) {
-  return backendFetch<SolicitacaoResumo[]>(`/api/assinatura/listar?limit=${limit}`);
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+
+  const res = await fetch(
+    `${SUPABASE_URL}/functions/v1/goldsign-proxy?target=${encodeURIComponent(`/api/assinatura/listar?limit=${limit}`)}`,
+    {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(body || `Erro ${res.status}`);
+  }
+
+  return res.json() as Promise<SolicitacaoResumo[]>;
 }
 
 export async function criarSolicitacao(payload: CriarSolicitacaoPayload) {
