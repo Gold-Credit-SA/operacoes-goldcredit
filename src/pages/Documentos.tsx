@@ -155,7 +155,7 @@ export default function Documentos() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Solicitacoes recentes</CardTitle>
+          <CardTitle>Operacoes recentes</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 p-4">
           {loading ? (
