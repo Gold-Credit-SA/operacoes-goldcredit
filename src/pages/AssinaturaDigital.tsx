@@ -481,9 +481,10 @@ export default function AssinaturaDigital() {
     setResponsavel(EMPTY_FORM);
     setCedenteSelecionado(null);
     setPdfObjectUrl('');
-    setBoxCedente(CONTRACT_MOTHER_CEDENTE_DEFAULT);
-    setBoxCessionaria(CONTRACT_MOTHER_CESSIONARIA_DEFAULT);
-    setBoxResponsavel(CONTRACT_MOTHER_RESPONSAVEL_DEFAULT);
+    setTipoDocumento('contrato_mae');
+    setBoxCedente(DOC_TYPE_CONFIGS.contrato_mae.cedente);
+    setBoxCessionaria(DOC_TYPE_CONFIGS.contrato_mae.cessionaria);
+    setBoxResponsavel(DOC_TYPE_CONFIGS.contrato_mae.responsavel);
     setLinks([]);
   };
 
