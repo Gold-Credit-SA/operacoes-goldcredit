@@ -323,6 +323,7 @@ export default function AssinaturaDigital() {
   const [step, setStep] = useState<Step>('dados');
 
   // Step 1 state
+  const [tipoDocumento, setTipoDocumento] = useState<TipoDocumento>('contrato_mae');
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [titulo, setTitulo] = useState('');
   const [mensagem, setMensagem] = useState('');
@@ -337,9 +338,18 @@ export default function AssinaturaDigital() {
 
   // Step 2 state
   const [pdfObjectUrl, setPdfObjectUrl] = useState('');
-  const [boxCedente, setBoxCedente] = useState<BoxPos>(CONTRACT_MOTHER_CEDENTE_DEFAULT);
-  const [boxCessionaria, setBoxCessionaria] = useState<BoxPos>(CONTRACT_MOTHER_CESSIONARIA_DEFAULT);
-  const [boxResponsavel, setBoxResponsavel] = useState<BoxPos>(CONTRACT_MOTHER_RESPONSAVEL_DEFAULT);
+  const [boxCedente, setBoxCedente] = useState<BoxPos>(DOC_TYPE_CONFIGS.contrato_mae.cedente);
+  const [boxCessionaria, setBoxCessionaria] = useState<BoxPos>(DOC_TYPE_CONFIGS.contrato_mae.cessionaria);
+  const [boxResponsavel, setBoxResponsavel] = useState<BoxPos>(DOC_TYPE_CONFIGS.contrato_mae.responsavel);
+
+  // Update box positions when document type changes
+  const handleTipoDocumentoChange = (tipo: TipoDocumento) => {
+    setTipoDocumento(tipo);
+    const config = DOC_TYPE_CONFIGS[tipo];
+    setBoxCedente(config.cedente);
+    setBoxCessionaria(config.cessionaria);
+    setBoxResponsavel(config.responsavel);
+  };
 
   // Step 3 state
   const [enviando, setEnviando] = useState(false);
