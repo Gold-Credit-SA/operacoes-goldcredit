@@ -1,5 +1,8 @@
+import { supabase } from '@/integrations/supabase/client';
+
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://goldsign.onrender.com';
 const LOCAL_SIGNER_URL = import.meta.env.VITE_LOCAL_SIGNER_URL || 'http://localhost:8765';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 export interface ContratoData {
   solicitacao_id: string;
