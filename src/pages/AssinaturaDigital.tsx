@@ -292,9 +292,9 @@ const DOC_TYPE_CONFIGS: Record<TipoDocumento, DocTypeConfig> = {
   aditivo: {
     label: 'Aditivo',
     description: 'Resumo da operação e dados bancários',
-    cedente: { page: 1, x: 0.07, y: 0.25, w: 0.64, h: 0.04 },
-    cessionaria: { page: 1, x: 0.07, y: 0.15, w: 0.64, h: 0.04 },
-    responsavel: { page: 1, x: 0.07, y: 0.05, w: 0.43, h: 0.04 },
+    cedente: { page: 2, x: 0.07, y: 0.08, w: 0.64, h: 0.04 },
+    cessionaria: { page: 2, x: 0.07, y: 0.62, w: 0.64, h: 0.04 },
+    responsavel: { page: 2, x: 0.07, y: 0.35, w: 0.43, h: 0.04 },
   },
   carta_cessao: {
     label: 'Carta de Cessão',
