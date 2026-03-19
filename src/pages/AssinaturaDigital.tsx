@@ -420,7 +420,7 @@ export default function AssinaturaDigital() {
       const data = await criarSolicitacao({
         arquivo: arquivo!,
         titulo: tituloFinal,
-        tipo_documento: 'contrato_mae',
+        tipo_documento: tipoDocumento,
         signatario_nome: cedente.nome,
         signatario_email: cedente.email,
         signatario_cpf_cnpj: cedente.cpfCnpj,
