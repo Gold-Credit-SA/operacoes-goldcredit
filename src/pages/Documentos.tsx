@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { listarSolicitacoes, fetchContratoPdfUrl, getDownloadUrl, type SolicitacaoResumo } from '@/lib/assinatura-api';
+import { listarSolicitacoes, fetchContratoPdfUrl, getDownloadUrl, getPublicSigningUrl, type SolicitacaoResumo } from '@/lib/assinatura-api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 
@@ -87,7 +87,8 @@ export default function Documentos() {
   const operacoes = useMemo(() => groupByOperacao(items), [items]);
 
   const handleCopyLink = async (token: string) => {
-    const link = `${window.location.origin}/assinar/${token}`;
+    const rawLink = items.find((item) => item.token_acesso === token)?.link_assinatura;
+    const link = getPublicSigningUrl(token, rawLink);
     try {
       await navigator.clipboard.writeText(link);
       toast({ title: 'Link copiado com sucesso.' });
@@ -271,7 +272,7 @@ function OperacaoDetailDialog({
                     </Button>
                     {item.link_assinatura && (
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="Abrir link público" asChild>
-                        <a href={item.link_assinatura} target="_blank" rel="noopener noreferrer">
+                        <a href={getPublicSigningUrl(item.token_acesso, item.link_assinatura)} target="_blank" rel="noopener noreferrer">
                           <ExternalLink className="h-3.5 w-3.5" />
                         </a>
                       </Button>

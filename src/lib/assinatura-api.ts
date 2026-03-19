@@ -4,6 +4,39 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://goldsign.onrend
 const LOCAL_SIGNER_URL = import.meta.env.VITE_LOCAL_SIGNER_URL || 'http://localhost:8765';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
+function getBrowserOrigin() {
+  if (typeof window === 'undefined' || !window.location?.origin) return '';
+  return window.location.origin;
+}
+
+function isLocalhostHost(hostname: string) {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0';
+}
+
+export function getPublicSigningUrl(token: string, rawLink?: string) {
+  const browserOrigin = getBrowserOrigin();
+
+  if (rawLink) {
+    try {
+      const parsed = new URL(rawLink);
+      if (!isLocalhostHost(parsed.hostname)) {
+        return parsed.toString();
+      }
+      if (browserOrigin) {
+        return `${browserOrigin}/assinar/${token}`;
+      }
+      return rawLink;
+    } catch {
+      if (browserOrigin) {
+        return `${browserOrigin}/assinar/${token}`;
+      }
+      return rawLink;
+    }
+  }
+
+  return browserOrigin ? `${browserOrigin}/assinar/${token}` : `/assinar/${token}`;
+}
+
 export interface ContratoData {
   solicitacao_id: string;
   documento_id: string;

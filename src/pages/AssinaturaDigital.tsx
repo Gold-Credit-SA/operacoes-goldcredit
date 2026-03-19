@@ -26,7 +26,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { buscarCedentePorDocumento, buscarCedentesCadastrados, type CedenteCadastroResumo } from '@/lib/cedente-api';
-import { criarSolicitacao, type CriarSolicitacaoItem } from '@/lib/assinatura-api';
+import { criarSolicitacao, getPublicSigningUrl, type CriarSolicitacaoItem } from '@/lib/assinatura-api';
 import { cn } from '@/lib/utils';
 import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
@@ -454,10 +454,10 @@ export default function AssinaturaDigital() {
 
       const novosLinks: ResultLink[] = [];
       if (cedenteSol[0]) {
-        novosLinks.push({ role: 'cedente', label: 'Cedente', nome: cedenteSol[0].signatario_nome || cedente.nome, link: cedenteSol[0].link_assinatura, token: cedenteSol[0].token_acesso, status: cedenteSol[0].status });
+        novosLinks.push({ role: 'cedente', label: 'Cedente', nome: cedenteSol[0].signatario_nome || cedente.nome, link: getPublicSigningUrl(cedenteSol[0].token_acesso, cedenteSol[0].link_assinatura), token: cedenteSol[0].token_acesso, status: cedenteSol[0].status });
       }
       if (cedenteSol[1]) {
-        novosLinks.push({ role: 'responsavel_solidario', label: 'Responsável Solidário', nome: cedenteSol[1].signatario_nome || responsavel.nome, link: cedenteSol[1].link_assinatura, token: cedenteSol[1].token_acesso, status: cedenteSol[1].status });
+        novosLinks.push({ role: 'responsavel_solidario', label: 'Responsável Solidário', nome: cedenteSol[1].signatario_nome || responsavel.nome, link: getPublicSigningUrl(cedenteSol[1].token_acesso, cedenteSol[1].link_assinatura), token: cedenteSol[1].token_acesso, status: cedenteSol[1].status });
       }
 
       setLinks(novosLinks);
