@@ -1,20 +1,9 @@
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  Copy,
-  Eye,
-  FileText,
-  Link2,
-  Loader2,
-  RefreshCw,
-  Send,
-  Share2,
-} from 'lucide-react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import { AlertCircle, CheckCircle2, Clock, Copy, Eye, FileText, Link2, Loader2, RefreshCw, Send, Share2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { listarSolicitacoes, type SolicitacaoResumo } from '@/lib/assinatura-api';
@@ -25,18 +14,6 @@ const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secon
   assinado: { label: 'Assinado', variant: 'default' },
   expirado: { label: 'Expirado', variant: 'destructive' },
 };
-
-interface OperacaoAgrupada {
-  documentoId: string;
-  titulo: string;
-  cedenteNome: string;
-  total: number;
-  assinados: number;
-  pendentes: number;
-  expirados: number;
-  ultimaAtualizacao?: string;
-  solicitacoes: SolicitacaoResumo[];
-}
 
 export default function Documentos() {
   const [items, setItems] = useState<SolicitacaoResumo[]>([]);
@@ -80,50 +57,6 @@ export default function Documentos() {
     expirados: items.filter((item) => item.status === 'expirado').length,
   };
 
-  const operacoes = useMemo<OperacaoAgrupada[]>(() => {
-    const grupos = new Map<string, SolicitacaoResumo[]>();
-
-    for (const item of items) {
-      const chave = item.documento_id || item.id;
-      const existentes = grupos.get(chave) || [];
-      existentes.push(item);
-      grupos.set(chave, existentes);
-    }
-
-    return Array.from(grupos.entries())
-      .map(([documentoId, solicitacoes]) => {
-        const ordenadas = [...solicitacoes].sort(
-          (a, b) => new Date(a.criado_em).getTime() - new Date(b.criado_em).getTime(),
-        );
-        const cedente =
-          ordenadas.find((item) => item.papel_assinatura === 'cedente') ||
-          ordenadas.find((item) => item.papel_assinatura !== 'cessionaria_gold_credit') ||
-          ordenadas[0];
-        const assinados = ordenadas.filter((item) => item.status === 'assinado').length;
-        const pendentes = ordenadas.filter((item) => item.status === 'pendente' || item.status === 'visualizado').length;
-        const expirados = ordenadas.filter((item) => item.status === 'expirado').length;
-        const ultimaAtualizacao = [...ordenadas]
-          .sort((a, b) => {
-            const dataA = new Date(a.assinado_em || a.criado_em).getTime();
-            const dataB = new Date(b.assinado_em || b.criado_em).getTime();
-            return dataB - dataA;
-          })[0];
-
-        return {
-          documentoId,
-          titulo: cedente?.titulo || ordenadas[0]?.titulo || 'Operacao sem titulo',
-          cedenteNome: cedente?.signatario_nome || 'Cedente nao identificado',
-          total: ordenadas.length,
-          assinados,
-          pendentes,
-          expirados,
-          ultimaAtualizacao: ultimaAtualizacao?.assinado_em || ultimaAtualizacao?.criado_em,
-          solicitacoes: ordenadas,
-        };
-      })
-      .sort((a, b) => new Date(b.ultimaAtualizacao || 0).getTime() - new Date(a.ultimaAtualizacao || 0).getTime());
-  }, [items]);
-
   return (
     <div className="max-w-6xl space-y-6 p-6">
       <div className="flex items-center justify-between">
@@ -155,110 +88,98 @@ export default function Documentos() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Operacoes recentes</CardTitle>
+          <CardTitle>Solicitacoes recentes</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4 p-4">
+        <CardContent className="p-0">
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
               <span>Carregando solicitacoes...</span>
             </div>
-          ) : operacoes.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">
-              Nenhuma solicitacao encontrada.
-            </div>
           ) : (
-            operacoes.map((operacao) => (
-              <Card key={operacao.documentoId} className="border-border/70 shadow-sm">
-                <CardContent className="space-y-3 p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="space-y-1">
-                      <p className="text-lg font-semibold text-foreground">
-                        Operacao - {operacao.cedenteNome}
-                      </p>
-                      <p className="text-sm text-muted-foreground">{operacao.titulo}</p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline" className="h-8 rounded-full px-3 text-xs font-medium">
-                        {operacao.total} participantes
-                      </Badge>
-                      <Badge variant="default" className="h-8 rounded-full px-3 text-xs font-medium">
-                        {operacao.assinados} assinaram
-                      </Badge>
-                      {operacao.pendentes > 0 && (
-                        <Badge variant="secondary" className="h-8 rounded-full px-3 text-xs font-medium">
-                          {operacao.pendentes} faltando
-                        </Badge>
-                      )}
-                      {operacao.expirados > 0 && (
-                        <Badge variant="destructive" className="h-8 rounded-full px-3 text-xs font-medium">
-                          {operacao.expirados} expirados
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3">
-                    <div className="flex items-center gap-1.5">
-                      {operacao.solicitacoes[0] && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-9 w-9 rounded-full border-border/70"
-                            title="Copiar link"
-                            onClick={() => handleCopyLink(operacao.solicitacoes[0].token_acesso)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="icon" className="h-9 w-9 rounded-full border-border/70" title="Ver detalhes completos" asChild>
-                            <Link to={`/contratos/documentos/${operacao.solicitacoes[0].token_acesso}`}>
-                              <Eye className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          {operacao.solicitacoes[0].link_assinatura && (
-                            <Button variant="outline" size="icon" className="h-9 w-9 rounded-full border-border/70" title="Abrir link publico" asChild>
-                              <a href={operacao.solicitacoes[0].link_assinatura} target="_blank" rel="noopener noreferrer">
-                                <Share2 className="h-4 w-4" />
-                              </a>
-                            </Button>
-                          )}
-                          {operacao.solicitacoes[0].link_assinatura && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Documento</TableHead>
+                  <TableHead>Signatario</TableHead>
+                  <TableHead>CPF/CNPJ</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Criado em</TableHead>
+                  <TableHead>Assinado em</TableHead>
+                  <TableHead className="w-[120px]">Acoes</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                      Nenhuma solicitacao encontrada.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  items.map((item) => {
+                    const status = STATUS_LABELS[item.status] || STATUS_LABELS.pendente;
+                    return (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <p className="font-medium text-foreground">{item.titulo}</p>
+                            <p className="text-xs text-muted-foreground">{item.nome_arquivo}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <p className="font-medium text-foreground">{item.signatario_nome || 'Nao informado'}</p>
+                            <p className="text-xs text-muted-foreground">{item.signatario_email}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {item.assinatura_obrigatoria_cpf_cnpj || '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={status.variant}>{status.label}</Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {item.criado_em ? new Date(item.criado_em).toLocaleString('pt-BR') : '—'}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {item.assinado_em ? new Date(item.assinado_em).toLocaleString('pt-BR') : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="icon"
-                              className="h-9 w-9 rounded-full border-border/70"
-                              title="Copiar URL completa"
-                              onClick={() => navigator.clipboard.writeText(operacao.solicitacoes[0].link_assinatura || '')}
+                              title="Copiar link"
+                              onClick={() => handleCopyLink(item.token_acesso)}
                             >
-                              <Link2 className="h-4 w-4" />
+                              <Copy className="h-4 w-4" />
                             </Button>
-                          )}
-                        </>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span>{operacao.total} participantes</span>
-                      <span className="h-1 w-1 rounded-full bg-border" />
-                      <span>{operacao.assinados} assinaram</span>
-                      {operacao.pendentes > 0 && (
-                        <>
-                          <span className="h-1 w-1 rounded-full bg-border" />
-                          <span>{operacao.pendentes} faltando</span>
-                        </>
-                      )}
-                      {operacao.expirados > 0 && (
-                        <>
-                          <span className="h-1 w-1 rounded-full bg-border" />
-                          <span>{operacao.expirados} expirados</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
+                            <Button variant="ghost" size="icon" title="Ver detalhes" asChild>
+                              <Link to={`/contratos/documentos/${item.token_acesso}`}>
+                                <Eye className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            {item.link_assinatura && (
+                              <Button variant="ghost" size="icon" title="Abrir link publico" asChild>
+                                <a href={item.link_assinatura} target="_blank" rel="noopener noreferrer">
+                                  <Share2 className="h-4 w-4" />
+                                </a>
+                              </Button>
+                            )}
+                            {item.link_assinatura && (
+                              <Button variant="ghost" size="icon" title="Copiar URL completa" onClick={() => navigator.clipboard.writeText(item.link_assinatura || '')}>
+                                <Link2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>

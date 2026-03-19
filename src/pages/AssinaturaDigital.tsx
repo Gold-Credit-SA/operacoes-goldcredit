@@ -16,13 +16,13 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { buscarCedentePorDocumento, buscarCedentesCadastrados, type CedenteCadastroResumo } from '@/lib/cedente-api';
@@ -36,7 +36,6 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Step = 'dados' | 'posicoes' | 'resultado';
-type DocumentType = 'contrato_mae' | 'aditivo';
 
 interface SignForm {
   nome: string;
@@ -62,17 +61,6 @@ interface ResultLink {
   status: string;
 }
 
-interface DocumentTemplateConfig {
-  value: DocumentType;
-  label: string;
-  description: string;
-  contratoMae: boolean;
-  includeGoldCredit: boolean;
-  cedente: BoxPos;
-  cessionaria: BoxPos;
-  responsavel: BoxPos;
-}
-
 // ─── PdfPositioner ────────────────────────────────────────────────────────────
 
 interface PdfBox {
@@ -86,30 +74,6 @@ interface PdfPositionerProps {
   objectUrl: string;
   boxes: PdfBox[];
   onChange: (id: string, pos: BoxPos) => void;
-}
-
-function getBoxPreview(box: PdfBox) {
-  if (box.id === 'cessionaria') {
-    return {
-      title: 'Assinado digitalmente',
-      subtitle: 'Gold Credit',
-      footnote: 'Aplicado automaticamente',
-    };
-  }
-
-  if (box.id === 'responsavel') {
-    return {
-      title: 'Assinatura pendente',
-      subtitle: box.label.replace('Resp. Solidário · ', ''),
-      footnote: 'Aparece após o link assinar',
-    };
-  }
-
-  return {
-    title: 'Assinatura pendente',
-    subtitle: box.label.replace('Cedente · ', ''),
-    footnote: 'Aparece após o link assinar',
-  };
 }
 
 function PdfPositioner({ objectUrl, boxes, onChange }: PdfPositionerProps) {
@@ -250,22 +214,7 @@ function PdfPositioner({ objectUrl, boxes, onChange }: PdfPositionerProps) {
             style={toPct(box.pos)}
             onMouseDown={(e) => handleDragStart(e, box.id)}
           >
-            {(() => {
-              const preview = getBoxPreview(box);
-              return (
-                <div className="flex h-full w-full flex-col justify-center rounded bg-white/80 px-2 text-center shadow-sm backdrop-blur-[1px]">
-                  <span className="truncate text-[9px] font-semibold uppercase tracking-[0.08em]">
-                    {preview.title}
-                  </span>
-                  <span className="truncate text-[11px] font-semibold">
-                    {preview.subtitle}
-                  </span>
-                  <span className="truncate text-[9px] font-normal opacity-75">
-                    {preview.footnote}
-                  </span>
-                </div>
-              );
-            })()}
+            <span className="truncate px-1">{box.label}</span>
           </div>
         ))}
       </div>
@@ -321,41 +270,60 @@ function PdfPositioner({ objectUrl, boxes, onChange }: PdfPositionerProps) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const EMPTY_FORM: SignForm = { nome: '', email: '', cpfCnpj: '' };
-const CONTRACT_MOTHER_CEDENTE_DEFAULT: BoxPos = { page: 12, x: 0.07, y: 0.67, w: 0.64, h: 0.04 };
-const CONTRACT_MOTHER_CESSIONARIA_DEFAULT: BoxPos = { page: 12, x: 0.07, y: 0.545, w: 0.64, h: 0.04 };
-const CONTRACT_MOTHER_RESPONSAVEL_DEFAULT: BoxPos = { page: 12, x: 0.07, y: 0.44, w: 0.43, h: 0.04 };
-const ADITIVO_CEDENTE_DEFAULT: BoxPos = { page: 2, x: 0.08, y: 0.77, w: 0.38, h: 0.06 };
-const ADITIVO_CESSIONARIA_DEFAULT: BoxPos = { page: 2, x: 0.08, y: 0.20, w: 0.42, h: 0.07 };
-const ADITIVO_RESPONSAVEL_DEFAULT: BoxPos = { page: 2, x: 0.08, y: 0.46, w: 0.34, h: 0.06 };
 
-const DOCUMENT_TEMPLATES: DocumentTemplateConfig[] = [
-  {
-    value: 'contrato_mae',
-    label: 'Contrato Mae',
-    description: 'Modelo padrao com cedente, responsavel solidario e cessionaria Gold Credit na pagina 12.',
-    contratoMae: true,
-    includeGoldCredit: true,
-    cedente: CONTRACT_MOTHER_CEDENTE_DEFAULT,
-    cessionaria: CONTRACT_MOTHER_CESSIONARIA_DEFAULT,
-    responsavel: CONTRACT_MOTHER_RESPONSAVEL_DEFAULT,
+type TipoDocumento = 'contrato_mae' | 'aditivo' | 'carta_cessao' | 'nota_promissoria' | 'duplicata';
+
+interface DocTypeConfig {
+  label: string;
+  description: string;
+  cedente: BoxPos;
+  cessionaria: BoxPos;
+  responsavel: BoxPos;
+}
+
+const DOC_TYPE_CONFIGS: Record<TipoDocumento, DocTypeConfig> = {
+  contrato_mae: {
+    label: 'Contrato Mãe',
+    description: 'Contrato de relacionamento inicial com o cedente',
+    cedente: { page: 12, x: 0.07, y: 0.67, w: 0.64, h: 0.04 },
+    cessionaria: { page: 12, x: 0.07, y: 0.545, w: 0.64, h: 0.04 },
+    responsavel: { page: 12, x: 0.07, y: 0.44, w: 0.43, h: 0.04 },
   },
-  {
-    value: 'aditivo',
+  aditivo: {
     label: 'Aditivo',
-    description: 'Modelo de aditivo com assinaturas na pagina 2 para cedente, responsavel solidario e securitizadora.',
-    contratoMae: false,
-    includeGoldCredit: true,
-    cedente: ADITIVO_CEDENTE_DEFAULT,
-    cessionaria: ADITIVO_CESSIONARIA_DEFAULT,
-    responsavel: ADITIVO_RESPONSAVEL_DEFAULT,
+    description: 'Resumo da operação e dados bancários',
+    cedente: { page: 1, x: 0.07, y: 0.25, w: 0.64, h: 0.04 },
+    cessionaria: { page: 1, x: 0.07, y: 0.15, w: 0.64, h: 0.04 },
+    responsavel: { page: 1, x: 0.07, y: 0.05, w: 0.43, h: 0.04 },
   },
-];
+  carta_cessao: {
+    label: 'Carta de Cessão',
+    description: 'Formalização da cessão de crédito',
+    cedente: { page: 1, x: 0.07, y: 0.30, w: 0.64, h: 0.04 },
+    cessionaria: { page: 1, x: 0.07, y: 0.20, w: 0.64, h: 0.04 },
+    responsavel: { page: 1, x: 0.07, y: 0.10, w: 0.43, h: 0.04 },
+  },
+  nota_promissoria: {
+    label: 'Nota Promissória',
+    description: 'NP da operação',
+    cedente: { page: 1, x: 0.07, y: 0.35, w: 0.64, h: 0.04 },
+    cessionaria: { page: 1, x: 0.07, y: 0.25, w: 0.64, h: 0.04 },
+    responsavel: { page: 1, x: 0.07, y: 0.15, w: 0.43, h: 0.04 },
+  },
+  duplicata: {
+    label: 'Duplicata',
+    description: 'Extensão da cessão para notas fiscais',
+    cedente: { page: 1, x: 0.07, y: 0.30, w: 0.64, h: 0.04 },
+    cessionaria: { page: 1, x: 0.07, y: 0.20, w: 0.64, h: 0.04 },
+    responsavel: { page: 1, x: 0.07, y: 0.10, w: 0.43, h: 0.04 },
+  },
+};
 
 export default function AssinaturaDigital() {
   const [step, setStep] = useState<Step>('dados');
 
   // Step 1 state
-  const [documentType, setDocumentType] = useState<DocumentType>('contrato_mae');
+  const [tipoDocumento, setTipoDocumento] = useState<TipoDocumento>('contrato_mae');
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [titulo, setTitulo] = useState('');
   const [mensagem, setMensagem] = useState('');
@@ -370,16 +338,23 @@ export default function AssinaturaDigital() {
 
   // Step 2 state
   const [pdfObjectUrl, setPdfObjectUrl] = useState('');
-  const [boxCedente, setBoxCedente] = useState<BoxPos>(CONTRACT_MOTHER_CEDENTE_DEFAULT);
-  const [boxCessionaria, setBoxCessionaria] = useState<BoxPos>(CONTRACT_MOTHER_CESSIONARIA_DEFAULT);
-  const [boxResponsavel, setBoxResponsavel] = useState<BoxPos>(CONTRACT_MOTHER_RESPONSAVEL_DEFAULT);
+  const [boxCedente, setBoxCedente] = useState<BoxPos>(DOC_TYPE_CONFIGS.contrato_mae.cedente);
+  const [boxCessionaria, setBoxCessionaria] = useState<BoxPos>(DOC_TYPE_CONFIGS.contrato_mae.cessionaria);
+  const [boxResponsavel, setBoxResponsavel] = useState<BoxPos>(DOC_TYPE_CONFIGS.contrato_mae.responsavel);
+
+  // Update box positions when document type changes
+  const handleTipoDocumentoChange = (tipo: TipoDocumento) => {
+    setTipoDocumento(tipo);
+    const config = DOC_TYPE_CONFIGS[tipo];
+    setBoxCedente(config.cedente);
+    setBoxCessionaria(config.cessionaria);
+    setBoxResponsavel(config.responsavel);
+  };
 
   // Step 3 state
   const [enviando, setEnviando] = useState(false);
   const [links, setLinks] = useState<ResultLink[]>([]);
 
-  const currentTemplate =
-    DOCUMENT_TEMPLATES.find((template) => template.value === documentType) || DOCUMENT_TEMPLATES[0];
   const temResponsavel = Boolean(responsavel.email && responsavel.cpfCnpj);
 
   const formatarCpfCnpj = (v: string) => {
@@ -428,12 +403,6 @@ export default function AssinaturaDigital() {
     if (inputRef.current) inputRef.current.value = '';
   };
 
-  useEffect(() => {
-    setBoxCedente(currentTemplate.cedente);
-    setBoxCessionaria(currentTemplate.cessionaria);
-    setBoxResponsavel(currentTemplate.responsavel);
-  }, [currentTemplate]);
-
   const irParaPosicoes = () => {
     if (!arquivo) { toast({ title: 'Selecione um arquivo PDF.', variant: 'destructive' }); return; }
     if (!cedente.email || !cedente.cpfCnpj || !cedente.nome) {
@@ -447,17 +416,17 @@ export default function AssinaturaDigital() {
   const gerar = async () => {
     setEnviando(true);
     try {
-      const tituloFinal = titulo.trim() || currentTemplate.label;
+      const tituloFinal = titulo.trim() || arquivo!.name.replace(/\.pdf$/i, '');
       const data = await criarSolicitacao({
         arquivo: arquivo!,
         titulo: tituloFinal,
-        tipo_documento: documentType,
+        tipo_documento: tipoDocumento,
         signatario_nome: cedente.nome,
         signatario_email: cedente.email,
         signatario_cpf_cnpj: cedente.cpfCnpj,
         mensagem,
-        contrato_mae: currentTemplate.contratoMae,
-        incluir_assinatura_gold_credit: currentTemplate.includeGoldCredit,
+        contrato_mae: true,
+        incluir_assinatura_gold_credit: true,
         assinatura_pagina_cedente: boxCedente.page,
         assinatura_x_cedente: boxCedente.x,
         assinatura_y_cedente: boxCedente.y,
@@ -505,7 +474,6 @@ export default function AssinaturaDigital() {
   const reiniciar = () => {
     if (pdfObjectUrl) URL.revokeObjectURL(pdfObjectUrl);
     setStep('dados');
-    setDocumentType('contrato_mae');
     setArquivo(null);
     setTitulo('');
     setMensagem('');
@@ -513,9 +481,10 @@ export default function AssinaturaDigital() {
     setResponsavel(EMPTY_FORM);
     setCedenteSelecionado(null);
     setPdfObjectUrl('');
-    setBoxCedente(CONTRACT_MOTHER_CEDENTE_DEFAULT);
-    setBoxCessionaria(CONTRACT_MOTHER_CESSIONARIA_DEFAULT);
-    setBoxResponsavel(CONTRACT_MOTHER_RESPONSAVEL_DEFAULT);
+    setTipoDocumento('contrato_mae');
+    setBoxCedente(DOC_TYPE_CONFIGS.contrato_mae.cedente);
+    setBoxCessionaria(DOC_TYPE_CONFIGS.contrato_mae.cessionaria);
+    setBoxResponsavel(DOC_TYPE_CONFIGS.contrato_mae.responsavel);
     setLinks([]);
   };
 
@@ -560,30 +529,37 @@ export default function AssinaturaDigital() {
       {/* ── Step 1: Dados ─────────────────────────────────────────────────── */}
       {step === 'dados' && (
         <div className="space-y-6">
+          {/* Tipo de Documento */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Tipo de Documento</CardTitle>
+              <CardDescription>Selecione o tipo de documento antes de importar o PDF.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Select value={tipoDocumento} onValueChange={(v) => handleTipoDocumentoChange(v as TipoDocumento)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecione o tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.entries(DOC_TYPE_CONFIGS) as [TipoDocumento, DocTypeConfig][]).map(([key, cfg]) => (
+                    <SelectItem key={key} value={key}>
+                      <div className="flex flex-col">
+                        <span>{cfg.label}</span>
+                        <span className="text-xs text-muted-foreground">{cfg.description}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+
           {/* Upload */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Documento PDF</CardTitle>
-              <CardDescription>Escolha o tipo de documento para carregar as posições padrão de assinatura.</CardDescription>
+              <CardTitle className="flex items-center gap-2"><Upload className="h-5 w-5" /> Documento PDF</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Tipo de documento</Label>
-                <Select value={documentType} onValueChange={(value) => setDocumentType(value as DocumentType)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o tipo de documento" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DOCUMENT_TEMPLATES.map((template) => (
-                      <SelectItem key={template.value} value={template.value}>
-                        {template.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">{currentTemplate.description}</p>
-              </div>
-
+            <CardContent>
               {!arquivo ? (
                 <label className="flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed p-8 hover:border-primary/50 hover:bg-accent/30 transition-colors">
                   <Upload className="h-8 w-8 text-muted-foreground" />
@@ -605,7 +581,7 @@ export default function AssinaturaDigital() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="titulo">Título do documento</Label>
-                    <Input id="titulo" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder={currentTemplate.label || arquivo.name.replace(/\.pdf$/i, '')} />
+                    <Input id="titulo" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder={arquivo.name.replace(/\.pdf$/i, '')} />
                   </div>
                 </div>
               )}
@@ -729,7 +705,7 @@ export default function AssinaturaDigital() {
             <CardHeader>
               <CardTitle>Posicionamento das assinaturas</CardTitle>
               <CardDescription>
-                Navegue pelas páginas e arraste as caixas coloridas para o local onde cada assinatura deve aparecer no modelo {currentTemplate.label}.
+                Navegue pelas páginas e arraste as caixas coloridas para o local onde cada assinatura deve aparecer.
                 A assinatura da Gold Credit continua automática, mas agora usa exatamente a caixa da cessionária definida aqui.
               </CardDescription>
             </CardHeader>
@@ -747,15 +723,6 @@ export default function AssinaturaDigital() {
                   else setBoxResponsavel(pos);
                 }}
               />
-              <div className="mt-4 rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-                <p className="font-medium text-foreground">Como ler essa prévia</p>
-                <p className="mt-1">
-                  A caixa âmbar da cessionária representa o carimbo real que o sistema aplica automaticamente ao gerar o fluxo.
-                </p>
-                <p className="mt-1">
-                  As caixas azul e verde são apenas uma pré-visualização de posição. O carimbo visível só aparece no PDF final depois que cedente e responsável assinarem pelos respectivos links.
-                </p>
-              </div>
             </CardContent>
           </Card>
 

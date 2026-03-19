@@ -18,14 +18,8 @@ const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secon
 };
 
 function formatarData(valor?: string) {
-  if (!valor) return '-';
+  if (!valor) return '—';
   return new Date(valor).toLocaleString('pt-BR');
-}
-
-function formatarPapelAssinatura(papel?: SolicitacaoResumo['papel_assinatura']) {
-  if (papel === 'cessionaria_gold_credit') return 'Cessionaria';
-  if (papel === 'cedente') return 'Cedente';
-  return 'Participante';
 }
 
 export default function DocumentoDetalhe() {
@@ -60,33 +54,27 @@ export default function DocumentoDetalhe() {
     [items, token],
   );
 
-  const operacaoRelacionada = useMemo(() => {
+  const documentosRelacionados = useMemo(() => {
     if (!documento) return [];
-    const chaveOperacao = documento.documento_id || documento.id;
+    const chaveDoc = (documento.assinatura_obrigatoria_cpf_cnpj || '').replace(/\D/g, '');
+    const chaveEmail = (documento.signatario_email || '').trim().toLowerCase();
 
     return items
       .filter((item) => {
-        const itemChave = item.documento_id || item.id;
-        return itemChave === chaveOperacao;
+        const itemDoc = (item.assinatura_obrigatoria_cpf_cnpj || '').replace(/\D/g, '');
+        const itemEmail = (item.signatario_email || '').trim().toLowerCase();
+        if (chaveDoc && itemDoc) return itemDoc === chaveDoc;
+        return chaveEmail && itemEmail === chaveEmail;
       })
-      .sort((a, b) => new Date(a.criado_em).getTime() - new Date(b.criado_em).getTime());
+      .sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime());
   }, [documento, items]);
 
-  const cedenteOperacao = useMemo(
-    () =>
-      operacaoRelacionada.find((item) => item.papel_assinatura === 'cedente') ||
-      operacaoRelacionada.find((item) => item.papel_assinatura !== 'cessionaria_gold_credit') ||
-      operacaoRelacionada[0] ||
-      documento,
-    [documento, operacaoRelacionada],
-  );
-
   const stats = useMemo(() => ({
-    total: operacaoRelacionada.length,
-    assinados: operacaoRelacionada.filter((item) => item.status === 'assinado').length,
-    pendentes: operacaoRelacionada.filter((item) => item.status === 'pendente' || item.status === 'visualizado').length,
-    expirados: operacaoRelacionada.filter((item) => item.status === 'expirado').length,
-  }), [operacaoRelacionada]);
+    total: documentosRelacionados.length,
+    assinados: documentosRelacionados.filter((item) => item.status === 'assinado').length,
+    pendentes: documentosRelacionados.filter((item) => item.status === 'pendente' || item.status === 'visualizado').length,
+    expirados: documentosRelacionados.filter((item) => item.status === 'expirado').length,
+  }), [documentosRelacionados]);
 
   const copiarLink = async (link: string) => {
     try {
@@ -141,9 +129,6 @@ export default function DocumentoDetalhe() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-foreground">{documento.titulo}</h1>
-            <p className="text-sm text-muted-foreground">
-              Operacao - {cedenteOperacao?.signatario_nome || 'Cedente nao identificado'}
-            </p>
             <p className="text-sm text-muted-foreground">{documento.nome_arquivo}</p>
           </div>
         </div>
@@ -171,7 +156,7 @@ export default function DocumentoDetalhe() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <ResumoCard titulo="Participantes" valor={stats.total} />
+        <ResumoCard titulo="Total do signatario" valor={stats.total} />
         <ResumoCard titulo="Assinados" valor={stats.assinados} />
         <ResumoCard titulo="Pendentes" valor={stats.pendentes} />
         <ResumoCard titulo="Expirados" valor={stats.expirados} />
@@ -180,15 +165,14 @@ export default function DocumentoDetalhe() {
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <Card>
           <CardHeader>
-            <CardTitle>Resumo da operacao</CardTitle>
-            <CardDescription>Detalhes do documento atual e dos dados principais desta operacao.</CardDescription>
+            <CardTitle>Resumo da solicitacao</CardTitle>
+            <CardDescription>Detalhes do documento atual e do signatario vinculado.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <div className="grid gap-4 md:grid-cols-2">
-              <CampoDetalhe rotulo="Cedente principal" valor={cedenteOperacao?.signatario_nome || 'Nao informado'} />
-              <CampoDetalhe rotulo="E-mail principal" valor={cedenteOperacao?.signatario_email || 'Nao informado'} />
-              <CampoDetalhe rotulo="CPF/CNPJ principal" valor={cedenteOperacao?.assinatura_obrigatoria_cpf_cnpj || 'Nao informado'} />
-              <CampoDetalhe rotulo="Documento" valor={documento.nome_arquivo || 'Nao informado'} />
+              <CampoDetalhe rotulo="Signatario" valor={documento.signatario_nome || 'Nao informado'} />
+              <CampoDetalhe rotulo="E-mail" valor={documento.signatario_email || 'Nao informado'} />
+              <CampoDetalhe rotulo="CPF/CNPJ" valor={documento.assinatura_obrigatoria_cpf_cnpj || 'Nao informado'} />
               <CampoDetalhe rotulo="Criado em" valor={formatarData(documento.criado_em)} />
               <CampoDetalhe rotulo="Assinado em" valor={formatarData(documento.assinado_em)} />
               <CampoDetalhe rotulo="Expira em" valor={formatarData(documento.expira_em)} />
@@ -205,9 +189,9 @@ export default function DocumentoDetalhe() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Participantes da operacao</CardTitle>
+            <CardTitle>Controle do signatario</CardTitle>
             <CardDescription>
-              Veja quem ja assinou, quem ainda falta assinar e o papel de cada participante desta operacao.
+              Acompanhe todos os documentos recentes vinculados ao mesmo signatario para saber o que ja foi e o que ainda falta assinar.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -220,16 +204,16 @@ export default function DocumentoDetalhe() {
 
               <TabsContent value="pendentes">
                 <TabelaRelacionados
-                  items={operacaoRelacionada.filter((item) => item.status === 'pendente' || item.status === 'visualizado' || item.status === 'expirado')}
+                  items={documentosRelacionados.filter((item) => item.status === 'pendente' || item.status === 'visualizado' || item.status === 'expirado')}
                 />
               </TabsContent>
 
               <TabsContent value="assinados">
-                <TabelaRelacionados items={operacaoRelacionada.filter((item) => item.status === 'assinado')} />
+                <TabelaRelacionados items={documentosRelacionados.filter((item) => item.status === 'assinado')} />
               </TabsContent>
 
               <TabsContent value="todos">
-                <TabelaRelacionados items={operacaoRelacionada} />
+                <TabelaRelacionados items={documentosRelacionados} />
               </TabsContent>
             </Tabs>
           </CardContent>
@@ -281,12 +265,9 @@ function TabelaRelacionados({ items }: { items: SolicitacaoResumo[] }) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Papel</TableHead>
-            <TableHead>Quem assina</TableHead>
             <TableHead>Documento</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Criado em</TableHead>
-            <TableHead>Assinado em</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -294,13 +275,6 @@ function TabelaRelacionados({ items }: { items: SolicitacaoResumo[] }) {
             const status = STATUS_LABELS[item.status] || STATUS_LABELS.pendente;
             return (
               <TableRow key={item.id}>
-                <TableCell className="text-xs text-muted-foreground">{formatarPapelAssinatura(item.papel_assinatura)}</TableCell>
-                <TableCell>
-                  <div className="space-y-1">
-                    <p className="font-medium text-foreground">{item.signatario_nome || 'Nao informado'}</p>
-                    <p className="text-xs text-muted-foreground">{item.assinatura_obrigatoria_cpf_cnpj || '-'}</p>
-                  </div>
-                </TableCell>
                 <TableCell>
                   <div className="space-y-1">
                     <p className="font-medium text-foreground">{item.titulo}</p>
@@ -311,7 +285,6 @@ function TabelaRelacionados({ items }: { items: SolicitacaoResumo[] }) {
                   <Badge variant={status.variant}>{status.label}</Badge>
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">{formatarData(item.criado_em)}</TableCell>
-                <TableCell className="text-xs text-muted-foreground">{formatarData(item.assinado_em)}</TableCell>
               </TableRow>
             );
           })}
