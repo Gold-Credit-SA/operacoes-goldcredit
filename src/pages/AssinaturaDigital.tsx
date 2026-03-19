@@ -270,9 +270,54 @@ function PdfPositioner({ objectUrl, boxes, onChange }: PdfPositionerProps) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const EMPTY_FORM: SignForm = { nome: '', email: '', cpfCnpj: '' };
-const CONTRACT_MOTHER_CEDENTE_DEFAULT: BoxPos = { page: 12, x: 0.07, y: 0.67, w: 0.64, h: 0.04 };
-const CONTRACT_MOTHER_CESSIONARIA_DEFAULT: BoxPos = { page: 12, x: 0.07, y: 0.545, w: 0.64, h: 0.04 };
-const CONTRACT_MOTHER_RESPONSAVEL_DEFAULT: BoxPos = { page: 12, x: 0.07, y: 0.44, w: 0.43, h: 0.04 };
+
+type TipoDocumento = 'contrato_mae' | 'aditivo' | 'carta_cessao' | 'nota_promissoria' | 'duplicata';
+
+interface DocTypeConfig {
+  label: string;
+  description: string;
+  cedente: BoxPos;
+  cessionaria: BoxPos;
+  responsavel: BoxPos;
+}
+
+const DOC_TYPE_CONFIGS: Record<TipoDocumento, DocTypeConfig> = {
+  contrato_mae: {
+    label: 'Contrato Mãe',
+    description: 'Contrato de relacionamento inicial com o cedente',
+    cedente: { page: 12, x: 0.07, y: 0.67, w: 0.64, h: 0.04 },
+    cessionaria: { page: 12, x: 0.07, y: 0.545, w: 0.64, h: 0.04 },
+    responsavel: { page: 12, x: 0.07, y: 0.44, w: 0.43, h: 0.04 },
+  },
+  aditivo: {
+    label: 'Aditivo',
+    description: 'Resumo da operação e dados bancários',
+    cedente: { page: 1, x: 0.07, y: 0.25, w: 0.64, h: 0.04 },
+    cessionaria: { page: 1, x: 0.07, y: 0.15, w: 0.64, h: 0.04 },
+    responsavel: { page: 1, x: 0.07, y: 0.05, w: 0.43, h: 0.04 },
+  },
+  carta_cessao: {
+    label: 'Carta de Cessão',
+    description: 'Formalização da cessão de crédito',
+    cedente: { page: 1, x: 0.07, y: 0.30, w: 0.64, h: 0.04 },
+    cessionaria: { page: 1, x: 0.07, y: 0.20, w: 0.64, h: 0.04 },
+    responsavel: { page: 1, x: 0.07, y: 0.10, w: 0.43, h: 0.04 },
+  },
+  nota_promissoria: {
+    label: 'Nota Promissória',
+    description: 'NP da operação',
+    cedente: { page: 1, x: 0.07, y: 0.35, w: 0.64, h: 0.04 },
+    cessionaria: { page: 1, x: 0.07, y: 0.25, w: 0.64, h: 0.04 },
+    responsavel: { page: 1, x: 0.07, y: 0.15, w: 0.43, h: 0.04 },
+  },
+  duplicata: {
+    label: 'Duplicata',
+    description: 'Extensão da cessão para notas fiscais',
+    cedente: { page: 1, x: 0.07, y: 0.30, w: 0.64, h: 0.04 },
+    cessionaria: { page: 1, x: 0.07, y: 0.20, w: 0.64, h: 0.04 },
+    responsavel: { page: 1, x: 0.07, y: 0.10, w: 0.43, h: 0.04 },
+  },
+};
 
 export default function AssinaturaDigital() {
   const [step, setStep] = useState<Step>('dados');
