@@ -3,10 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, Mail } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import logoGoldCredit from '@/assets/logo-gold-credit.png';
 
 export default function Login() {
@@ -22,7 +20,7 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email || !password) {
       toast({
         title: 'Erro',
@@ -55,52 +53,85 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center space-y-4">
-          <div className="flex justify-center">
-            <img src={logoGoldCredit} alt="Gold Credit" className="h-16" />
+    <div className="min-h-screen flex bg-background">
+      {/* Left panel - branding */}
+      <div className="hidden lg:flex lg:w-1/2 bg-black relative overflow-hidden items-center justify-center">
+        {/* Subtle gold accent lines */}
+        <div className="absolute inset-0">
+          <div className="absolute top-0 right-0 w-px h-full bg-gradient-to-b from-transparent via-primary/30 to-transparent" />
+          <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+          <div
+            className="absolute top-1/4 -left-32 w-96 h-96 rounded-full opacity-[0.03]"
+            style={{ background: 'radial-gradient(circle, hsl(38 67% 67%) 0%, transparent 70%)' }}
+          />
+          <div
+            className="absolute bottom-1/4 -right-32 w-96 h-96 rounded-full opacity-[0.03]"
+            style={{ background: 'radial-gradient(circle, hsl(38 67% 67%) 0%, transparent 70%)' }}
+          />
+        </div>
+
+        <div className="relative z-10 flex flex-col items-center text-center px-16 max-w-lg">
+          <img src={logoGoldCredit} alt="Gold Credit" className="h-20 mb-12" />
+          <div className="w-12 h-px bg-primary/40 mb-8" />
+          <p className="text-white/50 text-sm tracking-[0.2em] uppercase font-light">
+            Plataforma de Gestão
+          </p>
+        </div>
+      </div>
+
+      {/* Right panel - login form */}
+      <div className="flex-1 flex items-center justify-center px-6 sm:px-12">
+        <div className="w-full max-w-sm">
+          {/* Mobile logo */}
+          <div className="flex justify-center lg:hidden mb-12">
+            <img src={logoGoldCredit} alt="Gold Credit" className="h-14" />
           </div>
-          <CardTitle className="text-2xl">Acesso ao Sistema</CardTitle>
-          <CardDescription>
-            Entre com suas credenciais para acessar o sistema
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10"
-                  disabled={loading}
-                />
-              </div>
+
+          <div className="mb-10">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Acesso ao sistema
+            </h1>
+            <p className="text-sm text-muted-foreground mt-2">
+              Entre com suas credenciais para continuar.
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-1.5">
+              <label htmlFor="email" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                E-mail
+              </label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="seu@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+                className="h-11 bg-transparent border-border/60 focus:border-primary transition-colors"
+              />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10"
-                  disabled={loading}
-                />
-              </div>
+            <div className="space-y-1.5">
+              <label htmlFor="password" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Senha
+              </label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                className="h-11 bg-transparent border-border/60 focus:border-primary transition-colors"
+              />
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button
+              type="submit"
+              className="w-full h-11 mt-2 font-medium tracking-wide"
+              disabled={loading}
+            >
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -112,11 +143,11 @@ export default function Login() {
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
+          <p className="mt-10 text-center text-xs text-muted-foreground/60">
             Não tem acesso? Entre em contato com o administrador.
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
