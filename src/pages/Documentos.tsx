@@ -1,85 +1,36 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Copy, Eye, Link2, Loader2, RefreshCw, Send, Share2 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import { AlertCircle, CheckCircle2, Clock, Copy, Eye, FileText, Link2, Loader2, RefreshCw, Send, Share2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { listarSolicitacoes, type SolicitacaoResumo } from '@/lib/assinatura-api';
 
-type OperacaoResumo = {
-  documentoId: string;
-  titulo: string;
-  nomeArquivo: string;
-  cedenteNome: string;
-  token: string;
-  link?: string;
-  totalParticipantes: number;
-  totalAssinados: number;
-  totalPendentes: number;
+const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+  pendente: { label: 'Pendente', variant: 'outline' },
+  visualizado: { label: 'Visualizado', variant: 'secondary' },
+  assinado: { label: 'Assinado', variant: 'default' },
+  expirado: { label: 'Expirado', variant: 'destructive' },
 };
-
-function agruparOperacoes(items: SolicitacaoResumo[]): OperacaoResumo[] {
-  const grupos = new Map<string, SolicitacaoResumo[]>();
-
-  for (const item of items) {
-    if (!item || typeof item !== 'object') continue;
-    const chave = item.documento_id || item.id;
-    if (!chave) continue;
-
-    const grupo = grupos.get(chave) || [];
-    grupo.push(item);
-    grupos.set(chave, grupo);
-  }
-
-  return Array.from(grupos.entries())
-    .map(([documentoId, grupo]) => {
-      const ordenados = [...grupo].sort(
-        (a, b) => new Date(b.criado_em || 0).getTime() - new Date(a.criado_em || 0).getTime(),
-      );
-
-      const cedente =
-        ordenados.find((item) => item.papel_assinatura === 'cedente') ||
-        ordenados.find((item) => item.papel_assinatura !== 'cessionaria_gold_credit') ||
-        ordenados[0];
-
-      return {
-        documentoId,
-        titulo: cedente?.titulo || ordenados[0]?.titulo || 'Documento',
-        nomeArquivo: cedente?.nome_arquivo || ordenados[0]?.nome_arquivo || '',
-        cedenteNome: cedente?.signatario_nome || 'Cedente nao informado',
-        token: cedente?.token_acesso || ordenados[0]?.token_acesso || '',
-        link: cedente?.link_assinatura || ordenados[0]?.link_assinatura,
-        totalParticipantes: ordenados.length,
-        totalAssinados: ordenados.filter((item) => item.status === 'assinado').length,
-        totalPendentes: ordenados.filter((item) => item.status !== 'assinado').length,
-      };
-    })
-    .sort((a, b) => {
-      const aTime = new Date(items.find((item) => item.documento_id === a.documentoId)?.criado_em || 0).getTime();
-      const bTime = new Date(items.find((item) => item.documento_id === b.documentoId)?.criado_em || 0).getTime();
-      return bTime - aTime;
-    });
-}
 
 export default function Documentos() {
   const [items, setItems] = useState<SolicitacaoResumo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [erro, setErro] = useState('');
-  const navigate = useNavigate();
 
   const carregar = useCallback(async () => {
     setLoading(true);
-    setErro('');
     try {
       const data = await listarSolicitacoes(100);
-      setItems(Array.isArray(data) ? data : []);
+      setItems(data);
     } catch (e: any) {
-      setItems([]);
-      setErro(e?.message || 'Nao foi possivel listar as solicitacoes.');
       toast({
         title: 'Erro ao carregar documentos',
-        description: e?.message || 'Nao foi possivel listar as solicitacoes.',
+        description: e.message || 'Nao foi possivel listar as solicitacoes.',
         variant: 'destructive',
       });
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -89,128 +40,163 @@ export default function Documentos() {
     carregar();
   }, [carregar]);
 
-  const operacoes = useMemo(() => agruparOperacoes(items), [items]);
-
-  const copiarTexto = async (texto: string, sucesso: string) => {
+  const handleCopyLink = async (token: string) => {
+    const link = `${window.location.origin}/assinar/${token}`;
     try {
-      await navigator.clipboard.writeText(texto);
-      toast({ title: sucesso });
+      await navigator.clipboard.writeText(link);
+      toast({ title: 'Link copiado com sucesso.' });
     } catch {
-      toast({ title: 'Nao foi possivel copiar.', variant: 'destructive' });
+      toast({ title: 'Nao foi possivel copiar o link.', variant: 'destructive' });
     }
   };
 
+  const stats = {
+    total: items.length,
+    pendentes: items.filter((item) => item.status === 'pendente' || item.status === 'visualizado').length,
+    assinados: items.filter((item) => item.status === 'assinado').length,
+    expirados: items.filter((item) => item.status === 'expirado').length,
+  };
+
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="max-w-6xl space-y-6 p-6">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Documentos</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Operacoes agrupadas por documento.
+            Lista de solicitacoes de assinatura criadas no fluxo publico.
           </p>
         </div>
-
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={carregar} disabled={loading}>
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
-          <Button asChild>
-            <Link to="/contratos/assinatura-digital" className="gap-2">
+          <Link to="/contratos/assinatura-digital">
+            <Button className="gap-2">
               <Send className="h-4 w-4" />
               Novo documento
-            </Link>
-          </Button>
+            </Button>
+          </Link>
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex min-h-[240px] items-center justify-center gap-2 rounded-2xl border bg-card">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Carregando operacoes...</span>
-        </div>
-      ) : erro ? (
-        <div className="rounded-2xl border border-dashed bg-card px-6 py-16 text-center">
-          <p className="text-sm font-medium text-foreground">Nao foi possivel carregar as operacoes.</p>
-          <p className="mt-2 text-sm text-muted-foreground">{erro}</p>
-        </div>
-      ) : operacoes.length === 0 ? (
-        <div className="rounded-2xl border border-dashed bg-card px-6 py-16 text-center text-sm text-muted-foreground">
-          Nenhuma operacao encontrada.
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {operacoes.map((operacao) => (
-            <div key={operacao.documentoId} className="rounded-2xl border bg-card p-5 shadow-sm">
-              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                <div className="space-y-1">
-                  <div className="text-lg font-semibold text-foreground">{operacao.cedenteNome}</div>
-                  <div className="text-sm text-muted-foreground">{operacao.titulo}</div>
-                </div>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <StatsCard title="Total" value={stats.total} icon={<FileText className="h-5 w-5 text-primary" />} />
+        <StatsCard title="Pendentes" value={stats.pendentes} icon={<Clock className="h-5 w-5 text-amber-600" />} />
+        <StatsCard title="Assinados" value={stats.assinados} icon={<CheckCircle2 className="h-5 w-5 text-green-600" />} />
+        <StatsCard title="Expirados" value={stats.expirados} icon={<AlertCircle className="h-5 w-5 text-destructive" />} />
+      </div>
 
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="rounded-full border px-3 py-1 text-foreground">
-                    {operacao.totalParticipantes} participantes
-                  </span>
-                  <span className="rounded-full bg-primary px-3 py-1 text-primary-foreground">
-                    {operacao.totalAssinados} assinaram
-                  </span>
-                  <span className="rounded-full bg-muted px-3 py-1 text-foreground">
-                    {operacao.totalPendentes} faltando
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-col gap-3 rounded-xl border bg-muted/10 px-4 py-3 md:flex-row md:items-center md:justify-between">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => operacao.token && copiarTexto(`${window.location.origin}/assinar/${operacao.token}`, 'Link copiado.')}
-                    disabled={!operacao.token}
-                    title="Copiar link"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => operacao.token && navigate(`/contratos/documentos/${operacao.token}`)}
-                    disabled={!operacao.token}
-                    title="Ver detalhes"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => operacao.link && window.open(operacao.link, '_blank', 'noopener,noreferrer')}
-                    disabled={!operacao.link}
-                    title="Abrir link publico"
-                  >
-                    <Share2 className="h-4 w-4" />
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => operacao.link && copiarTexto(operacao.link, 'URL copiada.')}
-                    disabled={!operacao.link}
-                    title="Copiar URL completa"
-                  >
-                    <Link2 className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <div className="text-sm text-muted-foreground">
-                  {operacao.nomeArquivo || 'Arquivo nao informado'}
-                </div>
-              </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Solicitacoes recentes</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span>Carregando solicitacoes...</span>
             </div>
-          ))}
-        </div>
-      )}
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Documento</TableHead>
+                  <TableHead>Signatario</TableHead>
+                  <TableHead>CPF/CNPJ</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Criado em</TableHead>
+                  <TableHead>Assinado em</TableHead>
+                  <TableHead className="w-[120px]">Acoes</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                      Nenhuma solicitacao encontrada.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  items.map((item) => {
+                    const status = STATUS_LABELS[item.status] || STATUS_LABELS.pendente;
+                    return (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <p className="font-medium text-foreground">{item.titulo}</p>
+                            <p className="text-xs text-muted-foreground">{item.nome_arquivo}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <p className="font-medium text-foreground">{item.signatario_nome || 'Nao informado'}</p>
+                            <p className="text-xs text-muted-foreground">{item.signatario_email}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {item.assinatura_obrigatoria_cpf_cnpj || '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={status.variant}>{status.label}</Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {item.criado_em ? new Date(item.criado_em).toLocaleString('pt-BR') : '—'}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {item.assinado_em ? new Date(item.assinado_em).toLocaleString('pt-BR') : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Copiar link"
+                              onClick={() => handleCopyLink(item.token_acesso)}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" title="Ver detalhes" asChild>
+                              <Link to={`/contratos/documentos/${item.token_acesso}`}>
+                                <Eye className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            {item.link_assinatura && (
+                              <Button variant="ghost" size="icon" title="Abrir link publico" asChild>
+                                <a href={item.link_assinatura} target="_blank" rel="noopener noreferrer">
+                                  <Share2 className="h-4 w-4" />
+                                </a>
+                              </Button>
+                            )}
+                            {item.link_assinatura && (
+                              <Button variant="ghost" size="icon" title="Copiar URL completa" onClick={() => navigator.clipboard.writeText(item.link_assinatura || '')}>
+                                <Link2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
+  );
+}
+
+function StatsCard({ title, value, icon }: { title: string; value: number; icon: ReactNode }) {
+  return (
+    <Card>
+      <CardContent className="flex items-center gap-3 p-4">
+        <div className="rounded-lg bg-muted p-2">{icon}</div>
+        <div>
+          <p className="text-2xl font-bold text-foreground">{value}</p>
+          <p className="text-xs text-muted-foreground">{title}</p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -9,7 +9,7 @@ export interface ContratoData {
   documento_id: string;
   titulo: string;
   nome_arquivo: string;
-  papel_assinatura?: 'cedente' | 'cessionaria_gold_credit' | 'responsavel_solidario';
+  papel_assinatura?: 'cedente' | 'cessionaria_gold_credit';
   signatario_nome: string;
   signatario_email: string;
   mensagem?: string;
@@ -25,7 +25,7 @@ export interface SolicitacaoResumo {
   documento_id: string;
   titulo: string;
   nome_arquivo: string;
-  papel_assinatura?: 'cedente' | 'cessionaria_gold_credit' | 'responsavel_solidario';
+  papel_assinatura?: 'cedente' | 'cessionaria_gold_credit';
   signatario_nome: string;
   signatario_email: string;
   assinatura_obrigatoria_cpf_cnpj?: string;
@@ -69,28 +69,15 @@ async function backendFetch<T>(path: string, options?: RequestInit): Promise<T> 
     headers.set('Content-Type', 'application/json');
   }
 
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 20000);
-
-  try {
-    const res = await fetch(`${BACKEND_URL}${path}`, {
-      ...options,
-      headers,
-      signal: options?.signal ?? controller.signal,
-    });
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(body || `Erro ${res.status}`);
-    }
-    return res.json();
-  } catch (error: any) {
-    if (error?.name === 'AbortError') {
-      throw new Error('A requisicao demorou demais para responder.');
-    }
-    throw error;
-  } finally {
-    window.clearTimeout(timeout);
+  const res = await fetch(`${BACKEND_URL}${path}`, {
+    ...options,
+    headers,
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(body || `Erro ${res.status}`);
   }
+  return res.json();
 }
 
 export async function checkBackendHealth() {
