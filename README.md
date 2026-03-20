@@ -1,35 +1,65 @@
-# Consulta de Cedentes
+# Operacoes GoldCredit
 
-Sistema web para consulta de cedentes com importação de arquivos .sql.
+Aplicacao principal desenvolvida no Lovable. Este modulo concentra o frontend web do sistema e tambem edge functions de apoio para CRUD, consultas, integracoes e partes do fluxo operacional.
 
-## Funcionalidades
+## Escopo atual do modulo
 
-- ✅ Upload de arquivo .sql (formato MySQL convertido automaticamente)
-- ✅ Armazenamento no Lovable Cloud (PostgreSQL)
-- ✅ Listagem de cedentes em tabela
-- ✅ Busca por nome / CNPJ / CPF
-- ✅ Página de detalhes do cedente
+Hoje este projeto vai alem da consulta de cedentes. Ele inclui, entre outros, os seguintes dominios:
 
-## Como Usar
+- autenticacao e perfis
+- painel operacional
+- clientes
+- cedentes e consultas
+- carteira e metricas
+- historicos de consultas
+- documentos e assinatura digital
+- configuracoes administrativas
+- edge functions de apoio no Supabase
 
-1. Acesse a aplicação
-2. Faça upload de um arquivo .sql contendo INSERTs na tabela `cedentes`
-3. Os dados serão importados automaticamente
-4. Use a busca para encontrar cedentes específicos
-5. Clique em um cedente para ver os detalhes
+## Rotas relevantes
 
-## Formato do SQL Esperado
-
-O arquivo .sql deve conter INSERT INTO cedentes:
-
-```sql
-INSERT INTO cedentes (nome, razao_social, cnpj, email, cidade, estado, status) VALUES
-('João Silva', 'JS Comércio LTDA', '12.345.678/0001-90', 'joao@empresa.com', 'São Paulo', 'SP', 'Ativo'),
-('Maria Santos', 'MS Serviços ME', '98.765.432/0001-10', 'maria@servicos.com', 'Rio de Janeiro', 'RJ', 'Ativo');
-```
+- `/login`
+- `/painel`
+- `/consulta`
+- `/clientes`
+- `/consultas`
+- `/contratos/documentos`
+- `/contratos/assinatura-digital`
+- `/assinar/:token`
+- `/assinar-operacao/:token`
+- `/admin`
 
 ## Tecnologias
 
-- React + TypeScript + Vite
-- Tailwind CSS + shadcn/ui
-- Lovable Cloud (PostgreSQL + Edge Functions)
+- React
+- TypeScript
+- Vite
+- TanStack Query
+- Supabase
+- Tailwind CSS
+- shadcn/ui
+
+## Integracoes principais
+
+- Supabase para autenticacao, dados e edge functions
+- backend de assinatura via `VITE_BACKEND_URL`
+- app local de assinatura via `VITE_LOCAL_SIGNER_URL`
+
+## Desenvolvimento local
+
+```bash
+cd operacoes-goldcredit
+npm install
+npm run dev
+```
+
+## Variaveis importantes
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `VITE_BACKEND_URL`
+- `VITE_LOCAL_SIGNER_URL`
+
+## Documentacao complementar
+
+Para entender o sistema como um todo, consulte a documentacao central em `../docs/`.
