@@ -1,21 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
-import {
-  Building2,
-  Check,
-  CheckCircle2,
-  ChevronsUpDown,
-  ChevronLeft,
-  ChevronRight,
-  Copy,
-  ExternalLink,
-  FileText,
-  Loader2,
-  Send,
-  Upload,
-  UserCheck,
-  Users,
-  X,
-} from 'lucide-react';
+import { Building2, Check, CheckCircle2, ChevronsUpDown, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Loader2, Send, Upload, UserCheck, Users, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,16 +10,15 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { buscarCedentePorDocumento, buscarCedentesCadastrados, type CedenteCadastroResumo } from '@/lib/cedente-api';
-import { criarSolicitacao, getPublicSigningUrl, type CriarSolicitacaoItem } from '@/lib/assinatura-api';
+import { criarSolicitacao, type CriarSolicitacaoResponse } from '@/lib/assinatura-api';
 import { cn } from '@/lib/utils';
 import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs`;
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 type Step = 'dados' | 'posicoes' | 'resultado';
+type TipoDocumento = 'contrato_mae' | 'aditivo' | 'carta_cessao' | 'nota_promissoria' | 'duplicata';
 
 interface SignForm {
   nome: string;
@@ -43,7 +26,6 @@ interface SignForm {
   cpfCnpj: string;
 }
 
-/** Normalized position: x/y from left/BOTTOM (PDF coords), w/h as fraction of page */
 interface BoxPos {
   page: number;
   x: number;
@@ -51,17 +33,6 @@ interface BoxPos {
   w: number;
   h: number;
 }
-
-interface ResultLink {
-  role: 'cedente' | 'responsavel_solidario';
-  label: string;
-  nome: string;
-  link: string;
-  token: string;
-  status: string;
-}
-
-// ─── PdfPositioner ────────────────────────────────────────────────────────────
 
 interface PdfBox {
   id: string;
@@ -91,51 +62,48 @@ function PdfPositioner({ objectUrl, boxes, onChange }: PdfPositionerProps) {
     const canvas = canvasRef.current;
     const container = containerRef.current;
     if (!canvas || !container) return;
-
     if (renderTaskRef.current) {
       try { renderTaskRef.current.cancel(); } catch {}
     }
-
     const page = await pdf.getPage(pageNum);
     const containerWidth = container.clientWidth || 640;
     const unscaled = page.getViewport({ scale: 1 });
     const scale = Math.min(containerWidth / unscaled.width, 1.8);
-    const vp = page.getViewport({ scale });
-
-    canvas.width = vp.width;
-    canvas.height = vp.height;
-    setCanvasW(vp.width);
-    setCanvasH(vp.height);
-
-    const ctx = canvas.getContext('2d')!;
-    const task = page.render({ canvasContext: ctx, viewport: vp });
-    renderTaskRef.current = task as any;
+    const viewport = page.getViewport({ scale });
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    setCanvasW(viewport.width);
+    setCanvasH(viewport.height);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const task = page.render({ canvasContext: ctx, viewport });
+    renderTaskRef.current = task as unknown as { cancel: () => void };
     try { await task.promise; } catch {}
     setLoading(false);
   }, []);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     const initialPage = boxes[0]?.pos.page || 1;
     setCurrentPage(initialPage);
+    setLoading(true);
     pdfjsLib.getDocument(objectUrl).promise.then((pdf) => {
       if (cancelled) return;
       pdfRef.current = pdf;
       setNumPages(pdf.numPages);
       void renderPage(pdf, initialPage);
-    }).catch(() => { if (!cancelled) setLoading(false); });
+    }).catch(() => {
+      if (!cancelled) setLoading(false);
+    });
     return () => { cancelled = true; };
   }, [boxes, objectUrl, renderPage]);
 
   useEffect(() => {
-    const pdf = pdfRef.current;
-    if (!pdf) return;
+    if (!pdfRef.current) return;
     setLoading(true);
-    void renderPage(pdf, currentPage);
+    void renderPage(pdfRef.current, currentPage);
   }, [currentPage, renderPage]);
 
-  // Convert PDF coords → CSS % relative to canvas container
   const toPct = (pos: BoxPos) => ({
     left: `${(pos.x * 100).toFixed(3)}%`,
     top: `${((1 - pos.y - pos.h) * 100).toFixed(3)}%`,
@@ -146,9 +114,10 @@ function PdfPositioner({ objectUrl, boxes, onChange }: PdfPositionerProps) {
   const handleDragStart = (e: React.MouseEvent, boxId: string) => {
     e.preventDefault();
     if (!canvasW || !canvasH) return;
+    const box = boxes.find((item) => item.id === boxId);
+    if (!box) return;
     const startX = e.clientX;
     const startY = e.clientY;
-    const box = boxes.find((b) => b.id === boxId)!;
     const { x: ix, y: iy, w, h } = box.pos;
 
     const onMove = (ev: MouseEvent) => {
@@ -156,7 +125,7 @@ function PdfPositioner({ objectUrl, boxes, onChange }: PdfPositionerProps) {
       const dy = (ev.clientY - startY) / canvasH;
       onChange(boxId, {
         x: Math.max(0, Math.min(1 - w, ix + dx)),
-        y: Math.max(0, Math.min(1 - h, iy - dy)), // invert: screen-down = pdf-y-decrease
+        y: Math.max(0, Math.min(1 - h, iy - dy)),
         w,
         h,
         page: currentPage,
@@ -170,27 +139,23 @@ function PdfPositioner({ objectUrl, boxes, onChange }: PdfPositionerProps) {
     document.addEventListener('mouseup', onUp);
   };
 
-  const boxesOnPage = boxes.filter((b) => b.pos.page === currentPage);
+  const boxesOnPage = boxes.filter((box) => box.pos.page === currentPage);
 
   return (
     <div className="space-y-3">
-      {/* Page nav */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage <= 1}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-muted-foreground tabular-nums">
-            Página {currentPage} / {numPages}
-          </span>
+          <span className="text-sm text-muted-foreground">Pagina {currentPage} / {numPages}</span>
           <Button variant="outline" size="icon" onClick={() => setCurrentPage((p) => Math.min(numPages, p + 1))} disabled={currentPage >= numPages}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">Arraste as caixas para posicionar as assinaturas</p>
+        <p className="text-xs text-muted-foreground">Arraste as caixas para o local exato.</p>
       </div>
 
-      {/* Canvas + overlays */}
       <div ref={containerRef} className="relative w-full overflow-hidden rounded-lg border bg-muted shadow-inner">
         {loading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70">
@@ -198,68 +163,19 @@ function PdfPositioner({ objectUrl, boxes, onChange }: PdfPositionerProps) {
           </div>
         )}
         <canvas ref={canvasRef} className="block w-full" />
-
         {canvasW > 0 && boxesOnPage.map((box) => (
           <div
             key={box.id}
             className={cn(
-              'absolute cursor-grab select-none active:cursor-grabbing',
-              'flex items-center justify-center rounded border-2 text-xs font-semibold',
-              box.color === 'blue'
-                ? 'border-blue-500 bg-blue-500/25 text-blue-800'
-                : box.color === 'amber'
-                  ? 'border-amber-500 bg-amber-500/25 text-amber-900'
-                : 'border-emerald-500 bg-emerald-500/25 text-emerald-800',
+              'absolute flex cursor-grab items-center justify-center rounded border-2 text-xs font-semibold active:cursor-grabbing',
+              box.color === 'blue' && 'border-blue-500 bg-blue-500/25 text-blue-900',
+              box.color === 'amber' && 'border-amber-500 bg-amber-500/25 text-amber-950',
+              box.color === 'emerald' && 'border-emerald-500 bg-emerald-500/25 text-emerald-900',
             )}
             style={toPct(box.pos)}
             onMouseDown={(e) => handleDragStart(e, box.id)}
           >
-            <span className="truncate px-1">{box.label}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Box info chips */}
-      <div className="flex flex-wrap gap-2">
-        {boxes.map((box) => (
-          <div
-            key={box.id}
-            className={cn(
-              'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm',
-              box.color === 'blue'
-                ? 'border-blue-200 bg-blue-50'
-                : box.color === 'amber'
-                  ? 'border-amber-200 bg-amber-50'
-                  : 'border-emerald-200 bg-emerald-50',
-            )}
-          >
-            <span
-              className={cn(
-                'h-3 w-3 rounded-sm border-2',
-                box.color === 'blue'
-                  ? 'border-blue-500 bg-blue-200'
-                  : box.color === 'amber'
-                    ? 'border-amber-500 bg-amber-200'
-                    : 'border-emerald-500 bg-emerald-200',
-              )}
-            />
-            <span className="font-medium">{box.label}</span>
-            <span className="text-muted-foreground">
-              · Pág. {box.pos.page}
-              {box.pos.page !== currentPage && (
-                <button className="ml-1 underline" onClick={() => setCurrentPage(box.pos.page)}>
-                  (ver)
-                </button>
-              )}
-            </span>
-            {box.pos.page !== currentPage && (
-              <button
-                className="ml-1 text-xs underline text-muted-foreground"
-                onClick={() => onChange(box.id, { ...box.pos, page: currentPage })}
-              >
-                Mover p/ pág. {currentPage}
-              </button>
-            )}
+            <span className="truncate px-2">{box.label}</span>
           </div>
         ))}
       </div>
@@ -267,15 +183,8 @@ function PdfPositioner({ objectUrl, boxes, onChange }: PdfPositionerProps) {
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
-
-const EMPTY_FORM: SignForm = { nome: '', email: '', cpfCnpj: '' };
-
-type TipoDocumento = 'contrato_mae' | 'aditivo' | 'carta_cessao' | 'nota_promissoria' | 'duplicata';
-
 interface DocTypeConfig {
   label: string;
-  description: string;
   cedente: BoxPos;
   cessionaria: BoxPos;
   responsavel: BoxPos;
@@ -283,49 +192,78 @@ interface DocTypeConfig {
 
 const DOC_TYPE_CONFIGS: Record<TipoDocumento, DocTypeConfig> = {
   contrato_mae: {
-    label: 'Contrato Mãe',
-    description: 'Contrato de relacionamento inicial com o cedente',
+    label: 'Contrato Mae',
     cedente: { page: 12, x: 0.07, y: 0.67, w: 0.64, h: 0.04 },
     cessionaria: { page: 12, x: 0.07, y: 0.545, w: 0.64, h: 0.04 },
     responsavel: { page: 12, x: 0.07, y: 0.44, w: 0.43, h: 0.04 },
   },
   aditivo: {
     label: 'Aditivo',
-    description: 'Resumo da operação e dados bancários',
     cedente: { page: 2, x: 0.07, y: 0.08, w: 0.64, h: 0.04 },
     cessionaria: { page: 2, x: 0.07, y: 0.62, w: 0.64, h: 0.04 },
     responsavel: { page: 2, x: 0.07, y: 0.35, w: 0.43, h: 0.04 },
   },
   carta_cessao: {
-    label: 'Carta de Cessão',
-    description: 'Formalização da cessão de crédito',
+    label: 'Carta de Cessao',
     cedente: { page: 1, x: 0.07, y: 0.30, w: 0.64, h: 0.04 },
     cessionaria: { page: 1, x: 0.07, y: 0.20, w: 0.64, h: 0.04 },
     responsavel: { page: 1, x: 0.07, y: 0.10, w: 0.43, h: 0.04 },
   },
   nota_promissoria: {
-    label: 'Nota Promissória',
-    description: 'NP da operação',
+    label: 'Nota Promissoria',
     cedente: { page: 1, x: 0.07, y: 0.35, w: 0.64, h: 0.04 },
     cessionaria: { page: 1, x: 0.07, y: 0.25, w: 0.64, h: 0.04 },
     responsavel: { page: 1, x: 0.07, y: 0.15, w: 0.43, h: 0.04 },
   },
   duplicata: {
     label: 'Duplicata',
-    description: 'Extensão da cessão para notas fiscais',
     cedente: { page: 1, x: 0.07, y: 0.30, w: 0.64, h: 0.04 },
     cessionaria: { page: 1, x: 0.07, y: 0.20, w: 0.64, h: 0.04 },
     responsavel: { page: 1, x: 0.07, y: 0.10, w: 0.43, h: 0.04 },
   },
 };
 
+interface DraftDocumento {
+  id: string;
+  arquivo: File;
+  objectUrl: string;
+  tipoDocumento: TipoDocumento;
+  titulo: string;
+  boxCedente: BoxPos;
+  boxCessionaria: BoxPos;
+  boxResponsavel: BoxPos;
+}
+
+interface ResultLink {
+  role: 'cedente' | 'responsavel_solidario';
+  label: string;
+  nome: string;
+  link: string;
+  token: string;
+  status: string;
+  totalDocumentos?: number;
+}
+
+const EMPTY_FORM: SignForm = { nome: '', email: '', cpfCnpj: '' };
+
+function createDraftDocumento(file: File): DraftDocumento {
+  const config = DOC_TYPE_CONFIGS.contrato_mae;
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    arquivo: file,
+    objectUrl: URL.createObjectURL(file),
+    tipoDocumento: 'contrato_mae',
+    titulo: file.name.replace(/\.pdf$/i, ''),
+    boxCedente: { ...config.cedente },
+    boxCessionaria: { ...config.cessionaria },
+    boxResponsavel: { ...config.responsavel },
+  };
+}
+
 export default function AssinaturaDigital() {
   const [step, setStep] = useState<Step>('dados');
-
-  // Step 1 state
-  const [tipoDocumento, setTipoDocumento] = useState<TipoDocumento>('contrato_mae');
-  const [arquivo, setArquivo] = useState<File | null>(null);
-  const [titulo, setTitulo] = useState('');
+  const [documentos, setDocumentos] = useState<DraftDocumento[]>([]);
+  const [documentoAtualId, setDocumentoAtualId] = useState<string | null>(null);
   const [mensagem, setMensagem] = useState('');
   const [cedente, setCedente] = useState<SignForm>(EMPTY_FORM);
   const [responsavel, setResponsavel] = useState<SignForm>(EMPTY_FORM);
@@ -334,28 +272,37 @@ export default function AssinaturaDigital() {
   const [cedenteSugestoes, setCedenteSugestoes] = useState<CedenteCadastroResumo[]>([]);
   const [buscandoCedentes, setBuscandoCedentes] = useState(false);
   const [cedenteSelecionado, setCedenteSelecionado] = useState<CedenteCadastroResumo | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // Step 2 state
-  const [pdfObjectUrl, setPdfObjectUrl] = useState('');
-  const [boxCedente, setBoxCedente] = useState<BoxPos>(DOC_TYPE_CONFIGS.contrato_mae.cedente);
-  const [boxCessionaria, setBoxCessionaria] = useState<BoxPos>(DOC_TYPE_CONFIGS.contrato_mae.cessionaria);
-  const [boxResponsavel, setBoxResponsavel] = useState<BoxPos>(DOC_TYPE_CONFIGS.contrato_mae.responsavel);
-
-  // Update box positions when document type changes
-  const handleTipoDocumentoChange = (tipo: TipoDocumento) => {
-    setTipoDocumento(tipo);
-    const config = DOC_TYPE_CONFIGS[tipo];
-    setBoxCedente(config.cedente);
-    setBoxCessionaria(config.cessionaria);
-    setBoxResponsavel(config.responsavel);
-  };
-
-  // Step 3 state
   const [enviando, setEnviando] = useState(false);
   const [links, setLinks] = useState<ResultLink[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const temResponsavel = Boolean(responsavel.email && responsavel.cpfCnpj);
+  const documentoAtual = documentos.find((item) => item.id === documentoAtualId) || documentos[0] || null;
+
+  useEffect(() => {
+    return () => {
+      documentos.forEach((doc) => URL.revokeObjectURL(doc.objectUrl));
+    };
+  }, [documentos]);
+
+  useEffect(() => {
+    const termo = cedenteSearch.trim();
+    if (!cedenteOpen || termo.length < 2) {
+      setCedenteSugestoes([]);
+      return;
+    }
+    const timer = window.setTimeout(async () => {
+      setBuscandoCedentes(true);
+      try {
+        setCedenteSugestoes(await buscarCedentesCadastrados(termo));
+      } catch {
+        setCedenteSugestoes([]);
+      } finally {
+        setBuscandoCedentes(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [cedenteOpen, cedenteSearch]);
 
   const formatarCpfCnpj = (v: string) => {
     const d = v.replace(/\D/g, '');
@@ -364,30 +311,14 @@ export default function AssinaturaDigital() {
     return v;
   };
 
-  // Busca de cedentes cadastrados
-  useEffect(() => {
-    const termo = cedenteSearch.trim();
-    if (!cedenteOpen || termo.length < 2) {
-      setCedenteSugestoes([]);
-      return;
-    }
-    const t = window.setTimeout(async () => {
-      setBuscandoCedentes(true);
-      try { setCedenteSugestoes(await buscarCedentesCadastrados(termo)); }
-      catch { setCedenteSugestoes([]); }
-      finally { setBuscandoCedentes(false); }
-    }, 300);
-    return () => clearTimeout(t);
-  }, [cedenteOpen, cedenteSearch]);
-
-  const selecionarCedente = async (c: CedenteCadastroResumo) => {
+  const selecionarCedente = async (item: CedenteCadastroResumo) => {
     try {
-      const det = await buscarCedentePorDocumento(c.cpf_cnpj);
-      setCedente({ nome: det.nome || '', email: det.email || '', cpfCnpj: formatarCpfCnpj(det.cpf_cnpj || '') });
-      setCedenteSelecionado(det);
+      const detalhe = await buscarCedentePorDocumento(item.cpf_cnpj);
+      setCedente({ nome: detalhe.nome || '', email: detalhe.email || '', cpfCnpj: formatarCpfCnpj(detalhe.cpf_cnpj || '') });
+      setCedenteSelecionado(detalhe);
     } catch {
-      setCedente({ nome: c.nome || '', email: c.email || '', cpfCnpj: formatarCpfCnpj(c.cpf_cnpj || '') });
-      setCedenteSelecionado(c);
+      setCedente({ nome: item.nome || '', email: item.email || '', cpfCnpj: formatarCpfCnpj(item.cpf_cnpj || '') });
+      setCedenteSelecionado(item);
     }
     setCedenteOpen(false);
     setCedenteSearch('');
@@ -395,204 +326,230 @@ export default function AssinaturaDigital() {
   };
 
   const onSelecionarArquivo = (e: ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (!f.name.toLowerCase().endsWith('.pdf')) { toast({ title: 'Selecione um arquivo PDF.', variant: 'destructive' }); return; }
-    if (f.size > 50 * 1024 * 1024) { toast({ title: 'Arquivo excede 50MB.', variant: 'destructive' }); return; }
-    setArquivo(f);
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const novos: DraftDocumento[] = [];
+    for (const file of files) {
+      if (!file.name.toLowerCase().endsWith('.pdf')) {
+        toast({ title: `O arquivo ${file.name} nao e PDF.`, variant: 'destructive' });
+        continue;
+      }
+      if (file.size > 50 * 1024 * 1024) {
+        toast({ title: `O arquivo ${file.name} excede 50MB.`, variant: 'destructive' });
+        continue;
+      }
+      novos.push(createDraftDocumento(file));
+    }
+    if (novos.length) {
+      setDocumentos((prev) => [...prev, ...novos]);
+      setDocumentoAtualId((prev) => prev || novos[0].id);
+    }
     if (inputRef.current) inputRef.current.value = '';
   };
 
+  const updateDocumento = (id: string, updater: (doc: DraftDocumento) => DraftDocumento) => {
+    setDocumentos((prev) => prev.map((doc) => (doc.id === id ? updater(doc) : doc)));
+  };
+
+  const removeDocumento = (id: string) => {
+    setDocumentos((prev) => {
+      const alvo = prev.find((doc) => doc.id === id);
+      if (alvo) URL.revokeObjectURL(alvo.objectUrl);
+      const next = prev.filter((doc) => doc.id !== id);
+      if (documentoAtualId === id) setDocumentoAtualId(next[0]?.id || null);
+      return next;
+    });
+  };
+
   const irParaPosicoes = () => {
-    if (!arquivo) { toast({ title: 'Selecione um arquivo PDF.', variant: 'destructive' }); return; }
-    if (!cedente.email || !cedente.cpfCnpj || !cedente.nome) {
-      toast({ title: 'Preencha nome, e-mail e CPF/CNPJ do cedente.', variant: 'destructive' }); return;
+    if (!documentos.length) {
+      toast({ title: 'Adicione ao menos um PDF.', variant: 'destructive' });
+      return;
     }
-    if (pdfObjectUrl) URL.revokeObjectURL(pdfObjectUrl);
-    setPdfObjectUrl(URL.createObjectURL(arquivo));
+    if (!cedente.nome || !cedente.email || !cedente.cpfCnpj) {
+      toast({ title: 'Preencha nome, e-mail e CPF/CNPJ do cedente.', variant: 'destructive' });
+      return;
+    }
+    setDocumentoAtualId((prev) => prev || documentos[0]?.id || null);
     setStep('posicoes');
   };
 
   const gerar = async () => {
     setEnviando(true);
     try {
-      const tituloFinal = titulo.trim() || arquivo!.name.replace(/\.pdf$/i, '');
-      const data = await criarSolicitacao({
-        arquivo: arquivo!,
-        titulo: tituloFinal,
-        tipo_documento: tipoDocumento,
+      const data: CriarSolicitacaoResponse = await criarSolicitacao({
+        documentos: documentos.map((doc) => ({
+          arquivo: doc.arquivo,
+          titulo: doc.titulo.trim() || doc.arquivo.name.replace(/\.pdf$/i, ''),
+          tipo_documento: doc.tipoDocumento,
+          contrato_mae: doc.tipoDocumento === 'contrato_mae',
+          assinatura_pagina_cedente: doc.boxCedente.page,
+          assinatura_x_cedente: doc.boxCedente.x,
+          assinatura_y_cedente: doc.boxCedente.y,
+          assinatura_largura_cedente: doc.boxCedente.w,
+          assinatura_altura_cedente: doc.boxCedente.h,
+          assinatura_pagina_gc: doc.boxCessionaria.page,
+          assinatura_x_gc: doc.boxCessionaria.x,
+          assinatura_y_gc: doc.boxCessionaria.y,
+          assinatura_largura_gc: doc.boxCessionaria.w,
+          assinatura_altura_gc: doc.boxCessionaria.h,
+          assinatura_pagina_rs: doc.boxResponsavel.page,
+          assinatura_x_rs: doc.boxResponsavel.x,
+          assinatura_y_rs: doc.boxResponsavel.y,
+          assinatura_largura_rs: doc.boxResponsavel.w,
+          assinatura_altura_rs: doc.boxResponsavel.h,
+        })),
         signatario_nome: cedente.nome,
         signatario_email: cedente.email,
         signatario_cpf_cnpj: cedente.cpfCnpj,
         mensagem,
-        contrato_mae: true,
         incluir_assinatura_gold_credit: true,
-        assinatura_pagina_cedente: boxCedente.page,
-        assinatura_x_cedente: boxCedente.x,
-        assinatura_y_cedente: boxCedente.y,
-        assinatura_largura_cedente: boxCedente.w,
-        assinatura_altura_cedente: boxCedente.h,
-        assinatura_pagina_gc: boxCessionaria.page,
-        assinatura_x_gc: boxCessionaria.x,
-        assinatura_y_gc: boxCessionaria.y,
-        assinatura_largura_gc: boxCessionaria.w,
-        assinatura_altura_gc: boxCessionaria.h,
         ...(temResponsavel && {
           responsavel_solidario_nome: responsavel.nome,
           responsavel_solidario_email: responsavel.email,
           responsavel_solidario_cpf_cnpj: responsavel.cpfCnpj,
-          assinatura_pagina_rs: boxResponsavel.page,
-          assinatura_x_rs: boxResponsavel.x,
-          assinatura_y_rs: boxResponsavel.y,
-          assinatura_largura_rs: boxResponsavel.w,
-          assinatura_altura_rs: boxResponsavel.h,
         }),
       });
 
-      const solicitacoes: CriarSolicitacaoItem[] = data.solicitacoes?.length ? data.solicitacoes : [data];
-      const cedenteSol = solicitacoes.filter((s) => (s.papel_assinatura || 'cedente') === 'cedente');
-
       const novosLinks: ResultLink[] = [];
-      if (cedenteSol[0]) {
-        novosLinks.push({ role: 'cedente', label: 'Cedente', nome: cedenteSol[0].signatario_nome || cedente.nome, link: getPublicSigningUrl(cedenteSol[0].token_acesso, cedenteSol[0].link_assinatura), token: cedenteSol[0].token_acesso, status: cedenteSol[0].status });
-      }
-      if (cedenteSol[1]) {
-        novosLinks.push({ role: 'responsavel_solidario', label: 'Responsável Solidário', nome: cedenteSol[1].signatario_nome || responsavel.nome, link: getPublicSigningUrl(cedenteSol[1].token_acesso, cedenteSol[1].link_assinatura), token: cedenteSol[1].token_acesso, status: cedenteSol[1].status });
+      for (const item of data.links_operacao || []) {
+        if (item.papel_assinatura === 'cessionaria_gold_credit') continue;
+        novosLinks.push({
+          role: item.papel_assinatura === 'responsavel_solidario' ? 'responsavel_solidario' : 'cedente',
+          label: item.papel_assinatura === 'responsavel_solidario' ? 'Responsavel Solidario' : 'Cedente',
+          nome: item.nome || (item.papel_assinatura === 'responsavel_solidario' ? responsavel.nome : cedente.nome),
+          link: item.link,
+          token: item.token,
+          status: 'pendente',
+          totalDocumentos: item.total_documentos,
+        });
       }
 
       setLinks(novosLinks);
       setStep('resultado');
-
-      toast({ title: 'Fluxo criado com sucesso.', description: 'Cessionária Gold Credit assinada automaticamente. Links prontos para envio.' });
+      toast({ title: 'Operacao criada com sucesso.', description: 'O cliente recebera um unico link para escolher todos os documentos da operacao.' });
     } catch (e: any) {
-      toast({ title: 'Erro ao gerar fluxo', description: e.message || 'Tente novamente.', variant: 'destructive' });
+      toast({ title: 'Erro ao gerar operacao', description: e.message || 'Tente novamente.', variant: 'destructive' });
     } finally {
       setEnviando(false);
     }
   };
 
   const reiniciar = () => {
-    if (pdfObjectUrl) URL.revokeObjectURL(pdfObjectUrl);
+    documentos.forEach((doc) => URL.revokeObjectURL(doc.objectUrl));
     setStep('dados');
-    setArquivo(null);
-    setTitulo('');
+    setDocumentos([]);
+    setDocumentoAtualId(null);
     setMensagem('');
     setCedente(EMPTY_FORM);
     setResponsavel(EMPTY_FORM);
     setCedenteSelecionado(null);
-    setPdfObjectUrl('');
-    setTipoDocumento('contrato_mae');
-    setBoxCedente(DOC_TYPE_CONFIGS.contrato_mae.cedente);
-    setBoxCessionaria(DOC_TYPE_CONFIGS.contrato_mae.cessionaria);
-    setBoxResponsavel(DOC_TYPE_CONFIGS.contrato_mae.responsavel);
     setLinks([]);
   };
 
   const copiarLink = async (link: string) => {
-    try { await navigator.clipboard.writeText(link); toast({ title: 'Link copiado.' }); }
-    catch { toast({ title: 'Não foi possível copiar.', variant: 'destructive' }); }
+    try {
+      await navigator.clipboard.writeText(link);
+      toast({ title: 'Link copiado.' });
+    } catch {
+      toast({ title: 'Nao foi possivel copiar o link.', variant: 'destructive' });
+    }
   };
 
-  // ── Step indicator ──────────────────────────────────────────────────────────
   const steps = [
-    { key: 'dados', label: 'Signatários' },
-    { key: 'posicoes', label: 'Posicionamento' },
-    { key: 'resultado', label: 'Links gerados' },
+    { key: 'dados', label: 'Dados' },
+    { key: 'posicoes', label: 'Posicoes' },
+    { key: 'resultado', label: 'Links' },
   ] as const;
 
   return (
-    <div className="max-w-4xl space-y-6 p-6">
+    <div className="max-w-5xl space-y-6 p-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Assinatura Digital</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Configure os signatários, posicione visualmente as assinaturas e gere os links.
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">Envie varios documentos na mesma operacao e gere um link unico para assinatura em lote.</p>
       </div>
 
-      {/* Step indicator */}
       <div className="flex items-center gap-2">
-        {steps.map((s, i) => (
-          <div key={s.key} className="flex items-center gap-2">
-            <div className={cn(
-              'flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold',
-              step === s.key ? 'bg-primary text-primary-foreground'
-                : steps.findIndex((x) => x.key === step) > i ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground',
-            )}>
-              {steps.findIndex((x) => x.key === step) > i ? <Check className="h-4 w-4" /> : i + 1}
+        {steps.map((item, index) => (
+          <div key={item.key} className="flex items-center gap-2">
+            <div className={cn('flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold', step === item.key ? 'bg-primary text-primary-foreground' : steps.findIndex((x) => x.key === step) > index ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground')}>
+              {steps.findIndex((x) => x.key === step) > index ? <Check className="h-4 w-4" /> : index + 1}
             </div>
-            <span className={cn('text-sm', step === s.key ? 'font-semibold text-foreground' : 'text-muted-foreground')}>{s.label}</span>
-            {i < steps.length - 1 && <div className="mx-2 h-px w-8 bg-border" />}
+            <span className={cn('text-sm', step === item.key ? 'font-semibold text-foreground' : 'text-muted-foreground')}>{item.label}</span>
+            {index < steps.length - 1 && <div className="mx-2 h-px w-8 bg-border" />}
           </div>
         ))}
       </div>
 
-      {/* ── Step 1: Dados ─────────────────────────────────────────────────── */}
       {step === 'dados' && (
         <div className="space-y-6">
-          {/* Tipo de Documento */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Tipo de Documento</CardTitle>
-              <CardDescription>Selecione o tipo de documento antes de importar o PDF.</CardDescription>
+              <CardTitle className="flex items-center gap-2"><Upload className="h-5 w-5" /> Documentos da operacao</CardTitle>
+              <CardDescription>Cada documento pode ter um tipo proprio.</CardDescription>
             </CardHeader>
-            <CardContent>
-              <Select value={tipoDocumento} onValueChange={(v) => handleTipoDocumentoChange(v as TipoDocumento)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecione o tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.entries(DOC_TYPE_CONFIGS) as [TipoDocumento, DocTypeConfig][]).map(([key, cfg]) => (
-                    <SelectItem key={key} value={key}>
-                      <div className="flex flex-col">
-                        <span>{cfg.label}</span>
-                        <span className="text-xs text-muted-foreground">{cfg.description}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
+            <CardContent className="space-y-4">
+              <label className="flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed p-6 transition-colors hover:border-primary/50 hover:bg-accent/30">
+                <Upload className="h-8 w-8 text-muted-foreground" />
+                <div className="text-center">
+                  <p className="text-sm font-medium">Adicionar um ou varios PDFs</p>
+                  <p className="text-xs text-muted-foreground">Cada documento depois sera ajustado separadamente</p>
+                </div>
+                <input ref={inputRef} type="file" accept=".pdf" multiple className="hidden" onChange={onSelecionarArquivo} />
+              </label>
 
-          {/* Upload */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Upload className="h-5 w-5" /> Documento PDF</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {!arquivo ? (
-                <label className="flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed p-8 hover:border-primary/50 hover:bg-accent/30 transition-colors">
-                  <Upload className="h-8 w-8 text-muted-foreground" />
-                  <div className="text-center">
-                    <p className="text-sm font-medium">Clique para selecionar um PDF</p>
-                    <p className="text-xs text-muted-foreground">Limite de 50 MB</p>
-                  </div>
-                  <input ref={inputRef} type="file" accept=".pdf" className="hidden" onChange={onSelecionarArquivo} />
-                </label>
-              ) : (
+              {documentos.length > 0 && (
                 <div className="space-y-3">
-                  <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-4">
-                    <FileText className="h-8 w-8 shrink-0 text-primary" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{arquivo.name}</p>
-                      <p className="text-xs text-muted-foreground">{(arquivo.size / 1024).toFixed(0)} KB</p>
+                  {documentos.map((doc, index) => (
+                    <div key={doc.id} className="rounded-lg border bg-muted/20 p-4">
+                      <div className="flex items-start gap-3">
+                        <FileText className="mt-1 h-5 w-5 shrink-0 text-primary" />
+                        <div className="grid min-w-0 flex-1 gap-3 md:grid-cols-[1.3fr_0.9fr]">
+                          <div className="space-y-2">
+                            <Label>Titulo do documento</Label>
+                            <Input value={doc.titulo} onChange={(e) => updateDocumento(doc.id, (item) => ({ ...item, titulo: e.target.value }))} />
+                            <p className="truncate text-xs text-muted-foreground">{doc.arquivo.name}</p>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Tipo do documento</Label>
+                            <Select value={doc.tipoDocumento} onValueChange={(value) => {
+                              const tipo = value as TipoDocumento;
+                              const config = DOC_TYPE_CONFIGS[tipo];
+                              updateDocumento(doc.id, (item) => ({
+                                ...item,
+                                tipoDocumento: tipo,
+                                boxCedente: { ...config.cedente },
+                                boxCessionaria: { ...config.cessionaria },
+                                boxResponsavel: { ...config.responsavel },
+                              }));
+                            }}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {(Object.entries(DOC_TYPE_CONFIGS) as [TipoDocumento, DocTypeConfig][]).map(([key, cfg]) => (
+                                  <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => removeDocumento(doc.id)}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Documento {index + 1} de {documentos.length}</span>
+                        <button type="button" className="underline" onClick={() => setDocumentoAtualId(doc.id)}>Ajustar posicoes</button>
+                      </div>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => setArquivo(null)}><X className="h-4 w-4" /></Button>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="titulo">Título do documento</Label>
-                    <Input id="titulo" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder={arquivo.name.replace(/\.pdf$/i, '')} />
-                  </div>
+                  ))}
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Cedente */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><UserCheck className="h-5 w-5 text-blue-500" /> Cedente</CardTitle>
-              <CardDescription>Signatário principal do contrato.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -603,9 +560,17 @@ export default function AssinaturaDigital() {
                       <div className="flex min-w-0 items-start gap-3">
                         <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                         <div className="min-w-0">
-                          {cedenteSelecionado
-                            ? <><p className="truncate text-sm font-medium">{cedenteSelecionado.nome}</p><p className="truncate text-xs text-muted-foreground">{formatarCpfCnpj(cedenteSelecionado.cpf_cnpj)}</p></>
-                            : <><p className="text-sm">Pesquisar cedentes cadastrados</p><p className="text-xs text-muted-foreground">Nome ou CPF/CNPJ</p></>}
+                          {cedenteSelecionado ? (
+                            <>
+                              <p className="truncate text-sm font-medium">{cedenteSelecionado.nome}</p>
+                              <p className="truncate text-xs text-muted-foreground">{formatarCpfCnpj(cedenteSelecionado.cpf_cnpj)}</p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-sm">Pesquisar cedentes cadastrados</p>
+                              <p className="text-xs text-muted-foreground">Nome ou CPF/CNPJ</p>
+                            </>
+                          )}
                         </div>
                       </div>
                       <ChevronsUpDown className="ml-3 h-4 w-4 shrink-0 opacity-50" />
@@ -623,12 +588,12 @@ export default function AssinaturaDigital() {
                           <CommandEmpty>Nenhum cedente encontrado.</CommandEmpty>
                         ) : (
                           <CommandGroup>
-                            {cedenteSugestoes.map((c) => (
-                              <CommandItem key={c.cpf_cnpj} value={`${c.nome} ${c.cpf_cnpj}`} onSelect={() => selecionarCedente(c)} className="flex items-start gap-3 py-3">
-                                <Check className={cn('mt-0.5 h-4 w-4 shrink-0', cedenteSelecionado?.cpf_cnpj === c.cpf_cnpj ? 'opacity-100' : 'opacity-0')} />
+                            {cedenteSugestoes.map((item) => (
+                              <CommandItem key={item.cpf_cnpj} value={`${item.nome} ${item.cpf_cnpj}`} onSelect={() => selecionarCedente(item)} className="flex items-start gap-3 py-3">
+                                <Check className={cn('mt-0.5 h-4 w-4 shrink-0', cedenteSelecionado?.cpf_cnpj === item.cpf_cnpj ? 'opacity-100' : 'opacity-0')} />
                                 <div>
-                                  <p className="font-medium">{c.nome || 'Sem nome'}</p>
-                                  <p className="text-xs text-muted-foreground">{formatarCpfCnpj(c.cpf_cnpj)}{c.email ? ` · ${c.email}` : ''}</p>
+                                  <p className="font-medium">{item.nome || 'Sem nome'}</p>
+                                  <p className="text-xs text-muted-foreground">{formatarCpfCnpj(item.cpf_cnpj)}{item.email ? ` · ${item.email}` : ''}</p>
                                 </div>
                               </CommandItem>
                             ))}
@@ -643,86 +608,100 @@ export default function AssinaturaDigital() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Nome</Label>
-                  <Input value={cedente.nome} onChange={(e) => setCedente((p) => ({ ...p, nome: e.target.value }))} placeholder="Nome completo" />
+                  <Input value={cedente.nome} onChange={(e) => setCedente((prev) => ({ ...prev, nome: e.target.value }))} />
                 </div>
                 <div className="space-y-2">
                   <Label>E-mail</Label>
-                  <Input type="email" value={cedente.email} onChange={(e) => setCedente((p) => ({ ...p, email: e.target.value }))} placeholder="email@dominio.com" />
+                  <Input type="email" value={cedente.email} onChange={(e) => setCedente((prev) => ({ ...prev, email: e.target.value }))} />
                 </div>
               </div>
+
               <div className="space-y-2">
-                <Label>CPF/CNPJ obrigatório para assinar</Label>
-                <Input value={cedente.cpfCnpj} onChange={(e) => setCedente((p) => ({ ...p, cpfCnpj: e.target.value }))} placeholder="000.000.000-00" />
+                <Label>CPF/CNPJ obrigatorio para assinar</Label>
+                <Input value={cedente.cpfCnpj} onChange={(e) => setCedente((prev) => ({ ...prev, cpfCnpj: e.target.value }))} />
               </div>
             </CardContent>
           </Card>
 
-          {/* Responsável Solidário */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-emerald-500" /> Responsável Solidário <span className="text-sm font-normal text-muted-foreground">(opcional)</span></CardTitle>
-              <CardDescription>Segundo signatário do contrato. Deixe em branco se não houver.</CardDescription>
+              <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-emerald-500" /> Responsavel Solidario <span className="text-sm font-normal text-muted-foreground">(opcional)</span></CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Nome</Label>
-                  <Input value={responsavel.nome} onChange={(e) => setResponsavel((p) => ({ ...p, nome: e.target.value }))} placeholder="Nome completo" />
+                  <Input value={responsavel.nome} onChange={(e) => setResponsavel((prev) => ({ ...prev, nome: e.target.value }))} />
                 </div>
                 <div className="space-y-2">
                   <Label>E-mail</Label>
-                  <Input type="email" value={responsavel.email} onChange={(e) => setResponsavel((p) => ({ ...p, email: e.target.value }))} placeholder="email@dominio.com" />
+                  <Input type="email" value={responsavel.email} onChange={(e) => setResponsavel((prev) => ({ ...prev, email: e.target.value }))} />
                 </div>
               </div>
+
               <div className="space-y-2">
-                <Label>CPF/CNPJ obrigatório para assinar</Label>
-                <Input value={responsavel.cpfCnpj} onChange={(e) => setResponsavel((p) => ({ ...p, cpfCnpj: e.target.value }))} placeholder="000.000.000-00" />
+                <Label>CPF/CNPJ obrigatorio para assinar</Label>
+                <Input value={responsavel.cpfCnpj} onChange={(e) => setResponsavel((prev) => ({ ...prev, cpfCnpj: e.target.value }))} />
               </div>
             </CardContent>
           </Card>
 
-          {/* Mensagem */}
           <Card>
-            <CardContent className="pt-6 space-y-2">
-              <Label htmlFor="mensagem">Mensagem para os signatários (opcional)</Label>
-              <Textarea id="mensagem" rows={3} value={mensagem} onChange={(e) => setMensagem(e.target.value)} placeholder="Texto exibido ao abrir o link de assinatura" />
+            <CardContent className="space-y-2 pt-6">
+              <Label htmlFor="mensagem">Mensagem para os signatarios (opcional)</Label>
+              <Textarea id="mensagem" rows={3} value={mensagem} onChange={(e) => setMensagem(e.target.value)} placeholder="Texto exibido ao abrir o link da operacao" />
             </CardContent>
           </Card>
 
           <div className="flex justify-end">
             <Button size="lg" className="gap-2" onClick={irParaPosicoes}>
-              Próximo: Posicionar assinaturas
+              Proximo: posicionar assinaturas
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
       )}
 
-      {/* ── Step 2: Posicionamento ─────────────────────────────────────────── */}
       {step === 'posicoes' && (
         <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Posicionamento das assinaturas</CardTitle>
-              <CardDescription>
-                Navegue pelas páginas e arraste as caixas coloridas para o local onde cada assinatura deve aparecer.
-                A assinatura da Gold Credit continua automática, mas agora usa exatamente a caixa da cessionária definida aqui.
-              </CardDescription>
+              <CardDescription>Selecione cada documento da operacao e ajuste as caixas no PDF correspondente.</CardDescription>
             </CardHeader>
-            <CardContent>
-              <PdfPositioner
-                objectUrl={pdfObjectUrl}
-                boxes={[
-                  { id: 'cedente', label: `Cedente · ${cedente.nome}`, color: 'blue', pos: boxCedente },
-                  { id: 'cessionaria', label: 'Cessionaria · Gold Credit', color: 'amber', pos: boxCessionaria },
-                  ...(temResponsavel ? [{ id: 'responsavel', label: `Resp. Solidário · ${responsavel.nome || 'Responsável'}`, color: 'emerald' as const, pos: boxResponsavel }] : []),
-                ]}
-                onChange={(id, pos) => {
-                  if (id === 'cedente') setBoxCedente(pos);
-                  else if (id === 'cessionaria') setBoxCessionaria(pos);
-                  else setBoxResponsavel(pos);
-                }}
-              />
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {documentos.map((doc, index) => (
+                  <Button key={doc.id} type="button" variant={documentoAtual?.id === doc.id ? 'default' : 'outline'} onClick={() => setDocumentoAtualId(doc.id)}>
+                    {index + 1}. {doc.titulo || doc.arquivo.name}
+                  </Button>
+                ))}
+              </div>
+
+              {documentoAtual && (
+                <>
+                  <div className="rounded-lg border bg-muted/20 p-4">
+                    <p className="text-sm font-medium text-foreground">{documentoAtual.titulo || documentoAtual.arquivo.name}</p>
+                    <p className="text-xs text-muted-foreground">{DOC_TYPE_CONFIGS[documentoAtual.tipoDocumento].label} · {documentoAtual.arquivo.name}</p>
+                  </div>
+
+                  <PdfPositioner
+                    objectUrl={documentoAtual.objectUrl}
+                    boxes={[
+                      { id: 'cedente', label: `Cedente · ${cedente.nome}`, color: 'blue', pos: documentoAtual.boxCedente },
+                      { id: 'cessionaria', label: 'Cessionaria · Gold Credit', color: 'amber', pos: documentoAtual.boxCessionaria },
+                      ...(temResponsavel ? [{ id: 'responsavel', label: `Resp. Solidario · ${responsavel.nome || 'Responsavel'}`, color: 'emerald' as const, pos: documentoAtual.boxResponsavel }] : []),
+                    ]}
+                    onChange={(id, pos) => {
+                      updateDocumento(documentoAtual.id, (doc) => {
+                        if (id === 'cedente') return { ...doc, boxCedente: pos };
+                        if (id === 'cessionaria') return { ...doc, boxCessionaria: pos };
+                        return { ...doc, boxResponsavel: pos };
+                      });
+                    }}
+                  />
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -732,45 +711,41 @@ export default function AssinaturaDigital() {
               Voltar
             </Button>
             <Button size="lg" className="gap-2" onClick={gerar} disabled={enviando}>
-              {enviando ? <><Loader2 className="h-4 w-4 animate-spin" />Gerando fluxo...</> : <><Send className="h-4 w-4" />Gerar links de assinatura</>}
+              {enviando ? <><Loader2 className="h-4 w-4 animate-spin" />Gerando operacao...</> : <><Send className="h-4 w-4" />Gerar links da operacao</>}
             </Button>
           </div>
         </div>
       )}
 
-      {/* ── Step 3: Resultado ─────────────────────────────────────────────── */}
       {step === 'resultado' && (
         <div className="space-y-6">
-          {/* GC status — sempre assinado automaticamente (backend obriga) */}
           <Card className="border-2 border-primary/30 bg-primary/5">
             <CardContent className="flex items-center gap-3 pt-6">
               <CheckCircle2 className="h-6 w-6 shrink-0 text-primary" />
               <div>
-                <p className="text-sm font-semibold">Cessionária Gold Credit assinada automaticamente</p>
-                <p className="text-xs text-muted-foreground">A assinatura interna foi aplicada pelo servidor. Os links estão prontos para envio.</p>
+                <p className="text-sm font-semibold">Gold Credit assinou a parte interna automaticamente</p>
+                <p className="text-xs text-muted-foreground">O cliente agora recebe um unico link e escolhe todos os documentos da operacao.</p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Links */}
           {links.map((link) => (
             <Card key={link.token}>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <span className={cn('h-3 w-3 rounded-sm', link.role === 'cedente' ? 'bg-blue-500' : 'bg-emerald-500')} />
-                  {link.label}
-                </CardTitle>
-                <CardDescription>{link.nome}</CardDescription>
+                <CardTitle className="text-base">{link.label}</CardTitle>
+                <CardDescription>{link.nome}{link.totalDocumentos ? ` · ${link.totalDocumentos} documento(s)` : ''}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="truncate text-xs text-muted-foreground">{link.link}</p>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" className="gap-2" onClick={() => copiarLink(link.link)}>
-                    <Copy className="h-4 w-4" />Copiar link
+                    <Copy className="h-4 w-4" />
+                    Copiar link
                   </Button>
                   <Button variant="outline" size="sm" className="gap-2" asChild>
                     <a href={link.link} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-4 w-4" />Abrir link
+                      <ExternalLink className="h-4 w-4" />
+                      Abrir link
                     </a>
                   </Button>
                 </div>
@@ -779,7 +754,7 @@ export default function AssinaturaDigital() {
           ))}
 
           <div className="flex justify-end">
-            <Button variant="ghost" onClick={reiniciar}>Criar novo fluxo</Button>
+            <Button variant="ghost" onClick={reiniciar}>Criar nova operacao</Button>
           </div>
         </div>
       )}

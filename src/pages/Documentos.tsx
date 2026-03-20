@@ -33,7 +33,7 @@ interface OperacaoGroup {
 function groupByOperacao(items: SolicitacaoResumo[]): OperacaoGroup[] {
   const map = new Map<string, OperacaoGroup>();
   for (const item of items) {
-    const key = item.documento_id;
+    const key = item.operacao_id || item.documento_id;
     if (!map.has(key)) {
       map.set(key, {
         documento_id: key,

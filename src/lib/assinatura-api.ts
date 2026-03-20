@@ -40,9 +40,13 @@ export function getPublicSigningUrl(token: string, rawLink?: string) {
 export interface ContratoData {
   solicitacao_id: string;
   documento_id: string;
+  operacao_id?: string;
+  bundle_token?: string;
+  operacao_total_documentos?: number;
+  operacao_documento_indice?: number;
   titulo: string;
   nome_arquivo: string;
-  papel_assinatura?: 'cedente' | 'cessionaria_gold_credit';
+  papel_assinatura?: 'cedente' | 'cessionaria_gold_credit' | 'responsavel_solidario';
   signatario_nome: string;
   signatario_email: string;
   mensagem?: string;
@@ -56,9 +60,13 @@ export interface ContratoData {
 export interface SolicitacaoResumo {
   id: string;
   documento_id: string;
+  operacao_id?: string;
+  bundle_token?: string;
+  operacao_total_documentos?: number;
+  operacao_documento_indice?: number;
   titulo: string;
   nome_arquivo: string;
-  papel_assinatura?: 'cedente' | 'cessionaria_gold_credit';
+  papel_assinatura?: 'cedente' | 'cessionaria_gold_credit' | 'responsavel_solidario';
   signatario_nome: string;
   signatario_email: string;
   assinatura_obrigatoria_cpf_cnpj?: string;
@@ -70,6 +78,7 @@ export interface SolicitacaoResumo {
   token_acesso: string;
   tem_assinado: boolean;
   link_assinatura?: string;
+  link_operacao?: string;
 }
 
 export interface ValidacaoCertificadoResponse {
@@ -150,16 +159,11 @@ export function getDownloadUrl(token: string) {
   return `${BACKEND_URL}/api/assinatura/${token}/download-assinado`;
 }
 
-export interface CriarSolicitacaoPayload {
+export interface CriarSolicitacaoDocumentoPayload {
   arquivo: File;
   titulo: string;
   tipo_documento?: string;
-  signatario_nome: string;
-  signatario_email: string;
-  signatario_cpf_cnpj: string;
-  mensagem?: string;
   contrato_mae?: boolean;
-  incluir_assinatura_gold_credit?: boolean;
   assinatura_pagina_cedente?: number;
   assinatura_x_cedente?: number;
   assinatura_y_cedente?: number;
@@ -170,14 +174,23 @@ export interface CriarSolicitacaoPayload {
   assinatura_y_gc?: number;
   assinatura_largura_gc?: number;
   assinatura_altura_gc?: number;
-  responsavel_solidario_nome?: string;
-  responsavel_solidario_email?: string;
-  responsavel_solidario_cpf_cnpj?: string;
   assinatura_pagina_rs?: number;
   assinatura_x_rs?: number;
   assinatura_y_rs?: number;
   assinatura_largura_rs?: number;
   assinatura_altura_rs?: number;
+}
+
+export interface CriarSolicitacaoPayload {
+  documentos: CriarSolicitacaoDocumentoPayload[];
+  signatario_nome: string;
+  signatario_email: string;
+  signatario_cpf_cnpj: string;
+  mensagem?: string;
+  incluir_assinatura_gold_credit?: boolean;
+  responsavel_solidario_nome?: string;
+  responsavel_solidario_email?: string;
+  responsavel_solidario_cpf_cnpj?: string;
 }
 
 export interface CriarSolicitacaoItem {
@@ -197,6 +210,15 @@ export interface CriarSolicitacaoItem {
 
 export interface CriarSolicitacaoResponse extends CriarSolicitacaoItem {
   solicitacoes?: CriarSolicitacaoItem[];
+  operacao_id?: string;
+  total_documentos?: number;
+  links_operacao?: {
+    papel_assinatura: 'cedente' | 'responsavel_solidario' | 'cessionaria_gold_credit';
+    nome?: string;
+    token: string;
+    link: string;
+    total_documentos?: number;
+  }[];
 }
 
 export async function listarSolicitacoes(limit = 50) {
@@ -223,34 +245,38 @@ export async function listarSolicitacoes(limit = 50) {
 
 export async function criarSolicitacao(payload: CriarSolicitacaoPayload) {
   const formData = new FormData();
-  formData.append('arquivo', payload.arquivo);
-  formData.append('titulo', payload.titulo);
-  formData.append('tipo_documento', payload.tipo_documento || '');
+  for (const documento of payload.documentos) {
+    formData.append('arquivos', documento.arquivo);
+  }
+  formData.append('documentos_json', JSON.stringify(payload.documentos.map((documento) => ({
+    titulo: documento.titulo,
+    tipo_documento: documento.tipo_documento || '',
+    contrato_mae: Boolean(documento.contrato_mae),
+    assinatura_pagina_cedente: documento.assinatura_pagina_cedente ?? 0,
+    assinatura_x_cedente: documento.assinatura_x_cedente ?? 0.06,
+    assinatura_y_cedente: documento.assinatura_y_cedente ?? 0.06,
+    assinatura_largura_cedente: documento.assinatura_largura_cedente ?? 0.42,
+    assinatura_altura_cedente: documento.assinatura_altura_cedente ?? 0.10,
+    assinatura_pagina_gc: documento.assinatura_pagina_gc ?? 0,
+    assinatura_x_gc: documento.assinatura_x_gc ?? 0.06,
+    assinatura_y_gc: documento.assinatura_y_gc ?? 0.41,
+    assinatura_largura_gc: documento.assinatura_largura_gc ?? 0.34,
+    assinatura_altura_gc: documento.assinatura_altura_gc ?? 0.07,
+    assinatura_pagina_rs: documento.assinatura_pagina_rs ?? 0,
+    assinatura_x_rs: documento.assinatura_x_rs ?? 0.54,
+    assinatura_y_rs: documento.assinatura_y_rs ?? 0.08,
+    assinatura_largura_rs: documento.assinatura_largura_rs ?? 0.42,
+    assinatura_altura_rs: documento.assinatura_altura_rs ?? 0.10,
+  }))));
   formData.append('signatario_nome', payload.signatario_nome);
   formData.append('signatario_email', payload.signatario_email);
   formData.append('signatario_cpf_cnpj', payload.signatario_cpf_cnpj);
   formData.append('mensagem', payload.mensagem || '');
-  formData.append('contrato_mae', String(Boolean(payload.contrato_mae)));
   formData.append('incluir_assinatura_gold_credit', String(Boolean(payload.incluir_assinatura_gold_credit)));
-  formData.append('assinatura_pagina', String(payload.assinatura_pagina_cedente ?? 0));
-  formData.append('assinatura_x', String(payload.assinatura_x_cedente ?? 0.06));
-  formData.append('assinatura_y', String(payload.assinatura_y_cedente ?? 0.06));
-  formData.append('assinatura_largura', String(payload.assinatura_largura_cedente ?? 0.42));
-  formData.append('assinatura_altura', String(payload.assinatura_altura_cedente ?? 0.10));
-  formData.append('assinatura_pagina_gc', String(payload.assinatura_pagina_gc ?? 0));
-  formData.append('assinatura_x_gc', String(payload.assinatura_x_gc ?? 0.06));
-  formData.append('assinatura_y_gc', String(payload.assinatura_y_gc ?? 0.41));
-  formData.append('assinatura_largura_gc', String(payload.assinatura_largura_gc ?? 0.34));
-  formData.append('assinatura_altura_gc', String(payload.assinatura_altura_gc ?? 0.07));
   if (payload.responsavel_solidario_email) {
     formData.append('responsavel_solidario_nome', payload.responsavel_solidario_nome ?? '');
     formData.append('responsavel_solidario_email', payload.responsavel_solidario_email);
     formData.append('responsavel_solidario_cpf_cnpj', payload.responsavel_solidario_cpf_cnpj ?? '');
-    formData.append('assinatura_pagina_rs', String(payload.assinatura_pagina_rs ?? 0));
-    formData.append('assinatura_x_rs', String(payload.assinatura_x_rs ?? 0.54));
-    formData.append('assinatura_y_rs', String(payload.assinatura_y_rs ?? 0.08));
-    formData.append('assinatura_largura_rs', String(payload.assinatura_largura_rs ?? 0.42));
-    formData.append('assinatura_altura_rs', String(payload.assinatura_altura_rs ?? 0.10));
   }
 
   const res = await fetch(`${BACKEND_URL}/api/assinatura/criar`, {
@@ -262,6 +288,36 @@ export async function criarSolicitacao(payload: CriarSolicitacaoPayload) {
     throw new Error(body || `Erro ${res.status}`);
   }
   return res.json() as Promise<CriarSolicitacaoResponse>;
+}
+
+export interface OperacaoPublicaDocumento {
+  solicitacao_id: string;
+  documento_id: string;
+  token_acesso: string;
+  titulo: string;
+  nome_arquivo: string;
+  status: string;
+  mensagem?: string;
+  papel_assinatura?: 'cedente' | 'responsavel_solidario' | 'cessionaria_gold_credit';
+  operacao_documento_indice?: number;
+  tem_assinado?: boolean;
+}
+
+export interface OperacaoPublicaData {
+  bundle_token: string;
+  operacao_id?: string;
+  papel_assinatura?: 'cedente' | 'responsavel_solidario' | 'cessionaria_gold_credit';
+  signatario_nome?: string;
+  signatario_email?: string;
+  signatario_cpf_cnpj?: string;
+  total_documentos: number;
+  total_assinados: number;
+  total_pendentes: number;
+  documentos: OperacaoPublicaDocumento[];
+}
+
+export async function fetchOperacao(bundleToken: string) {
+  return backendFetch<OperacaoPublicaData>(`/api/assinatura/operacao/${bundleToken}`);
 }
 
 export interface SignerStatus {

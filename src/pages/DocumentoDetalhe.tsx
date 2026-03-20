@@ -56,6 +56,11 @@ export default function DocumentoDetalhe() {
 
   const documentosRelacionados = useMemo(() => {
     if (!documento) return [];
+    if (documento.operacao_id) {
+      return items
+        .filter((item) => item.operacao_id === documento.operacao_id)
+        .sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime());
+    }
     const chaveDoc = (documento.assinatura_obrigatoria_cpf_cnpj || '').replace(/\D/g, '');
     const chaveEmail = (documento.signatario_email || '').trim().toLowerCase();
 
