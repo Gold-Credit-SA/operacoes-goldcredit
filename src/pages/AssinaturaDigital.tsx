@@ -246,13 +246,13 @@ interface ResultLink {
 
 const EMPTY_FORM: SignForm = { nome: '', email: '', cpfCnpj: '' };
 
-function createDraftDocumento(file: File): DraftDocumento {
-  const config = DOC_TYPE_CONFIGS.contrato_mae;
+function createDraftDocumento(file: File, tipoDocumento: TipoDocumento = 'contrato_mae'): DraftDocumento {
+  const config = DOC_TYPE_CONFIGS[tipoDocumento];
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     arquivo: file,
     objectUrl: URL.createObjectURL(file),
-    tipoDocumento: 'contrato_mae',
+    tipoDocumento,
     titulo: file.name.replace(/\.pdf$/i, ''),
     boxCedente: { ...config.cedente },
     boxCessionaria: { ...config.cessionaria },
@@ -262,6 +262,7 @@ function createDraftDocumento(file: File): DraftDocumento {
 
 export default function AssinaturaDigital() {
   const [step, setStep] = useState<Step>('dados');
+  const [tipoDocumentoPadrao, setTipoDocumentoPadrao] = useState<TipoDocumento>('contrato_mae');
   const [documentos, setDocumentos] = useState<DraftDocumento[]>([]);
   const [documentoAtualId, setDocumentoAtualId] = useState<string | null>(null);
   const [mensagem, setMensagem] = useState('');
@@ -338,7 +339,7 @@ export default function AssinaturaDigital() {
         toast({ title: `O arquivo ${file.name} excede 50MB.`, variant: 'destructive' });
         continue;
       }
-      novos.push(createDraftDocumento(file));
+      novos.push(createDraftDocumento(file, tipoDocumentoPadrao));
     }
     if (novos.length) {
       setDocumentos((prev) => [...prev, ...novos]);
@@ -489,6 +490,21 @@ export default function AssinaturaDigital() {
               <CardDescription>Cada documento pode ter um tipo proprio.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Tipo padrao para novos documentos</Label>
+                <Select value={tipoDocumentoPadrao} onValueChange={(value) => setTipoDocumentoPadrao(value as TipoDocumento)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.entries(DOC_TYPE_CONFIGS) as [TipoDocumento, DocTypeConfig][]).map(([key, cfg]) => (
+                      <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Esse tipo sera aplicado automaticamente aos PDFs novos, mas voce ainda pode trocar depois em cada item.</p>
+              </div>
+
               <label className="flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed p-6 transition-colors hover:border-primary/50 hover:bg-accent/30">
                 <Upload className="h-8 w-8 text-muted-foreground" />
                 <div className="text-center">
