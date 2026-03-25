@@ -338,6 +338,23 @@ Deno.serve(async (req) => {
         });
       }
 
+      case 'socios-por-cedente': {
+        if (!filters?.nome_cedente) {
+          throw new Error('Nome do cedente é obrigatório');
+        }
+        const nomeCedente = filters.nome_cedente.trim();
+        const socios = await sql`
+          SELECT nome, email, telefone, empresa
+          FROM smartsecurities_aniversariantes
+          WHERE empresa ILIKE ${nomeCedente}
+          ORDER BY nome
+          LIMIT 20
+        `;
+        return new Response(JSON.stringify({ success: true, data: socios }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
       default:
         return new Response(JSON.stringify({ 
           success: false, 

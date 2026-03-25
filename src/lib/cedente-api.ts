@@ -73,3 +73,29 @@ export async function buscarCedentePorDocumento(cpfCnpj: string) {
 
   return mapCedente(data.data.cedente as Record<string, unknown>);
 }
+
+export interface SocioCedente {
+  nome: string;
+  email: string | null;
+  telefone: string | null;
+  empresa: string | null;
+}
+
+export async function buscarSociosPorCedente(nomeCedente: string): Promise<SocioCedente[]> {
+  const nome = nomeCedente.trim();
+  if (!nome) return [];
+
+  const { data, error } = await supabase.functions.invoke('external-db', {
+    body: { action: 'socios-por-cedente', filters: { nome_cedente: nome } },
+  });
+
+  if (error) throw error;
+  if (!data?.success) return [];
+
+  return (Array.isArray(data.data) ? data.data : []).map((row: Record<string, unknown>) => ({
+    nome: String(row.nome || ''),
+    email: typeof row.email === 'string' ? row.email : null,
+    telefone: typeof row.telefone === 'string' ? row.telefone : null,
+    empresa: typeof row.empresa === 'string' ? row.empresa : null,
+  }));
+}
