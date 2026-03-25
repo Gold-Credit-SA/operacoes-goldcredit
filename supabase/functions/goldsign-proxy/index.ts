@@ -26,15 +26,38 @@ serve(async (req) => {
 
     // Forward the request as-is (supports FormData, JSON, etc.)
     const headers: Record<string, string> = {};
-    // Only forward content-type if present (important for FormData boundary)
     const ct = req.headers.get('content-type');
     if (ct) headers['content-type'] = ct;
 
-    const response = await fetch(targetUrl, {
-      method: req.method,
-      headers,
-      body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
-    });
+    const bodyContent = req.method !== 'GET' && req.method !== 'HEAD'
+      ? await req.arrayBuffer()
+      : undefined;
+
+    let response: Response | null = null;
+    let lastError: Error | null = null;
+
+    // Retry up to 2 times for transient errors (e.g. Render cold start)
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        response = await fetch(targetUrl, {
+          method: req.method,
+          headers,
+          body: bodyContent,
+        });
+        break;
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        console.error(`Attempt ${attempt + 1} failed for ${targetUrl}:`, lastError.message);
+        if (attempt === 0) await new Promise(r => setTimeout(r, 2000));
+      }
+    }
+
+    if (!response) {
+      return new Response(JSON.stringify({ error: lastError?.message || 'Backend indisponível' }), {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const body = await response.text();
     return new Response(body, {
