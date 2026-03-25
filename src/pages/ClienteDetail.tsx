@@ -5,6 +5,7 @@ import { PlatformBadge } from '@/components/ui/PlatformBadge';
 import logoSerasa from '@/assets/logo-serasa.png';
 import logoHbi from '@/assets/logo-hbi.png';
 import logoAgrisk from '@/assets/logo-agrisk.png';
+import logoSmart from '@/assets/logo-smart.png';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
