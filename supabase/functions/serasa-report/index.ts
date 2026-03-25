@@ -149,9 +149,10 @@ serve(async (req) => {
     }
 
     // Add segmentCode as query param (required for analytic reports)
+    // Try both 'segmentCode' and 'segment' query params for compatibility
     const effectiveSegmentCode = segmentCode || reportConfig.segmentCode;
     if (effectiveSegmentCode) {
-      reportUrl += `&segmentCode=${effectiveSegmentCode}`;
+      reportUrl += `&segmentCode=${effectiveSegmentCode}&segment=${effectiveSegmentCode}`;
     }
 
     // Build reportParameters for score model
@@ -161,6 +162,11 @@ serve(async (req) => {
     const effectiveScoreModel = scoreModel || reportConfig.defaultScoreModel;
     if (effectiveScoreModel) {
       reportParams.push({ name: 'SCORE', value: effectiveScoreModel });
+    }
+
+    // Also include segment in reportParameters for maximum compatibility
+    if (effectiveSegmentCode) {
+      reportParams.push({ name: 'SEGMENTO', value: effectiveSegmentCode });
     }
 
     // Encode and append reportParameters if any exist
