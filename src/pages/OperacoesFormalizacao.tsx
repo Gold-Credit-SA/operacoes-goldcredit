@@ -122,7 +122,7 @@ export default function OperacoesFormalizacao() {
             </Badge>
           </AlertTitle>
           <AlertDescription>
-            Operações puxadas diretamente da API Smart que estão na etapa de formalização. Atualização automática a cada 30 segundos.
+            Operações puxadas diretamente da API Smart que estão na etapa de formalização. Atualização automática a cada minuto.
           </AlertDescription>
         </Alert>
 
