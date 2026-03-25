@@ -539,19 +539,40 @@ export default function AssinaturaDigital() {
                       <div className="flex items-start gap-3">
                         <FileText className="mt-1 h-5 w-5 shrink-0 text-primary" />
                         <div className="grid min-w-0 flex-1 gap-3">
-                          <div className="space-y-2">
-                            <Label>Titulo do documento</Label>
-                            <Input value={doc.titulo} onChange={(e) => updateDocumento(doc.id, (item) => ({ ...item, titulo: e.target.value }))} />
-                            <p className="truncate text-xs text-muted-foreground">{doc.arquivo.name}</p>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label>Titulo</Label>
+                              <Input value={doc.titulo} onChange={(e) => updateDocumento(doc.id, (item) => ({ ...item, titulo: e.target.value }))} />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Tipo</Label>
+                              <Select value={doc.tipoDocumento} onValueChange={(value) => {
+                                const tipo = value as TipoDocumento;
+                                const config = DOC_TYPE_CONFIGS[tipo];
+                                updateDocumento(doc.id, (item) => ({
+                                  ...item,
+                                  tipoDocumento: tipo,
+                                  boxCedente: { ...config.cedente },
+                                  boxCessionaria: { ...config.cessionaria },
+                                  boxResponsavel: { ...config.responsavel },
+                                }));
+                              }}>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {(Object.entries(DOC_TYPE_CONFIGS) as [TipoDocumento, DocTypeConfig][]).map(([key, cfg]) => (
+                                    <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
+                          <p className="truncate text-xs text-muted-foreground">{doc.arquivo.name}</p>
                         </div>
                         <Button variant="ghost" size="icon" onClick={() => removeDocumento(doc.id)}>
                           <X className="h-4 w-4" />
                         </Button>
-                      </div>
-                      <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Documento {index + 1} de {documentos.length}</span>
-                        <button type="button" className="underline" onClick={() => setDocumentoAtualId(doc.id)}>Ajustar posicoes</button>
                       </div>
                     </div>
                   ))}
