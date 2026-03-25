@@ -44,3 +44,9 @@ verify_jwt = false
 
 [functions.goldsign-settings]
 verify_jwt = false
+
+[functions.hbi-scr]
+verify_jwt = false
+
+[functions.serasa-report]
+verify_jwt = false
