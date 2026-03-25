@@ -85,13 +85,13 @@ function PdfPositioner({ objectUrl, boxes, onChange }: PdfPositionerProps) {
 
   useEffect(() => {
     let cancelled = false;
-    const initialPage = boxes[0]?.pos.page || 1;
-    setCurrentPage(initialPage);
     setLoading(true);
     pdfjsLib.getDocument(objectUrl).promise.then((pdf) => {
       if (cancelled) return;
       pdfRef.current = pdf;
       setNumPages(pdf.numPages);
+      const initialPage = Math.min(boxes[0]?.pos.page || 1, pdf.numPages);
+      setCurrentPage(initialPage);
       void renderPage(pdf, initialPage);
     }).catch(() => {
       if (!cancelled) setLoading(false);
