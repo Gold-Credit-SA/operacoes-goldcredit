@@ -47,7 +47,7 @@ export function ReceitasTable({ filters }: ReceitasTableProps) {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const { data: result, error } = await supabase.functions.invoke('dashboard-data', {
+        const { data: result, error } = await supabase.functions.invoke('external-db', {
           body: { 
             action: 'receitas',
             filters: {
