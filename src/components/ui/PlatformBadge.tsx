@@ -37,13 +37,7 @@ export function PlatformBadge({ platform, onClick, className }: PlatformBadgePro
       )}
       onClick={onClick}
     >
-      {config.logo ? (
-        <img src={config.logo} alt={config.label} className="h-3.5 w-3.5 object-contain" />
-      ) : (
-        <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-current/15 text-[9px] font-bold leading-none">
-          S
-        </span>
-      )}
+      <img src={config.logo} alt={config.label} className="h-3.5 w-3.5 object-contain" />
       {config.label}
     </span>
   );
