@@ -148,7 +148,13 @@ serve(async (req) => {
       reportUrl += `&optionalFeatures=${effectiveOptionalFeatures}`;
     }
 
-    // Build reportParameters for score model and segmentCode
+    // Add segmentCode as query param (required for analytic reports)
+    const effectiveSegmentCode = segmentCode || reportConfig.segmentCode;
+    if (effectiveSegmentCode) {
+      reportUrl += `&segmentCode=${effectiveSegmentCode}`;
+    }
+
+    // Build reportParameters for score model
     const reportParams: Array<{ name: string; value: string }> = [];
 
     // Use provided score model or default from config
