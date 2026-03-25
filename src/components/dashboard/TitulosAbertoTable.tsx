@@ -57,7 +57,7 @@ export function TitulosAbertoTable({ filters }: TitulosAbertoTableProps) {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const { data: result, error } = const { data: result, error } = await supabase.functions.invoke('external-db', {
+        const { data: result, error } = await supabase.functions.invoke('external-db', {
           body: { 
             action: 'titulos-aberto',
             filters: {
