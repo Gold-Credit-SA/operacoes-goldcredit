@@ -10,6 +10,10 @@ const SMART_BASE_URL = 'https://api.smartsecurities.com.br';
 /** Cache token in memory to avoid re-auth on every request */
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
+/** Cache API responses (Smart has 10-minute rate limit per endpoint) */
+let cachedResponse: { data: unknown; fetchedAt: number } | null = null;
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
 async function getAccessToken(): Promise<string> {
   if (cachedToken && Date.now() < cachedToken.expiresAt - 60_000) {
     return cachedToken.value;
