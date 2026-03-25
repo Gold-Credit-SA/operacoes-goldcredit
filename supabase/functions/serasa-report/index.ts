@@ -158,25 +158,25 @@ serve(async (req) => {
       reportUrl += `&optionalFeatures=${effectiveOptionalFeatures}`;
     }
 
-    // Add segmentCode as query param (required for analytic reports)
-    // Try both 'segmentCode' and 'segment' query params for compatibility
+    // Build reportParameters - segmentCode goes INSIDE reportParameters per Serasa docs
     const effectiveSegmentCode = segmentCode || reportConfig.segmentCode;
-    if (effectiveSegmentCode) {
-      reportUrl += `&segmentCode=${effectiveSegmentCode}&segment=${effectiveSegmentCode}`;
-    }
 
-    // Build reportParameters for score model
     const reportParams: Array<{ name: string; value: string }> = [];
 
-    // Use provided score model or default from config
+    // Score model
     const effectiveScoreModel = scoreModel || reportConfig.defaultScoreModel;
     if (effectiveScoreModel) {
       reportParams.push({ name: 'SCORE', value: effectiveScoreModel });
     }
 
-    // Also include segment in reportParameters for maximum compatibility
+    // Extra params from config (LIMITE_CREDITO, RISCO_NOVAS_EMPRESAS, PONTUALIDADE_PAGAMENTO)
+    if (reportConfig.extraParams) {
+      reportParams.push(...reportConfig.extraParams);
+    }
+
+    // segmentCode inside reportParameters (required for analytic reports)
     if (effectiveSegmentCode) {
-      reportParams.push({ name: 'SEGMENTO', value: effectiveSegmentCode });
+      reportParams.push({ name: 'segmentCode', value: effectiveSegmentCode });
     }
 
     // Encode and append reportParameters if any exist
