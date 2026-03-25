@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { AlertTriangle, Brain, Building2, CreditCard, FileSearch, Loader2, RefreshCw, Shield, Sparkles } from 'lucide-react';
+import { AlertTriangle, Brain, Building2, CreditCard, FileSearch, Loader2, RefreshCw, Shield, Sparkles, TrendingUp, Lightbulb, Users, BarChart3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,25 +38,48 @@ interface AICompilation {
     limite: string;
     concentracao: string;
     liquidez: string;
+    taxaConfirmacao?: string;
+    comportamentoPagamento?: string;
   };
   serasa: {
     disponivel: boolean;
     mensagem: string | null;
+    tipoRelatorio?: string;
     liminarJudicial: boolean;
     alertaLiminar: string | null;
+    identificacao?: string;
     score: string;
+    limiteCreditoSugerido?: string;
+    anotacoesNegativas?: string;
+    acoesFalencias?: string;
+    chequesSustados?: string;
     ultimasConsultas: string;
+    qsa?: string;
     historicoPagamento: string;
-    resumoDividas: string;
+    relacionamentoMercado?: string;
+    evolucaoCompromissos?: string;
+    resumoDividas?: string; // backwards compat
   };
   scr: {
     disponivel: boolean;
     mensagem: string | null;
     resumoGeral: string;
+    creditosAVencer?: string;
+    creditosVencidos?: string;
+    modalidades?: string;
+    limitesCredito?: string;
+    classificacaoRisco?: string;
+    discordanciaSubJudice?: string;
+  };
+  analiseCruzada?: {
+    consistenciaEndividamento?: string;
+    capacidadePagamento?: string;
+    sinaisAlerta?: string;
   };
   parecerFinal: {
     parecer: 'FAVORAVEL' | 'FAVORAVEL_COM_RESTRICOES' | 'ATENCAO' | 'DESFAVORAVEL';
     justificativa: string;
+    recomendacoes?: string[];
   };
 }
 
@@ -163,7 +186,7 @@ export function ClienteAICompilationCard({ client, history }: Props) {
               Compilar dados com IA
             </CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
-              Consolida dados Smart, Serasa e SCR em tópicos padronizados.
+              Consolida dados Smart, Serasa e SCR em um parecer de crédito completo.
             </p>
           </div>
           <Button
@@ -206,12 +229,12 @@ export function ClienteAICompilationCard({ client, history }: Props) {
 function AnalysisResult({ analysis }: { analysis: AICompilation }) {
   return (
     <div className="space-y-5 animate-fade-in">
-      {/* Alerta Crítico (Liminar) */}
+      {/* Alerta Crítico */}
       {analysis.alertaCritico && (
         <div className="flex items-start gap-3 rounded-xl border-2 border-red-400 bg-red-50 px-5 py-4">
           <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-bold text-red-700">⚠ ALERTA CRÍTICO — LIMINAR JUDICIAL</p>
+            <p className="text-sm font-bold text-red-700">⚠ ALERTA CRÍTICO</p>
             <p className="mt-1 text-sm text-red-600">{analysis.alertaCritico}</p>
           </div>
         </div>
@@ -237,8 +260,10 @@ function AnalysisResult({ analysis }: { analysis: AICompilation }) {
         <TopicRow label="Últimas Operações" value={analysis.smart?.ultimasOperacoes} />
         <TopicRow label="Resumo Financeiro" value={analysis.smart?.resumoFinanceiro} />
         <TopicRow label="Limite" value={analysis.smart?.limite} />
-        <TopicRow label="Concentração" value={analysis.smart?.concentracao} />
+        <TopicRow label="Concentração de Sacados" value={analysis.smart?.concentracao} />
         <TopicRow label="Liquidez" value={analysis.smart?.liquidez} />
+        <TopicRow label="Taxa de Confirmação" value={analysis.smart?.taxaConfirmacao} />
+        <TopicRow label="Comportamento de Pagamento (90d)" value={analysis.smart?.comportamentoPagamento} />
       </SectionCard>
 
       {/* Serasa Section */}
@@ -247,6 +272,7 @@ function AnalysisResult({ analysis }: { analysis: AICompilation }) {
         icon={<Shield className="h-4 w-4 text-blue-600" />}
         available={analysis.serasa?.disponivel}
         unavailableMessage={analysis.serasa?.mensagem}
+        badge={analysis.serasa?.tipoRelatorio}
       >
         {analysis.serasa?.disponivel && (
           <>
@@ -255,10 +281,17 @@ function AnalysisResult({ analysis }: { analysis: AICompilation }) {
                 ⚠ Liminar Judicial detectada — {analysis.serasa.alertaLiminar || 'Verificar detalhes no relatório completo.'}
               </div>
             )}
-            <TopicRow label="Score" value={analysis.serasa.score} />
-            <TopicRow label="Últimas Consultas" value={analysis.serasa.ultimasConsultas} />
+            <TopicRow label="Identificação Cadastral" value={analysis.serasa.identificacao} />
+            <TopicRow label="Score de Risco" value={analysis.serasa.score} />
+            <TopicRow label="Limite de Crédito Sugerido" value={analysis.serasa.limiteCreditoSugerido} />
+            <TopicRow label="Anotações Negativas (PEFIN/REFIN/Protestos)" value={analysis.serasa.anotacoesNegativas || analysis.serasa.resumoDividas} />
+            <TopicRow label="Ações Judiciais / Falências" value={analysis.serasa.acoesFalencias} />
+            <TopicRow label="Cheques Sustados" value={analysis.serasa.chequesSustados} />
+            <TopicRow label="Consultas Recentes" value={analysis.serasa.ultimasConsultas} />
+            <TopicRow label="QSA (Quadro Societário)" value={analysis.serasa.qsa} />
             <TopicRow label="Histórico de Pagamento" value={analysis.serasa.historicoPagamento} />
-            <TopicRow label="Resumo de Dívidas" value={analysis.serasa.resumoDividas} />
+            <TopicRow label="Relacionamento com Mercado/Factoring" value={analysis.serasa.relacionamentoMercado} />
+            <TopicRow label="Evolução de Compromissos" value={analysis.serasa.evolucaoCompromissos} />
           </>
         )}
       </SectionCard>
@@ -271,9 +304,30 @@ function AnalysisResult({ analysis }: { analysis: AICompilation }) {
         unavailableMessage={analysis.scr?.mensagem}
       >
         {analysis.scr?.disponivel && (
-          <TopicRow label="Resumo Geral" value={analysis.scr.resumoGeral} />
+          <>
+            <TopicRow label="Resumo Geral" value={analysis.scr.resumoGeral} />
+            <TopicRow label="Créditos a Vencer" value={analysis.scr.creditosAVencer} />
+            <TopicRow label="Créditos Vencidos" value={analysis.scr.creditosVencidos} />
+            <TopicRow label="Modalidades de Crédito" value={analysis.scr.modalidades} />
+            <TopicRow label="Limites de Crédito" value={analysis.scr.limitesCredito} />
+            <TopicRow label="Classificação de Risco" value={analysis.scr.classificacaoRisco} />
+            <TopicRow label="Discordância / Sub Judice" value={analysis.scr.discordanciaSubJudice} />
+          </>
         )}
       </SectionCard>
+
+      {/* Análise Cruzada */}
+      {analysis.analiseCruzada && (
+        <SectionCard
+          title="Análise Cruzada entre Fontes"
+          icon={<TrendingUp className="h-4 w-4 text-purple-600" />}
+          available={true}
+        >
+          <TopicRow label="Consistência de Endividamento (SCR vs Serasa)" value={analysis.analiseCruzada.consistenciaEndividamento} />
+          <TopicRow label="Capacidade de Pagamento (Smart + Serasa + SCR)" value={analysis.analiseCruzada.capacidadePagamento} />
+          <TopicRow label="Sinais de Alerta Identificados" value={analysis.analiseCruzada.sinaisAlerta} highlight />
+        </SectionCard>
+      )}
 
       {/* Parecer Final */}
       <Card className="border-amber-200/70 bg-white shadow-none">
@@ -283,11 +337,28 @@ function AnalysisResult({ analysis }: { analysis: AICompilation }) {
             Parecer Final
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <Badge variant="outline" className={parecerStyle(analysis.parecerFinal?.parecer)}>
+        <CardContent className="space-y-4">
+          <Badge variant="outline" className={`text-sm px-3 py-1 ${parecerStyle(analysis.parecerFinal?.parecer)}`}>
             {parecerLabel(analysis.parecerFinal?.parecer)}
           </Badge>
           <p className="text-sm text-muted-foreground leading-relaxed">{analysis.parecerFinal?.justificativa}</p>
+
+          {analysis.parecerFinal?.recomendacoes && analysis.parecerFinal.recomendacoes.length > 0 && (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-800 mb-2 flex items-center gap-1.5">
+                <Lightbulb className="h-3.5 w-3.5" />
+                Recomendações
+              </p>
+              <ul className="space-y-1.5">
+                {analysis.parecerFinal.recomendacoes.map((rec, i) => (
+                  <li key={i} className="text-sm text-amber-900 flex items-start gap-2">
+                    <span className="text-amber-500 mt-0.5">•</span>
+                    {rec}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -299,12 +370,14 @@ function SectionCard({
   icon,
   available,
   unavailableMessage,
+  badge,
   children,
 }: {
   title: string;
   icon: React.ReactNode;
   available?: boolean;
   unavailableMessage?: string | null;
+  badge?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -313,6 +386,11 @@ function SectionCard({
         <CardTitle className="flex items-center gap-2 text-sm">
           {icon}
           {title}
+          {badge && (
+            <Badge variant="outline" className="ml-2 text-xs bg-blue-50 text-blue-700 border-blue-200">
+              {badge}
+            </Badge>
+          )}
           {available === false && (
             <Badge variant="outline" className="ml-auto text-xs bg-muted/50 text-muted-foreground border-border">
               Indisponível
@@ -333,11 +411,13 @@ function SectionCard({
   );
 }
 
-function TopicRow({ label, value }: { label: string; value?: string }) {
+function TopicRow({ label, value, highlight }: { label: string; value?: string; highlight?: boolean }) {
+  if (!value || value === 'Sem dados.') return null;
+
   return (
-    <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{label}</p>
-      <p className="text-sm text-foreground leading-relaxed">{value || 'Sem dados.'}</p>
+    <div className={`rounded-lg border p-3 ${highlight ? 'border-orange-200 bg-orange-50/60' : 'border-slate-100 bg-slate-50/60'}`}>
+      <p className={`text-xs font-semibold uppercase tracking-wide mb-1 ${highlight ? 'text-orange-700' : 'text-muted-foreground'}`}>{label}</p>
+      <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">{value}</p>
     </div>
   );
 }
