@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { listarSolicitacoes, fetchContratoPdfUrl, getDownloadUrl, getPublicSigningUrl, type SolicitacaoResumo } from '@/lib/assinatura-api';
+import { listarSolicitacoes, fetchContratoPdfUrl, getDownloadUrl, getPublicOperationUrl, getPublicSigningUrl, type SolicitacaoResumo } from '@/lib/assinatura-api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 
@@ -86,9 +86,15 @@ export default function Documentos() {
 
   const operacoes = useMemo(() => groupByOperacao(items), [items]);
 
-  const handleCopyLink = async (token: string) => {
-    const rawLink = items.find((item) => item.token_acesso === token)?.link_assinatura;
-    const link = getPublicSigningUrl(token, rawLink);
+  const getLinkPublico = (item: SolicitacaoResumo) => {
+    if (item.link_operacao && item.bundle_token) {
+      return getPublicOperationUrl(item.bundle_token, item.link_operacao);
+    }
+    return getPublicSigningUrl(item.token_acesso, item.link_assinatura);
+  };
+
+  const handleCopyLink = async (item: SolicitacaoResumo) => {
+    const link = getLinkPublico(item);
     try {
       await navigator.clipboard.writeText(link);
       toast({ title: 'Link copiado com sucesso.' });
@@ -206,7 +212,7 @@ function OperacaoDetailDialog({
 }: {
   operacao: OperacaoGroup | null;
   onClose: () => void;
-  onCopyLink: (token: string) => void;
+  onCopyLink: (item: SolicitacaoResumo) => void;
 }) {
   if (!operacao) return null;
 
@@ -267,12 +273,12 @@ function OperacaoDetailDialog({
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" title="Copiar link" onClick={() => onCopyLink(item.token_acesso)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" title="Copiar link" onClick={() => onCopyLink(item)}>
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
-                    {item.link_assinatura && (
+                    {(item.link_operacao || item.link_assinatura) && (
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="Abrir link público" asChild>
-                        <a href={getPublicSigningUrl(item.token_acesso, item.link_assinatura)} target="_blank" rel="noopener noreferrer">
+                        <a href={getLinkPublico(item)} target="_blank" rel="noopener noreferrer">
                           <ExternalLink className="h-3.5 w-3.5" />
                         </a>
                       </Button>

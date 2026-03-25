@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
-import { fetchContratoPdfUrl, getDownloadUrl, getPublicSigningUrl, listarSolicitacoes, type SolicitacaoResumo } from '@/lib/assinatura-api';
+import { fetchContratoPdfUrl, getDownloadUrl, getPublicOperationUrl, getPublicSigningUrl, listarSolicitacoes, type SolicitacaoResumo } from '@/lib/assinatura-api';
 
 const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   pendente: { label: 'Pendente', variant: 'outline' },
@@ -120,7 +120,9 @@ export default function DocumentoDetalhe() {
 
   const status = STATUS_LABELS[documento.status] || STATUS_LABELS.pendente;
   const pdfUrl = fetchContratoPdfUrl(documento.token_acesso);
-  const linkPublico = getPublicSigningUrl(documento.token_acesso, documento.link_assinatura);
+  const linkPublico = documento.link_operacao && documento.bundle_token
+    ? getPublicOperationUrl(documento.bundle_token, documento.link_operacao)
+    : getPublicSigningUrl(documento.token_acesso, documento.link_assinatura);
 
   return (
     <div className="max-w-6xl space-y-6 p-6">

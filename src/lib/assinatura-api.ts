@@ -13,28 +13,42 @@ function isLocalhostHost(hostname: string) {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0';
 }
 
-export function getPublicSigningUrl(token: string, rawLink?: string) {
+function normalizePublicFlowUrl(rawLink: string, fallbackPath: string) {
   const browserOrigin = getBrowserOrigin();
 
-  if (rawLink) {
-    try {
-      const parsed = new URL(rawLink);
-      if (!isLocalhostHost(parsed.hostname)) {
-        return parsed.toString();
-      }
-      if (browserOrigin) {
-        return `${browserOrigin}/assinar/${token}`;
-      }
-      return rawLink;
-    } catch {
-      if (browserOrigin) {
-        return `${browserOrigin}/assinar/${token}`;
-      }
-      return rawLink;
+  try {
+    const parsed = new URL(rawLink);
+    if (!isLocalhostHost(parsed.hostname)) {
+      return parsed.toString();
     }
+    if (browserOrigin) {
+      return `${browserOrigin}${parsed.pathname}${parsed.search}${parsed.hash}`;
+    }
+    return rawLink;
+  } catch {
+    if (browserOrigin) {
+      return `${browserOrigin}/${fallbackPath}/${rawLink}`;
+    }
+    return `/${fallbackPath}/${rawLink}`;
   }
+}
 
+export function getPublicSigningUrl(token: string, rawLink?: string) {
+  if (rawLink) {
+    return normalizePublicFlowUrl(rawLink, 'assinar');
+  }
+  const browserOrigin = getBrowserOrigin();
   return browserOrigin ? `${browserOrigin}/assinar/${token}` : `/assinar/${token}`;
+}
+
+export function getPublicOperationUrl(bundleToken: string, rawLink?: string) {
+  if (rawLink) {
+    return normalizePublicFlowUrl(rawLink, 'assinar-operacao');
+  }
+  const browserOrigin = getBrowserOrigin();
+  return browserOrigin
+    ? `${browserOrigin}/assinar-operacao/${bundleToken}`
+    : `/assinar-operacao/${bundleToken}`;
 }
 
 export interface ContratoData {
