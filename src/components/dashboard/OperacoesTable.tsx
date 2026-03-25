@@ -82,8 +82,8 @@ export function OperacoesTable({ filters, onlyFormalizacao = false }: OperacoesT
 
         if (error) throw error;
         if (result?.success) {
-          setData(result.data || []);
-        }
+          const enriched = (result.data || []).map(enrichWithFormalizacao);
+          setData(enriched);
       } catch (err) {
         console.error('Error fetching operacoes:', err);
         setData([]);
