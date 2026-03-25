@@ -1585,15 +1585,61 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
       {/* ── Informações Comportamentais (Avançado PJ only) ── */}
       {isAvancadoPJ && (() => {
         const behavioralData = (report?.behavioralData || optionalFeatures?.behavioralData || report?.positiveData || optionalFeatures?.positiveData || {}) as GenericRecord;
-        
-        // Deep debug logging to identify actual data paths
-        console.log('[SerasaDetailView] report keys:', Object.keys(report || {}));
-        console.log('[SerasaDetailView] behavioralData keys:', Object.keys(behavioralData));
-        console.log('[SerasaDetailView] optionalFeatures keys:', Object.keys(optionalFeatures));
-        console.log('[SerasaDetailView] report.behavioralData:', report?.behavioralData ? 'EXISTS' : 'ABSENT');
-        console.log('[SerasaDetailView] report.positiveData:', report?.positiveData ? 'EXISTS' : 'ABSENT');
-        console.log('[SerasaDetailView] optionalFeatures.behavioralData:', optionalFeatures?.behavioralData ? 'EXISTS' : 'ABSENT');
-        
+        const advancedCommercialPaymentHistory = (report?.advancedCommercialPaymentHistory || optionalFeatures?.advancedCommercialPaymentHistory || {}) as GenericRecord;
+        const advancedSegmentData = (advancedCommercialPaymentHistory?.segmentData?.drawee || {}) as GenericRecord;
+        const advancedRelationshipPeriods = (advancedSegmentData?.relationshipSuppliersPeriods || {}) as GenericRecord;
+        const advancedRelationshipList = asArray(advancedRelationshipPeriods?.relationshipSuppliersPeriodList || []);
+        const advancedMonthDetail = (advancedCommercialPaymentHistory?.paymentHistory?.monthDetail || {}) as GenericRecord;
+        const advancedMonths = asArray(advancedMonthDetail?.months || []);
+
+        const normalizePeriodLabel = (value: unknown) =>
+          String(value || '')
+            .toUpperCase()
+            .replace(/\s+/g, '')
+            .replace(/_/g, '')
+            .replace(/-/g, '');
+
+        const getAdvancedRelationshipQty = (aliases: string[]) => {
+          const found = advancedRelationshipList.find((item: any) => {
+            const normalized = normalizePeriodLabel(item?.relationshipPeriodDescription);
+            return aliases.some((alias) => normalized.includes(alias));
+          });
+          return Number(found?.relationshipSourceQuantity || 0);
+        };
+
+        const normalizedRelationshipItem = advancedRelationshipList.length > 0
+          ? [{
+              range0to6: getAdvancedRelationshipQty(['06MESES']),
+              range6to12: getAdvancedRelationshipQty(['6MES1ANO', '6MESES1ANO']),
+              range1to3: getAdvancedRelationshipQty(['13ANOS']),
+              range3to5: getAdvancedRelationshipQty(['35ANOS']),
+              range5to10: getAdvancedRelationshipQty(['510ANOS']),
+              rangeOver10: getAdvancedRelationshipQty(['10ANOS']),
+              inactive: getAdvancedRelationshipQty(['INAT']),
+            }]
+          : [];
+
+        const mapAdvancedMonthToRow = (monthItem: any) => {
+          const periodList = asArray(monthItem?.periodList || []);
+          const getRange = (aliases: string[]) => {
+            const found = periodList.find((period: any) => aliases.some((alias) => normalizePeriodLabel(period?.name) === alias));
+            return found?.range || '-';
+          };
+
+          return {
+            period: monthItem?.month || '-',
+            cashPayment: getRange(['AVISTA']),
+            onTime: getRange(['PONTUAL']),
+            delay8to15: getRange(['815']),
+            delay16to30: getRange(['1630']),
+            delay31to60: getRange(['3160']),
+            delayOver60: getRange(['60']),
+            total: getRange(['TOTALMES']),
+          };
+        };
+
+        const normalizedAdvancedPaymentRows = advancedMonths.map(mapAdvancedMonthToRow);
+
         const marketRelationship = (behavioralData?.marketRelationship || report?.marketRelationship || optionalFeatures?.marketRelationship || {}) as GenericRecord;
         const paymentHistoryPJ = (behavioralData?.paymentHistory || report?.paymentHistoryCompany || optionalFeatures?.paymentHistoryCompany || {}) as GenericRecord;
         const commitmentEvolution = (behavioralData?.commitmentEvolution || report?.commitmentEvolution || optionalFeatures?.commitmentEvolution || {}) as GenericRecord;
@@ -1601,21 +1647,19 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         const suppliers = (behavioralData?.suppliers || behavioralData?.principalSuppliers || report?.suppliers || optionalFeatures?.suppliers || {}) as GenericRecord;
         const comparativeAnalysis = (behavioralData?.comparativeAnalysis || report?.comparativeAnalysis || optionalFeatures?.comparativeAnalysis || {}) as GenericRecord;
 
-        console.log('[SerasaDetailView] marketRelationship keys:', Object.keys(marketRelationship));
-        console.log('[SerasaDetailView] marketRelationship data:', JSON.stringify(marketRelationship).substring(0, 300));
-
-        const marketItems = asArray(marketRelationship?.marketRelationshipResponse || marketRelationship?.results || marketRelationship?.items || []);
+        const marketItemsRaw = asArray(marketRelationship?.marketRelationshipResponse || marketRelationship?.results || marketRelationship?.items || []);
+        const marketItems = marketItemsRaw.length > 0 ? marketItemsRaw : normalizedRelationshipItem;
         const pjPayItems = asArray(paymentHistoryPJ?.paymentHistoryResponse || paymentHistoryPJ?.payments || paymentHistoryPJ?.items || paymentHistoryPJ?.results || []);
         const commitmentItems = asArray(commitmentEvolution?.commitmentEvolutionResponse || commitmentEvolution?.results || commitmentEvolution?.items || []);
         const businessRefItems = asArray(businessReferences?.businessReferencesResponse || businessReferences?.results || businessReferences?.items || []);
         const supplierItems = asArray(suppliers?.suppliersResponse || suppliers?.results || suppliers?.items || []);
         const comparativeItems = asArray(comparativeAnalysis?.comparativeAnalysisResponse || comparativeAnalysis?.results || comparativeAnalysis?.items || []);
 
-        console.log('[SerasaDetailView] marketItems count:', marketItems.length, 'first:', JSON.stringify(marketItems[0] || {}).substring(0, 200));
-
         // Payment history may have market and factoring sub-sections
-        const payHistoryMarket = asArray(paymentHistoryPJ?.market?.paymentHistoryResponse || paymentHistoryPJ?.marketPaymentHistory || paymentHistoryPJ?.market?.results || []);
-        const payHistoryFactoring = asArray(paymentHistoryPJ?.factoring?.paymentHistoryResponse || paymentHistoryPJ?.factoringPaymentHistory || paymentHistoryPJ?.factoring?.results || []);
+        const payHistoryMarketRaw = asArray(paymentHistoryPJ?.market?.paymentHistoryResponse || paymentHistoryPJ?.marketPaymentHistory || paymentHistoryPJ?.market?.results || []);
+        const payHistoryFactoringRaw = asArray(paymentHistoryPJ?.factoring?.paymentHistoryResponse || paymentHistoryPJ?.factoringPaymentHistory || paymentHistoryPJ?.factoring?.results || []);
+        const payHistoryMarket = payHistoryMarketRaw.length > 0 ? payHistoryMarketRaw : normalizedAdvancedPaymentRows;
+        const payHistoryFactoring = payHistoryFactoringRaw.length > 0 ? payHistoryFactoringRaw : normalizedAdvancedPaymentRows;
         const payHistoryDelayMarket = asArray(paymentHistoryPJ?.market?.averageDelay || paymentHistoryPJ?.marketAverageDelay || []);
         const payHistoryDelayFactoring = asArray(paymentHistoryPJ?.factoring?.averageDelay || paymentHistoryPJ?.factoringAverageDelay || []);
 
@@ -1666,12 +1710,16 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           mktItem.rangeOver10 ?? mktItem.overTen ?? 0,
           mktItem.inactive ?? mktItem.inactives ?? 0,
         ];
-        const mktSources = mktItem.sourcesConsulted ?? mktItem.consultedSources ?? '';
-        const mktTotal = mktItem.total ?? marketItems.length ?? 0;
+        const mktSources = mktItem.sourcesConsulted
+          ?? mktItem.consultedSources
+          ?? advancedRelationshipPeriods?.summary?.sourcesTotal
+          ?? '';
+        const mktTotal = mktItem.total ?? advancedRelationshipList.length ?? marketItems.length ?? 0;
 
         // Extract factoring relationship data
         const factoringRelationship = (behavioralData?.factoringRelationship || report?.factoringRelationship || {}) as GenericRecord;
-        const factoringRelItems = asArray(factoringRelationship?.factoringRelationshipResponse || factoringRelationship?.results || factoringRelationship?.items || []);
+        const factoringRelItemsRaw = asArray(factoringRelationship?.factoringRelationshipResponse || factoringRelationship?.results || factoringRelationship?.items || []);
+        const factoringRelItems = factoringRelItemsRaw.length > 0 ? factoringRelItemsRaw : normalizedRelationshipItem;
         const fctItem = factoringRelItems[0] || {} as any;
         const fctValues = [
           fctItem.range0to6 ?? fctItem.zeroToSix ?? 0,
@@ -1682,11 +1730,27 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           fctItem.rangeOver10 ?? fctItem.overTen ?? 0,
           fctItem.inactive ?? fctItem.inactives ?? 0,
         ];
-        const fctSources = fctItem.sourcesConsulted ?? fctItem.consultedSources ?? '';
-        const fctTotal = fctItem.total ?? factoringRelItems.length ?? 0;
+        const fctSources = fctItem.sourcesConsulted
+          ?? fctItem.consultedSources
+          ?? advancedRelationshipPeriods?.summary?.sourcesTotal
+          ?? '';
+        const fctTotal = fctItem.total ?? advancedRelationshipList.length ?? factoringRelItems.length ?? 0;
+
+        const advancedSummary = (advancedMonthDetail?.summary || {}) as GenericRecord;
 
         // Payment history title quantities
-        const payTitleItem = (behavioralData?.paymentTitleQuantity || paymentHistoryPJ?.titleQuantity || {}) as GenericRecord;
+        const payTitleItem = ((behavioralData?.paymentTitleQuantity || paymentHistoryPJ?.titleQuantity)
+          || {
+            atSight: advancedSummary?.spotPayment?.totalValueRangeDescription || '-',
+            punctual: advancedSummary?.punctual?.totalValueRangeDescription || '-',
+            delay8to15: advancedSummary?.period8To15?.totalValueRangeDescription || '-',
+            delay16to30: advancedSummary?.period16To30?.totalValueRangeDescription || '-',
+            delay31to60: advancedSummary?.period31To60?.totalValueRangeDescription || '-',
+            delayOver60: advancedSummary?.periodGT60?.totalValueRangeDescription || '-',
+            total: advancedMonths.length || 0,
+            sourcesConsulted: advancedRelationshipPeriods?.summary?.paymentHistorySources || advancedRelationshipPeriods?.summary?.sourcesTotal || '',
+          }) as GenericRecord;
+
         const titleHeaders = ['À vista', 'Pontual', '8 - 15', '16 - 30', '31 - 60', '+60'];
         const titleValues = [
           payTitleItem.atSight ?? payTitleItem.cashPayment ?? '-',
@@ -1696,7 +1760,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           payTitleItem.delay31to60 ?? '-',
           payTitleItem.delayOver60 ?? '-',
         ];
-        const titleTotal = payTitleItem.total ?? pjPayItems.length ?? 0;
+        const titleTotal = payTitleItem.total ?? advancedMonths.length ?? pjPayItems.length ?? 0;
         const titleSources = payTitleItem.sourcesConsulted ?? '';
 
         // Visão comparativa for payment
@@ -1809,9 +1873,19 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           );
         };
 
+        const paySummaryFallback = {
+          last12Months: advancedSummary?.total?.totalValueRangeDescription || '-',
+          atSight: advancedSummary?.spotPayment?.totalValueRangeDescription || '-',
+          punctual: advancedSummary?.punctual?.totalValueRangeDescription || '-',
+          delay8to15: advancedSummary?.period8To15?.totalValueRangeDescription || '-',
+          delay16to30: advancedSummary?.period16To30?.totalValueRangeDescription || '-',
+          delay31to60: advancedSummary?.period31To60?.totalValueRangeDescription || '-',
+          delayOver60: advancedSummary?.periodGT60?.totalValueRangeDescription || '-',
+        } as GenericRecord;
+
         // Payment history summary items
-        const payMarketSummary = (paymentHistoryPJ?.market?.summary || paymentHistoryPJ?.marketSummary || {}) as GenericRecord;
-        const payFactoringSummary = (paymentHistoryPJ?.factoring?.summary || paymentHistoryPJ?.factoringSummary || {}) as GenericRecord;
+        const payMarketSummary = (paymentHistoryPJ?.market?.summary || paymentHistoryPJ?.marketSummary || paySummaryFallback) as GenericRecord;
+        const payFactoringSummary = (paymentHistoryPJ?.factoring?.summary || paymentHistoryPJ?.factoringSummary || paySummaryFallback) as GenericRecord;
 
         return (
         <div>
