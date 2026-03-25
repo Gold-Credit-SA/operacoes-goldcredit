@@ -94,55 +94,70 @@ Deno.serve(async (req) => {
 
     switch (action) {
       case 'operacoes-formalizacao': {
-        const token = await getAccessToken();
+        // Use cache if still valid (Smart API has 10-min rate limit)
+        let allOperacoes: Record<string, unknown>[];
 
-        const dataIni = filters?.dataInicio
-          ? formatDateBR(filters.dataInicio)
-          : ninetyDaysAgoBR();
-        const dataFim = filters?.dataFim
-          ? formatDateBR(filters.dataFim)
-          : todayBR();
+        if (cachedResponse && Date.now() - cachedResponse.fetchedAt < CACHE_TTL_MS) {
+          console.log('Using cached Smart API response');
+          allOperacoes = cachedResponse.data as Record<string, unknown>[];
+        } else {
+          const token = await getAccessToken();
 
-        // Fetch all pages of operations
-        let allOperacoes: Record<string, unknown>[] = [];
-        let page = 1;
-        let hasMore = true;
+          const dataIni = filters?.dataInicio
+            ? formatDateBR(filters.dataInicio)
+            : ninetyDaysAgoBR();
+          const dataFim = filters?.dataFim
+            ? formatDateBR(filters.dataFim)
+            : todayBR();
 
-        while (hasMore) {
-          const url = new URL(`${SMART_BASE_URL}/smartsecurities/operacao`);
-          url.searchParams.set('tipo', 'individualizado');
-          url.searchParams.set('tipoSaida', 'json');
-          url.searchParams.set('dataIniOperacao', dataIni);
-          url.searchParams.set('dataFimOperacao', dataFim);
-          if (page > 1) url.searchParams.set('page', String(page));
+          allOperacoes = [];
+          let page = 1;
+          let hasMore = true;
 
-          const res = await fetch(url.toString(), {
-            headers: {
-              Accept: 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-          });
+          while (hasMore) {
+            const url = new URL(`${SMART_BASE_URL}/smartsecurities/operacao`);
+            url.searchParams.set('tipo', 'individualizado');
+            url.searchParams.set('tipoSaida', 'json');
+            url.searchParams.set('dataIniOperacao', dataIni);
+            url.searchParams.set('dataFimOperacao', dataFim);
+            if (page > 1) url.searchParams.set('page', String(page));
 
-          if (!res.ok) {
-            const body = await res.text();
-            console.error(`Smart API error page ${page}:`, res.status, body);
-            throw new Error(`Erro na API Smart: ${res.status}`);
+            const res = await fetch(url.toString(), {
+              headers: {
+                Accept: 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+            });
+
+            if (!res.ok) {
+              const body = await res.text();
+              console.error(`Smart API error page ${page}:`, res.status, body);
+
+              // If rate limited and we have stale cache, use it
+              if (res.status === 429 && cachedResponse) {
+                console.log('Rate limited, using stale cache');
+                allOperacoes = cachedResponse.data as Record<string, unknown>[];
+                break;
+              }
+              throw new Error(`Erro na API Smart: ${res.status}`);
+            }
+
+            const data = await res.json();
+            const ops = data?._embedded?.operacao || [];
+            allOperacoes = allOperacoes.concat(ops);
+
+            const totalPages = data?.page_count || 1;
+            if (page >= totalPages) {
+              hasMore = false;
+            } else {
+              page++;
+            }
+
+            if (page > 20) break;
           }
 
-          const data = await res.json();
-          const ops = data?._embedded?.operacao || [];
-          allOperacoes = allOperacoes.concat(ops);
-
-          // Check pagination
-          const totalPages = data?.page_count || 1;
-          if (page >= totalPages) {
-            hasMore = false;
-          } else {
-            page++;
-          }
-
-          // Safety: max 20 pages (500 records)
-          if (page > 20) break;
+          // Update cache
+          cachedResponse = { data: allOperacoes, fetchedAt: Date.now() };
         }
 
         // Filter only formalization operations
