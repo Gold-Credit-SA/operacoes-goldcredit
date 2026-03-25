@@ -1959,9 +1959,15 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
                 <TableHeader>
                   <TableRow>
                     {acphCommitmentList.length > 0
-                      ? acphCommitmentList.map((item: any, i: number) => (
-                          <TableHead key={i} className="text-xs font-medium">{item.month || item.period || '-'}</TableHead>
-                        ))
+                      ? acphCommitmentList.map((item: any, i: number) => {
+                          const monthFromApi = Number(item?.monthCommitment);
+                          const monthNames = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+                          const monthLabel = Number.isFinite(monthFromApi) && monthFromApi >= 1 && monthFromApi <= 12
+                            ? monthNames[monthFromApi - 1]
+                            : (item?.descriptionMonthCommitment || item?.month || item?.period || '-');
+                          const yearLabel = item?.yearCommitment ? String(item.yearCommitment).padStart(2, '0') : '';
+                          return <TableHead key={i} className="text-xs font-medium">{yearLabel ? `${monthLabel}/${yearLabel}` : monthLabel}</TableHead>;
+                        })
                       : <TableHead className="text-xs font-medium">Período</TableHead>
                     }
                     {acphCommitmentList.length > 0 && <TableHead className="text-xs font-medium">Total</TableHead>}
@@ -1971,15 +1977,18 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
                   {acphCommitmentList.length > 0 ? (
                     <TableRow>
                       {acphCommitmentList.map((item: any, i: number) => {
-                        const rangeDesc = item?.rangeDescription || item?.range || '';
-                        const display = rangeDesc ? `${String(rangeDesc).replace(/ A /g, ' a ')}` : '-';
+                        const rangeDesc = item?.totalMonthRangeDescription || item?.trackDescriptionToExpire || item?.upcomingValueRangeDescription || item?.rangeDescription || item?.range || '';
+                        const display = rangeDesc && rangeDesc !== '-' ? `R$ ${String(rangeDesc).replace(/ A /g, ' a R$ ')}` : '-';
                         return <TableCell key={i} className="text-xs py-2">{display}</TableCell>;
                       })}
                       <TableCell className="text-xs py-2">
                         {(() => {
-                          // Sum or show total
-                          const allDescs = acphCommitmentList.map((it: any) => it?.rangeDescription || it?.range || '').filter(Boolean);
-                          return allDescs.length > 0 ? allDescs[0].replace(/ A /g, ' a ') : '-';
+                          const summaryTotal = acphCommitment?.summary?.total;
+                          const summaryRange = summaryTotal?.upcomingValueRangeDescription || summaryTotal?.overdueTotalRangeDescription || '';
+                          if (summaryRange && summaryRange !== '-') return `R$ ${String(summaryRange).replace(/ A /g, ' a R$ ')}`;
+                          const firstRange = acphCommitmentList.find((it: any) => it?.totalMonthRangeDescription || it?.trackDescriptionToExpire);
+                          const firstDesc = firstRange?.totalMonthRangeDescription || firstRange?.trackDescriptionToExpire || '';
+                          return firstDesc && firstDesc !== '-' ? `R$ ${String(firstDesc).replace(/ A /g, ' a R$ ')}` : '-';
                         })()}
                       </TableCell>
                     </TableRow>
