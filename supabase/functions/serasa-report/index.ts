@@ -10,7 +10,7 @@ const REPORT_MAP: Record<string, { reportName: string; type: 'PF' | 'PJ'; defaul
   serasa_basico_pf: { reportName: 'RELATORIO_BASICO_PF_PME', type: 'PF' },
   serasa_avancado_top_score_pf: { reportName: 'RELATORIO_AVANCADO_TOP_SCORE_PF_PME', type: 'PF', defaultScoreModel: 'HRLD' },
   serasa_basico_pj: { reportName: 'RELATORIO_BASICO_PJ_PME', type: 'PJ', defaultScoreModel: 'H4PJ' },
-  serasa_avancado_pj: { reportName: 'RELATORIO_AVANCADO_PJ_ANALITICO', type: 'PJ', defaultScoreModel: 'H4PJ', segmentCode: 'S' },
+  serasa_avancado_pj: { reportName: 'RELATORIO_AVANCADO_PJ_ANALITICO', type: 'PJ', defaultScoreModel: 'H4PJ', segmentCode: '028' },
 };
 
 /** Encode reportParameters as base64 for Serasa API */
