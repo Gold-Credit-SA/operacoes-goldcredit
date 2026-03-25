@@ -84,7 +84,7 @@ export function isLimiteOp(op: Operacao): boolean {
   if (ALWAYS_LIMITE.includes(op.mod)) return true;
   
   // Mod codes that can be either limit or active credit
-  const CONDITIONAL_LIMITE = ['0208', '0214', '0207'];
+  const CONDITIONAL_LIMITE = ['0208', '0214', '0207', '1901', '1902', '1903', '1904'];
   if (CONDITIONAL_LIMITE.includes(op.mod)) {
     const hasAVencer = Object.entries(op.resVenc).some(([k, v]) => {
       const num = parseInt(k.replace('v', ''));
