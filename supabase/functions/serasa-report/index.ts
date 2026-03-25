@@ -281,21 +281,42 @@ serve(async (req) => {
     const reportKeys = Object.keys(reportObj || {});
     console.log('[serasa-report] Success for', cId, '| Top keys:', topKeys.join(','), '| Report keys:', reportKeys.join(','));
     
-    // Deep log behavioral/positive data structure for debugging
-    const behavioralData = reportObj?.behavioralData;
-    const positiveData = reportObj?.positiveData;
-    const optFeatures = reportObj?.optionalFeatures;
-    console.log('[serasa-report] behavioralData keys:', behavioralData ? Object.keys(behavioralData).join(',') : 'ABSENT');
-    console.log('[serasa-report] positiveData keys:', positiveData ? Object.keys(positiveData).join(',') : 'ABSENT');
-    console.log('[serasa-report] optionalFeatures keys:', optFeatures ? Object.keys(optFeatures).join(',') : 'ABSENT');
-    
-    // Log market relationship specifically
-    const mktRel = behavioralData?.marketRelationship || positiveData?.marketRelationship || optFeatures?.marketRelationship || reportObj?.marketRelationship;
-    console.log('[serasa-report] marketRelationship:', mktRel ? JSON.stringify(mktRel).substring(0, 500) : 'ABSENT');
-    
-    // Log payment history
-    const payHist = behavioralData?.paymentHistory || positiveData?.paymentHistory || optFeatures?.paymentHistory || reportObj?.paymentHistoryCompany || reportObj?.paymentHistory;
-    console.log('[serasa-report] paymentHistory:', payHist ? JSON.stringify(payHist).substring(0, 500) : 'ABSENT');
+    // Deep log advancedCommercialPaymentHistory structure
+    const acph = reportObj?.advancedCommercialPaymentHistory;
+    if (acph) {
+      console.log('[serasa-report] ACPH keys:', Object.keys(acph).join(','));
+      const segData = acph?.segmentData;
+      if (segData) {
+        console.log('[serasa-report] ACPH.segmentData keys:', Object.keys(segData).join(','));
+        const drawee = segData?.drawee;
+        if (drawee) {
+          console.log('[serasa-report] ACPH.segmentData.drawee keys:', Object.keys(drawee).join(','));
+          const relPeriods = drawee?.relationshipSuppliersPeriods;
+          if (relPeriods) {
+            console.log('[serasa-report] relationshipSuppliersPeriods:', JSON.stringify(relPeriods).substring(0, 1000));
+          }
+        }
+      }
+      const payHist = acph?.paymentHistory;
+      if (payHist) {
+        console.log('[serasa-report] ACPH.paymentHistory keys:', Object.keys(payHist).join(','));
+        const monthDetail = payHist?.monthDetail;
+        if (monthDetail) {
+          console.log('[serasa-report] monthDetail keys:', Object.keys(monthDetail).join(','));
+          console.log('[serasa-report] monthDetail.months[0]:', JSON.stringify((monthDetail?.months || [])[0] || {}).substring(0, 1000));
+        }
+        console.log('[serasa-report] ACPH.paymentHistory full:', JSON.stringify(payHist).substring(0, 2000));
+      }
+      // Log commitment and business references
+      const commitment = acph?.commitmentEvolution || acph?.commitment;
+      console.log('[serasa-report] ACPH commitment:', commitment ? JSON.stringify(commitment).substring(0, 1000) : 'ABSENT');
+      const bizRef = acph?.businessReferences || acph?.businessReference;
+      console.log('[serasa-report] ACPH businessRef:', bizRef ? JSON.stringify(bizRef).substring(0, 1000) : 'ABSENT');
+      // Log full ACPH for complete visibility
+      console.log('[serasa-report] ACPH FULL:', JSON.stringify(acph).substring(0, 3000));
+    } else {
+      console.log('[serasa-report] advancedCommercialPaymentHistory: ABSENT');
+    }
 
     return new Response(JSON.stringify({ data: reportData }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
