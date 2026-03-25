@@ -105,7 +105,7 @@ export default function Documentos() {
   };
 
   return (
-    <div className="max-w-6xl space-y-6 p-6">
+    <div className="max-w-6xl mx-auto space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Documentos</h1>

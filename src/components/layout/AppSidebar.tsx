@@ -184,7 +184,7 @@ export function AppSidebar() {
         >
           <span className="flex items-center gap-3">
             <FileSignature className={cn("h-5 w-5", location.pathname.startsWith('/contratos') ? "text-primary" : "text-sidebar-foreground/50")} />
-            Contratos
+            Assinatura de Documentos
           </span>
           <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", contratosOpen ? "rotate-180" : "")} />
         </button>
