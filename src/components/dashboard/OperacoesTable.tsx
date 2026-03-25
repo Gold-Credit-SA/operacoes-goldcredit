@@ -23,6 +23,7 @@ interface Operacao {
 
 interface OperacoesTableProps {
   filters: DashboardFiltersState;
+  onlyFormalizacao?: boolean;
 }
 
 const formatCurrency = (value: number | null) => {
@@ -42,7 +43,7 @@ const formatDate = (date: string | null) => {
   }
 };
 
-export function OperacoesTable({ filters }: OperacoesTableProps) {
+export function OperacoesTable({ filters, onlyFormalizacao = false }: OperacoesTableProps) {
   const [data, setData] = useState<Operacao[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -87,6 +88,7 @@ export function OperacoesTable({ filters }: OperacoesTableProps) {
   });
 
   const operacoesFormalizacao = sortedData.filter((op) => op.precisaFormalizacao);
+  const displayData = onlyFormalizacao ? operacoesFormalizacao : sortedData;
 
   if (isLoading) {
     return (
@@ -98,17 +100,19 @@ export function OperacoesTable({ filters }: OperacoesTableProps) {
     );
   }
 
-  if (data.length === 0) {
+  if (displayData.length === 0) {
     return (
       <div className="py-8 text-center text-muted-foreground">
-        Nenhuma operacao encontrada
+        {onlyFormalizacao
+          ? 'Nenhuma operacao aguardando formalizacao encontrada'
+          : 'Nenhuma operacao encontrada'}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {operacoesFormalizacao.length > 0 && (
+      {!onlyFormalizacao && operacoesFormalizacao.length > 0 && (
         <div className="mx-4 mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary" className="border border-amber-300 bg-amber-100 text-amber-900">
@@ -141,7 +145,7 @@ export function OperacoesTable({ filters }: OperacoesTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedData.map((op) => (
+            {displayData.map((op) => (
               <TableRow key={op.id} className={op.precisaFormalizacao ? 'bg-amber-50/70' : undefined}>
                 <TableCell className="font-medium">{op.operacao || '-'}</TableCell>
                 <TableCell>{formatDate(op.data)}</TableCell>
@@ -177,7 +181,7 @@ export function OperacoesTable({ filters }: OperacoesTableProps) {
           </TableBody>
         </Table>
         <p className="mt-4 text-xs text-muted-foreground">
-          Exibindo {sortedData.length} registros
+          Exibindo {displayData.length} registros
         </p>
       </div>
     </div>
