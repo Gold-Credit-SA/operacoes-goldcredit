@@ -194,15 +194,15 @@ interface DocTypeConfig {
 const DOC_TYPE_CONFIGS: Record<TipoDocumento, DocTypeConfig> = {
   contrato_mae: {
     label: 'Contrato Mae',
-    cedente: { page: 12, x: 0.07, y: 0.67, w: 0.64, h: 0.04 },
-    cessionaria: { page: 12, x: 0.07, y: 0.545, w: 0.64, h: 0.04 },
-    responsavel: { page: 12, x: 0.07, y: 0.44, w: 0.43, h: 0.04 },
+    cedente: { page: 12, x: 0.06, y: 0.79, w: 0.46, h: 0.055 },
+    cessionaria: { page: 12, x: 0.06, y: 0.57, w: 0.46, h: 0.055 },
+    responsavel: { page: 12, x: 0.06, y: 0.38, w: 0.38, h: 0.055 },
   },
   aditivo: {
     label: 'Aditivo',
-    cedente: { page: 2, x: 0.07, y: 0.08, w: 0.64, h: 0.04 },
-    cessionaria: { page: 2, x: 0.07, y: 0.62, w: 0.64, h: 0.04 },
-    responsavel: { page: 2, x: 0.07, y: 0.35, w: 0.43, h: 0.04 },
+    cedente: { page: 2, x: 0.06, y: 0.82, w: 0.46, h: 0.06 },
+    cessionaria: { page: 2, x: 0.08, y: 0.20, w: 0.44, h: 0.06 },
+    responsavel: { page: 2, x: 0.06, y: 0.46, w: 0.38, h: 0.06 },
   },
   carta_cessao: {
     label: 'Carta de Cessao',
