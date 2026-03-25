@@ -277,6 +277,7 @@ export default function AssinaturaDigital() {
   const [links, setLinks] = useState<ResultLink[]>([]);
   const [sociosDisponiveis, setSociosDisponiveis] = useState<SocioCedente[]>([]);
   const [buscandoSocios, setBuscandoSocios] = useState(false);
+  const [incluirResponsavel, setIncluirResponsavel] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const temResponsavel = Boolean(responsavel.email && responsavel.cpfCnpj);
