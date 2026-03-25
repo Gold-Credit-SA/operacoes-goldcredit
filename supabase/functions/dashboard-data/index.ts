@@ -5,6 +5,29 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function normalizeStage(value: unknown): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+function buildFormalizacaoSignal(operacao: Record<string, unknown>) {
+  const etapa = String(operacao.etapa ?? '');
+  const etapaNormalizada = normalizeStage(etapa);
+  const precisaFormalizacao = etapaNormalizada.includes('formalizacao');
+
+  return {
+    ...operacao,
+    etapaNormalizada,
+    precisaFormalizacao,
+    sinalizacaoGoldsign: precisaFormalizacao
+      ? 'Enviar documentos para assinatura'
+      : null,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -109,7 +132,11 @@ Deno.serve(async (req) => {
         const { data, error } = await query.limit(500);
         if (error) throw error;
 
-        return new Response(JSON.stringify({ success: true, data }), {
+        const operacoesSinalizadas = (data || []).map((item) =>
+          buildFormalizacaoSignal(item as Record<string, unknown>)
+        );
+
+        return new Response(JSON.stringify({ success: true, data: operacoesSinalizadas }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }

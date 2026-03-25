@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { DashboardFiltersState } from '@/pages/Dashboard';
 
 interface Operacao {
@@ -15,6 +16,9 @@ interface Operacao {
   valor_receita: number | null;
   etapa: string | null;
   operador: string | null;
+  etapaNormalizada?: string | null;
+  precisaFormalizacao?: boolean;
+  sinalizacaoGoldsign?: string | null;
 }
 
 interface OperacoesTableProps {
@@ -47,14 +51,14 @@ export function OperacoesTable({ filters }: OperacoesTableProps) {
       setIsLoading(true);
       try {
         const { data: result, error } = await supabase.functions.invoke('dashboard-data', {
-          body: { 
+          body: {
             action: 'operacoes',
             filters: {
               cedente: filters.cedente || undefined,
               dataInicio: filters.dataInicio || (filters.ano ? `${filters.ano}-01-01` : undefined),
               dataFim: filters.dataFim || (filters.ano ? `${filters.ano}-12-31` : undefined),
-            }
-          }
+            },
+          },
         });
 
         if (error) throw error;
@@ -73,6 +77,17 @@ export function OperacoesTable({ filters }: OperacoesTableProps) {
     return () => clearTimeout(debounce);
   }, [filters]);
 
+  const sortedData = [...data].sort((a, b) => {
+    const prioridadeA = a.precisaFormalizacao ? 1 : 0;
+    const prioridadeB = b.precisaFormalizacao ? 1 : 0;
+    if (prioridadeA !== prioridadeB) {
+      return prioridadeB - prioridadeA;
+    }
+    return (b.id || 0) - (a.id || 0);
+  });
+
+  const operacoesFormalizacao = sortedData.filter((op) => op.precisaFormalizacao);
+
   if (isLoading) {
     return (
       <div className="space-y-2">
@@ -86,48 +101,85 @@ export function OperacoesTable({ filters }: OperacoesTableProps) {
   if (data.length === 0) {
     return (
       <div className="py-8 text-center text-muted-foreground">
-        Nenhuma operação encontrada
+        Nenhuma operacao encontrada
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Operação</TableHead>
-            <TableHead>Data</TableHead>
-            <TableHead>Cedente</TableHead>
-            <TableHead>CPF/CNPJ</TableHead>
-            <TableHead className="text-right">Valor Bruto</TableHead>
-            <TableHead className="text-right">Valor Líquido</TableHead>
-            <TableHead className="text-right">Receita</TableHead>
-            <TableHead>Etapa</TableHead>
-            <TableHead>Operador</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {data.map((op) => (
-            <TableRow key={op.id}>
-              <TableCell className="font-medium">{op.operacao || '-'}</TableCell>
-              <TableCell>{formatDate(op.data)}</TableCell>
-              <TableCell className="max-w-[200px] truncate">{op.cedente || '-'}</TableCell>
-              <TableCell className="font-mono text-xs">{op.cpf_cnpj_cedente || '-'}</TableCell>
-              <TableCell className="text-right">{formatCurrency(op.valor_bruto)}</TableCell>
-              <TableCell className="text-right">{formatCurrency(op.valor_liquido)}</TableCell>
-              <TableCell className="text-right text-green-600 font-medium">
-                {formatCurrency(op.valor_receita)}
-              </TableCell>
-              <TableCell>{op.etapa || '-'}</TableCell>
-              <TableCell>{op.operador || '-'}</TableCell>
+    <div className="space-y-4">
+      {operacoesFormalizacao.length > 0 && (
+        <div className="mx-4 mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary" className="border border-amber-300 bg-amber-100 text-amber-900">
+              Formalizacao
+            </Badge>
+            <span className="font-medium">
+              {operacoesFormalizacao.length} operacao(oes) no Smart aguardando formalizacao no GoldSign.
+            </span>
+          </div>
+          <p className="mt-2 text-amber-900/80">
+            Essas operacoes entraram na etapa de formalizacao e devem seguir para envio dos documentos de assinatura.
+          </p>
+        </div>
+      )}
+
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Operacao</TableHead>
+              <TableHead>Data</TableHead>
+              <TableHead>Cedente</TableHead>
+              <TableHead>CPF/CNPJ</TableHead>
+              <TableHead className="text-right">Valor Bruto</TableHead>
+              <TableHead className="text-right">Valor Liquido</TableHead>
+              <TableHead className="text-right">Receita</TableHead>
+              <TableHead>Etapa</TableHead>
+              <TableHead>Sinalizacao</TableHead>
+              <TableHead>Operador</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-      <p className="mt-4 text-xs text-muted-foreground">
-        Exibindo {data.length} registros
-      </p>
+          </TableHeader>
+          <TableBody>
+            {sortedData.map((op) => (
+              <TableRow key={op.id} className={op.precisaFormalizacao ? 'bg-amber-50/70' : undefined}>
+                <TableCell className="font-medium">{op.operacao || '-'}</TableCell>
+                <TableCell>{formatDate(op.data)}</TableCell>
+                <TableCell className="max-w-[200px] truncate">{op.cedente || '-'}</TableCell>
+                <TableCell className="font-mono text-xs">{op.cpf_cnpj_cedente || '-'}</TableCell>
+                <TableCell className="text-right">{formatCurrency(op.valor_bruto)}</TableCell>
+                <TableCell className="text-right">{formatCurrency(op.valor_liquido)}</TableCell>
+                <TableCell className="text-right font-medium text-green-600">
+                  {formatCurrency(op.valor_receita)}
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span>{op.etapa || '-'}</span>
+                    {op.precisaFormalizacao && (
+                      <Badge variant="secondary" className="border border-amber-300 bg-amber-100 text-amber-900">
+                        Precisa formalizar
+                      </Badge>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  {op.precisaFormalizacao ? (
+                    <span className="font-medium text-amber-900">
+                      {op.sinalizacaoGoldsign || 'Enviar documentos para assinatura'}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">-</span>
+                  )}
+                </TableCell>
+                <TableCell>{op.operador || '-'}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        <p className="mt-4 text-xs text-muted-foreground">
+          Exibindo {sortedData.length} registros
+        </p>
+      </div>
     </div>
   );
 }
