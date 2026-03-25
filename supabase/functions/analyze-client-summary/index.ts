@@ -82,7 +82,10 @@ REGRAS CRÍTICAS:
 6. Seja DETALHADO em cada tópico — extraia o máximo de informação dos dados fornecidos.
 7. NÃO inclua dados da AgRisk.
 8. Valores monetários devem ser formatados em R$ com separador de milhar.
-9. Percentuais devem incluir o símbolo %.`;
+9. Percentuais devem incluir o símbolo %.
+10. FORMATO DOS CAMPOS SEM DADOS: Quando um campo específico não tiver dados disponíveis, use EXATAMENTE "Sem dados." — sem explicações adicionais, sem parênteses, sem justificativas técnicas. Apenas "Sem dados." A explicação da ausência deve ir na justificativa do parecer final se relevante.
+11. CONCISÃO: Cada tópico deve ter no máximo 3-4 frases objetivas. Não repita informações entre tópicos. Use bullet points com • para listar itens quando houver mais de 2 elementos.
+12. O campo "resumoGeral" do SCR deve consolidar: período consultado, total de instituições, total de operações, carteira ativa total (somando resVenc de todas as operações não-limite). Use os códigos de modalidade (mod) para classificar: 02xx=Empréstimos, 03xx=Títulos Descontados, 04xx=Financiamentos, 13xx/19xx=Outros. Os buckets v110-v200 são créditos a vencer, v10-v100 são vencidos.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
