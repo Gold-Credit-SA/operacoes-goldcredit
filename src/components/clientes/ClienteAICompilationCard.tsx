@@ -412,7 +412,9 @@ function SectionCard({
 }
 
 function TopicRow({ label, value, highlight }: { label: string; value?: string; highlight?: boolean }) {
-  if (!value || value === 'Sem dados.') return null;
+  if (!value) return null;
+  const lower = value.toLowerCase().trim();
+  if (lower.startsWith('sem dados') || lower.startsWith('não houve consulta') || lower.startsWith('dados insuficientes') || lower.startsWith('não disponível')) return null;
 
   return (
     <div className={`rounded-lg border p-3 ${highlight ? 'border-orange-200 bg-orange-50/60' : 'border-slate-100 bg-slate-50/60'}`}>
