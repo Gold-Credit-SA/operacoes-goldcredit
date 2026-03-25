@@ -279,10 +279,20 @@ export async function criarSolicitacao(payload: CriarSolicitacaoPayload) {
     formData.append('responsavel_solidario_cpf_cnpj', payload.responsavel_solidario_cpf_cnpj ?? '');
   }
 
-  const res = await fetch(`${BACKEND_URL}/api/assinatura/criar`, {
-    method: 'POST',
-    body: formData,
-  });
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+
+  const res = await fetch(
+    `${SUPABASE_URL}/functions/v1/goldsign-proxy?target=${encodeURIComponent('/api/assinatura/criar')}`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      },
+      body: formData,
+    }
+  );
   if (!res.ok) {
     const body = await res.text();
     throw new Error(body || `Erro ${res.status}`);
