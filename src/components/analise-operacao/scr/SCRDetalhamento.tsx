@@ -190,6 +190,7 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
               </div>
               {nonLimiteCats.map(cat => {
                 const catTotal = opsByCategory[cat].reduce((s, op) => s + calcTotalVenc(op.resVenc), 0);
+                if (catTotal === 0) return null;
                 return (
                   <div key={cat} className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${CHART_COLORS[cat]}20` }}>
