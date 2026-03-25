@@ -74,9 +74,9 @@ export function PowerBIDashboard() {
       try {
         // Fetch all data in parallel
         const [statsRes, resumoRes, topRes] = await Promise.all([
-          supabase.functions.invoke('dashboard-data', { body: { action: 'stats' } }),
-          supabase.functions.invoke('dashboard-data', { body: { action: 'resumo-por-periodo' } }),
-          supabase.functions.invoke('dashboard-data', { body: { action: 'top-cedentes' } }),
+          supabase.functions.invoke('external-db', { body: { action: 'stats' } }),
+          supabase.functions.invoke('external-db', { body: { action: 'resumo-por-periodo' } }),
+          supabase.functions.invoke('external-db', { body: { action: 'top-cedentes' } }),
         ]);
 
         const stats = statsRes.data?.success ? statsRes.data.data : null;

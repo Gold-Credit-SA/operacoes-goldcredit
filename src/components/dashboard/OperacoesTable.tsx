@@ -51,7 +51,7 @@ export function OperacoesTable({ filters, onlyFormalizacao = false }: OperacoesT
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const { data: result, error } = await supabase.functions.invoke('dashboard-data', {
+        const { data: result, error } = const { data: result, error } = await supabase.functions.invoke('external-db', {
           body: {
             action: 'operacoes',
             filters: {
