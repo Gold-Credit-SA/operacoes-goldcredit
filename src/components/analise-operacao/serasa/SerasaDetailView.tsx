@@ -1710,12 +1710,16 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           mktItem.rangeOver10 ?? mktItem.overTen ?? 0,
           mktItem.inactive ?? mktItem.inactives ?? 0,
         ];
-        const mktSources = mktItem.sourcesConsulted ?? mktItem.consultedSources ?? '';
-        const mktTotal = mktItem.total ?? marketItems.length ?? 0;
+        const mktSources = mktItem.sourcesConsulted
+          ?? mktItem.consultedSources
+          ?? advancedRelationshipPeriods?.summary?.sourcesTotal
+          ?? '';
+        const mktTotal = mktItem.total ?? advancedRelationshipList.length ?? marketItems.length ?? 0;
 
         // Extract factoring relationship data
         const factoringRelationship = (behavioralData?.factoringRelationship || report?.factoringRelationship || {}) as GenericRecord;
-        const factoringRelItems = asArray(factoringRelationship?.factoringRelationshipResponse || factoringRelationship?.results || factoringRelationship?.items || []);
+        const factoringRelItemsRaw = asArray(factoringRelationship?.factoringRelationshipResponse || factoringRelationship?.results || factoringRelationship?.items || []);
+        const factoringRelItems = factoringRelItemsRaw.length > 0 ? factoringRelItemsRaw : normalizedRelationshipItem;
         const fctItem = factoringRelItems[0] || {} as any;
         const fctValues = [
           fctItem.range0to6 ?? fctItem.zeroToSix ?? 0,
@@ -1726,11 +1730,27 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           fctItem.rangeOver10 ?? fctItem.overTen ?? 0,
           fctItem.inactive ?? fctItem.inactives ?? 0,
         ];
-        const fctSources = fctItem.sourcesConsulted ?? fctItem.consultedSources ?? '';
-        const fctTotal = fctItem.total ?? factoringRelItems.length ?? 0;
+        const fctSources = fctItem.sourcesConsulted
+          ?? fctItem.consultedSources
+          ?? advancedRelationshipPeriods?.summary?.sourcesTotal
+          ?? '';
+        const fctTotal = fctItem.total ?? advancedRelationshipList.length ?? factoringRelItems.length ?? 0;
+
+        const advancedSummary = (advancedMonthDetail?.summary || {}) as GenericRecord;
 
         // Payment history title quantities
-        const payTitleItem = (behavioralData?.paymentTitleQuantity || paymentHistoryPJ?.titleQuantity || {}) as GenericRecord;
+        const payTitleItem = ((behavioralData?.paymentTitleQuantity || paymentHistoryPJ?.titleQuantity)
+          || {
+            atSight: advancedSummary?.spotPayment?.totalValueRangeDescription || '-',
+            punctual: advancedSummary?.punctual?.totalValueRangeDescription || '-',
+            delay8to15: advancedSummary?.period8To15?.totalValueRangeDescription || '-',
+            delay16to30: advancedSummary?.period16To30?.totalValueRangeDescription || '-',
+            delay31to60: advancedSummary?.period31To60?.totalValueRangeDescription || '-',
+            delayOver60: advancedSummary?.periodGT60?.totalValueRangeDescription || '-',
+            total: advancedMonths.length || 0,
+            sourcesConsulted: advancedRelationshipPeriods?.summary?.paymentHistorySources || advancedRelationshipPeriods?.summary?.sourcesTotal || '',
+          }) as GenericRecord;
+
         const titleHeaders = ['À vista', 'Pontual', '8 - 15', '16 - 30', '31 - 60', '+60'];
         const titleValues = [
           payTitleItem.atSight ?? payTitleItem.cashPayment ?? '-',
@@ -1740,7 +1760,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           payTitleItem.delay31to60 ?? '-',
           payTitleItem.delayOver60 ?? '-',
         ];
-        const titleTotal = payTitleItem.total ?? pjPayItems.length ?? 0;
+        const titleTotal = payTitleItem.total ?? advancedMonths.length ?? pjPayItems.length ?? 0;
         const titleSources = payTitleItem.sourcesConsulted ?? '';
 
         // Visão comparativa for payment
@@ -1853,9 +1873,19 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           );
         };
 
+        const paySummaryFallback = {
+          last12Months: advancedSummary?.total?.totalValueRangeDescription || '-',
+          atSight: advancedSummary?.spotPayment?.totalValueRangeDescription || '-',
+          punctual: advancedSummary?.punctual?.totalValueRangeDescription || '-',
+          delay8to15: advancedSummary?.period8To15?.totalValueRangeDescription || '-',
+          delay16to30: advancedSummary?.period16To30?.totalValueRangeDescription || '-',
+          delay31to60: advancedSummary?.period31To60?.totalValueRangeDescription || '-',
+          delayOver60: advancedSummary?.periodGT60?.totalValueRangeDescription || '-',
+        } as GenericRecord;
+
         // Payment history summary items
-        const payMarketSummary = (paymentHistoryPJ?.market?.summary || paymentHistoryPJ?.marketSummary || {}) as GenericRecord;
-        const payFactoringSummary = (paymentHistoryPJ?.factoring?.summary || paymentHistoryPJ?.factoringSummary || {}) as GenericRecord;
+        const payMarketSummary = (paymentHistoryPJ?.market?.summary || paymentHistoryPJ?.marketSummary || paySummaryFallback) as GenericRecord;
+        const payFactoringSummary = (paymentHistoryPJ?.factoring?.summary || paymentHistoryPJ?.factoringSummary || paySummaryFallback) as GenericRecord;
 
         return (
         <div>
