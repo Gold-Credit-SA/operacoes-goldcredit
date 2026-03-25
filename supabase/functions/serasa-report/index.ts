@@ -9,11 +9,20 @@ const corsHeaders = {
 const REPORT_MAP: Record<string, { reportName: string; type: 'PF' | 'PJ'; defaultScoreModel?: string; defaultOptionalFeatures?: string; segmentCode?: string; extraParams?: Array<{ name: string; value: string }> }> = {
   serasa_basico_pf: { reportName: 'RELATORIO_BASICO_PF_PME', type: 'PF' },
   serasa_avancado_top_score_pf: { reportName: 'RELATORIO_AVANCADO_TOP_SCORE_PF_PME', type: 'PF', defaultScoreModel: 'HRLD' },
-  serasa_basico_pj: { reportName: 'RELATORIO_BASICO_PJ_PME', type: 'PJ', defaultScoreModel: 'H4PJ' },
+  serasa_basico_pj: {
+    reportName: 'RELATORIO_BASICO_PJ_PME',
+    type: 'PJ',
+    defaultScoreModel: 'HPJM',
+    extraParams: [
+      { name: 'LIMITE_CREDITO', value: 'HLC3' },
+      { name: 'RISCO_NOVAS_EMPRESAS', value: 'HNE3' },
+      { name: 'PONTUALIDADE_PAGAMENTO', value: 'HIP3' },
+    ],
+  },
   serasa_avancado_pj: {
     reportName: 'RELATORIO_AVANCADO_PJ_PME_ANALITICO',
     type: 'PJ',
-    defaultScoreModel: 'H4PJ',
+    // No SCORE param for analytic report per Serasa docs
     segmentCode: '028',
     extraParams: [
       { name: 'LIMITE_CREDITO', value: 'HLC3' },
@@ -272,10 +281,21 @@ serve(async (req) => {
     const reportKeys = Object.keys(reportObj || {});
     console.log('[serasa-report] Success for', cId, '| Top keys:', topKeys.join(','), '| Report keys:', reportKeys.join(','));
     
-    // Check for behavioral/positive data presence
-    const hasBehavioral = !!(reportObj?.behavioralData || reportObj?.positiveData);
-    const hasOptionalFeatures = !!reportObj?.optionalFeatures;
-    console.log('[serasa-report] hasBehavioralData:', hasBehavioral, '| hasOptionalFeatures:', hasOptionalFeatures);
+    // Deep log behavioral/positive data structure for debugging
+    const behavioralData = reportObj?.behavioralData;
+    const positiveData = reportObj?.positiveData;
+    const optFeatures = reportObj?.optionalFeatures;
+    console.log('[serasa-report] behavioralData keys:', behavioralData ? Object.keys(behavioralData).join(',') : 'ABSENT');
+    console.log('[serasa-report] positiveData keys:', positiveData ? Object.keys(positiveData).join(',') : 'ABSENT');
+    console.log('[serasa-report] optionalFeatures keys:', optFeatures ? Object.keys(optFeatures).join(',') : 'ABSENT');
+    
+    // Log market relationship specifically
+    const mktRel = behavioralData?.marketRelationship || positiveData?.marketRelationship || optFeatures?.marketRelationship || reportObj?.marketRelationship;
+    console.log('[serasa-report] marketRelationship:', mktRel ? JSON.stringify(mktRel).substring(0, 500) : 'ABSENT');
+    
+    // Log payment history
+    const payHist = behavioralData?.paymentHistory || positiveData?.paymentHistory || optFeatures?.paymentHistory || reportObj?.paymentHistoryCompany || reportObj?.paymentHistory;
+    console.log('[serasa-report] paymentHistory:', payHist ? JSON.stringify(payHist).substring(0, 500) : 'ABSENT');
 
     return new Response(JSON.stringify({ data: reportData }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

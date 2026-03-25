@@ -1585,6 +1585,15 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
       {/* ── Informações Comportamentais (Avançado PJ only) ── */}
       {isAvancadoPJ && (() => {
         const behavioralData = (report?.behavioralData || optionalFeatures?.behavioralData || report?.positiveData || optionalFeatures?.positiveData || {}) as GenericRecord;
+        
+        // Deep debug logging to identify actual data paths
+        console.log('[SerasaDetailView] report keys:', Object.keys(report || {}));
+        console.log('[SerasaDetailView] behavioralData keys:', Object.keys(behavioralData));
+        console.log('[SerasaDetailView] optionalFeatures keys:', Object.keys(optionalFeatures));
+        console.log('[SerasaDetailView] report.behavioralData:', report?.behavioralData ? 'EXISTS' : 'ABSENT');
+        console.log('[SerasaDetailView] report.positiveData:', report?.positiveData ? 'EXISTS' : 'ABSENT');
+        console.log('[SerasaDetailView] optionalFeatures.behavioralData:', optionalFeatures?.behavioralData ? 'EXISTS' : 'ABSENT');
+        
         const marketRelationship = (behavioralData?.marketRelationship || report?.marketRelationship || optionalFeatures?.marketRelationship || {}) as GenericRecord;
         const paymentHistoryPJ = (behavioralData?.paymentHistory || report?.paymentHistoryCompany || optionalFeatures?.paymentHistoryCompany || {}) as GenericRecord;
         const commitmentEvolution = (behavioralData?.commitmentEvolution || report?.commitmentEvolution || optionalFeatures?.commitmentEvolution || {}) as GenericRecord;
@@ -1592,12 +1601,17 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
         const suppliers = (behavioralData?.suppliers || behavioralData?.principalSuppliers || report?.suppliers || optionalFeatures?.suppliers || {}) as GenericRecord;
         const comparativeAnalysis = (behavioralData?.comparativeAnalysis || report?.comparativeAnalysis || optionalFeatures?.comparativeAnalysis || {}) as GenericRecord;
 
+        console.log('[SerasaDetailView] marketRelationship keys:', Object.keys(marketRelationship));
+        console.log('[SerasaDetailView] marketRelationship data:', JSON.stringify(marketRelationship).substring(0, 300));
+
         const marketItems = asArray(marketRelationship?.marketRelationshipResponse || marketRelationship?.results || marketRelationship?.items || []);
         const pjPayItems = asArray(paymentHistoryPJ?.paymentHistoryResponse || paymentHistoryPJ?.payments || paymentHistoryPJ?.items || paymentHistoryPJ?.results || []);
         const commitmentItems = asArray(commitmentEvolution?.commitmentEvolutionResponse || commitmentEvolution?.results || commitmentEvolution?.items || []);
         const businessRefItems = asArray(businessReferences?.businessReferencesResponse || businessReferences?.results || businessReferences?.items || []);
         const supplierItems = asArray(suppliers?.suppliersResponse || suppliers?.results || suppliers?.items || []);
         const comparativeItems = asArray(comparativeAnalysis?.comparativeAnalysisResponse || comparativeAnalysis?.results || comparativeAnalysis?.items || []);
+
+        console.log('[SerasaDetailView] marketItems count:', marketItems.length, 'first:', JSON.stringify(marketItems[0] || {}).substring(0, 200));
 
         // Payment history may have market and factoring sub-sections
         const payHistoryMarket = asArray(paymentHistoryPJ?.market?.paymentHistoryResponse || paymentHistoryPJ?.marketPaymentHistory || paymentHistoryPJ?.market?.results || []);
