@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-import { buscarCedentePorDocumento, buscarCedentesCadastrados, type CedenteCadastroResumo } from '@/lib/cedente-api';
+import { buscarCedentePorDocumento, buscarCedentesCadastrados, buscarSociosPorCedente, type CedenteCadastroResumo, type SocioCedente } from '@/lib/cedente-api';
 import { criarSolicitacao, type CriarSolicitacaoResponse } from '@/lib/assinatura-api';
 import { cn } from '@/lib/utils';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -275,6 +275,8 @@ export default function AssinaturaDigital() {
   const [cedenteSelecionado, setCedenteSelecionado] = useState<CedenteCadastroResumo | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [links, setLinks] = useState<ResultLink[]>([]);
+  const [sociosDisponiveis, setSociosDisponiveis] = useState<SocioCedente[]>([]);
+  const [buscandoSocios, setBuscandoSocios] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const temResponsavel = Boolean(responsavel.email && responsavel.cpfCnpj);
@@ -313,10 +315,12 @@ export default function AssinaturaDigital() {
   };
 
   const selecionarCedente = async (item: CedenteCadastroResumo) => {
+    let nomeParaBusca = item.nome || '';
     try {
       const detalhe = await buscarCedentePorDocumento(item.cpf_cnpj);
       setCedente({ nome: detalhe.nome || '', email: detalhe.email || '', cpfCnpj: formatarCpfCnpj(detalhe.cpf_cnpj || '') });
       setCedenteSelecionado(detalhe);
+      nomeParaBusca = detalhe.nome || item.nome || '';
     } catch {
       setCedente({ nome: item.nome || '', email: item.email || '', cpfCnpj: formatarCpfCnpj(item.cpf_cnpj || '') });
       setCedenteSelecionado(item);
@@ -324,6 +328,25 @@ export default function AssinaturaDigital() {
     setCedenteOpen(false);
     setCedenteSearch('');
     setCedenteSugestoes([]);
+
+    // Auto-buscar sócios/responsáveis solidários
+    if (nomeParaBusca) {
+      setBuscandoSocios(true);
+      try {
+        const socios = await buscarSociosPorCedente(nomeParaBusca);
+        setSociosDisponiveis(socios);
+        // Auto-preencher o primeiro sócio como responsável solidário
+        if (socios.length > 0) {
+          const primeiro = socios[0];
+          setResponsavel({ nome: primeiro.nome, email: primeiro.email || '', cpfCnpj: '' });
+          toast({ title: `${socios.length} sócio(s) encontrado(s)`, description: `"${primeiro.nome}" foi preenchido como responsável solidário.` });
+        }
+      } catch {
+        setSociosDisponiveis([]);
+      } finally {
+        setBuscandoSocios(false);
+      }
+    }
   };
 
   const onSelecionarArquivo = (e: ChangeEvent<HTMLInputElement>) => {
@@ -445,6 +468,7 @@ export default function AssinaturaDigital() {
     setCedente(EMPTY_FORM);
     setResponsavel(EMPTY_FORM);
     setCedenteSelecionado(null);
+    setSociosDisponiveis([]);
     setLinks([]);
   };
 
@@ -641,9 +665,46 @@ export default function AssinaturaDigital() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-emerald-500" /> Responsavel Solidario <span className="text-sm font-normal text-muted-foreground">(opcional)</span></CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-emerald-500" /> Responsavel Solidario <span className="text-sm font-normal text-muted-foreground">(opcional)</span>
+                {buscandoSocios && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {sociosDisponiveis.length > 1 && (
+                <div className="space-y-2">
+                  <Label>Sócios encontrados no cadastro</Label>
+                  <Select
+                    value={responsavel.nome || ''}
+                    onValueChange={(nome) => {
+                      const socio = sociosDisponiveis.find((s) => s.nome === nome);
+                      if (socio) {
+                        setResponsavel({ nome: socio.nome, email: socio.email || '', cpfCnpj: '' });
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um sócio..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sociosDisponiveis.map((socio) => (
+                        <SelectItem key={socio.nome} value={socio.nome}>
+                          {socio.nome}{socio.email ? ` · ${socio.email}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">{sociosDisponiveis.length} sócio(s) vinculados a este cedente.</p>
+                </div>
+              )}
+
+              {sociosDisponiveis.length === 1 && (
+                <div className="flex items-center gap-2 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <span>Preenchido automaticamente com o sócio cadastrado.</span>
+                </div>
+              )}
+
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Nome</Label>
