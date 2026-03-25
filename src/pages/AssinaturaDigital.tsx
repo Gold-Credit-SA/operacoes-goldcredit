@@ -664,9 +664,46 @@ export default function AssinaturaDigital() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-emerald-500" /> Responsavel Solidario <span className="text-sm font-normal text-muted-foreground">(opcional)</span></CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-emerald-500" /> Responsavel Solidario <span className="text-sm font-normal text-muted-foreground">(opcional)</span>
+                {buscandoSocios && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {sociosDisponiveis.length > 1 && (
+                <div className="space-y-2">
+                  <Label>Sócios encontrados no cadastro</Label>
+                  <Select
+                    value={responsavel.nome || ''}
+                    onValueChange={(nome) => {
+                      const socio = sociosDisponiveis.find((s) => s.nome === nome);
+                      if (socio) {
+                        setResponsavel({ nome: socio.nome, email: socio.email || '', cpfCnpj: '' });
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um sócio..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sociosDisponiveis.map((socio) => (
+                        <SelectItem key={socio.nome} value={socio.nome}>
+                          {socio.nome}{socio.email ? ` · ${socio.email}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">{sociosDisponiveis.length} sócio(s) vinculados a este cedente.</p>
+                </div>
+              )}
+
+              {sociosDisponiveis.length === 1 && (
+                <div className="flex items-center gap-2 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <span>Preenchido automaticamente com o sócio cadastrado.</span>
+                </div>
+              )}
+
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Nome</Label>
