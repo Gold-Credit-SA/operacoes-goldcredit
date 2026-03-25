@@ -163,12 +163,6 @@ serve(async (req) => {
       reportParams.push({ name: 'SCORE', value: effectiveScoreModel });
     }
 
-    // Add segmentCode for analytic reports
-    const effectiveSegmentCode = segmentCode || reportConfig.segmentCode;
-    if (effectiveSegmentCode) {
-      reportParams.push({ name: 'SEGMENTO', value: effectiveSegmentCode });
-    }
-
     // Encode and append reportParameters if any exist
     if (reportParams.length > 0) {
       const encoded = encodeReportParameters(reportParams);
