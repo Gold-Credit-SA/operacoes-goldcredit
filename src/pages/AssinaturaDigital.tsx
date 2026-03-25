@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-import { buscarCedentePorDocumento, buscarCedentesCadastrados, type CedenteCadastroResumo } from '@/lib/cedente-api';
+import { buscarCedentePorDocumento, buscarCedentesCadastrados, buscarSociosPorCedente, type CedenteCadastroResumo, type SocioCedente } from '@/lib/cedente-api';
 import { criarSolicitacao, type CriarSolicitacaoResponse } from '@/lib/assinatura-api';
 import { cn } from '@/lib/utils';
 import * as pdfjsLib from 'pdfjs-dist';
