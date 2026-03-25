@@ -129,6 +129,13 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
   const hasAVencerChart = aVencerChartData.length > 0;
   const hasVencidoChart = vencidoChartData.length > 0;
 
+  const totalGeral = (latestDtb.lsOp || []).filter(op => !isLimiteOp(op)).reduce((s, op) => s + calcTotalVenc(op.resVenc), 0);
+  const dtbLabel = formatDtb(latestDtb.dtb);
+
+  // Use whichever chart has data; prefer a-vencer, fallback to vencido
+  const chartData = hasAVencerChart ? aVencerChartData : vencidoChartData;
+  const hasChart = chartData.length > 0;
+
   return (
     <div className="space-y-6">
       {/* Detalhamento dos registros - Chart + Summary side by side */}
@@ -140,29 +147,37 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
             {/* Chart */}
             <div>
-              {chartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={280}>
-                  <AreaChart data={chartData} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
-                    <YAxis tickFormatter={formatCompact} tick={{ fontSize: 10 }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} width={80} />
-                    <Tooltip content={<ChartTooltip />} />
-                    {activeCats.map(cat => (
-                      <Area
-                        key={cat}
-                        type="monotone"
-                        dataKey={cat}
-                        name={CATEGORY_LABELS[cat]}
-                        stroke={CHART_COLORS[cat]}
-                        fill={CHART_COLORS[cat]}
-                        fillOpacity={0.15}
-                        strokeWidth={2}
-                      />
-                    ))}
-                  </AreaChart>
-                </ResponsiveContainer>
+              {hasChart ? (
+                <div className="space-y-2">
+                  {!hasAVencerChart && hasVencidoChart && (
+                    <p className="text-xs font-medium text-destructive uppercase tracking-wide">Créditos Vencidos</p>
+                  )}
+                  {hasAVencerChart && (
+                    <p className="text-xs font-medium text-primary uppercase tracking-wide">Créditos a Vencer</p>
+                  )}
+                  <ResponsiveContainer width="100%" height={260}>
+                    <AreaChart data={chartData} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
+                      <YAxis tickFormatter={formatCompact} tick={{ fontSize: 10 }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} width={80} />
+                      <Tooltip content={<ChartTooltip />} />
+                      {activeCats.map(cat => (
+                        <Area
+                          key={cat}
+                          type="monotone"
+                          dataKey={cat}
+                          name={CATEGORY_LABELS[cat]}
+                          stroke={hasAVencerChart ? CHART_COLORS[cat] : 'hsl(var(--destructive))'}
+                          fill={hasAVencerChart ? CHART_COLORS[cat] : 'hsl(var(--destructive))'}
+                          fillOpacity={0.15}
+                          strokeWidth={2}
+                        />
+                      ))}
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
               ) : (
                 <div className="flex items-center justify-center h-[280px] text-muted-foreground text-sm">
-                  Sem dados de créditos a vencer para exibir no gráfico.
+                  Sem dados para exibir no gráfico.
                 </div>
               )}
             </div>
