@@ -14,7 +14,7 @@ const REPORT_MAP: Record<string, { reportName: string; type: 'PF' | 'PJ'; defaul
     type: 'PJ',
     defaultScoreModel: 'HPJM',
     extraParams: [
-      { name: 'LIMITE_CREDITO', value: 'HLC3' },
+      { name: 'LIMITE_CREDITO', value: 'HLC1' },
       { name: 'RISCO_NOVAS_EMPRESAS', value: 'HNE3' },
       { name: 'PONTUALIDADE_PAGAMENTO', value: 'HIP3' },
     ],
@@ -25,7 +25,7 @@ const REPORT_MAP: Record<string, { reportName: string; type: 'PF' | 'PJ'; defaul
     // No SCORE param for analytic report per Serasa docs
     segmentCode: '028',
     extraParams: [
-      { name: 'LIMITE_CREDITO', value: 'HLC3' },
+      { name: 'LIMITE_CREDITO', value: 'HLC1' },
       { name: 'RISCO_NOVAS_EMPRESAS', value: 'HNE3' },
       { name: 'PONTUALIDADE_PAGAMENTO', value: 'HIP3' },
     ],

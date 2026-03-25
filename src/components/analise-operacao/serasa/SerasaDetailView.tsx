@@ -129,14 +129,17 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
   const stolenDocuments = (report?.stolenDocuments || {}) as GenericRecord;
   const optionalFeatures = (report?.optionalFeatures || {}) as GenericRecord;
 
-  // Score - PJ H4PJ is at report.score directly; PF HRLD at optionalFeatures.scoreResponse
-  // Credit limit HLC1 is at report.scores.scoreResponse[]
+  // Score - PJ HPJ*/H4PJ stays at report.score; credit limit comes from HLC* models in report.scores.scoreResponse[]
   const directScore = (report?.score || {}) as GenericRecord;
   const scoresSection = (report?.scores || optionalFeatures?.scores || {}) as GenericRecord;
   const scoreResponseArr = asArray(scoresSection?.scoreResponse || []);
-  const creditLimitScore = scoreResponseArr.find((s: any) => s.scoreModel === 'HLC1') as GenericRecord | undefined;
-  // Use direct score (H4PJ/HRLD) if available, otherwise fall back to scoreResponse array
-  const mainScoreFromArr = scoreResponseArr.find((s: any) => s.scoreModel !== 'HLC1');
+  const creditLimitScore = (
+    scoreResponseArr.find((s: any) => s?.scoreModel === 'HLC1')
+    || scoreResponseArr.find((s: any) => s?.scoreModel === 'HLC3')
+    || scoreResponseArr.find((s: any) => String(s?.scoreModel || '').startsWith('HLC'))
+  ) as GenericRecord | undefined;
+  // Use non-HLC score model for risk score card
+  const mainScoreFromArr = scoreResponseArr.find((s: any) => !String(s?.scoreModel || '').startsWith('HLC'));
   const score = (directScore?.score ? directScore : mainScoreFromArr || optionalFeatures?.scoreResponse || optionalFeatures?.score || {}) as GenericRecord;
 
   const pefin = (negativeData?.pefinResponse || negativeData?.pefin || {}) as GenericRecord;
@@ -2048,12 +2051,18 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
 
       {/* ── Limite de Crédito PJ (Avançado PJ only) ── */}
       {isAvancadoPJ && (() => {
-        // Try dedicated creditLimit fields first, then fall back to HLC1 score model
+        // Try dedicated creditLimit fields first, then fall back to HLC* score models
         const creditLimitDedicated = (pick(optionalFeatures, ['creditLimit', 'creditLimitResponse', 'limitCredit']) 
           || pick(report, ['creditLimit', 'creditLimitResponse', 'limitCredit'])
           || pick(report?.behavioralData || optionalFeatures?.behavioralData || report?.positiveData, ['creditLimit'])) as any;
+        const parsedLimitFromScore = (() => {
+          const raw = creditLimitScore?.score;
+          if (raw === null || raw === undefined || raw === '') return undefined;
+          const value = Number(raw);
+          return Number.isFinite(value) ? value : undefined;
+        })();
         const limitValue = creditLimitDedicated?.value || creditLimitDedicated?.amount || creditLimitDedicated?.limitValue || creditLimitDedicated?.creditLimitValue
-          || (creditLimitScore?.score ? Number(creditLimitScore.score) : undefined);
+          || parsedLimitFromScore;
         const limitMessage = creditLimitDedicated?.message || creditLimitDedicated?.interpretation || creditLimitScore?.message || '';
         
         return (
