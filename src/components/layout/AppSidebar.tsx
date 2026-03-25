@@ -28,7 +28,7 @@ export function AppSidebar() {
 
   const contratosItems = [
     { path: '/contratos/documentos', label: 'Documentos', icon: FileText },
-    { path: '/contratos/assinatura-digital', label: 'GoldSign', icon: PenTool },
+    { path: '/contratos/assinatura-digital', label: 'Assinatura Digital', icon: PenTool },
   ];
 
   const navItemsAfter = [
