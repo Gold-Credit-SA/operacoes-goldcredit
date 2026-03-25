@@ -64,37 +64,46 @@ const formatDate = (date: string | null) => {
 export function OperacoesTable({ filters, onlyFormalizacao = false }: OperacoesTableProps) {
   const [data, setData] = useState<Operacao[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const { data: result, error } = await supabase.functions.invoke('external-db', {
-          body: {
-            action: 'operacoes',
-            filters: {
-              cedente: filters.cedente || undefined,
-              dataInicio: filters.dataInicio || (filters.ano ? `${filters.ano}-01-01` : undefined),
-              dataFim: filters.dataFim || (filters.ano ? `${filters.ano}-12-31` : undefined),
-            },
+  const fetchData = async (silent = false) => {
+    if (!silent) setIsLoading(true);
+    try {
+      const { data: result, error } = await supabase.functions.invoke('external-db', {
+        body: {
+          action: 'operacoes',
+          filters: {
+            cedente: filters.cedente || undefined,
+            dataInicio: filters.dataInicio || (filters.ano ? `${filters.ano}-01-01` : undefined),
+            dataFim: filters.dataFim || (filters.ano ? `${filters.ano}-12-31` : undefined),
           },
-        });
+        },
+      });
 
-        if (error) throw error;
-        if (result?.success) {
-          const enriched = (result.data || []).map(enrichWithFormalizacao);
-          setData(enriched);
-        }
-      } catch (err) {
-        console.error('Error fetching operacoes:', err);
-        setData([]);
-      } finally {
-        setIsLoading(false);
+      if (error) throw error;
+      if (result?.success) {
+        const enriched = (result.data || []).map(enrichWithFormalizacao);
+        setData(enriched);
+        setLastUpdate(new Date());
       }
-    };
+    } catch (err) {
+      console.error('Error fetching operacoes:', err);
+      if (!silent) setData([]);
+    } finally {
+      if (!silent) setIsLoading(false);
+    }
+  };
 
-    const debounce = setTimeout(fetchData, 300);
+  // Initial fetch + refetch on filter change
+  useEffect(() => {
+    const debounce = setTimeout(() => fetchData(false), 300);
     return () => clearTimeout(debounce);
+  }, [filters]);
+
+  // Auto-refresh every 30s (silent, no loading spinner)
+  useEffect(() => {
+    const interval = setInterval(() => fetchData(true), 30_000);
+    return () => clearInterval(interval);
   }, [filters]);
 
   const sortedData = [...data].sort((a, b) => {
@@ -199,9 +208,15 @@ export function OperacoesTable({ filters, onlyFormalizacao = false }: OperacoesT
             ))}
           </TableBody>
         </Table>
-        <p className="mt-4 text-xs text-muted-foreground">
-          Exibindo {displayData.length} registros
-        </p>
+        <div className="mt-4 flex items-center justify-between px-1">
+          <p className="text-xs text-muted-foreground">
+            Exibindo {displayData.length} registros
+          </p>
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
+            Atualização automática • Última: {lastUpdate.toLocaleTimeString('pt-BR')}
+          </p>
+        </div>
       </div>
     </div>
   );
