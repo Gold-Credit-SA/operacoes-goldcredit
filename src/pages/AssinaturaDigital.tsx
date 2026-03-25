@@ -315,10 +315,12 @@ export default function AssinaturaDigital() {
   };
 
   const selecionarCedente = async (item: CedenteCadastroResumo) => {
+    let nomeParaBusca = item.nome || '';
     try {
       const detalhe = await buscarCedentePorDocumento(item.cpf_cnpj);
       setCedente({ nome: detalhe.nome || '', email: detalhe.email || '', cpfCnpj: formatarCpfCnpj(detalhe.cpf_cnpj || '') });
       setCedenteSelecionado(detalhe);
+      nomeParaBusca = detalhe.nome || item.nome || '';
     } catch {
       setCedente({ nome: item.nome || '', email: item.email || '', cpfCnpj: formatarCpfCnpj(item.cpf_cnpj || '') });
       setCedenteSelecionado(item);
@@ -326,6 +328,25 @@ export default function AssinaturaDigital() {
     setCedenteOpen(false);
     setCedenteSearch('');
     setCedenteSugestoes([]);
+
+    // Auto-buscar sócios/responsáveis solidários
+    if (nomeParaBusca) {
+      setBuscandoSocios(true);
+      try {
+        const socios = await buscarSociosPorCedente(nomeParaBusca);
+        setSociosDisponiveis(socios);
+        // Auto-preencher o primeiro sócio como responsável solidário
+        if (socios.length > 0) {
+          const primeiro = socios[0];
+          setResponsavel({ nome: primeiro.nome, email: primeiro.email || '', cpfCnpj: '' });
+          toast({ title: `${socios.length} sócio(s) encontrado(s)`, description: `"${primeiro.nome}" foi preenchido como responsável solidário.` });
+        }
+      } catch {
+        setSociosDisponiveis([]);
+      } finally {
+        setBuscandoSocios(false);
+      }
+    }
   };
 
   const onSelecionarArquivo = (e: ChangeEvent<HTMLInputElement>) => {
