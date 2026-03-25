@@ -1584,99 +1584,133 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
 
       {/* ── Informações Comportamentais (Avançado PJ only) ── */}
       {isAvancadoPJ && (() => {
+        // ── ACPH is the main container for all behavioral data ──
+        const acph = (report?.advancedCommercialPaymentHistory || optionalFeatures?.advancedCommercialPaymentHistory || {}) as GenericRecord;
         const behavioralData = (report?.behavioralData || optionalFeatures?.behavioralData || report?.positiveData || optionalFeatures?.positiveData || {}) as GenericRecord;
-        const advancedCommercialPaymentHistory = (report?.advancedCommercialPaymentHistory || optionalFeatures?.advancedCommercialPaymentHistory || {}) as GenericRecord;
-        const advancedSegmentData = (advancedCommercialPaymentHistory?.segmentData?.drawee || {}) as GenericRecord;
-        const advancedRelationshipPeriods = (advancedSegmentData?.relationshipSuppliersPeriods || {}) as GenericRecord;
-        const advancedRelationshipList = asArray(advancedRelationshipPeriods?.relationshipSuppliersPeriodList || []);
-        const advancedMonthDetail = (advancedCommercialPaymentHistory?.paymentHistory?.monthDetail || {}) as GenericRecord;
-        const advancedMonths = asArray(advancedMonthDetail?.months || []);
 
-        const normalizePeriodLabel = (value: unknown) =>
-          String(value || '')
-            .toUpperCase()
-            .replace(/\s+/g, '')
-            .replace(/_/g, '')
-            .replace(/-/g, '');
+        // ── Segment data: drawee = mercado, assignor = factoring ──
+        const segData = (acph?.segmentData || {}) as GenericRecord;
+        const drawee = (segData?.drawee || {}) as GenericRecord;
+        const assignor = (segData?.assignor || {}) as GenericRecord;
 
-        const getAdvancedRelationshipQty = (aliases: string[]) => {
-          const found = advancedRelationshipList.find((item: any) => {
-            const normalized = normalizePeriodLabel(item?.relationshipPeriodDescription);
-            return aliases.some((alias) => normalized.includes(alias));
+        // ── Relationship periods (mercado = drawee, factoring = assignor) ──
+        const draweeRelPeriods = (drawee?.relationshipSuppliersPeriods || acph?.relationshipSuppliersPeriods || {}) as GenericRecord;
+        const draweeRelList = asArray(draweeRelPeriods?.relationshipSuppliersPeriodList || []);
+        const assignorRelPeriods = (assignor?.relationshipSuppliersPeriods || {}) as GenericRecord;
+        const assignorRelList = asArray(assignorRelPeriods?.relationshipSuppliersPeriodList || []);
+
+        // ── Payment history from ACPH ──
+        const acphPayHist = (acph?.paymentHistory || {}) as GenericRecord;
+        const titlesQuantity = asArray(acphPayHist?.titlesQuantity || []);
+        const acphMonthDetail = (acphPayHist?.monthDetail || {}) as GenericRecord;
+        const acphMonths = asArray(acphMonthDetail?.months || []);
+        const acphSummary = (acphMonthDetail?.summary || {}) as GenericRecord;
+        const acphAvgDelay = asArray(acphPayHist?.averageDelayPeriod || []);
+
+        // ── Evolution of commitments ──
+        const acphCommitment = (acph?.evolutionCommitmentsSuppliers || {}) as GenericRecord;
+        const acphCommitmentList = asArray(acphCommitment?.evolutionCommitmentsSuppliersList || acphCommitment?.items || []);
+
+        // ── Business references ──
+        const acphBizRef = (acph?.businessReferences || {}) as GenericRecord;
+        const acphBizRefList = asArray(acphBizRef?.businessReferencesList || []);
+        const acphBizRefDate = acphBizRef?.lastUpdateDate || '';
+
+        // Helper to extract relationship quantity by period description
+        const getRelQty = (list: any[], aliases: string[]) => {
+          const found = list.find((item: any) => {
+            const norm = String(item?.relationshipPeriodDescription || '').toUpperCase().replace(/[\s_\-:]/g, '');
+            return aliases.some(a => norm.includes(a));
           });
-          return Number(found?.relationshipSourceQuantity || 0);
+          return Number(found?.relationshipSourceQuantity ?? 0);
         };
 
-        const normalizedRelationshipItem = advancedRelationshipList.length > 0
-          ? [{
-              range0to6: getAdvancedRelationshipQty(['06MESES']),
-              range6to12: getAdvancedRelationshipQty(['6MES1ANO', '6MESES1ANO']),
-              range1to3: getAdvancedRelationshipQty(['13ANOS']),
-              range3to5: getAdvancedRelationshipQty(['35ANOS']),
-              range5to10: getAdvancedRelationshipQty(['510ANOS']),
-              rangeOver10: getAdvancedRelationshipQty(['10ANOS']),
-              inactive: getAdvancedRelationshipQty(['INAT']),
-            }]
-          : [];
+        const relHeaders = ['0 - 6 meses', '6 meses - 1 ano', '1 - 3 anos', '3 - 5 anos', '5 - 10 anos', '+10 anos', 'Inativas'];
+        const relAliases = [['06MESES'], ['6MES1ANO', '6MESES1ANO'], ['13ANOS'], ['35ANOS'], ['510ANOS'], ['10ANOS'], ['INAT']];
 
-        const mapAdvancedMonthToRow = (monthItem: any) => {
-          const periodList = asArray(monthItem?.periodList || []);
-          const getRange = (aliases: string[]) => {
-            const found = periodList.find((period: any) => aliases.some((alias) => normalizePeriodLabel(period?.name) === alias));
-            return found?.range || '-';
-          };
+        const mktValues = relAliases.map(a => getRelQty(draweeRelList, a));
+        const fctValues = relAliases.map(a => getRelQty(assignorRelList.length > 0 ? assignorRelList : draweeRelList, a));
+        const mktSources = draweeRelPeriods?.summary?.sourcesTotal || '';
+        const mktTotal = draweeRelList.length || 0;
+        const fctSources = assignorRelPeriods?.summary?.sourcesTotal || mktSources;
+        const fctTotal = assignorRelList.length || mktTotal;
 
-          return {
-            period: monthItem?.month || '-',
-            cashPayment: getRange(['AVISTA']),
-            onTime: getRange(['PONTUAL']),
-            delay8to15: getRange(['815']),
-            delay16to30: getRange(['1630']),
-            delay31to60: getRange(['3160']),
-            delayOver60: getRange(['60']),
-            total: getRange(['TOTALMES']),
-          };
+        // ── titlesQuantity: map by name ──
+        const getTitleByName = (name: string) => titlesQuantity.find((t: any) => String(t?.name || '').toUpperCase().trim() === name) || ({} as any);
+        const titleOrder = [
+          { header: 'À vista', key: 'A VISTA' },
+          { header: 'Pontual', key: 'PONTUAL' },
+          { header: '8 - 15', key: '8-15' },
+          { header: '16 - 30', key: '16-30' },
+          { header: '31 - 60', key: '31-60' },
+          { header: '+60', key: '+60' },
+        ];
+        const titleSources = draweeRelPeriods?.summary?.paymentHistorySources || draweeRelPeriods?.summary?.sourcesTotal || '';
+
+        // ── Monthly detail: map periodList by name ──
+        const getPeriodValue = (periodList: any[], name: string) => {
+          const found = asArray(periodList).find((p: any) => String(p?.name || '').toUpperCase().trim() === name);
+          return found || ({} as any);
         };
 
-        const normalizedAdvancedPaymentRows = advancedMonths.map(mapAdvancedMonthToRow);
+        const formatRange = (item: any) => {
+          const r = String(item?.range || '-');
+          if (r === '-' || r === '') return '-';
+          return `R$ ${r.replace(/ A /g, ' a R$ ')}`;
+        };
 
+        const formatPct = (item: any) => {
+          const p = String(item?.percentage || '');
+          if (!p || p === '0.0% e 0.0%') return '';
+          return p;
+        };
+
+        // ── Summary row for Últimos 12 meses ──
+        const summaryPeriods = ['spotPayment', 'punctual', 'period8To15', 'period16To30', 'period31To60', 'periodGT60'];
+        const summaryLabels = ['A VISTA', 'PONTUAL', '8-15', '16-30', '31-60', '+60'];
+
+        const formatSummaryRange = (key: string) => {
+          const s = acphSummary?.[key];
+          if (!s) return '-';
+          const desc = s?.totalValueRangeDescription;
+          if (!desc || desc === '-') return '-';
+          return `R$ ${String(desc).replace(/ A /g, ' a R$ ')}`;
+        };
+
+        // ── Avg delay ──
+        const avgDelayItems = acphAvgDelay.length > 0 ? acphAvgDelay : [];
+
+        // ── Business references by description ──
+        const getBizRef = (desc: string) => acphBizRefList.find((b: any) => String(b?.businessDescription || '').toUpperCase().includes(desc)) || ({} as any);
+        const bizUltimaCompra = getBizRef('ULTIMA COMPRA');
+        const bizMaiorFatura = getBizRef('MAIOR FATURA');
+        const bizMaiorAcumulo = getBizRef('MAIOR ACUMULO');
+        const formatBizRange = (item: any) => {
+          const desc = item?.potentialValueRangeDescription;
+          if (!desc || desc === '-') return '-';
+          return `R$ ${String(desc).replace(/ A /g, ' a R$ ')}`;
+        };
+        const formatBizMidrange = (item: any) => {
+          const desc = item?.potentialMidrangeDescription;
+          if (!desc || desc === '-') return '-';
+          return `R$ ${String(desc).replace(/ A /g, ' a R$ ')}`;
+        };
+        const formatBizDate = (item: any) => {
+          const m = item?.monthPotentialDate;
+          const y = item?.yearPotentialDate;
+          if (!m || !y) return '-';
+          return `${m}/${y}`;
+        };
+
+        // Also try behavioral paths as fallback
         const marketRelationship = (behavioralData?.marketRelationship || report?.marketRelationship || optionalFeatures?.marketRelationship || {}) as GenericRecord;
         const paymentHistoryPJ = (behavioralData?.paymentHistory || report?.paymentHistoryCompany || optionalFeatures?.paymentHistoryCompany || {}) as GenericRecord;
         const commitmentEvolution = (behavioralData?.commitmentEvolution || report?.commitmentEvolution || optionalFeatures?.commitmentEvolution || {}) as GenericRecord;
         const businessReferences = (behavioralData?.businessReferences || report?.businessReferences || optionalFeatures?.businessReferences || {}) as GenericRecord;
-        const suppliers = (behavioralData?.suppliers || behavioralData?.principalSuppliers || report?.suppliers || optionalFeatures?.suppliers || {}) as GenericRecord;
-        const comparativeAnalysis = (behavioralData?.comparativeAnalysis || report?.comparativeAnalysis || optionalFeatures?.comparativeAnalysis || {}) as GenericRecord;
 
-        const marketItemsRaw = asArray(marketRelationship?.marketRelationshipResponse || marketRelationship?.results || marketRelationship?.items || []);
-        const marketItems = marketItemsRaw.length > 0 ? marketItemsRaw : normalizedRelationshipItem;
-        const pjPayItems = asArray(paymentHistoryPJ?.paymentHistoryResponse || paymentHistoryPJ?.payments || paymentHistoryPJ?.items || paymentHistoryPJ?.results || []);
-        const commitmentItems = asArray(commitmentEvolution?.commitmentEvolutionResponse || commitmentEvolution?.results || commitmentEvolution?.items || []);
-        const businessRefItems = asArray(businessReferences?.businessReferencesResponse || businessReferences?.results || businessReferences?.items || []);
-        const supplierItems = asArray(suppliers?.suppliersResponse || suppliers?.results || suppliers?.items || []);
-        const comparativeItems = asArray(comparativeAnalysis?.comparativeAnalysisResponse || comparativeAnalysis?.results || comparativeAnalysis?.items || []);
+        const hasBehavioral = Object.keys(acph).length > 0 || Object.keys(behavioralData).length > 0 || draweeRelList.length > 0 || titlesQuantity.length > 0;
 
-        // Payment history may have market and factoring sub-sections
-        const payHistoryMarketRaw = asArray(paymentHistoryPJ?.market?.paymentHistoryResponse || paymentHistoryPJ?.marketPaymentHistory || paymentHistoryPJ?.market?.results || []);
-        const payHistoryFactoringRaw = asArray(paymentHistoryPJ?.factoring?.paymentHistoryResponse || paymentHistoryPJ?.factoringPaymentHistory || paymentHistoryPJ?.factoring?.results || []);
-        const payHistoryMarket = payHistoryMarketRaw.length > 0 ? payHistoryMarketRaw : normalizedAdvancedPaymentRows;
-        const payHistoryFactoring = payHistoryFactoringRaw.length > 0 ? payHistoryFactoringRaw : normalizedAdvancedPaymentRows;
-        const payHistoryDelayMarket = asArray(paymentHistoryPJ?.market?.averageDelay || paymentHistoryPJ?.marketAverageDelay || []);
-        const payHistoryDelayFactoring = asArray(paymentHistoryPJ?.factoring?.averageDelay || paymentHistoryPJ?.factoringAverageDelay || []);
-
-        // Commitment evolution sub-sections
-        const commitmentMarket = asArray(commitmentEvolution?.market?.commitmentEvolutionResponse || commitmentEvolution?.marketCommitment || []);
-        const commitmentFactoring = asArray(commitmentEvolution?.factoring?.commitmentEvolutionResponse || commitmentEvolution?.factoringCommitment || []);
-        const commitmentComparative = asArray(commitmentEvolution?.comparative?.commitmentEvolutionResponse || commitmentEvolution?.comparativeCommitment || []);
-
-        // Business references sub-sections
-        const refMarket = asArray(businessReferences?.market?.businessReferencesResponse || businessReferences?.marketReferences || []);
-        const refFactoring = asArray(businessReferences?.factoring?.businessReferencesResponse || businessReferences?.factoringReferences || []);
-
-        const hasBehavioral = Object.keys(behavioralData).length > 0 || marketItems.length > 0 || pjPayItems.length > 0 || payHistoryMarket.length > 0 || commitmentItems.length > 0 || commitmentMarket.length > 0 || businessRefItems.length > 0;
-
-
-
-        // Helper to render a horizontal grid table (like Relacionamento com mercado)
+        // Helper to render a horizontal grid table
         const GridRow = ({ headers, values }: { headers: string[]; values: (string | number)[] }) => (
           <div className="overflow-x-auto border border-border rounded-lg">
             <Table>
@@ -1698,195 +1732,6 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           </div>
         );
 
-        // Extract market relationship data
-        const mktItem = marketItems[0] || {} as any;
-        const mktHeaders = ['0 - 6 meses', '6 meses - 1 ano', '1 - 3 anos', '3 - 5 anos', '5 - 10 anos', '+10 anos', 'Inativas'];
-        const mktValues = [
-          mktItem.range0to6 ?? mktItem.zeroToSix ?? 0,
-          mktItem.range6to12 ?? mktItem.sixToTwelve ?? 0,
-          mktItem.range1to3 ?? mktItem.oneToThree ?? 0,
-          mktItem.range3to5 ?? mktItem.threeToFive ?? 0,
-          mktItem.range5to10 ?? mktItem.fiveToTen ?? 0,
-          mktItem.rangeOver10 ?? mktItem.overTen ?? 0,
-          mktItem.inactive ?? mktItem.inactives ?? 0,
-        ];
-        const mktSources = mktItem.sourcesConsulted
-          ?? mktItem.consultedSources
-          ?? advancedRelationshipPeriods?.summary?.sourcesTotal
-          ?? '';
-        const mktTotal = mktItem.total ?? advancedRelationshipList.length ?? marketItems.length ?? 0;
-
-        // Extract factoring relationship data
-        const factoringRelationship = (behavioralData?.factoringRelationship || report?.factoringRelationship || {}) as GenericRecord;
-        const factoringRelItemsRaw = asArray(factoringRelationship?.factoringRelationshipResponse || factoringRelationship?.results || factoringRelationship?.items || []);
-        const factoringRelItems = factoringRelItemsRaw.length > 0 ? factoringRelItemsRaw : normalizedRelationshipItem;
-        const fctItem = factoringRelItems[0] || {} as any;
-        const fctValues = [
-          fctItem.range0to6 ?? fctItem.zeroToSix ?? 0,
-          fctItem.range6to12 ?? fctItem.sixToTwelve ?? 0,
-          fctItem.range1to3 ?? fctItem.oneToThree ?? 0,
-          fctItem.range3to5 ?? fctItem.threeToFive ?? 0,
-          fctItem.range5to10 ?? fctItem.fiveToTen ?? 0,
-          fctItem.rangeOver10 ?? fctItem.overTen ?? 0,
-          fctItem.inactive ?? fctItem.inactives ?? 0,
-        ];
-        const fctSources = fctItem.sourcesConsulted
-          ?? fctItem.consultedSources
-          ?? advancedRelationshipPeriods?.summary?.sourcesTotal
-          ?? '';
-        const fctTotal = fctItem.total ?? advancedRelationshipList.length ?? factoringRelItems.length ?? 0;
-
-        const advancedSummary = (advancedMonthDetail?.summary || {}) as GenericRecord;
-
-        // Payment history title quantities
-        const payTitleItem = ((behavioralData?.paymentTitleQuantity || paymentHistoryPJ?.titleQuantity)
-          || {
-            atSight: advancedSummary?.spotPayment?.totalValueRangeDescription || '-',
-            punctual: advancedSummary?.punctual?.totalValueRangeDescription || '-',
-            delay8to15: advancedSummary?.period8To15?.totalValueRangeDescription || '-',
-            delay16to30: advancedSummary?.period16To30?.totalValueRangeDescription || '-',
-            delay31to60: advancedSummary?.period31To60?.totalValueRangeDescription || '-',
-            delayOver60: advancedSummary?.periodGT60?.totalValueRangeDescription || '-',
-            total: advancedMonths.length || 0,
-            sourcesConsulted: advancedRelationshipPeriods?.summary?.paymentHistorySources || advancedRelationshipPeriods?.summary?.sourcesTotal || '',
-          }) as GenericRecord;
-
-        const titleHeaders = ['À vista', 'Pontual', '8 - 15', '16 - 30', '31 - 60', '+60'];
-        const titleValues = [
-          payTitleItem.atSight ?? payTitleItem.cashPayment ?? '-',
-          payTitleItem.punctual ?? payTitleItem.onTime ?? '-',
-          payTitleItem.delay8to15 ?? '-',
-          payTitleItem.delay16to30 ?? '-',
-          payTitleItem.delay31to60 ?? '-',
-          payTitleItem.delayOver60 ?? '-',
-        ];
-        const titleTotal = payTitleItem.total ?? advancedMonths.length ?? pjPayItems.length ?? 0;
-        const titleSources = payTitleItem.sourcesConsulted ?? '';
-
-        // Visão comparativa for payment
-        const payComparative = asArray(paymentHistoryPJ?.comparative?.comparativeResponse || paymentHistoryPJ?.comparativePayment || behavioralData?.paymentComparative || []);
-
-        // Generic payment history table renderer
-        const PayHistoryTable = ({ title, items, count }: { title: string; items: any[]; count: number }) => (
-          <div className="mb-4">
-            <p className="text-xs font-medium text-muted-foreground mb-1">{title}  Exibindo {count || items.length} registros.</p>
-            <div className="overflow-x-auto border border-border rounded-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs font-medium">Mês / Ano</TableHead>
-                    <TableHead className="text-xs font-medium">À vista</TableHead>
-                    <TableHead className="text-xs font-medium">Pontual</TableHead>
-                    <TableHead className="text-xs font-medium">8 a 15 dias</TableHead>
-                    <TableHead className="text-xs font-medium">16 a 30 dias</TableHead>
-                    <TableHead className="text-xs font-medium">31 a 60 dias</TableHead>
-                    <TableHead className="text-xs font-medium">+ de 60 dias</TableHead>
-                    <TableHead className="text-xs font-medium">Total / Mês</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.length > 0 ? items.map((item: any, i: number) => (
-                    <TableRow key={i}>
-                      <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
-                      <TableCell className="text-xs py-2">{item.cashPayment || item.atSight || item.aVista || '-'}</TableCell>
-                      <TableCell className="text-xs py-2">{item.onTime || item.punctual || item.onTimePayment || '-'}</TableCell>
-                      <TableCell className="text-xs py-2">{item.delay8to15 || item.late8to15 || '-'}</TableCell>
-                      <TableCell className="text-xs py-2">{item.delay16to30 || item.late16to30 || '-'}</TableCell>
-                      <TableCell className="text-xs py-2">{item.delay31to60 || item.late31to60 || '-'}</TableCell>
-                      <TableCell className="text-xs py-2">{item.delayOver60 || item.lateOver60 || '-'}</TableCell>
-                      <TableCell className="text-xs py-2">{item.total || item.totalMonth || '-'}</TableCell>
-                    </TableRow>
-                  )) : (
-                    <TableRow>
-                      <TableCell className="text-xs py-2" colSpan={8}>Sem registros.</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        );
-
-        // Delay average tables
-        const DelayTable = ({ title, items, count }: { title: string; items: any[]; count: number }) => {
-          if (items.length === 0 && count === 0) return null;
-          return (
-          <div className="mb-4">
-            <p className="text-xs font-medium text-muted-foreground mb-1">{title}  Exibindo {count || items.length} registros.</p>
-            <div className="overflow-x-auto border border-border rounded-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {items.map((item: any, i: number) => (
-                      <TableHead key={i} className="text-xs font-medium">{item.period || item.month || '-'}</TableHead>
-                    ))}
-                    <TableHead className="text-xs font-medium">Média</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    {items.map((item: any, i: number) => (
-                      <TableCell key={i} className="text-xs py-2">{item.value || item.averageDelay || item.delay || '0 a 0'}</TableCell>
-                    ))}
-                    <TableCell className="text-xs py-2">{items[items.length - 1]?.average || items[items.length - 1]?.value || '-'}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-          );
-        };
-
-        // Summary row for payment history
-        const PaySummaryRow = ({ title, item }: { title: string; item: any }) => {
-          if (!item || Object.keys(item).length === 0) return null;
-          return (
-          <div className="mb-2">
-            <p className="text-xs font-medium text-muted-foreground mb-1">{title}</p>
-            <div className="overflow-x-auto border border-border rounded-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs font-medium">Últimos 12 meses</TableHead>
-                    <TableHead className="text-xs font-medium">À vista</TableHead>
-                    <TableHead className="text-xs font-medium">Pontual</TableHead>
-                    <TableHead className="text-xs font-medium">8 a 15 dias</TableHead>
-                    <TableHead className="text-xs font-medium">16 a 30 dias</TableHead>
-                    <TableHead className="text-xs font-medium">31 a 60 dias</TableHead>
-                    <TableHead className="text-xs font-medium">+60 dias</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell className="text-xs py-2">{item.last12Months || item.total || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{item.atSight || item.cashPayment || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{item.punctual || item.onTime || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{item.delay8to15 || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{item.delay16to30 || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{item.delay31to60 || '-'}</TableCell>
-                    <TableCell className="text-xs py-2">{item.delayOver60 || '-'}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-          );
-        };
-
-        const paySummaryFallback = {
-          last12Months: advancedSummary?.total?.totalValueRangeDescription || '-',
-          atSight: advancedSummary?.spotPayment?.totalValueRangeDescription || '-',
-          punctual: advancedSummary?.punctual?.totalValueRangeDescription || '-',
-          delay8to15: advancedSummary?.period8To15?.totalValueRangeDescription || '-',
-          delay16to30: advancedSummary?.period16To30?.totalValueRangeDescription || '-',
-          delay31to60: advancedSummary?.period31To60?.totalValueRangeDescription || '-',
-          delayOver60: advancedSummary?.periodGT60?.totalValueRangeDescription || '-',
-        } as GenericRecord;
-
-        // Payment history summary items
-        const payMarketSummary = (paymentHistoryPJ?.market?.summary || paymentHistoryPJ?.marketSummary || paySummaryFallback) as GenericRecord;
-        const payFactoringSummary = (paymentHistoryPJ?.factoring?.summary || paymentHistoryPJ?.factoringSummary || paySummaryFallback) as GenericRecord;
-
         return (
         <div>
           <p className="text-sm font-semibold text-primary mb-1">Informações Comportamentais</p>
@@ -1902,7 +1747,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
               </p>
               {mktSources && <p className="text-xs text-muted-foreground">Fontes Consultadas: {mktSources}</p>}
             </div>
-            <GridRow headers={mktHeaders} values={mktValues} />
+            <GridRow headers={relHeaders} values={mktValues} />
           </div>
 
           {/* Relacionamento com Factorings */}
@@ -1913,48 +1758,40 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
               </p>
               {fctSources && <p className="text-xs text-muted-foreground">Fontes Consultadas: {fctSources}</p>}
             </div>
-            <GridRow headers={mktHeaders} values={fctValues} />
+            <GridRow headers={relHeaders} values={fctValues} />
           </div>
 
           {/* Histórico de pagamentos - Quantidade de títulos */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-1">
               <p className="text-xs font-medium text-muted-foreground">
-                Histórico de pagamentos - Quantidade de títulos  Exibindo {titleTotal} registros.
+                Histórico de pagamentos - Quantidade de títulos  Exibindo {titlesQuantity.length} registros.
               </p>
               {titleSources && <p className="text-xs text-muted-foreground">Fontes Consultadas: {titleSources}</p>}
             </div>
-            <GridRow headers={titleHeaders} values={titleValues} />
-          </div>
-
-          {/* Visão comparativa */}
-          <div className="mb-6">
-            <p className="text-xs font-medium text-muted-foreground mb-1">
-              Visão comparativa  Exibindo {payComparative.length} registros.
-            </p>
             <div className="overflow-x-auto border border-border rounded-lg">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-xs font-medium">Mês/ano</TableHead>
-                    <TableHead className="text-xs font-medium">Tipo de pagamento</TableHead>
-                    <TableHead className="text-xs font-medium">Factorings</TableHead>
-                    <TableHead className="text-xs font-medium">Mercado</TableHead>
+                    {titleOrder.map((t, i) => (
+                      <TableHead key={i} className="text-xs font-medium">{t.header}</TableHead>
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {payComparative.length > 0 ? payComparative.map((item: any, i: number) => (
-                    <TableRow key={i}>
-                      <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
-                      <TableCell className="text-xs py-2">{item.paymentType || item.type || '-'}</TableCell>
-                      <TableCell className="text-xs py-2">{item.factoring != null ? formatCurrency(item.factoring) : '-'}</TableCell>
-                      <TableCell className="text-xs py-2">{item.market != null ? formatCurrency(item.market) : '-'}</TableCell>
-                    </TableRow>
-                  )) : (
-                    <TableRow>
-                      <TableCell className="text-xs py-2" colSpan={4}>Sem registros.</TableCell>
-                    </TableRow>
-                  )}
+                  <TableRow>
+                    {titleOrder.map((t, i) => {
+                      const item = getTitleByName(t.key);
+                      return <TableCell key={i} className="text-xs py-2">{item.range || '-'}</TableCell>;
+                    })}
+                  </TableRow>
+                  <TableRow>
+                    {titleOrder.map((t, i) => {
+                      const item = getTitleByName(t.key);
+                      const pct = item.percentage || '';
+                      return <TableCell key={i} className="text-xs py-2 text-muted-foreground">{pct ? `Entre ${pct}` : '-'}</TableCell>;
+                    })}
+                  </TableRow>
                 </TableBody>
               </Table>
             </div>
@@ -1962,114 +1799,192 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
 
           {/* Histórico de pagamentos - Mercado */}
           <div className="mb-6">
-            <PaySummaryRow title="Histórico de pagamentos - Mercado" item={payMarketSummary} />
-            <PayHistoryTable title="Histórico de pagamentos - Mercado" items={payHistoryMarket.length > 0 ? payHistoryMarket : pjPayItems} count={payHistoryMarket.length || pjPayItems.length} />
-            <DelayTable title="Prazo médio de atraso (dias)" items={payHistoryDelayMarket} count={payHistoryDelayMarket.length} />
-          </div>
+            <p className="text-xs font-medium text-muted-foreground mb-1">
+              Histórico de pagamentos - Mercado  Atualizado em {statusDate}
+            </p>
 
-          {/* Histórico de pagamentos - Factorings sacado */}
-          <div className="mb-6">
-            <PaySummaryRow title="Histórico de pagamentos - Factorings sacado" item={payFactoringSummary} />
-            <PayHistoryTable title="Histórico de pagamentos - Factorings sacado" items={payHistoryFactoring} count={payHistoryFactoring.length} />
-            <DelayTable title="Prazo médio de atraso (dias) - Factorings sacado" items={payHistoryDelayFactoring} count={payHistoryDelayFactoring.length} />
-          </div>
-
-          {/* Evolução de compromissos - Visão comparativa */}
-          <div className="mb-6">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Evolução de compromissos - Visão comparativa</p>
-            <div className="overflow-x-auto border border-border rounded-lg">
+            {/* Últimos 12 meses summary row */}
+            <div className="overflow-x-auto border border-border rounded-lg mb-2">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-xs font-medium">À vencer em</TableHead>
-                    <TableHead className="text-xs font-medium">Factorings</TableHead>
-                    <TableHead className="text-xs font-medium">Mercado</TableHead>
+                    <TableHead className="text-xs font-medium">Últimos 12 meses</TableHead>
+                    <TableHead className="text-xs font-medium">À vista</TableHead>
+                    <TableHead className="text-xs font-medium">Pontual</TableHead>
+                    <TableHead className="text-xs font-medium">8 a 15 dias</TableHead>
+                    <TableHead className="text-xs font-medium">16 a 30 dias</TableHead>
+                    <TableHead className="text-xs font-medium">31 a 60 dias</TableHead>
+                    <TableHead className="text-xs font-medium">+60 dias</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {commitmentComparative.length > 0 ? commitmentComparative.map((item: any, i: number) => (
-                    <TableRow key={i}>
-                      <TableCell className="text-xs py-2">{item.period || item.month || '-'}</TableCell>
-                      <TableCell className="text-xs py-2">{item.factoring != null ? formatCurrency(item.factoring) : item.factoringAmount != null ? formatCurrency(item.factoringAmount) : '-'}</TableCell>
-                      <TableCell className="text-xs py-2">{item.market != null ? formatCurrency(item.market) : item.marketAmount != null ? formatCurrency(item.marketAmount) : '-'}</TableCell>
-                    </TableRow>
-                  )) : (
+                  <TableRow>
+                    {(() => {
+                      const totalRange = acphSummary?.punctual?.totalValueRangeDescription || acphSummary?.total?.totalValueRangeDescription;
+                      return <TableCell className="text-xs py-2">{totalRange ? `R$ ${String(totalRange).replace(/ A /g, ' a R$ ')}` : '-'}</TableCell>;
+                    })()}
+                    {summaryPeriods.map((key, i) => (
+                      <TableCell key={i} className="text-xs py-2">{formatSummaryRange(key)}</TableCell>
+                    ))}
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Monthly detail - Mês / Ano rows */}
+            <p className="text-xs font-medium text-muted-foreground mb-1">
+              Histórico de pagamentos - Mercado  Exibindo {acphMonths.length} registro{acphMonths.length !== 1 ? 's' : ''}.
+            </p>
+            <div className="overflow-x-auto border border-border rounded-lg mb-2">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs font-medium">Mês / Ano</TableHead>
+                    <TableHead className="text-xs font-medium">À vista</TableHead>
+                    <TableHead className="text-xs font-medium">Pontual</TableHead>
+                    <TableHead className="text-xs font-medium">8 a 15 dias</TableHead>
+                    <TableHead className="text-xs font-medium">16 a 30 dias</TableHead>
+                    <TableHead className="text-xs font-medium">31 a 60 dias</TableHead>
+                    <TableHead className="text-xs font-medium">+ de 60 dias</TableHead>
+                    <TableHead className="text-xs font-medium">Total / Mês</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {acphMonths.length > 0 ? acphMonths.map((m: any, i: number) => {
+                    const pl = asArray(m?.periodList || []);
+                    const cols = ['A VISTA', 'PONTUAL', '8-15', '16-30', '31-60', '+60', 'TOTAL MES'];
+                    return (
+                      <TableRow key={i}>
+                        <TableCell className="text-xs py-2">{m.month || '-'}</TableCell>
+                        {cols.map((name, ci) => {
+                          const p = getPeriodValue(pl, name);
+                          const range = formatRange(p);
+                          const pct = formatPct(p);
+                          return (
+                            <TableCell key={ci} className="text-xs py-2">
+                              {range}
+                              {pct && <div className="text-muted-foreground text-[10px]">{pct}</div>}
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    );
+                  }) : (
+                    <TableRow><TableCell className="text-xs py-2" colSpan={8}>Sem registros.</TableCell></TableRow>
+                  )}
+                  {/* Média row from summary */}
+                  {acphMonths.length > 0 && (
                     <TableRow>
-                      <TableCell className="text-xs py-2" colSpan={3}>Sem registros.</TableCell>
+                      <TableCell className="text-xs py-2 font-medium">Média</TableCell>
+                      {['spotPayment', 'punctual', 'period8To15', 'period16To30', 'period31To60', 'periodGT60'].map((key, i) => {
+                        const s = acphSummary?.[key];
+                        const avgDesc = s?.averageValueRangeDescription;
+                        const pctFrom = s?.percentageValueFrom;
+                        const pctTo = s?.percentageValueTo;
+                        const range = avgDesc && avgDesc !== '-' ? `R$ ${String(avgDesc).replace(/ A /g, ' a R$ ')}` : '-';
+                        const pct = (pctFrom != null && pctTo != null && (pctFrom > 0 || pctTo > 0)) ? `${pctFrom}.0% e ${pctTo}.0%` : '';
+                        return (
+                          <TableCell key={i} className="text-xs py-2">
+                            {range}
+                            {pct && <div className="text-muted-foreground text-[10px]">{pct}</div>}
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="text-xs py-2">
+                        {(() => {
+                          const totalDesc = acphSummary?.punctual?.historicalAverageRangeFrom != null
+                            ? `R$ ${acphSummary.punctual.historicalAverageRangeFrom} a R$ ${acphSummary.punctual.historicalAverageRangeTo}`
+                            : formatSummaryRange('punctual');
+                          return totalDesc;
+                        })()}
+                      </TableCell>
                     </TableRow>
                   )}
                 </TableBody>
               </Table>
             </div>
+
+            {/* Prazo médio de atraso */}
+            {(avgDelayItems.length > 0 || acphMonths.length > 0) && (
+              <div className="mb-2">
+                <p className="text-xs font-medium text-muted-foreground mb-1">
+                  Prazo médio de atraso (dias)  Exibindo {avgDelayItems.length || acphMonths.length} registro{(avgDelayItems.length || acphMonths.length) !== 1 ? 's' : ''}.
+                </p>
+                <div className="overflow-x-auto border border-border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {avgDelayItems.length > 0
+                          ? avgDelayItems.map((item: any, i: number) => (
+                              <TableHead key={i} className="text-xs font-medium">{item.month || item.period || '-'}</TableHead>
+                            ))
+                          : acphMonths.map((m: any, i: number) => (
+                              <TableHead key={i} className="text-xs font-medium">{m.month || '-'}</TableHead>
+                            ))
+                        }
+                        <TableHead className="text-xs font-medium">Média</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow>
+                        {avgDelayItems.length > 0
+                          ? avgDelayItems.map((item: any, i: number) => (
+                              <TableCell key={i} className="text-xs py-2">{item.range || item.value || item.averageDelay || '0 a 0'}</TableCell>
+                            ))
+                          : acphMonths.map((_: any, i: number) => (
+                              <TableCell key={i} className="text-xs py-2">0 a 0</TableCell>
+                            ))
+                        }
+                        <TableCell className="text-xs py-2">
+                          {avgDelayItems.length > 0
+                            ? (avgDelayItems[avgDelayItems.length - 1]?.average || avgDelayItems[avgDelayItems.length - 1]?.range || '0 a 0')
+                            : '0 a 0'
+                          }
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Evolução de compromissos - Mercado */}
           <div className="mb-6">
             <p className="text-xs font-medium text-muted-foreground mb-1">
-              Evolução de compromissos - Mercado  Exibindo {commitmentMarket.length || commitmentItems.length} registros.
+              Evolução de compromissos - Mercado  Exibindo {acphCommitmentList.length || 0} registro{acphCommitmentList.length !== 1 ? 's' : ''}.
             </p>
             <div className="overflow-x-auto border border-border rounded-lg">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {(commitmentMarket.length > 0 ? commitmentMarket : commitmentItems).map((item: any, i: number) => (
-                      <TableHead key={i} className="text-xs font-medium">{item.period || item.month || '-'}</TableHead>
-                    ))}
-                    {(commitmentMarket.length > 0 || commitmentItems.length > 0) && <TableHead className="text-xs font-medium">Total</TableHead>}
+                    {acphCommitmentList.length > 0
+                      ? acphCommitmentList.map((item: any, i: number) => (
+                          <TableHead key={i} className="text-xs font-medium">{item.month || item.period || '-'}</TableHead>
+                        ))
+                      : <TableHead className="text-xs font-medium">Período</TableHead>
+                    }
+                    {acphCommitmentList.length > 0 && <TableHead className="text-xs font-medium">Total</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(commitmentMarket.length > 0 || commitmentItems.length > 0) ? (
-                  <TableRow>
-                    {(commitmentMarket.length > 0 ? commitmentMarket : commitmentItems).map((item: any, i: number) => (
-                      <TableCell key={i} className="text-xs py-2">{item.value != null ? formatCurrency(item.value) : item.market != null ? formatCurrency(item.market) : item.amount != null ? formatCurrency(item.amount) : '-'}</TableCell>
-                    ))}
-                    <TableCell className="text-xs py-2">
-                      {(() => {
-                        const items = commitmentMarket.length > 0 ? commitmentMarket : commitmentItems;
-                        const total = items.reduce((s: number, it: any) => s + (Number(it.value || it.market || it.amount || 0)), 0);
-                        return total > 0 ? formatCurrency(total) : '-';
-                      })()}
-                    </TableCell>
-                  </TableRow>
+                  {acphCommitmentList.length > 0 ? (
+                    <TableRow>
+                      {acphCommitmentList.map((item: any, i: number) => {
+                        const rangeDesc = item?.rangeDescription || item?.range || '';
+                        const display = rangeDesc ? `${String(rangeDesc).replace(/ A /g, ' a ')}` : '-';
+                        return <TableCell key={i} className="text-xs py-2">{display}</TableCell>;
+                      })}
+                      <TableCell className="text-xs py-2">
+                        {(() => {
+                          // Sum or show total
+                          const allDescs = acphCommitmentList.map((it: any) => it?.rangeDescription || it?.range || '').filter(Boolean);
+                          return allDescs.length > 0 ? allDescs[0].replace(/ A /g, ' a ') : '-';
+                        })()}
+                      </TableCell>
+                    </TableRow>
                   ) : (
-                  <TableRow><TableCell className="text-xs py-2">Sem registros.</TableCell></TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-
-          {/* Evolução de compromissos - Factorings */}
-          <div className="mb-6">
-            <p className="text-xs font-medium text-muted-foreground mb-1">
-              Evolução de compromissos - Factorings  Exibindo {commitmentFactoring.length} registros.
-            </p>
-            <div className="overflow-x-auto border border-border rounded-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {commitmentFactoring.map((item: any, i: number) => (
-                      <TableHead key={i} className="text-xs font-medium">{item.period || item.month || '-'}</TableHead>
-                    ))}
-                    {commitmentFactoring.length > 0 && <TableHead className="text-xs font-medium">Total</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {commitmentFactoring.length > 0 ? (
-                  <TableRow>
-                    {commitmentFactoring.map((item: any, i: number) => (
-                      <TableCell key={i} className="text-xs py-2">{item.value != null ? formatCurrency(item.value) : item.factoring != null ? formatCurrency(item.factoring) : '-'}</TableCell>
-                    ))}
-                    <TableCell className="text-xs py-2">
-                      {(() => {
-                        const total = commitmentFactoring.reduce((s: number, it: any) => s + (Number(it.value || it.factoring || 0)), 0);
-                        return total > 0 ? formatCurrency(total) : '-';
-                      })()}
-                    </TableCell>
-                  </TableRow>
-                  ) : (
-                  <TableRow><TableCell className="text-xs py-2">Sem registros.</TableCell></TableRow>
+                    <TableRow><TableCell className="text-xs py-2">Sem registros.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -2078,119 +1993,41 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
 
           {/* Referenciais de negócio - Mercado */}
           <div className="mb-6">
-            {(() => {
-              const refItems = refMarket.length > 0 ? refMarket : businessRefItems;
-              return (
-              <>
-              <p className="text-xs font-medium text-muted-foreground mb-1">
-                Referenciais de negócio - Mercado  Exibindo {refItems.length} registros.
-              </p>
-              <div className="overflow-x-auto border border-border rounded-lg mb-4">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs font-medium"></TableHead>
-                      <TableHead className="text-xs font-medium">Última compra</TableHead>
-                      <TableHead className="text-xs font-medium">Maior fatura</TableHead>
-                      <TableHead className="text-xs font-medium">Maior acúmulo</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {['Data', 'Valor', 'Média'].map((label) => {
-                      const item = refItems[0] || {} as any;
-                      const lastPurchase = label === 'Data' ? (item.lastPurchaseDate || '-') : label === 'Valor' ? (item.lastPurchaseValue ? formatCurrency(item.lastPurchaseValue) : '-') : (item.lastPurchaseAvg ? formatCurrency(item.lastPurchaseAvg) : '-');
-                      const highestInvoice = label === 'Data' ? (item.highestInvoiceDate || '-') : label === 'Valor' ? (item.highestInvoiceValue ? formatCurrency(item.highestInvoiceValue) : item.highestPurchase ? formatCurrency(item.highestPurchase) : '-') : (item.highestInvoiceAvg ? formatCurrency(item.highestInvoiceAvg) : '-');
-                      const highestAccumulated = label === 'Data' ? (item.highestAccumulatedDate || '-') : label === 'Valor' ? (item.highestAccumulatedValue ? formatCurrency(item.highestAccumulatedValue) : '-') : (item.highestAccumulatedAvg ? formatCurrency(item.highestAccumulatedAvg) : '-');
-                      return (
-                      <TableRow key={label}>
-                        <TableCell className="text-xs py-2 font-medium">{label}</TableCell>
-                        <TableCell className="text-xs py-2">{lastPurchase}</TableCell>
-                        <TableCell className="text-xs py-2">{highestInvoice}</TableCell>
-                        <TableCell className="text-xs py-2">{highestAccumulated}</TableCell>
-                      </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Referenciais de negócio - Factorings */}
-              <p className="text-xs font-medium text-muted-foreground mb-1">
-                Referenciais de negócio - Factorings  Exibindo {refFactoring.length} registros.
-              </p>
-              <div className="overflow-x-auto border border-border rounded-lg mb-4">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs font-medium"></TableHead>
-                      <TableHead className="text-xs font-medium">Última compra</TableHead>
-                      <TableHead className="text-xs font-medium">Maior fatura</TableHead>
-                      <TableHead className="text-xs font-medium">Maior acúmulo</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {['Data', 'Valor', 'Média'].map((label) => {
-                      const item = refFactoring[0] || {} as any;
-                      const lastPurchase = label === 'Data' ? (item.lastPurchaseDate || '-') : label === 'Valor' ? (item.lastPurchaseValue ? formatCurrency(item.lastPurchaseValue) : '-') : (item.lastPurchaseAvg ? formatCurrency(item.lastPurchaseAvg) : '-');
-                      const highestInvoice = label === 'Data' ? (item.highestInvoiceDate || '-') : label === 'Valor' ? (item.highestInvoiceValue ? formatCurrency(item.highestInvoiceValue) : '-') : (item.highestInvoiceAvg ? formatCurrency(item.highestInvoiceAvg) : '-');
-                      const highestAccumulated = label === 'Data' ? (item.highestAccumulatedDate || '-') : label === 'Valor' ? (item.highestAccumulatedValue ? formatCurrency(item.highestAccumulatedValue) : '-') : (item.highestAccumulatedAvg ? formatCurrency(item.highestAccumulatedAvg) : '-');
-                      return (
-                      <TableRow key={label}>
-                        <TableCell className="text-xs py-2 font-medium">{label}</TableCell>
-                        <TableCell className="text-xs py-2">{lastPurchase}</TableCell>
-                        <TableCell className="text-xs py-2">{highestInvoice}</TableCell>
-                        <TableCell className="text-xs py-2">{highestAccumulated}</TableCell>
-                      </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Análise comparativa Mercado/Factorings */}
-              <p className="text-xs font-medium text-muted-foreground mb-1">
-                Análise comparativa Mercado/Factorings  Exibindo {Math.max(refItems.length, refFactoring.length)} registros.
-              </p>
-              <div className="overflow-x-auto border border-border rounded-lg">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs font-medium"></TableHead>
-                      <TableHead className="text-xs font-medium">Última Compra - Mercado</TableHead>
-                      <TableHead className="text-xs font-medium">Última Compra - Factorings</TableHead>
-                      <TableHead className="text-xs font-medium">Maior Fatura - Mercado</TableHead>
-                      <TableHead className="text-xs font-medium">Maior Fatura - Factorings</TableHead>
-                      <TableHead className="text-xs font-medium">Maior Acúmulo - Mercado</TableHead>
-                      <TableHead className="text-xs font-medium">Maior Acúmulo - Factorings</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {['Data', 'Valor', 'Média'].map((label) => {
-                      const mktRef = refItems[0] || {} as any;
-                      const fctRef = refFactoring[0] || {} as any;
-                      const getVal = (item: any, prefix: string) => {
-                        if (label === 'Data') return item[`${prefix}Date`] || '-';
-                        if (label === 'Valor') return item[`${prefix}Value`] ? formatCurrency(item[`${prefix}Value`]) : '-';
-                        return item[`${prefix}Avg`] ? formatCurrency(item[`${prefix}Avg`]) : '-';
-                      };
-                      return (
-                      <TableRow key={label}>
-                        <TableCell className="text-xs py-2 font-medium">{label}</TableCell>
-                        <TableCell className="text-xs py-2">{getVal(mktRef, 'lastPurchase')}</TableCell>
-                        <TableCell className="text-xs py-2">{getVal(fctRef, 'lastPurchase')}</TableCell>
-                        <TableCell className="text-xs py-2">{getVal(mktRef, 'highestInvoice')}</TableCell>
-                        <TableCell className="text-xs py-2">{getVal(fctRef, 'highestInvoice')}</TableCell>
-                        <TableCell className="text-xs py-2">{getVal(mktRef, 'highestAccumulated')}</TableCell>
-                        <TableCell className="text-xs py-2">{getVal(fctRef, 'highestAccumulated')}</TableCell>
-                      </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-              </>
-              );
-            })()}
+            <p className="text-xs font-medium text-muted-foreground mb-1">
+              Referenciais de negócio - Mercado  Exibindo {acphBizRefList.length} registros.
+            </p>
+            <div className="overflow-x-auto border border-border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs font-medium"></TableHead>
+                    <TableHead className="text-xs font-medium">Última compra</TableHead>
+                    <TableHead className="text-xs font-medium">Maior fatura</TableHead>
+                    <TableHead className="text-xs font-medium">Maior acúmulo</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="text-xs py-2 font-medium">Data</TableCell>
+                    <TableCell className="text-xs py-2">{formatBizDate(bizUltimaCompra)}</TableCell>
+                    <TableCell className="text-xs py-2">{formatBizDate(bizMaiorFatura)}</TableCell>
+                    <TableCell className="text-xs py-2">{formatBizDate(bizMaiorAcumulo)}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-xs py-2 font-medium">Valor</TableCell>
+                    <TableCell className="text-xs py-2">{formatBizRange(bizUltimaCompra)}</TableCell>
+                    <TableCell className="text-xs py-2">{formatBizRange(bizMaiorFatura)}</TableCell>
+                    <TableCell className="text-xs py-2">{formatBizRange(bizMaiorAcumulo)}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-xs py-2 font-medium">Média</TableCell>
+                    <TableCell className="text-xs py-2">{formatBizMidrange(bizUltimaCompra)}</TableCell>
+                    <TableCell className="text-xs py-2">{formatBizMidrange(bizMaiorFatura)}</TableCell>
+                    <TableCell className="text-xs py-2">{formatBizMidrange(bizMaiorAcumulo)}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
           </div>
 
           <p className="text-[10px] text-muted-foreground mt-3 leading-relaxed">
