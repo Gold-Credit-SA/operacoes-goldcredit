@@ -336,14 +336,19 @@ export default function AssinaturaDigital() {
       try {
         const socios = await buscarSociosPorCedente(nomeParaBusca);
         setSociosDisponiveis(socios);
-        // Auto-preencher o primeiro sócio como responsável solidário
         if (socios.length > 0) {
           const primeiro = socios[0];
+          setIncluirResponsavel(true);
           setResponsavel({ nome: primeiro.nome, email: primeiro.email || '', cpfCnpj: '' });
-          toast({ title: `${socios.length} sócio(s) encontrado(s)`, description: `"${primeiro.nome}" foi preenchido como responsável solidário.` });
+          toast({ title: `${socios.length} sócio(s) encontrado(s)`, description: `Responsável solidário ativado automaticamente.` });
+        } else {
+          setIncluirResponsavel(false);
+          setResponsavel(EMPTY_FORM);
         }
       } catch {
         setSociosDisponiveis([]);
+        setIncluirResponsavel(false);
+        setResponsavel(EMPTY_FORM);
       } finally {
         setBuscandoSocios(false);
       }
