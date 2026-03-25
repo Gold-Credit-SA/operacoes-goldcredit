@@ -753,7 +753,7 @@ export default function ClienteDetail() {
               serasa: { src: logoSerasa, label: 'Serasa' },
               scr: { src: logoHbi, label: 'SCR (HBI)' },
               agrisk: { src: logoAgrisk, label: 'AgRisk' },
-              smart: { label: 'Smart', fallback: 'S' },
+              smart: { src: logoSmart, label: 'Smart' },
             };
             const { src, label, fallback } = logos[platform];
             return (
