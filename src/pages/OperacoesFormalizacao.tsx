@@ -38,7 +38,7 @@ interface Meta {
   periodo: { inicio: string; fim: string };
 }
 
-const POLL_INTERVAL = 30_000; // 30 seconds
+const POLL_INTERVAL = 60_000; // 1 minute (API has cache, respects 10-min rate limit)
 
 export default function OperacoesFormalizacao() {
   const [data, setData] = useState<OperacaoSmart[]>([]);
