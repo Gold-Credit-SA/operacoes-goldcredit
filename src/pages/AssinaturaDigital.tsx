@@ -263,7 +263,7 @@ function createDraftDocumento(file: File, tipoDocumento: TipoDocumento = 'contra
 
 export default function AssinaturaDigital() {
   const [step, setStep] = useState<Step>('dados');
-  const [tipoDocumentoPadrao, setTipoDocumentoPadrao] = useState<TipoDocumento>('contrato_mae');
+  const [tipoDocumentoPadrao] = useState<TipoDocumento>('contrato_mae');
   const [documentos, setDocumentos] = useState<DraftDocumento[]>([]);
   const [documentoAtualId, setDocumentoAtualId] = useState<string | null>(null);
   const [mensagem, setMensagem] = useState('');
