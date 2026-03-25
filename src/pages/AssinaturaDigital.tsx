@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Building2, Check, CheckCircle2, ChevronsUpDown, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Loader2, Send, Upload, UserCheck, Users, X } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
