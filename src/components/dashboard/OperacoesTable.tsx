@@ -84,6 +84,7 @@ export function OperacoesTable({ filters, onlyFormalizacao = false }: OperacoesT
         if (result?.success) {
           const enriched = (result.data || []).map(enrichWithFormalizacao);
           setData(enriched);
+        }
       } catch (err) {
         console.error('Error fetching operacoes:', err);
         setData([]);
