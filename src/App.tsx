@@ -92,7 +92,7 @@ function App() {
               <Route path="/contratos/documentos" element={<ProtectedRoute><AppLayout><Contratos /></AppLayout></ProtectedRoute>} />
               <Route path="/contratos/documentos/:token" element={<ProtectedRoute><AppLayout><DocumentoDetalhe /></AppLayout></ProtectedRoute>} />
               <Route path="/contratos/assinatura-digital" element={<ProtectedRoute><AppLayout><AssinaturaDigital /></AppLayout></ProtectedRoute>} />
-              <Route path="/contratos/operacoes-formalizacao" element={<ProtectedRoute><AppLayout><OperacoesFormalizacao /></AppLayout></ProtectedRoute>} />
+              
               <Route path="/admin" element={<ProtectedRoute requireAdmin><AppLayout><AdminSettings /></AppLayout></ProtectedRoute>} />
               {/* Legacy redirects */}
               <Route path="/giro-carteira" element={<Navigate to="/carteira/giro" replace />} />

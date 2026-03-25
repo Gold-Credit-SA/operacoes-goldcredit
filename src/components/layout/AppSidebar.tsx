@@ -29,7 +29,6 @@ export function AppSidebar() {
   const contratosItems = [
     { path: '/contratos/documentos', label: 'Documentos', icon: FileText },
     { path: '/contratos/assinatura-digital', label: 'Assinatura Digital', icon: PenTool },
-    { path: '/contratos/operacoes-formalizacao', label: 'Operacoes para Formalizacao', icon: FolderClock },
   ];
 
   const navItemsAfter = [
