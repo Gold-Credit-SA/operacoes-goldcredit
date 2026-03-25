@@ -511,12 +511,23 @@ export default function AssinaturaDigital() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Upload className="h-5 w-5" /> Documentos da operacao</CardTitle>
-              <CardDescription>Cada documento pode ter um tipo proprio.</CardDescription>
+              <CardDescription>Adicione os PDFs e selecione o tipo de documento da operacao.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>Tipo padrao para novos documentos</Label>
-                <Select value={tipoDocumentoPadrao} onValueChange={(value) => setTipoDocumentoPadrao(value as TipoDocumento)}>
+                <Label>Tipo do documento</Label>
+                <Select value={tipoDocumentoPadrao} onValueChange={(value) => {
+                  const tipo = value as TipoDocumento;
+                  setTipoDocumentoPadrao(tipo);
+                  const config = DOC_TYPE_CONFIGS[tipo];
+                  setDocumentos((prev) => prev.map((doc) => ({
+                    ...doc,
+                    tipoDocumento: tipo,
+                    boxCedente: { ...config.cedente },
+                    boxCessionaria: { ...config.cessionaria },
+                    boxResponsavel: { ...config.responsavel },
+                  })));
+                }}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -526,7 +537,6 @@ export default function AssinaturaDigital() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">Esse tipo sera aplicado automaticamente aos PDFs novos, mas voce ainda pode trocar depois em cada item.</p>
               </div>
 
               <label className="flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed p-6 transition-colors hover:border-primary/50 hover:bg-accent/30">
