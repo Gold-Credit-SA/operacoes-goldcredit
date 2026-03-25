@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Building2, Check, CheckCircle2, ChevronsUpDown, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Loader2, Send, Upload, UserCheck, Users, X } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -277,9 +278,10 @@ export default function AssinaturaDigital() {
   const [links, setLinks] = useState<ResultLink[]>([]);
   const [sociosDisponiveis, setSociosDisponiveis] = useState<SocioCedente[]>([]);
   const [buscandoSocios, setBuscandoSocios] = useState(false);
+  const [incluirResponsavel, setIncluirResponsavel] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const temResponsavel = Boolean(responsavel.email && responsavel.cpfCnpj);
+  const temResponsavel = incluirResponsavel && Boolean(responsavel.email && responsavel.cpfCnpj);
   const documentoAtual = documentos.find((item) => item.id === documentoAtualId) || documentos[0] || null;
 
   useEffect(() => {
@@ -335,14 +337,19 @@ export default function AssinaturaDigital() {
       try {
         const socios = await buscarSociosPorCedente(nomeParaBusca);
         setSociosDisponiveis(socios);
-        // Auto-preencher o primeiro sócio como responsável solidário
         if (socios.length > 0) {
           const primeiro = socios[0];
+          setIncluirResponsavel(true);
           setResponsavel({ nome: primeiro.nome, email: primeiro.email || '', cpfCnpj: '' });
-          toast({ title: `${socios.length} sócio(s) encontrado(s)`, description: `"${primeiro.nome}" foi preenchido como responsável solidário.` });
+          toast({ title: `${socios.length} sócio(s) encontrado(s)`, description: `Responsável solidário ativado automaticamente.` });
+        } else {
+          setIncluirResponsavel(false);
+          setResponsavel(EMPTY_FORM);
         }
       } catch {
         setSociosDisponiveis([]);
+        setIncluirResponsavel(false);
+        setResponsavel(EMPTY_FORM);
       } finally {
         setBuscandoSocios(false);
       }
@@ -469,6 +476,7 @@ export default function AssinaturaDigital() {
     setResponsavel(EMPTY_FORM);
     setCedenteSelecionado(null);
     setSociosDisponiveis([]);
+    setIncluirResponsavel(false);
     setLinks([]);
   };
 
@@ -655,60 +663,84 @@ export default function AssinaturaDigital() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-emerald-500" /> Responsavel Solidario <span className="text-sm font-normal text-muted-foreground">(opcional)</span>
+                <Users className="h-5 w-5 text-emerald-500" /> Responsavel Solidario
                 {buscandoSocios && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {sociosDisponiveis.length > 1 && (
-                <div className="space-y-2">
-                  <Label>Sócios encontrados no cadastro</Label>
-                  <Select
-                    value={responsavel.nome || ''}
-                    onValueChange={(nome) => {
-                      const socio = sociosDisponiveis.find((s) => s.nome === nome);
-                      if (socio) {
-                        setResponsavel({ nome: socio.nome, email: socio.email || '', cpfCnpj: '' });
-                      }
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um sócio..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sociosDisponiveis.map((socio) => (
-                        <SelectItem key={socio.nome} value={socio.nome}>
-                          {socio.nome}{socio.email ? ` · ${socio.email}` : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">{sociosDisponiveis.length} sócio(s) vinculados a este cedente.</p>
-                </div>
-              )}
-
-              {sociosDisponiveis.length === 1 && (
-                <div className="flex items-center gap-2 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  <span>Preenchido automaticamente com o sócio cadastrado.</span>
-                </div>
-              )}
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Nome</Label>
-                  <Input value={responsavel.nome} onChange={(e) => setResponsavel((prev) => ({ ...prev, nome: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>E-mail</Label>
-                  <Input type="email" value={responsavel.email} onChange={(e) => setResponsavel((prev) => ({ ...prev, email: e.target.value }))} />
-                </div>
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="incluir-responsavel"
+                  checked={incluirResponsavel}
+                  onCheckedChange={(checked) => {
+                    const val = Boolean(checked);
+                    setIncluirResponsavel(val);
+                    if (!val) {
+                      setResponsavel(EMPTY_FORM);
+                    } else if (sociosDisponiveis.length > 0) {
+                      const primeiro = sociosDisponiveis[0];
+                      setResponsavel({ nome: primeiro.nome, email: primeiro.email || '', cpfCnpj: '' });
+                    }
+                  }}
+                />
+                <Label htmlFor="incluir-responsavel" className="cursor-pointer text-sm">
+                  Incluir responsável solidário nesta operação
+                </Label>
               </div>
 
-              <div className="space-y-2">
-                <Label>CPF/CNPJ obrigatorio para assinar</Label>
-                <Input value={responsavel.cpfCnpj} onChange={(e) => setResponsavel((prev) => ({ ...prev, cpfCnpj: e.target.value }))} />
-              </div>
+              {incluirResponsavel && (
+                <>
+                  {sociosDisponiveis.length > 1 && (
+                    <div className="space-y-2">
+                      <Label>Sócios encontrados no cadastro</Label>
+                      <Select
+                        value={responsavel.nome || ''}
+                        onValueChange={(nome) => {
+                          const socio = sociosDisponiveis.find((s) => s.nome === nome);
+                          if (socio) {
+                            setResponsavel({ nome: socio.nome, email: socio.email || '', cpfCnpj: '' });
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um sócio..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sociosDisponiveis.map((socio) => (
+                            <SelectItem key={socio.nome} value={socio.nome}>
+                              {socio.nome}{socio.email ? ` · ${socio.email}` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">{sociosDisponiveis.length} sócio(s) vinculados a este cedente.</p>
+                    </div>
+                  )}
+
+                  {sociosDisponiveis.length === 1 && (
+                    <div className="flex items-center gap-2 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                      <span>Preenchido automaticamente com o sócio cadastrado.</span>
+                    </div>
+                  )}
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Nome</Label>
+                      <Input value={responsavel.nome} onChange={(e) => setResponsavel((prev) => ({ ...prev, nome: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>E-mail</Label>
+                      <Input type="email" value={responsavel.email} onChange={(e) => setResponsavel((prev) => ({ ...prev, email: e.target.value }))} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>CPF/CNPJ obrigatorio para assinar</Label>
+                    <Input value={responsavel.cpfCnpj} onChange={(e) => setResponsavel((prev) => ({ ...prev, cpfCnpj: e.target.value }))} />
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
