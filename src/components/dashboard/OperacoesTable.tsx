@@ -64,37 +64,46 @@ const formatDate = (date: string | null) => {
 export function OperacoesTable({ filters, onlyFormalizacao = false }: OperacoesTableProps) {
   const [data, setData] = useState<Operacao[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const { data: result, error } = await supabase.functions.invoke('external-db', {
-          body: {
-            action: 'operacoes',
-            filters: {
-              cedente: filters.cedente || undefined,
-              dataInicio: filters.dataInicio || (filters.ano ? `${filters.ano}-01-01` : undefined),
-              dataFim: filters.dataFim || (filters.ano ? `${filters.ano}-12-31` : undefined),
-            },
+  const fetchData = async (silent = false) => {
+    if (!silent) setIsLoading(true);
+    try {
+      const { data: result, error } = await supabase.functions.invoke('external-db', {
+        body: {
+          action: 'operacoes',
+          filters: {
+            cedente: filters.cedente || undefined,
+            dataInicio: filters.dataInicio || (filters.ano ? `${filters.ano}-01-01` : undefined),
+            dataFim: filters.dataFim || (filters.ano ? `${filters.ano}-12-31` : undefined),
           },
-        });
+        },
+      });
 
-        if (error) throw error;
-        if (result?.success) {
-          const enriched = (result.data || []).map(enrichWithFormalizacao);
-          setData(enriched);
-        }
-      } catch (err) {
-        console.error('Error fetching operacoes:', err);
-        setData([]);
-      } finally {
-        setIsLoading(false);
+      if (error) throw error;
+      if (result?.success) {
+        const enriched = (result.data || []).map(enrichWithFormalizacao);
+        setData(enriched);
+        setLastUpdate(new Date());
       }
-    };
+    } catch (err) {
+      console.error('Error fetching operacoes:', err);
+      if (!silent) setData([]);
+    } finally {
+      if (!silent) setIsLoading(false);
+    }
+  };
 
-    const debounce = setTimeout(fetchData, 300);
+  // Initial fetch + refetch on filter change
+  useEffect(() => {
+    const debounce = setTimeout(() => fetchData(false), 300);
     return () => clearTimeout(debounce);
+  }, [filters]);
+
+  // Auto-refresh every 30s (silent, no loading spinner)
+  useEffect(() => {
+    const interval = setInterval(() => fetchData(true), 30_000);
+    return () => clearInterval(interval);
   }, [filters]);
 
   const sortedData = [...data].sort((a, b) => {
