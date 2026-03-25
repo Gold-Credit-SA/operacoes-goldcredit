@@ -554,32 +554,11 @@ export default function AssinaturaDigital() {
                     <div key={doc.id} className="rounded-lg border bg-muted/20 p-4">
                       <div className="flex items-start gap-3">
                         <FileText className="mt-1 h-5 w-5 shrink-0 text-primary" />
-                        <div className="grid min-w-0 flex-1 gap-3 md:grid-cols-[1.3fr_0.9fr]">
+                        <div className="grid min-w-0 flex-1 gap-3">
                           <div className="space-y-2">
                             <Label>Titulo do documento</Label>
                             <Input value={doc.titulo} onChange={(e) => updateDocumento(doc.id, (item) => ({ ...item, titulo: e.target.value }))} />
                             <p className="truncate text-xs text-muted-foreground">{doc.arquivo.name}</p>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Tipo do documento</Label>
-                            <Select value={doc.tipoDocumento} onValueChange={(value) => {
-                              const tipo = value as TipoDocumento;
-                              const config = DOC_TYPE_CONFIGS[tipo];
-                              updateDocumento(doc.id, (item) => ({
-                                ...item,
-                                tipoDocumento: tipo,
-                                boxCedente: { ...config.cedente },
-                                boxCessionaria: { ...config.cessionaria },
-                                boxResponsavel: { ...config.responsavel },
-                              }));
-                            }}>
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                {(Object.entries(DOC_TYPE_CONFIGS) as [TipoDocumento, DocTypeConfig][]).map(([key, cfg]) => (
-                                  <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
                           </div>
                         </div>
                         <Button variant="ghost" size="icon" onClick={() => removeDocumento(doc.id)}>
