@@ -26,6 +26,25 @@ interface OperacoesTableProps {
   onlyFormalizacao?: boolean;
 }
 
+function normalizeStage(value: unknown): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+function enrichWithFormalizacao(op: Operacao): Operacao {
+  const etapaNormalizada = normalizeStage(op.etapa);
+  const precisaFormalizacao = etapaNormalizada.includes('formalizacao');
+  return {
+    ...op,
+    etapaNormalizada,
+    precisaFormalizacao,
+    sinalizacaoGoldsign: precisaFormalizacao ? 'Enviar documentos para assinatura' : null,
+  };
+}
+
 const formatCurrency = (value: number | null) => {
   if (!value) return '-';
   return new Intl.NumberFormat('pt-BR', {
@@ -42,7 +61,6 @@ const formatDate = (date: string | null) => {
     return date;
   }
 };
-
 export function OperacoesTable({ filters, onlyFormalizacao = false }: OperacoesTableProps) {
   const [data, setData] = useState<Operacao[]>([]);
   const [isLoading, setIsLoading] = useState(true);
