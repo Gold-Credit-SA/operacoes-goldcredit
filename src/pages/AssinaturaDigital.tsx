@@ -468,6 +468,7 @@ export default function AssinaturaDigital() {
     setCedente(EMPTY_FORM);
     setResponsavel(EMPTY_FORM);
     setCedenteSelecionado(null);
+    setSociosDisponiveis([]);
     setLinks([]);
   };
 
