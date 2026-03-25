@@ -32,7 +32,7 @@ const DocumentoDetalhe = lazy(() => import("./pages/DocumentoDetalhe"));
 const AssinaturaDigital = lazy(() => import("./pages/AssinaturaDigital"));
 const AssinaturaToken = lazy(() => import("./pages/AssinaturaToken"));
 const AssinaturaOperacao = lazy(() => import("./pages/AssinaturaOperacao"));
-const OperacoesFormalizacao = lazy(() => import("./pages/OperacoesFormalizacao"));
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
