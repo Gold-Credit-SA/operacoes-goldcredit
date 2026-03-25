@@ -466,7 +466,7 @@ export default function AssinaturaDigital() {
   return (
     <div className="max-w-5xl space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Assinatura Digital</h1>
+        <h1 className="text-2xl font-bold text-foreground">GoldSign</h1>
         <p className="mt-1 text-sm text-muted-foreground">Envie varios documentos na mesma operacao e gere um link unico para assinatura em lote.</p>
       </div>
 
