@@ -280,7 +280,7 @@ export default function AssinaturaDigital() {
   const [incluirResponsavel, setIncluirResponsavel] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const temResponsavel = Boolean(responsavel.email && responsavel.cpfCnpj);
+  const temResponsavel = incluirResponsavel && Boolean(responsavel.email && responsavel.cpfCnpj);
   const documentoAtual = documentos.find((item) => item.id === documentoAtualId) || documentos[0] || null;
 
   useEffect(() => {
