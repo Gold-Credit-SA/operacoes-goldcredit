@@ -522,30 +522,6 @@ export default function AssinaturaDigital() {
               <CardDescription>Adicione os PDFs e selecione o tipo de documento da operacao.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Tipo do documento</Label>
-                <Select value={tipoDocumentoPadrao} onValueChange={(value) => {
-                  const tipo = value as TipoDocumento;
-                  setTipoDocumentoPadrao(tipo);
-                  const config = DOC_TYPE_CONFIGS[tipo];
-                  setDocumentos((prev) => prev.map((doc) => ({
-                    ...doc,
-                    tipoDocumento: tipo,
-                    boxCedente: { ...config.cedente },
-                    boxCessionaria: { ...config.cessionaria },
-                    boxResponsavel: { ...config.responsavel },
-                  })));
-                }}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.entries(DOC_TYPE_CONFIGS) as [TipoDocumento, DocTypeConfig][]).map(([key, cfg]) => (
-                      <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
 
               <label className="flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed p-6 transition-colors hover:border-primary/50 hover:bg-accent/30">
                 <Upload className="h-8 w-8 text-muted-foreground" />
