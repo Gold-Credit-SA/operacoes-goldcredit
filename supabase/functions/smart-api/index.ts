@@ -110,8 +110,6 @@ Deno.serve(async (req) => {
           url.searchParams.set('tipoSaida', 'json');
           url.searchParams.set('dataIniOperacao', dataIni);
           url.searchParams.set('dataFimOperacao', dataFim);
-          url.searchParams.set('dataIniPagamento', dataIni);
-          url.searchParams.set('dataFimPagamento', dataFim);
           if (page > 1) url.searchParams.set('page', String(page));
 
           const res = await fetch(url.toString(), {
