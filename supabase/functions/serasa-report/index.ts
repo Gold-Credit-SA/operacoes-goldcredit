@@ -6,11 +6,21 @@ const corsHeaders = {
 };
 
 // Map consultaId to Serasa report names and default score models
-const REPORT_MAP: Record<string, { reportName: string; type: 'PF' | 'PJ'; defaultScoreModel?: string; defaultOptionalFeatures?: string }> = {
+const REPORT_MAP: Record<string, { reportName: string; type: 'PF' | 'PJ'; defaultScoreModel?: string; defaultOptionalFeatures?: string; segmentCode?: string; extraParams?: Array<{ name: string; value: string }> }> = {
   serasa_basico_pf: { reportName: 'RELATORIO_BASICO_PF_PME', type: 'PF' },
   serasa_avancado_top_score_pf: { reportName: 'RELATORIO_AVANCADO_TOP_SCORE_PF_PME', type: 'PF', defaultScoreModel: 'HRLD' },
   serasa_basico_pj: { reportName: 'RELATORIO_BASICO_PJ_PME', type: 'PJ', defaultScoreModel: 'H4PJ' },
-  serasa_avancado_pj: { reportName: 'RELATORIO_AVANCADO_PJ_PME', type: 'PJ', defaultScoreModel: 'H4PJ' },
+  serasa_avancado_pj: {
+    reportName: 'RELATORIO_AVANCADO_PJ_PME_ANALITICO',
+    type: 'PJ',
+    defaultScoreModel: 'H4PJ',
+    segmentCode: '028',
+    extraParams: [
+      { name: 'LIMITE_CREDITO', value: 'HLC3' },
+      { name: 'RISCO_NOVAS_EMPRESAS', value: 'HNE3' },
+      { name: 'PONTUALIDADE_PAGAMENTO', value: 'HIP3' },
+    ],
+  },
 };
 
 /** Encode reportParameters as base64 for Serasa API */
@@ -26,7 +36,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { document, consultaId, optionalFeatures, federalUnit, scoreModel } = body;
+    const { document, consultaId, optionalFeatures, federalUnit, scoreModel, segmentCode } = body;
 
     // Backwards compatibility: accept old format too
     const doc = document || body.cpf || body.cnpj;
@@ -88,7 +98,7 @@ serve(async (req) => {
     // Step 1: Authenticate
     const basicAuth = btoa(`${clientId}:${clientSecret}`);
     const authUrl = `${baseUrl}/security/iam/v1/client-identities/login`;
-    console.log('Calling auth URL:', authUrl);
+    console.log('[serasa-report] Auth URL:', authUrl);
 
     const authRes = await fetch(authUrl, {
       method: 'POST',
@@ -99,7 +109,7 @@ serve(async (req) => {
     });
 
     const authText = await authRes.text();
-    console.log('Serasa auth response status:', authRes.status);
+    console.log('[serasa-report] Auth status:', authRes.status);
 
     if (!authRes.ok) {
       return new Response(JSON.stringify({ error: `Erro na autenticação Serasa: ${authRes.status}`, details: authText.substring(0, 500) }), {
@@ -118,15 +128,18 @@ serve(async (req) => {
       });
     }
 
-    const accessToken = authData.accessToken || authData.access_token;
+    // Robust token extraction - handle all known field names from Serasa
+    const accessToken = authData.accessToken || authData.AcessToken || authData.access_token || authData.token || authData.Token;
+    const tokenType = authData.tokenType || authData.token_type || 'Bearer';
     if (!accessToken) {
-      return new Response(JSON.stringify({ error: 'Token de acesso não retornado pela Serasa' }), {
+      console.error('[serasa-report] Auth response keys:', Object.keys(authData));
+      return new Response(JSON.stringify({ error: 'Token de acesso não retornado pela Serasa', authKeys: Object.keys(authData) }), {
         status: 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Serasa auth successful, fetching report:', reportConfig.reportName);
+    console.log('[serasa-report] Auth OK. Report:', reportConfig.reportName, '| consultaId:', cId);
 
     // Step 2: Build report URL based on PF vs PJ
     const reportPath = isPF
@@ -135,42 +148,70 @@ serve(async (req) => {
 
     let reportUrl = `${baseUrl}${reportPath}?reportName=${reportConfig.reportName}`;
 
-    // Add federalUnit - required by Serasa for PF reports
+    // Add federalUnit - required by Serasa
     const uf = federalUnit || 'SP';
     reportUrl += `&federalUnit=${uf}`;
 
-    // Optional features are disabled for advanced PJ by default because many contracts reject them
-    const effectiveOptionalFeatures = cId === 'serasa_avancado_pj'
-      ? undefined
-      : (optionalFeatures || reportConfig.defaultOptionalFeatures);
+    // Optional features
+    const effectiveOptionalFeatures = optionalFeatures || reportConfig.defaultOptionalFeatures;
     if (effectiveOptionalFeatures) {
       reportUrl += `&optionalFeatures=${effectiveOptionalFeatures}`;
     }
 
-    // Build reportParameters for score model if applicable
+    // Build reportParameters - segmentCode goes INSIDE reportParameters per Serasa docs
+    const effectiveSegmentCode = segmentCode || reportConfig.segmentCode;
+
     const reportParams: Array<{ name: string; value: string }> = [];
 
-    // Use provided score model or default from config
+    // Score model
     const effectiveScoreModel = scoreModel || reportConfig.defaultScoreModel;
     if (effectiveScoreModel) {
       reportParams.push({ name: 'SCORE', value: effectiveScoreModel });
+    }
+
+    // Extra params from config (LIMITE_CREDITO, RISCO_NOVAS_EMPRESAS, PONTUALIDADE_PAGAMENTO)
+    if (reportConfig.extraParams) {
+      reportParams.push(...reportConfig.extraParams);
+    }
+
+    // segmentCode inside reportParameters (required for analytic reports)
+    if (effectiveSegmentCode) {
+      reportParams.push({ name: 'segmentCode', value: effectiveSegmentCode });
     }
 
     // Encode and append reportParameters if any exist
     if (reportParams.length > 0) {
       const encoded = encodeReportParameters(reportParams);
       reportUrl += `&reportParameters=${encoded}`;
-      console.log('reportParameters (decoded):', JSON.stringify({ reportParameters: reportParams }));
+      console.log('[serasa-report] reportParameters (decoded):', JSON.stringify({ reportParameters: reportParams }));
     }
 
-    console.log('Report URL:', reportUrl);
+    console.log('[serasa-report] Report URL:', reportUrl);
 
-    // Build headers
+    // Build headers - include all required Serasa headers
     const reportHeaders: Record<string, string> = {
-      'Authorization': `Bearer ${accessToken}`,
+      'Authorization': `${tokenType} ${accessToken}`,
       'Content-Type': 'application/json',
       'X-Document-Id': cleanDoc,
     };
+
+    // X-Retailer-Document-Id is the CNPJ of the company making the query (retailer/consultante)
+    // Some Serasa contracts require this for analytic reports
+    const retailerDoc = Deno.env.get('SERASA_RETAILER_DOCUMENT') || '';
+    if (retailerDoc) {
+      reportHeaders['X-Retailer-Document-Id'] = retailerDoc.replace(/\D/g, '');
+    }
+
+    // X-Cost-Center if configured
+    const costCenter = Deno.env.get('SERASA_COST_CENTER') || '';
+    if (costCenter) {
+      reportHeaders['X-Cost-Center'] = costCenter;
+    }
+
+    console.log('[serasa-report] Headers:', JSON.stringify({
+      ...reportHeaders,
+      Authorization: `${tokenType} ***REDACTED***`,
+    }));
 
     const reportRes = await fetch(reportUrl, {
       method: 'GET',
@@ -180,24 +221,36 @@ serve(async (req) => {
     const reportText = await reportRes.text();
 
     if (!reportRes.ok) {
-      console.error('Serasa report error:', reportRes.status, reportText.substring(0, 500));
+      console.error('[serasa-report] Report error:', reportRes.status, reportText.substring(0, 1000));
 
       let errorMessage = `Erro ao consultar relatório Serasa: ${reportRes.status}`;
+      let errorDetails: any = null;
       try {
         const errArr = JSON.parse(reportText);
+        errorDetails = errArr;
         if (Array.isArray(errArr) && errArr[0]?.message) {
           const msg = errArr[0].message;
           if (msg.includes('DOCUMENT_NOT_FOUND')) {
             errorMessage = isPF
               ? 'CPF não encontrado na base da Serasa Experian.'
               : 'CNPJ não encontrado na base da Serasa Experian.';
+          } else if (msg.includes('INVALID-REQUEST') || msg.includes('412')) {
+            errorMessage = `Requisição inválida pela Serasa: ${msg}. Verifique se o relatório ${reportConfig.reportName} está habilitado no contrato.`;
           } else {
             errorMessage = msg;
           }
         }
       } catch {}
 
-      return new Response(JSON.stringify({ error: errorMessage }), {
+      return new Response(JSON.stringify({ 
+        error: errorMessage, 
+        debug: {
+          reportName: reportConfig.reportName,
+          consultaId: cId,
+          httpStatus: reportRes.status,
+          errorDetails: errorDetails,
+        }
+      }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -213,7 +266,16 @@ serve(async (req) => {
       });
     }
 
-    console.log('Serasa report fetched successfully for', cId);
+    // Log which data blocks are present for debugging
+    const topKeys = Object.keys(reportData || {});
+    const reportObj = reportData?.reports?.[0] || reportData;
+    const reportKeys = Object.keys(reportObj || {});
+    console.log('[serasa-report] Success for', cId, '| Top keys:', topKeys.join(','), '| Report keys:', reportKeys.join(','));
+    
+    // Check for behavioral/positive data presence
+    const hasBehavioral = !!(reportObj?.behavioralData || reportObj?.positiveData);
+    const hasOptionalFeatures = !!reportObj?.optionalFeatures;
+    console.log('[serasa-report] hasBehavioralData:', hasBehavioral, '| hasOptionalFeatures:', hasOptionalFeatures);
 
     return new Response(JSON.stringify({ data: reportData }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -221,7 +283,7 @@ serve(async (req) => {
 
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erro interno';
-    console.error('serasa-report error:', message);
+    console.error('[serasa-report] Error:', message);
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
