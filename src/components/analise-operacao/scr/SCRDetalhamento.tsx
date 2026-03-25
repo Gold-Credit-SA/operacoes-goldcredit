@@ -98,7 +98,8 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
   const nonLimiteCats = categoryOrder.filter(c => c !== 'limite');
   const activeCats = nonLimiteCats.filter(c => opsByCategory[c].length > 0);
 
-  const chartData = BUCKET_ORDER.map(bucket => {
+  // Build chart data for a-vencer buckets
+  const aVencerChartData = BUCKET_AVENCER_ORDER.map(bucket => {
     const point: Record<string, any> = { bucket, name: BUCKET_SHORT[bucket] || bucket };
     activeCats.forEach(cat => {
       let sum = 0;
@@ -111,8 +112,22 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
     return point;
   }).filter(p => activeCats.some(c => (p[c] || 0) > 0));
 
-  const totalGeral = (latestDtb.lsOp || []).filter(op => !isLimiteOp(op)).reduce((s, op) => s + calcTotalVenc(op.resVenc), 0);
-  const dtbLabel = formatDtb(latestDtb.dtb);
+  // Build chart data for vencido buckets
+  const vencidoChartData = BUCKET_VENCIDO_ORDER.map(bucket => {
+    const point: Record<string, any> = { bucket, name: BUCKET_SHORT[bucket] || bucket };
+    activeCats.forEach(cat => {
+      let sum = 0;
+      opsByCategory[cat].forEach(op => {
+        const { vencidos } = separateVencBuckets(op.resVenc);
+        sum += vencidos[bucket] || 0;
+      });
+      point[cat] = sum;
+    });
+    return point;
+  }).filter(p => activeCats.some(c => (p[c] || 0) > 0));
+
+  const hasAVencerChart = aVencerChartData.length > 0;
+  const hasVencidoChart = vencidoChartData.length > 0;
 
   return (
     <div className="space-y-6">
