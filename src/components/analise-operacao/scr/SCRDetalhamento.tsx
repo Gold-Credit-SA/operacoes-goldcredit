@@ -34,8 +34,11 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   outros_creditos: <BarChart3 className="h-5 w-5 text-chart-4" />,
 };
 
-const BUCKET_ORDER = ['v110', 'v120', 'v130', 'v140', 'v150', 'v160', 'v165', 'v170', 'v175', 'v180', 'v190', 'v200'];
+const BUCKET_AVENCER_ORDER = ['v110', 'v120', 'v130', 'v140', 'v150', 'v160', 'v165', 'v170', 'v175', 'v180', 'v190', 'v200'];
+const BUCKET_VENCIDO_ORDER = ['v20', 'v30', 'v40', 'v50', 'v60', 'v70', 'v80', 'v90', 'v100'];
 const BUCKET_SHORT: Record<string, string> = {
+  v20: '≤15d', v30: '1-30d', v40: '31-60d', v50: '61-90d', v60: '91-180d',
+  v70: '241-300d', v80: '301-360d', v90: '361-720d', v100: '+720d',
   v110: '30', v120: '60', v130: '90', v140: '180', v150: '360',
   v160: '720', v165: '+720', v170: '1080', v175: '1440', v180: '1800', v190: '5400', v200: '+5400',
 };
@@ -95,7 +98,8 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
   const nonLimiteCats = categoryOrder.filter(c => c !== 'limite');
   const activeCats = nonLimiteCats.filter(c => opsByCategory[c].length > 0);
 
-  const chartData = BUCKET_ORDER.map(bucket => {
+  // Build chart data for a-vencer buckets
+  const aVencerChartData = BUCKET_AVENCER_ORDER.map(bucket => {
     const point: Record<string, any> = { bucket, name: BUCKET_SHORT[bucket] || bucket };
     activeCats.forEach(cat => {
       let sum = 0;
@@ -108,8 +112,29 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
     return point;
   }).filter(p => activeCats.some(c => (p[c] || 0) > 0));
 
+  // Build chart data for vencido buckets
+  const vencidoChartData = BUCKET_VENCIDO_ORDER.map(bucket => {
+    const point: Record<string, any> = { bucket, name: BUCKET_SHORT[bucket] || bucket };
+    activeCats.forEach(cat => {
+      let sum = 0;
+      opsByCategory[cat].forEach(op => {
+        const { vencidos } = separateVencBuckets(op.resVenc);
+        sum += vencidos[bucket] || 0;
+      });
+      point[cat] = sum;
+    });
+    return point;
+  }).filter(p => activeCats.some(c => (p[c] || 0) > 0));
+
+  const hasAVencerChart = aVencerChartData.length > 0;
+  const hasVencidoChart = vencidoChartData.length > 0;
+
   const totalGeral = (latestDtb.lsOp || []).filter(op => !isLimiteOp(op)).reduce((s, op) => s + calcTotalVenc(op.resVenc), 0);
   const dtbLabel = formatDtb(latestDtb.dtb);
+
+  // Use whichever chart has data; prefer a-vencer, fallback to vencido
+  const chartData = hasAVencerChart ? aVencerChartData : vencidoChartData;
+  const hasChart = chartData.length > 0;
 
   return (
     <div className="space-y-6">
@@ -122,29 +147,37 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
             {/* Chart */}
             <div>
-              {chartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={280}>
-                  <AreaChart data={chartData} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
-                    <YAxis tickFormatter={formatCompact} tick={{ fontSize: 10 }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} width={80} />
-                    <Tooltip content={<ChartTooltip />} />
-                    {activeCats.map(cat => (
-                      <Area
-                        key={cat}
-                        type="monotone"
-                        dataKey={cat}
-                        name={CATEGORY_LABELS[cat]}
-                        stroke={CHART_COLORS[cat]}
-                        fill={CHART_COLORS[cat]}
-                        fillOpacity={0.15}
-                        strokeWidth={2}
-                      />
-                    ))}
-                  </AreaChart>
-                </ResponsiveContainer>
+              {hasChart ? (
+                <div className="space-y-2">
+                  {!hasAVencerChart && hasVencidoChart && (
+                    <p className="text-xs font-medium text-destructive uppercase tracking-wide">Créditos Vencidos</p>
+                  )}
+                  {hasAVencerChart && (
+                    <p className="text-xs font-medium text-primary uppercase tracking-wide">Créditos a Vencer</p>
+                  )}
+                  <ResponsiveContainer width="100%" height={260}>
+                    <AreaChart data={chartData} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
+                      <YAxis tickFormatter={formatCompact} tick={{ fontSize: 10 }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} width={80} />
+                      <Tooltip content={<ChartTooltip />} />
+                      {activeCats.map(cat => (
+                        <Area
+                          key={cat}
+                          type="monotone"
+                          dataKey={cat}
+                          name={CATEGORY_LABELS[cat]}
+                          stroke={hasAVencerChart ? CHART_COLORS[cat] : 'hsl(var(--destructive))'}
+                          fill={hasAVencerChart ? CHART_COLORS[cat] : 'hsl(var(--destructive))'}
+                          fillOpacity={0.15}
+                          strokeWidth={2}
+                        />
+                      ))}
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
               ) : (
                 <div className="flex items-center justify-center h-[280px] text-muted-foreground text-sm">
-                  Sem dados de créditos a vencer para exibir no gráfico.
+                  Sem dados para exibir no gráfico.
                 </div>
               )}
             </div>
