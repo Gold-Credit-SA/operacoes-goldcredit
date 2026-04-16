@@ -834,8 +834,8 @@ async function enrichLawsuitMovements(
   let currentUrl: string | null = nextPageUrl;
 
   for (let page = 0; page < 10 && currentUrl; page += 1) {
-    const result = await tryJson<unknown>(resolveAgriskUrl(currentUrl), token, 15000);
-    if (!result.ok || result.data == null) {
+    const pageResult: TryJsonResult<unknown> = await tryJson<unknown>(resolveAgriskUrl(currentUrl), token, 15000);
+    if (!pageResult.ok || pageResult.data == null) {
       break;
     }
 
