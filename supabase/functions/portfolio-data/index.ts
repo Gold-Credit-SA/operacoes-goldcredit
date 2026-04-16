@@ -40,19 +40,19 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Use getClaims for token validation (doesn't require active server session)
+    // Validate token using getUser
     const supabaseAuth = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!
     );
     const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: userData, error: userError } = await supabaseAuth.auth.getUser(token);
+    if (userError || !userData?.user) {
       return new Response(JSON.stringify({ error: 'Token inválido' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    const user = { id: claimsData.claims.sub as string, email: claimsData.claims.email as string };
+    const user = { id: userData.user.id, email: userData.user.email as string };
 
     const { action, cedente_cpf_cnpj, user_id, assignment_id, status, rejection_reason, data_inicio, data_fim, periodo_meses, registros } = await req.json();
 
