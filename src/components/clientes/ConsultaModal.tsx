@@ -108,6 +108,10 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): 
 }
 
 async function runSingleConsulta(cnpj: string, id: ConsultaTypeId): Promise<Record<string, unknown>> {
+  const getFunctionErrorMessage = (error: any, data: any, fallback: string) => {
+    return data?.error || data?.message || error?.context?.error || error?.message || fallback;
+  };
+
   if (id === 'smart_cedente') {
     const { data, error } = await supabase.functions.invoke('external-db', {
       body: { action: 'cedente-info', filters: { cpf_cnpj: cnpj } },
@@ -119,22 +123,21 @@ async function runSingleConsulta(cnpj: string, id: ConsultaTypeId): Promise<Reco
 
   if (id === 'scr') {
     const { data, error } = await supabase.functions.invoke('hbi-scr', { body: { cnpj } });
-    if (error) throw new Error(error.message || 'Erro SCR');
-    if (data?.error) throw new Error(data.error);
+    if (error) throw new Error(getFunctionErrorMessage(error, data, 'Erro SCR'));
+    if (data?.ok === false || data?.error) throw new Error(getFunctionErrorMessage(error, data, 'Erro SCR'));
     return data?.data || data;
   }
   if (id.startsWith('serasa_')) {
     const { data, error } = await supabase.functions.invoke('serasa-report', { body: { document: cnpj, consultaId: id } });
-    if (error) throw new Error(error.message || 'Erro Serasa');
-    if (data?.error) throw new Error(data.error);
+    if (error) throw new Error(getFunctionErrorMessage(error, data, 'Erro Serasa'));
+    if (data?.ok === false || data?.error) throw new Error(getFunctionErrorMessage(error, data, 'Erro Serasa'));
     return data?.data || data;
   }
-  // AgRisk
   const { data, error } = await supabase.functions.invoke('agrisk-query', {
     body: { taxId: cnpj.replace(/\D/g, ''), consultaType: id },
   });
-  if (error) throw new Error(error.message || 'Erro AgRisk');
-  if (data?.error) throw new Error(data.error);
+  if (error) throw new Error(getFunctionErrorMessage(error, data, 'Erro AgRisk'));
+  if (data?.ok === false || data?.error) throw new Error(getFunctionErrorMessage(error, data, 'Erro AgRisk'));
   return data?.data || data;
 }
 

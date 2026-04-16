@@ -118,7 +118,7 @@ serve(async (req) => {
     if (action === "list-products") {
       const token = await agriskLogin();
       const products = await listProducts(token);
-      return json({ data: products });
+      return json({ ok: true, data: products });
     }
 
     if (action === "register-client") {
@@ -135,10 +135,9 @@ serve(async (req) => {
 
     return await handleConsulta(body);
   } catch (error) {
-    console.error("[agrisk-query] error:", error);
-    return json({
-      error: error instanceof Error ? error.message : "Erro interno ao consultar AgRisk.",
-    });
+    const message = error instanceof Error ? error.message : "Erro interno ao consultar AgRisk.";
+    console.error("[agrisk-query] error:", message, error);
+    return json({ ok: false, error: message });
   }
 });
 
@@ -147,7 +146,7 @@ async function handleFileProxy(req: Request): Promise<Response> {
   const filePath = url.searchParams.get("file");
 
   if (!filePath) {
-    return json({ error: "Missing file parameter" }, 400);
+    return json({ ok: false, error: "Missing file parameter" });
   }
 
   try {
@@ -179,17 +178,17 @@ async function handleFileProxy(req: Request): Promise<Response> {
       }
     }
 
-    return json({ error: "Arquivo nao encontrado" }, 404);
+    return json({ ok: false, error: "Arquivo nao encontrado" });
   } catch (error) {
     console.error("[agrisk-query] file proxy error:", error);
-    return json({ error: "Erro ao buscar arquivo" }, 500);
+    return json({ ok: false, error: "Erro ao buscar arquivo" });
   }
 }
 
 async function handleRegisterClient(body: Record<string, unknown>): Promise<Response> {
   const taxId = sanitizeTaxId(body?.taxId);
   if (!taxId) {
-    return json({ error: "taxId e obrigatorio." }, 400);
+    return json({ ok: false, error: "taxId e obrigatorio." });
   }
 
   const token = await agriskLogin();
@@ -201,6 +200,7 @@ async function handleRegisterClient(body: Record<string, unknown>): Promise<Resp
   ]);
 
   return json({
+    ok: true,
     data: {
       clientId,
       clientData: clientDataResult.data,
@@ -214,14 +214,14 @@ async function handleFetchExistingDetails(body: Record<string, unknown>): Promis
   const queryId = asString(body?.queryId);
 
   if (!clientId) {
-    return json({ error: "clientId e obrigatorio." }, 400);
+    return json({ ok: false, error: "clientId e obrigatorio." });
   }
 
   const token = await agriskLogin();
   const queryRefs = await waitForQueryRefs(token, clientId);
   const details = await fetchConsultaClienteDetails(token, clientId, queryRefs, queryId);
 
-  return json({ data: details });
+  return json({ ok: true, data: details });
 }
 
 async function handleFetchLawsuitDetail(body: Record<string, unknown>): Promise<Response> {
@@ -230,6 +230,7 @@ async function handleFetchLawsuitDetail(body: Record<string, unknown>): Promise<
 
   if (!clientId || !lawsuitId) {
     return json({
+      ok: false,
       data: null,
       error: "clientId e lawsuitId sao obrigatorios.",
     });
@@ -240,14 +241,14 @@ async function handleFetchLawsuitDetail(body: Record<string, unknown>): Promise<
 
   if (!detail) {
     return json({
+      ok: false,
       data: null,
       error: "Nao foi possivel carregar o detalhe do processo.",
     });
   }
 
-  // Always return what we have, even if Updates is empty
   console.log(`[handleFetchLawsuitDetail] returning detail: _id=${asString(detail._id)} Updates=${Array.isArray(detail.Updates) ? detail.Updates.length : "none"} keys=${Object.keys(detail).join(",")}`);
-  return json({ data: detail });
+  return json({ ok: true, data: detail });
 }
 
 async function handleConsulta(body: Record<string, unknown>): Promise<Response> {
@@ -255,7 +256,7 @@ async function handleConsulta(body: Record<string, unknown>): Promise<Response> 
   const consultaType = asConsultaType(body?.consultaType);
 
   if (!taxId || !consultaType) {
-    return json({ error: "taxId e consultaType sao obrigatorios." }, 400);
+    return json({ ok: false, error: "taxId e consultaType sao obrigatorios." });
   }
 
   const token = await agriskLogin();
@@ -265,6 +266,7 @@ async function handleConsulta(body: Record<string, unknown>): Promise<Response> 
 
   if (!product) {
     return json({
+      ok: false,
       error: `Nenhum produto AgRisk compativel encontrado para '${consultaType}'.`,
     });
   }
@@ -272,6 +274,7 @@ async function handleConsulta(body: Record<string, unknown>): Promise<Response> 
   const productId = product._id || product.id;
   if (!productId) {
     return json({
+      ok: false,
       error: `Produto AgRisk sem identificador para '${consultaType}'.`,
     });
   }
@@ -312,11 +315,18 @@ async function handleConsulta(body: Record<string, unknown>): Promise<Response> 
 
   if (!resultData) {
     return json({
+      ok: false,
       error: "Consulta enviada, mas nao foi possivel obter os resultados detalhados.",
+      diagnostics: { clientId, consultaType, queryRefsCount: queryRefs.length },
     });
   }
 
+  const responseDetails = consultaType === "consulta_cliente"
+    ? resultData
+    : { details: resultData };
+
   return json({
+    ok: true,
     data: {
       clientId,
       product: {
@@ -327,7 +337,7 @@ async function handleConsulta(body: Record<string, unknown>): Promise<Response> 
       },
       queryRefs,
       result: resultData,
-      ...(consultaType === "consulta_cliente" ? resultData : { details: resultData }),
+      ...responseDetails,
     },
   });
 }
@@ -824,21 +834,21 @@ async function enrichLawsuitMovements(
   let currentUrl: string | null = nextPageUrl;
 
   for (let page = 0; page < 10 && currentUrl; page += 1) {
-    const result = await tryJson<unknown>(resolveAgriskUrl(currentUrl), token, 15000);
-    if (!result.ok || result.data == null) {
+    const pageResult: TryJsonResult<unknown> = await tryJson<unknown>(resolveAgriskUrl(currentUrl), token, 15000);
+    if (!pageResult.ok || pageResult.data == null) {
       break;
     }
 
-    const pageUpdates = extractLawsuitUpdates(result.data);
+    const pageUpdates = extractLawsuitUpdates(pageResult.data);
     if (pageUpdates.length > 0) {
       collected.push(...pageUpdates);
     }
 
-    if (typeof result.data === "object" && !Array.isArray(result.data)) {
+    if (typeof pageResult.data === "object" && !Array.isArray(pageResult.data)) {
       currentUrl =
-        asString((result.data as Record<string, unknown>).NextPageUrlMovements) ||
-        asString((result.data as Record<string, unknown>).nextPageUrlMovements) ||
-        asString((result.data as Record<string, unknown>).nextPageUrl) ||
+        asString((pageResult.data as Record<string, unknown>).NextPageUrlMovements) ||
+        asString((pageResult.data as Record<string, unknown>).nextPageUrlMovements) ||
+        asString((pageResult.data as Record<string, unknown>).nextPageUrl) ||
         null;
     } else {
       currentUrl = null;

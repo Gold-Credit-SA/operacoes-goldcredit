@@ -661,8 +661,8 @@ function ProcessDetailContent({ process, agriskClientId }: { process: Record<str
     }).then(({ data, error }) => {
       if (cancelled) return;
       console.log('[ProcessDetail] detail response:', { error, hasData: !!data?.data, updatesLength: Array.isArray(data?.data?.Updates) ? data.data.Updates.length : 'none', keys: data?.data ? Object.keys(data.data) : [] });
-      if (error || !data?.data) {
-        setLoadingError(error?.message || 'Não foi possível carregar o detalhe completo do processo.');
+      if (error || data?.ok === false || !data?.data) {
+        setLoadingError(data?.error || error?.message || 'Não foi possível carregar o detalhe completo do processo.');
         return;
       }
       setDetailProcess((current) => ({ ...current, ...data.data, detailLoaded: true }));
