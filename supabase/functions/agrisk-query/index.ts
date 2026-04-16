@@ -17,8 +17,7 @@ type ConsultaType =
   | "cpr"
   | "imoveis_simples"
   | "imoveis_car"
-  | "patrimonio_veicular"
-  | "armazens";
+  | "patrimonio_veicular";
 
 type Product = {
   _id?: string;
@@ -49,7 +48,6 @@ const PRODUCT_HINTS: Record<ConsultaType, string[]> = {
   imoveis_simples: ["pesquisa-imoveis", "imoveis rurais - simples", "rural simples"],
   imoveis_car: ["car", "cadastro ambiental rural", "imoveis rurais - car"],
   patrimonio_veicular: ["vehicle-assets", "veicular", "patrimonio veicular"],
-  armazens: ["armazem", "armazens", "warehouse", "conab", "silo", "armazéns"],
 };
 
 const KNOWN_QUERY_SERVICES = [
@@ -292,9 +290,6 @@ async function handleConsulta(body: Record<string, unknown>): Promise<Response> 
     case "patrimonio_veicular":
       resultData = await fetchPatrimonioVeicular(token, queryRefs);
       break;
-    case "armazens":
-      resultData = await fetchArmazens(token, clientId, queryRefs);
-      break;
   }
 
   if (!resultData) {
@@ -425,10 +420,57 @@ async function getOrCreateClient(token: string, taxId: string): Promise<string> 
 }
 
 async function findClientByTaxId(token: string, taxId: string): Promise<string | null> {
-  let page = 1;
-  let nextPage = true;
+  // 1) Tentar busca direta por taxId via query params (evita paginação total)
+  const directSearchUrls = [
+    `${AGRISK_BASE}/v2/clients?taxId=${taxId}&filter=all`,
+    `${AGRISK_BASE}/v2/clients?search=${taxId}&filter=all`,
+    `${AGRISK_BASE}/v2/clients?document=${taxId}&filter=all`,
+    `${AGRISK_BASE}/clients?taxId=${taxId}`,
+  ];
 
-  while (nextPage && page <= 100) {
+  for (const searchUrl of directSearchUrls) {
+    const result = await tryJson<{ items?: Record<string, unknown>[]; _id?: string; id?: string }>(
+      searchUrl,
+      token,
+      8000,
+    );
+
+    if (result.ok && result.data) {
+      // Resposta pode ser um objeto único ou uma lista
+      if (asString((result.data as Record<string, unknown>)._id) || asString((result.data as Record<string, unknown>).id)) {
+        const singleId = asString((result.data as Record<string, unknown>)._id) || asString((result.data as Record<string, unknown>).id);
+        if (singleId) {
+          console.log(`[findClientByTaxId] found via direct search at ${searchUrl}: ${singleId}`);
+          return singleId;
+        }
+      }
+
+      const items = Array.isArray(result.data.items) ? result.data.items : [];
+      const found = items.find((client) => {
+        const clientTaxId =
+          sanitizeTaxId(client.taxId) ||
+          sanitizeTaxId(client.document) ||
+          sanitizeTaxId(client.cpf) ||
+          sanitizeTaxId(client.cnpj);
+        return clientTaxId === taxId;
+      });
+
+      if (found) {
+        const id = asString(found._id) || asString(found.id);
+        if (id) {
+          console.log(`[findClientByTaxId] found via search items at ${searchUrl}: ${id}`);
+          return id;
+        }
+      }
+    }
+  }
+
+  // 2) Fallback: paginação completa sem limite fixo
+  let page = 1;
+  let hasNextPage = true;
+  const MAX_PAGES = 200; // aumentado de 100 para 200
+
+  while (hasNextPage && page <= MAX_PAGES) {
     const result = await tryJson<{ items?: Record<string, unknown>[]; nextPage?: boolean }>(
       `${AGRISK_BASE}/v2/clients?filter=all&page=${page}`,
       token,
@@ -440,15 +482,29 @@ async function findClientByTaxId(token: string, taxId: string): Promise<string |
     }
 
     const items = Array.isArray(result.data.items) ? result.data.items : [];
-    const found = items.find((client) => sanitizeTaxId(client.taxId) === taxId);
+    const found = items.find((client) => {
+      // Tenta múltiplos campos onde o taxId pode estar armazenado
+      const clientTaxId =
+        sanitizeTaxId(client.taxId) ||
+        sanitizeTaxId(client.document) ||
+        sanitizeTaxId(client.cpf) ||
+        sanitizeTaxId(client.cnpj);
+      return clientTaxId === taxId;
+    });
+
     if (found) {
-      return asString(found._id) || asString(found.id);
+      const id = asString(found._id) || asString(found.id);
+      if (id) {
+        console.log(`[findClientByTaxId] found via pagination page=${page}: ${id}`);
+        return id;
+      }
     }
 
-    nextPage = Boolean(result.data.nextPage);
+    hasNextPage = Boolean(result.data.nextPage);
     page += 1;
   }
 
+  console.log(`[findClientByTaxId] client not found for taxId=${taxId} after ${page - 1} pages`);
   return null;
 }
 
@@ -610,6 +666,25 @@ async function fetchConsultaClienteDetails(
       details[config.outputKey] = await enrichCprDetails(token, clientId, data as Record<string, unknown>);
     } else {
       details[config.outputKey] = data;
+    }
+  }
+
+  // Busca adicional de compliance diretamente pelo clientId (fallback para PF)
+  if (!details.compliance) {
+    const complianceFallback = await tryJson(`${AGRISK_BASE}/queries/clients/${clientId}/compliance`, token, 10000);
+    if (complianceFallback.ok && complianceFallback.data) {
+      details.compliance = complianceFallback.data;
+      console.log(`[fetchConsultaClienteDetails] compliance fetched via fallback direct endpoint`);
+    }
+  }
+
+  // Normaliza estrutura do compliance: garante que campos aninhados estejam acessíveis
+  if (details.compliance && typeof details.compliance === "object") {
+    const comp = details.compliance as Record<string, unknown>;
+    // Suporta compliance.item, compliance.data, ou compliance direto
+    const inner = (comp.item || comp.data || comp) as Record<string, unknown>;
+    if (inner !== comp) {
+      details.compliance = inner;
     }
   }
 
@@ -888,22 +963,6 @@ async function fetchPatrimonioVeicular(token: string, queryRefs: QueryRef[]): Pr
   return data as Record<string, unknown> | null;
 }
 
-async function fetchArmazens(
-  token: string,
-  clientId: string,
-  queryRefs: QueryRef[],
-): Promise<Record<string, unknown> | null> {
-  const ref = findQueryRef(queryRefs, ["armazem", "armazens", "warehouse", "conab", "silo"]);
-  if (!ref?.queryId) return null;
-
-  const data = await pollForReadyData(
-    () => tryJson(`${AGRISK_BASE}/queries/clients/${clientId}/armazens/${ref.queryId}`, token, 15000),
-    isReadyResult,
-  );
-
-  return data as Record<string, unknown> | null;
-}
-
 function findQueryRef(queryRefs: QueryRef[], matchers: string[]): QueryRef | null {
   const normalizedMatchers = matchers.map(normalizeText);
   const ranked = queryRefs
@@ -980,123 +1039,4 @@ function hasLawsuitTimeline(detail: Record<string, unknown> | null): boolean {
   if (!detail) return false;
 
   return (
-    extractLawsuitUpdates(detail).length > 0 ||
-    (Array.isArray(detail.Decisions) && detail.Decisions.length > 0) ||
-    (Array.isArray(detail.Petitions) && detail.Petitions.length > 0)
-  );
-}
-
-function extractLawsuitUpdates(payload: unknown): Record<string, unknown>[] {
-  if (Array.isArray(payload)) {
-    return payload.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"));
-  }
-
-  if (!payload || typeof payload !== "object") {
-    return [];
-  }
-
-  const record = payload as Record<string, unknown>;
-  const directCandidates = [record.Updates, record.updates, record.Movements, record.movements, record.items];
-
-  for (const candidate of directCandidates) {
-    if (Array.isArray(candidate)) {
-      return candidate.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"));
-    }
-  }
-
-  return [];
-}
-
-function resolveAgriskUrl(url: string): string {
-  if (/^https?:\/\//i.test(url)) {
-    return url;
-  }
-
-  return `${AGRISK_BASE}${url.startsWith("/") ? url : `/${url}`}`;
-}
-
-async function tryJson<T = unknown>(url: string, token: string, timeoutMs = 8000): Promise<TryJsonResult<T>> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: controller.signal,
-    });
-
-    const text = await res.text();
-    let data: T | null = null;
-
-    try {
-      data = text ? JSON.parse(text) : null;
-    } catch {
-      data = null;
-    }
-
-    if (!res.ok) {
-      return {
-        ok: false,
-        status: res.status,
-        data,
-        error: text || `HTTP ${res.status}`,
-      };
-    }
-
-    return { ok: true, status: res.status, data };
-  } catch (error) {
-    return {
-      ok: false,
-      status: 0,
-      data: null,
-      error: error instanceof Error ? error.message : "Erro desconhecido",
-    };
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-function sanitizeTaxId(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const digits = value.replace(/\D/g, "");
-  return digits.length === 11 || digits.length === 14 ? digits : null;
-}
-
-function asConsultaType(value: unknown): ConsultaType | null {
-  if (typeof value !== "string") return null;
-  const allowed: ConsultaType[] = [
-    "consulta_cliente",
-    "restritivos",
-    "endividamento",
-    "cpr",
-    "imoveis_simples",
-    "imoveis_car",
-    "patrimonio_veicular",
-    "armazens",
-  ];
-
-  return allowed.includes(value as ConsultaType) ? (value as ConsultaType) : null;
-}
-
-function asString(value: unknown): string | null {
-  return typeof value === "string" && value ? value : null;
-}
-
-function normalizeText(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
+    extractLawsuitUpdates(detail).length > 0
