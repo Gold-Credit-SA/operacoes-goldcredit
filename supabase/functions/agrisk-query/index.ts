@@ -844,11 +844,11 @@ async function enrichLawsuitMovements(
       collected.push(...pageUpdates);
     }
 
-    if (typeof result.data === "object" && !Array.isArray(result.data)) {
+    if (typeof pageResult.data === "object" && !Array.isArray(pageResult.data)) {
       currentUrl =
-        asString((result.data as Record<string, unknown>).NextPageUrlMovements) ||
-        asString((result.data as Record<string, unknown>).nextPageUrlMovements) ||
-        asString((result.data as Record<string, unknown>).nextPageUrl) ||
+        asString((pageResult.data as Record<string, unknown>).NextPageUrlMovements) ||
+        asString((pageResult.data as Record<string, unknown>).nextPageUrlMovements) ||
+        asString((pageResult.data as Record<string, unknown>).nextPageUrl) ||
         null;
     } else {
       currentUrl = null;
