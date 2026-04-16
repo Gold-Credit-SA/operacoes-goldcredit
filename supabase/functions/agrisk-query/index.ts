@@ -337,9 +337,6 @@ async function handleConsulta(body: Record<string, unknown>): Promise<Response> 
     },
   });
 }
-    },
-  });
-}
 
 async function agriskLogin(): Promise<string> {
   const credential = Deno.env.get("AGRISK_CREDENTIAL");
