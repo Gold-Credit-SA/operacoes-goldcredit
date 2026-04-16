@@ -219,10 +219,13 @@ function normalizeResponseData(rawData: Record<string, any>, consultaType?: stri
   }
 
   // ── Compliance (Ambiental + Trabalhista merged) ──
-  const compliance = hasConsultaClientePayload ? (details.compliance?.item || details.compliance) : null;
+  const rawCompliance = hasConsultaClientePayload ? details.compliance : null;
+  const compliance = rawCompliance
+    ? (rawCompliance?.item || rawCompliance?.data || rawCompliance)
+    : null;
   const complianceItems: SubItem[] = [];
 
-  const envData = compliance?.environmental;
+  const envData = compliance?.environmental || compliance?.ambiental || compliance?.env;
   if (envData) {
     const ambientalEntries: any[] = [];
 
@@ -267,9 +270,9 @@ function normalizeResponseData(rawData: Record<string, any>, consultaType?: stri
     });
   }
 
-  if (compliance?.labour || compliance?.criminal) {
-    const l = compliance.labour || {};
-    const c = compliance.criminal || {};
+  if (compliance?.labour || compliance?.labor || compliance?.trabalhista || compliance?.criminal || compliance?.penal) {
+    const l = compliance.labour || compliance.labor || compliance.trabalhista || {};
+    const c = compliance.criminal || compliance.penal || {};
     const trabEntries: any[] = [];
 
     trabEntries.push({
@@ -457,14 +460,20 @@ function LawsuitsContent({ items, agriskClientId }: { items: SubItem[]; agriskCl
   }
 
   const ls = items[0]?.data || {};
-  const list: any[] = ls.items || [];
+    const list: any[] = ls.items || ls.data?.items || ls.lawsuits || [];
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProcess, setSelectedProcess] = useState<any | null>(null);
 
-  const total = (ls.active || 0) + (ls.inactive || 0) + (ls.indefinite || 0);
-  const civil = ls.civil || 0;
-  const criminal = ls.criminal || 0;
-  const trabalhista = ls.labour || 0;
+  const activeCount = ls.active ?? ls.totalActive ?? ls.quantityActive ?? ls.activeCount ?? 0;
+  const inactiveCount = ls.inactive ?? ls.totalInactive ?? ls.quantityInactive ?? ls.inactiveCount ?? 0;
+  const indefiniteCount = ls.indefinite ?? ls.indeterminate ?? ls.totalIndeterminate ?? ls.indefiniteCount ?? 0;
+  const total = activeCount + inactiveCount + indefiniteCount || list.length;
+  const civil = ls.civil ?? ls.totalCivil ?? ls.quantityCivil ??
+    list.filter((p: any) => (p.Nature || p.CourtType || p.Type || '').toLowerCase().includes('civ')).length;
+  const criminal = ls.criminal ?? ls.totalCriminal ?? ls.quantityCriminal ??
+    list.filter((p: any) => (p.Nature || p.CourtType || p.Type || '').toLowerCase().includes('crim')).length;
+  const trabalhista = ls.labour ?? ls.labor ?? ls.totalLabour ?? ls.trabalhista ??
+    list.filter((p: any) => (p.Nature || p.CourtType || p.Type || '').toLowerCase().includes('trab')).length;
 
   const filtered = list.filter(p => {
     if (!searchTerm) return true;
@@ -494,9 +503,9 @@ function LawsuitsContent({ items, agriskClientId }: { items: SubItem[]; agriskCl
             <p className="text-xs font-semibold text-muted-foreground uppercase">Processos</p>
             <p className="text-3xl font-bold text-foreground">{total}</p>
             <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
-              <span>Ativo <strong className="text-foreground">{ls.active || 0}</strong></span>
-              <span>Passivo <strong className="text-foreground">{ls.defendant || 0}</strong></span>
-              <span>Outros <strong className="text-foreground">{ls.indefinite || 0}</strong></span>
+              <span>Ativo <strong className="text-foreground">{activeCount}</strong></span>
+              <span>Passivo <strong className="text-foreground">{(ls.defendant ?? ls.passive ?? 0)}</strong></span>
+              <span>Outros <strong className="text-foreground">{indefiniteCount}</strong></span>
             </div>
           </CardContent>
         </Card>
@@ -504,9 +513,9 @@ function LawsuitsContent({ items, agriskClientId }: { items: SubItem[]; agriskCl
           <CardContent className="py-3 px-4">
             <p className="text-xs font-semibold text-muted-foreground uppercase">Status</p>
             <div className="flex gap-4 mt-2 text-xs">
-              <div><p className="text-muted-foreground">Ativos</p><p className="text-lg font-bold text-foreground">{ls.active || 0}</p></div>
-              <div><p className="text-muted-foreground">Finalizados</p><p className="text-lg font-bold text-foreground">{ls.inactive || 0}</p></div>
-              <div><p className="text-muted-foreground">Indefinidos</p><p className="text-lg font-bold text-foreground">{ls.indefinite || 0}</p></div>
+              <div><p className="text-muted-foreground">Ativos</p><p className="text-lg font-bold text-foreground">{activeCount}</p></div>
+              <div><p className="text-muted-foreground">Finalizados</p><p className="text-lg font-bold text-foreground">{inactiveCount}</p></div>
+              <div><p className="text-muted-foreground">Indefinidos</p><p className="text-lg font-bold text-foreground">{indefiniteCount}</p></div>
             </div>
           </CardContent>
         </Card>

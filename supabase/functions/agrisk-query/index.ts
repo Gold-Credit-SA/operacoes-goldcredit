@@ -449,30 +449,89 @@ async function getOrCreateClient(token: string, taxId: string): Promise<string> 
 }
 
 async function findClientByTaxId(token: string, taxId: string): Promise<string | null> {
-  let page = 1;
-  let nextPage = true;
+  // 1) Busca direta por taxId (evita paginar tudo)
+  const directSearchUrls = [
+    `${AGRISK_BASE}/v2/clients?taxId=${taxId}&filter=all`,
+    `${AGRISK_BASE}/v2/clients?search=${taxId}&filter=all`,
+    `${AGRISK_BASE}/v2/clients?document=${taxId}&filter=all`,
+    `${AGRISK_BASE}/clients?taxId=${taxId}`,
+  ];
 
-  while (nextPage && page <= 100) {
+  for (const searchUrl of directSearchUrls) {
+    const result = await tryJson<{ items?: Record<string, unknown>[]; _id?: string; id?: string }>(
+      searchUrl,
+      token,
+      8000,
+    );
+
+    if (result.ok && result.data) {
+      const singleId =
+        asString((result.data as Record<string, unknown>)._id) ||
+        asString((result.data as Record<string, unknown>).id);
+      if (singleId) {
+        console.log(`[findClientByTaxId] found via direct search at ${searchUrl}: ${singleId}`);
+        return singleId;
+      }
+
+      const items = Array.isArray(result.data.items) ? result.data.items : [];
+      const found = items.find((client) => {
+        const clientTaxId =
+          sanitizeTaxId(client.taxId) ||
+          sanitizeTaxId(client.document) ||
+          sanitizeTaxId(client.cpf) ||
+          sanitizeTaxId(client.cnpj);
+        return clientTaxId === taxId;
+      });
+
+      if (found) {
+        const id = asString(found._id) || asString(found.id);
+        if (id) {
+          console.log(`[findClientByTaxId] found via search items at ${searchUrl}: ${id}`);
+          return id;
+        }
+      }
+    }
+  }
+
+  // 2) Fallback: paginação completa (limite aumentado para 200)
+  let page = 1;
+  let hasNextPage = true;
+  const MAX_PAGES = 200;
+
+  while (hasNextPage && page <= MAX_PAGES) {
     const result = await tryJson<{ items?: Record<string, unknown>[]; nextPage?: boolean }>(
       `${AGRISK_BASE}/v2/clients?filter=all&page=${page}`,
       token,
       8000,
     );
 
-    if (!result.ok || !result.data) {
+    if (\!result.ok || \!result.data) {
       break;
     }
 
     const items = Array.isArray(result.data.items) ? result.data.items : [];
-    const found = items.find((client) => sanitizeTaxId(client.taxId) === taxId);
+    const found = items.find((client) => {
+      const clientTaxId =
+        sanitizeTaxId(client.taxId) ||
+        sanitizeTaxId(client.document) ||
+        sanitizeTaxId(client.cpf) ||
+        sanitizeTaxId(client.cnpj);
+      return clientTaxId === taxId;
+    });
+
     if (found) {
-      return asString(found._id) || asString(found.id);
+      const id = asString(found._id) || asString(found.id);
+      if (id) {
+        console.log(`[findClientByTaxId] found via pagination page=${page}: ${id}`);
+        return id;
+      }
     }
 
-    nextPage = Boolean(result.data.nextPage);
+    hasNextPage = Boolean(result.data.nextPage);
     page += 1;
   }
 
+  console.log(`[findClientByTaxId] not found for taxId=${taxId} after ${page - 1} pages`);
   return null;
 }
 
@@ -656,6 +715,23 @@ async function fetchConsultaClienteDetails(
       details[config.outputKey] = await enrichCprDetails(token, clientId, data as Record<string, unknown>);
     } else {
       details[config.outputKey] = data;
+    }
+  }
+
+  // Fallback compliance para PF quando nao vem via queryRefs
+  if (\!details.compliance) {
+    const complianceFallback = await tryJson(`${AGRISK_BASE}/queries/clients/${clientId}/compliance`, token, 10000);
+    if (complianceFallback.ok && complianceFallback.data) {
+      details.compliance = complianceFallback.data;
+    }
+  }
+
+  // Normaliza compliance: unwrap item/data se necessario
+  if (details.compliance && typeof details.compliance === "object") {
+    const comp = details.compliance as Record<string, unknown>;
+    const inner = (comp.item || comp.data || comp) as Record<string, unknown>;
+    if (inner \!== comp) {
+      details.compliance = inner;
     }
   }
 
