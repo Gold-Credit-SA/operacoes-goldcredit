@@ -839,7 +839,7 @@ async function enrichLawsuitMovements(
       break;
     }
 
-    const pageUpdates = extractLawsuitUpdates(result.data);
+    const pageUpdates = extractLawsuitUpdates(pageResult.data);
     if (pageUpdates.length > 0) {
       collected.push(...pageUpdates);
     }
