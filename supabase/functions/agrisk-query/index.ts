@@ -7,8 +7,8 @@ const corsHeaders = {
 };
 
 const AGRISK_BASE = "https://api.agrisk.digital";
-const POLL_DELAY_MS = 2500;
-const POLL_ATTEMPTS = 8;
+const POLL_DELAY_MS = 3000;
+const POLL_ATTEMPTS = 12;
 
 type ConsultaType =
   | "consulta_cliente"
@@ -17,7 +17,8 @@ type ConsultaType =
   | "cpr"
   | "imoveis_simples"
   | "imoveis_car"
-  | "patrimonio_veicular";
+  | "patrimonio_veicular"
+  | "armazens";
 
 type Product = {
   _id?: string;
@@ -48,6 +49,19 @@ const PRODUCT_HINTS: Record<ConsultaType, string[]> = {
   imoveis_simples: ["pesquisa-imoveis", "imoveis rurais - simples", "rural simples"],
   imoveis_car: ["car", "cadastro ambiental rural", "imoveis rurais - car"],
   patrimonio_veicular: ["vehicle-assets", "veicular", "patrimonio veicular"],
+  armazens: ["armazem", "armazens", "warehouse", "conab", "silo", "armazéns", "registered-warehouses"],
+};
+
+// Service keys each consulta type needs — empty = wait for all
+const RELEVANT_SERVICES: Record<ConsultaType, string[]> = {
+  consulta_cliente: [],
+  restritivos: ["credit-restrictive", "credit-restrictives", "restritivo"],
+  endividamento: ["scr", "endividamento"],
+  cpr: ["cpr", "cerc-publicidade"],
+  imoveis_simples: ["pesquisa-imoveis"],
+  imoveis_car: ["car"],
+  patrimonio_veicular: ["vehicle-assets"],
+  armazens: ["registered-warehouses", "armazem", "armazens"],
 };
 
 const KNOWN_QUERY_SERVICES = [
@@ -264,7 +278,8 @@ async function handleConsulta(body: Record<string, unknown>): Promise<Response> 
 
   const queryRequest = await requestQuery(token, clientId, [productId]);
   const initialRefs = extractQueryRefs(queryRequest);
-  const queryRefs = await waitForQueryRefs(token, clientId, initialRefs);
+  const relevantKeys = RELEVANT_SERVICES[consultaType];
+  const queryRefs = await waitForQueryRefs(token, clientId, initialRefs, relevantKeys);
 
   let resultData: Record<string, unknown> | null = null;
 
@@ -289,6 +304,9 @@ async function handleConsulta(body: Record<string, unknown>): Promise<Response> 
       break;
     case "patrimonio_veicular":
       resultData = await fetchPatrimonioVeicular(token, queryRefs);
+      break;
+    case "armazens":
+      resultData = await fetchArmazens(token, clientId, queryRefs);
       break;
   }
 
@@ -382,11 +400,14 @@ function findBestProduct(products: Product[], hints: string[]): Product | null {
 }
 
 async function getOrCreateClient(token: string, taxId: string): Promise<string> {
+  console.log(`[getOrCreateClient] searching for taxId=${taxId}`);
   const existing = await findClientByTaxId(token, taxId);
   if (existing) {
+    console.log(`[getOrCreateClient] found existing client: ${existing}`);
     return existing;
   }
 
+  console.log(`[getOrCreateClient] not found, creating new client...`);
   const res = await fetch(`${AGRISK_BASE}/clients`, {
     method: "POST",
     headers: {
@@ -397,6 +418,8 @@ async function getOrCreateClient(token: string, taxId: string): Promise<string> 
   });
 
   const text = await res.text();
+  console.log(`[getOrCreateClient] POST /clients status=${res.status} body=${text.substring(0, 500)}`);
+  
   let data: Record<string, unknown> | null = null;
 
   try {
@@ -410,67 +433,26 @@ async function getOrCreateClient(token: string, taxId: string): Promise<string> 
     if (id) return id;
   }
 
+  // Try to extract clientId from error response (duplicate client)
   const duplicateId =
     (data && (asString(data.clientId) || asString(data.id) || asString(data._id))) || extractClientIdFromText(text);
   if (duplicateId) {
+    console.log(`[getOrCreateClient] found duplicate clientId: ${duplicateId}`);
     return duplicateId;
   }
 
-  throw new Error("Nao foi possivel cadastrar ou localizar o cliente informado no AgRisk.");
+  // Last resort: check if error message contains useful info
+  const rawMsg = data?.message;
+  const errorMsg = Array.isArray(rawMsg) ? rawMsg.join('; ') : (asString(rawMsg) || asString(data?.error) || text);
+  console.error(`[getOrCreateClient] failed to create/find client. Error: ${errorMsg}`);
+  throw new Error(errorMsg || 'Nao foi possivel cadastrar o cliente no AgRisk.');
 }
 
 async function findClientByTaxId(token: string, taxId: string): Promise<string | null> {
-  // 1) Tentar busca direta por taxId via query params (evita paginação total)
-  const directSearchUrls = [
-    `${AGRISK_BASE}/v2/clients?taxId=${taxId}&filter=all`,
-    `${AGRISK_BASE}/v2/clients?search=${taxId}&filter=all`,
-    `${AGRISK_BASE}/v2/clients?document=${taxId}&filter=all`,
-    `${AGRISK_BASE}/clients?taxId=${taxId}`,
-  ];
-
-  for (const searchUrl of directSearchUrls) {
-    const result = await tryJson<{ items?: Record<string, unknown>[]; _id?: string; id?: string }>(
-      searchUrl,
-      token,
-      8000,
-    );
-
-    if (result.ok && result.data) {
-      // Resposta pode ser um objeto único ou uma lista
-      if (asString((result.data as Record<string, unknown>)._id) || asString((result.data as Record<string, unknown>).id)) {
-        const singleId = asString((result.data as Record<string, unknown>)._id) || asString((result.data as Record<string, unknown>).id);
-        if (singleId) {
-          console.log(`[findClientByTaxId] found via direct search at ${searchUrl}: ${singleId}`);
-          return singleId;
-        }
-      }
-
-      const items = Array.isArray(result.data.items) ? result.data.items : [];
-      const found = items.find((client) => {
-        const clientTaxId =
-          sanitizeTaxId(client.taxId) ||
-          sanitizeTaxId(client.document) ||
-          sanitizeTaxId(client.cpf) ||
-          sanitizeTaxId(client.cnpj);
-        return clientTaxId === taxId;
-      });
-
-      if (found) {
-        const id = asString(found._id) || asString(found.id);
-        if (id) {
-          console.log(`[findClientByTaxId] found via search items at ${searchUrl}: ${id}`);
-          return id;
-        }
-      }
-    }
-  }
-
-  // 2) Fallback: paginação completa sem limite fixo
   let page = 1;
-  let hasNextPage = true;
-  const MAX_PAGES = 200; // aumentado de 100 para 200
+  let nextPage = true;
 
-  while (hasNextPage && page <= MAX_PAGES) {
+  while (nextPage && page <= 100) {
     const result = await tryJson<{ items?: Record<string, unknown>[]; nextPage?: boolean }>(
       `${AGRISK_BASE}/v2/clients?filter=all&page=${page}`,
       token,
@@ -482,29 +464,15 @@ async function findClientByTaxId(token: string, taxId: string): Promise<string |
     }
 
     const items = Array.isArray(result.data.items) ? result.data.items : [];
-    const found = items.find((client) => {
-      // Tenta múltiplos campos onde o taxId pode estar armazenado
-      const clientTaxId =
-        sanitizeTaxId(client.taxId) ||
-        sanitizeTaxId(client.document) ||
-        sanitizeTaxId(client.cpf) ||
-        sanitizeTaxId(client.cnpj);
-      return clientTaxId === taxId;
-    });
-
+    const found = items.find((client) => sanitizeTaxId(client.taxId) === taxId);
     if (found) {
-      const id = asString(found._id) || asString(found.id);
-      if (id) {
-        console.log(`[findClientByTaxId] found via pagination page=${page}: ${id}`);
-        return id;
-      }
+      return asString(found._id) || asString(found.id);
     }
 
-    hasNextPage = Boolean(result.data.nextPage);
+    nextPage = Boolean(result.data.nextPage);
     page += 1;
   }
 
-  console.log(`[findClientByTaxId] client not found for taxId=${taxId} after ${page - 1} pages`);
   return null;
 }
 
@@ -589,11 +557,19 @@ function walkQueryPayload(payload: unknown, refs: QueryRef[], serviceKey?: strin
   }
 }
 
-async function waitForQueryRefs(token: string, clientId: string, initialRefs: QueryRef[] = []): Promise<QueryRef[]> {
+async function waitForQueryRefs(
+  token: string,
+  clientId: string,
+  initialRefs: QueryRef[] = [],
+  relevantKeys: string[] = [],
+): Promise<QueryRef[]> {
   const merged = new Map<string, QueryRef>();
   for (const ref of initialRefs) {
     merged.set(ref.serviceKey, ref);
   }
+
+  const normalizedRelevant = relevantKeys.map(normalizeText);
+  const hasFilter = normalizedRelevant.length > 0;
 
   for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
     const result = await tryJson<Record<string, unknown>>(`${AGRISK_BASE}/queries/clients/${clientId}`, token, 8000);
@@ -604,10 +580,24 @@ async function waitForQueryRefs(token: string, clientId: string, initialRefs: Qu
         merged.set(ref.serviceKey, ref);
       }
 
-      const hasRefs = merged.size > 0;
-      const hasPending = Array.from(merged.values()).some((ref) => isPendingStatus(ref.status));
+      const allRefs = Array.from(merged.values());
 
-      if (hasRefs && !hasPending) {
+      // If we have a filter, only check relevant services
+      const refsToCheck = hasFilter
+        ? allRefs.filter((ref) => normalizedRelevant.some((k) => normalizeText(ref.serviceKey).includes(k)))
+        : allRefs;
+
+      const pendingRefs = refsToCheck.filter((ref) => isPendingStatus(ref.status));
+      const totalPending = allRefs.filter((ref) => isPendingStatus(ref.status)).length;
+
+      console.log(
+        `[waitForQueryRefs] attempt=${attempt + 1}/${POLL_ATTEMPTS} total=${allRefs.length} ` +
+        `relevant=${refsToCheck.length} relevantPending=${pendingRefs.length} totalPending=${totalPending}` +
+        (pendingRefs.length > 0 ? ` waiting=[${pendingRefs.map((r) => `${r.serviceKey}:${r.status}`).join(", ")}]` : ""),
+      );
+
+      if (refsToCheck.length > 0 && pendingRefs.length === 0) {
+        console.log(`[waitForQueryRefs] relevant services ready, proceeding (${totalPending} unrelated still pending)`);
         break;
       }
     }
@@ -666,25 +656,6 @@ async function fetchConsultaClienteDetails(
       details[config.outputKey] = await enrichCprDetails(token, clientId, data as Record<string, unknown>);
     } else {
       details[config.outputKey] = data;
-    }
-  }
-
-  // Busca adicional de compliance diretamente pelo clientId (fallback para PF)
-  if (!details.compliance) {
-    const complianceFallback = await tryJson(`${AGRISK_BASE}/queries/clients/${clientId}/compliance`, token, 10000);
-    if (complianceFallback.ok && complianceFallback.data) {
-      details.compliance = complianceFallback.data;
-      console.log(`[fetchConsultaClienteDetails] compliance fetched via fallback direct endpoint`);
-    }
-  }
-
-  // Normaliza estrutura do compliance: garante que campos aninhados estejam acessíveis
-  if (details.compliance && typeof details.compliance === "object") {
-    const comp = details.compliance as Record<string, unknown>;
-    // Suporta compliance.item, compliance.data, ou compliance direto
-    const inner = (comp.item || comp.data || comp) as Record<string, unknown>;
-    if (inner !== comp) {
-      details.compliance = inner;
     }
   }
 
@@ -963,6 +934,45 @@ async function fetchPatrimonioVeicular(token: string, queryRefs: QueryRef[]): Pr
   return data as Record<string, unknown> | null;
 }
 
+async function fetchArmazens(
+  token: string,
+  clientId: string,
+  queryRefs: QueryRef[],
+): Promise<Record<string, unknown> | null> {
+  const ref = findQueryRef(queryRefs, ["registered-warehouses", "armazem", "armazens", "warehouse", "conab", "silo"]);
+  if (!ref?.queryId) {
+    console.log(`[fetchArmazens] no matching queryRef found. Available: ${queryRefs.map(r => r.serviceKey).join(", ")}`);
+    return null;
+  }
+
+  console.log(`[fetchArmazens] using ref serviceKey=${ref.serviceKey} queryId=${ref.queryId} status=${ref.status}`);
+
+  // Try multiple possible endpoint paths
+  const endpoints = [
+    `/v2/queries/clients/${clientId}/registered-warehouses/${ref.queryId}`,
+    `/queries/clients/${clientId}/registered-warehouses/${ref.queryId}`,
+    `/queries/clients/${clientId}/armazens/${ref.queryId}`,
+    `/v2/queries/clients/${clientId}/armazens/${ref.queryId}`,
+  ];
+
+  for (const path of endpoints) {
+    const data = await pollForReadyData(
+      () => tryJson(`${AGRISK_BASE}${path}`, token, 15000),
+      isReadyResult,
+    );
+    if (data && typeof data === "object") {
+      const text = JSON.stringify(data);
+      if (text.length > 10 && text !== "{}" && text !== "[]") {
+        console.log(`[fetchArmazens] success with path=${path}`);
+        return data as Record<string, unknown>;
+      }
+    }
+  }
+
+  console.log(`[fetchArmazens] all endpoint paths failed`);
+  return null;
+}
+
 function findQueryRef(queryRefs: QueryRef[], matchers: string[]): QueryRef | null {
   const normalizedMatchers = matchers.map(normalizeText);
   const ranked = queryRefs
@@ -1032,11 +1042,130 @@ function isReadyResult(data: unknown): boolean {
 function isPendingStatus(status?: string): boolean {
   if (!status) return false;
   const normalized = normalizeText(status);
-  return /(pending|process|queue|running|requested|aguardando|andamento)/.test(normalized);
+  return /(pending|process|queue|running|requested|aguardando|andamento|fila)/.test(normalized);
 }
 
 function hasLawsuitTimeline(detail: Record<string, unknown> | null): boolean {
   if (!detail) return false;
 
   return (
-    extractLawsuitUpdates(detail).length > 0
+    extractLawsuitUpdates(detail).length > 0 ||
+    (Array.isArray(detail.Decisions) && detail.Decisions.length > 0) ||
+    (Array.isArray(detail.Petitions) && detail.Petitions.length > 0)
+  );
+}
+
+function extractLawsuitUpdates(payload: unknown): Record<string, unknown>[] {
+  if (Array.isArray(payload)) {
+    return payload.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"));
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return [];
+  }
+
+  const record = payload as Record<string, unknown>;
+  const directCandidates = [record.Updates, record.updates, record.Movements, record.movements, record.items];
+
+  for (const candidate of directCandidates) {
+    if (Array.isArray(candidate)) {
+      return candidate.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"));
+    }
+  }
+
+  return [];
+}
+
+function resolveAgriskUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+
+  return `${AGRISK_BASE}${url.startsWith("/") ? url : `/${url}`}`;
+}
+
+async function tryJson<T = unknown>(url: string, token: string, timeoutMs = 8000): Promise<TryJsonResult<T>> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    });
+
+    const text = await res.text();
+    let data: T | null = null;
+
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = null;
+    }
+
+    if (!res.ok) {
+      return {
+        ok: false,
+        status: res.status,
+        data,
+        error: text || `HTTP ${res.status}`,
+      };
+    }
+
+    return { ok: true, status: res.status, data };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      data: null,
+      error: error instanceof Error ? error.message : "Erro desconhecido",
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function sanitizeTaxId(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const digits = value.replace(/\D/g, "");
+  return digits.length === 11 || digits.length === 14 ? digits : null;
+}
+
+function asConsultaType(value: unknown): ConsultaType | null {
+  if (typeof value !== "string") return null;
+  const allowed: ConsultaType[] = [
+    "consulta_cliente",
+    "restritivos",
+    "endividamento",
+    "cpr",
+    "imoveis_simples",
+    "imoveis_car",
+    "patrimonio_veicular",
+    "armazens",
+  ];
+
+  return allowed.includes(value as ConsultaType) ? (value as ConsultaType) : null;
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === "string" && value ? value : null;
+}
+
+function normalizeText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}

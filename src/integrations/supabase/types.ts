@@ -119,6 +119,86 @@ export type Database = {
         }
         Relationships: []
       }
+      credit_analysis_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          session_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          session_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_analysis_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "credit_analysis_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_analysis_sessions: {
+        Row: {
+          cedente_cpf_cnpj: string | null
+          cedente_data: Json | null
+          cedente_nome: string | null
+          client_consultations: Json | null
+          client_cpf_cnpj: string
+          client_id: string
+          client_name: string | null
+          created_at: string
+          created_by: string
+          documents: Json | null
+          id: string
+          initial_analysis: Json | null
+          updated_at: string
+        }
+        Insert: {
+          cedente_cpf_cnpj?: string | null
+          cedente_data?: Json | null
+          cedente_nome?: string | null
+          client_consultations?: Json | null
+          client_cpf_cnpj: string
+          client_id: string
+          client_name?: string | null
+          created_at?: string
+          created_by: string
+          documents?: Json | null
+          id?: string
+          initial_analysis?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          cedente_cpf_cnpj?: string | null
+          cedente_data?: Json | null
+          cedente_nome?: string | null
+          client_consultations?: Json | null
+          client_cpf_cnpj?: string
+          client_id?: string
+          client_name?: string | null
+          created_at?: string
+          created_by?: string
+          documents?: Json | null
+          id?: string
+          initial_analysis?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       email_send_log: {
         Row: {
           created_at: string

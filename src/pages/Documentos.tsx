@@ -216,6 +216,13 @@ function OperacaoDetailDialog({
 }) {
   if (!operacao) return null;
 
+  const getLinkPublico = (item: SolicitacaoResumo) => {
+    if (item.link_operacao && item.bundle_token) {
+      return getPublicOperationUrl(item.bundle_token, item.link_operacao);
+    }
+    return getPublicSigningUrl(item.token_acesso, item.link_assinatura);
+  };
+
   const opStatus = getOperacaoStatus(operacao.signatarios);
   const cedenteItem = operacao.signatarios.find((s) => s.papel_assinatura === 'cedente');
   const nomeOperacao = cedenteItem?.signatario_nome || operacao.signatarios[0]?.signatario_nome || 'Sem nome';

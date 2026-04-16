@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -41,23 +41,36 @@ export default function ChangePassword() {
     const { error: pwError } = await supabase.auth.updateUser({ password: newPassword });
 
     if (pwError) {
-      toast({ title: 'Erro', description: 'Não foi possível alterar a senha. Tente novamente.', variant: 'destructive' });
+      const msg = pwError.message?.includes('been pwned')
+        ? 'Esta senha é muito comum e foi encontrada em vazamentos de dados. Escolha uma senha mais segura.'
+        : pwError.message?.includes('same_password')
+        ? 'A nova senha não pode ser igual à senha atual.'
+        : pwError.message || 'Não foi possível alterar a senha. Tente novamente.';
+      toast({ title: 'Erro', description: msg, variant: 'destructive' });
       setLoading(false);
       return;
     }
 
-    // Mark password as changed
     if (user) {
-      await supabase
-        .from('profiles')
-        .update({ must_change_password: false } as any)
-        .eq('user_id', user.id);
+      const { data, error: flagError } = await supabase.functions.invoke('complete-initial-password-change', {
+        body: {},
+      });
+
+      if (flagError || data?.error) {
+        toast({
+          title: 'Erro',
+          description: data?.error || flagError?.message || 'A senha foi alterada, mas não foi possível concluir o primeiro acesso.',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
     }
 
     await refreshProfile();
 
     toast({ title: 'Senha alterada!', description: 'Sua nova senha foi salva com sucesso.' });
-    navigate('/consulta', { replace: true });
+    navigate('/painel', { replace: true });
   };
 
   return (
@@ -81,9 +94,8 @@ export default function ChangePassword() {
               <Label htmlFor="new-password">Nova Senha</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
+                <PasswordInput
                   id="new-password"
-                  type="password"
                   placeholder="••••••••"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
@@ -97,9 +109,8 @@ export default function ChangePassword() {
               <Label htmlFor="confirm-password">Confirmar Nova Senha</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
+                <PasswordInput
                   id="confirm-password"
-                  type="password"
                   placeholder="••••••••"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -118,6 +129,16 @@ export default function ChangePassword() {
               ) : (
                 'Salvar Nova Senha'
               )}
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => navigate('/login')}
+              disabled={loading}
+            >
+              Voltar ao Login
             </Button>
           </form>
         </CardContent>

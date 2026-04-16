@@ -25,25 +25,23 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-    // Client with user's token to verify claims
-    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    // Validate JWT using getClaims
+    // Validate token using getClaims (doesn't require active session on server)
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
     const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
     
     if (claimsError || !claimsData?.claims) {
-      console.error('Claims error:', claimsError);
+      console.error('Auth error:', claimsError);
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const userEmail = claimsData.claims.email as string;
-    const userId = claimsData.claims.sub as string;
+    const callingUser = { id: claimsData.claims.sub as string, email: claimsData.claims.email as string };
+
+    const userEmail = callingUser.email as string;
+    const userId = callingUser.id;
 
     // Check if user is master admin
     if (userEmail !== MASTER_EMAIL) {

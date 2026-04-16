@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import logoGoldCredit from '@/assets/logo-gold-credit.png';
@@ -35,9 +36,26 @@ export default function Login() {
     const { error } = await signIn(email, password);
 
     if (error) {
+      let description = 'Ocorreu um erro inesperado. Tente novamente.';
+      const msg = error.message?.toLowerCase() || '';
+      
+      if (msg.includes('invalid login credentials') || msg.includes('invalid_credentials')) {
+        description = 'E-mail ou senha inválidos. Verifique suas credenciais.';
+      } else if (msg.includes('email not confirmed')) {
+        description = 'E-mail ainda não confirmado. Verifique sua caixa de entrada.';
+      } else if (msg.includes('too many requests') || msg.includes('rate limit')) {
+        description = 'Muitas tentativas de login. Aguarde alguns minutos e tente novamente.';
+      } else if (msg.includes('network') || msg.includes('fetch')) {
+        description = 'Erro de conexão. Verifique sua internet e tente novamente.';
+      } else if (msg.includes('user not found')) {
+        description = 'Usuário não encontrado. Verifique o e-mail informado.';
+      } else {
+        description = `Erro: ${error.message}`;
+      }
+
       toast({
         title: 'Erro ao fazer login',
-        description: 'E-mail ou senha inválidos. Verifique suas credenciais.',
+        description,
         variant: 'destructive',
       });
       setLoading(false);
@@ -116,9 +134,8 @@ export default function Login() {
               <label htmlFor="password" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Senha
               </label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

@@ -66,7 +66,8 @@ function useBuckets(latestDtb: DtbEntry) {
 
   (latestDtb.lsOp || []).filter(op => !isLimiteOp(op)).forEach(op => {
     const { aVencer, vencidos } = separateVencBuckets(op.resVenc);
-    Object.entries(aVencer).forEach(([k, v]) => { aVencerBuckets[k] = (aVencerBuckets[k] || 0) + v; });
+    // Note: indeterminado buckets are intentionally excluded from both charts
+    // They represent credits with no defined maturity, NOT overdue credits
     Object.entries(vencidos).forEach(([k, v]) => { vencidoBuckets[k] = (vencidoBuckets[k] || 0) + v; });
   });
 

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, LogOut, Settings, Briefcase, ChevronDown, RefreshCw, BarChart3, Settings2, LayoutDashboard, Users, FileSignature, PenTool, FileText } from 'lucide-react';
+import { Search, LogOut, Settings, Briefcase, ChevronDown, RefreshCw, BarChart3, Settings2, LayoutDashboard, Users, FileSignature, PenTool, FileText, Brain, UserCheck } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,7 +33,9 @@ export function AppSidebar() {
 
   const navItemsAfter = [
     { path: '/clientes', label: 'Clientes', icon: Users },
+    { path: '/sacados', label: 'Sacados', icon: UserCheck },
     { path: '/consulta', label: 'Cedentes', icon: Search },
+    { path: '/analise-credito/novo', label: 'Análise de Crédito', icon: Brain },
     ...(isMaster ? [{ path: '/admin', label: 'Configurações', icon: Settings }] : []),
   ];
 

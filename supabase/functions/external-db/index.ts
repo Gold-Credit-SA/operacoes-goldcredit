@@ -338,6 +338,96 @@ Deno.serve(async (req) => {
         });
       }
 
+      case 'sacados-list': {
+        const search = filters?.search ? `%${filters.search}%` : null;
+        const result = await sql`
+          SELECT 
+            cpf_cnpj_sacado,
+            MAX(sacado) as nome,
+            COUNT(DISTINCT cpf_cnpj_cedente) as total_cedentes,
+            COALESCE(SUM(valor), 0) as exposicao_aberto,
+            COUNT(*) as titulos_aberto
+          FROM smartsecurities_titulos_em_aberto
+          WHERE cpf_cnpj_sacado IS NOT NULL
+            AND (${search}::text IS NULL OR sacado ILIKE ${search} OR cpf_cnpj_sacado ILIKE ${search})
+          GROUP BY cpf_cnpj_sacado
+          ORDER BY exposicao_aberto DESC
+          LIMIT 200
+        `;
+        return new Response(JSON.stringify({ success: true, data: result }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'sacado-detail': {
+        if (!filters?.cpf_cnpj) throw new Error('CPF/CNPJ do sacado é obrigatório');
+        const cpf = filters.cpf_cnpj.replace(/\D/g, '');
+
+        // Títulos em aberto
+        const aberto = await sql`
+          SELECT * FROM smartsecurities_titulos_em_aberto
+          WHERE REPLACE(REPLACE(REPLACE(cpf_cnpj_sacado, '.', ''), '-', ''), '/', '') = ${cpf}
+          ORDER BY vencimento ASC LIMIT 200
+        `;
+
+        // Títulos quitados
+        const quitados = await sql`
+          SELECT * FROM smartsecurities_titulos_quitados
+          WHERE REPLACE(REPLACE(REPLACE(cpf_cnpj_sacado, '.', ''), '-', ''), '/', '') = ${cpf}
+          ORDER BY quitacao DESC LIMIT 200
+        `;
+
+        // Cedentes vinculados
+        const cedentes = await sql`
+          SELECT DISTINCT cpf_cnpj_cedente, cedente as nome
+          FROM smartsecurities_titulos_em_aberto
+          WHERE REPLACE(REPLACE(REPLACE(cpf_cnpj_sacado, '.', ''), '-', ''), '/', '') = ${cpf}
+          UNION
+          SELECT DISTINCT cpf_cnpj_cedente, cedente as nome
+          FROM smartsecurities_titulos_quitados
+          WHERE REPLACE(REPLACE(REPLACE(cpf_cnpj_sacado, '.', ''), '-', ''), '/', '') = ${cpf}
+        `;
+
+        // Suspeita fraude
+        const fraude = await sql`
+          SELECT * FROM smartsecurities_titulos_quitados_suspeita_fraude
+          WHERE REPLACE(REPLACE(REPLACE(cpf_cnpj_sacado, '.', ''), '-', ''), '/', '') = ${cpf}
+          ORDER BY data_quitacao DESC LIMIT 50
+        `;
+
+        // Recomprados
+        const recomprados = await sql`
+          SELECT * FROM smartsecurities_titulos_recomprados
+          WHERE REPLACE(REPLACE(REPLACE(cpf_cnpj_sacado, '.', ''), '-', ''), '/', '') = ${cpf}
+          ORDER BY recompra DESC LIMIT 50
+        `;
+
+        // Resumo
+        const resumo = await sql`
+          SELECT
+            (SELECT COALESCE(SUM(valor), 0) FROM smartsecurities_titulos_em_aberto WHERE REPLACE(REPLACE(REPLACE(cpf_cnpj_sacado, '.', ''), '-', ''), '/', '') = ${cpf}) as total_aberto,
+            (SELECT COUNT(*)::int FROM smartsecurities_titulos_em_aberto WHERE REPLACE(REPLACE(REPLACE(cpf_cnpj_sacado, '.', ''), '-', ''), '/', '') = ${cpf}) as qtd_aberto,
+            (SELECT COALESCE(SUM(valor_face), 0) FROM smartsecurities_titulos_quitados WHERE REPLACE(REPLACE(REPLACE(cpf_cnpj_sacado, '.', ''), '-', ''), '/', '') = ${cpf}) as total_quitado,
+            (SELECT COUNT(*)::int FROM smartsecurities_titulos_quitados WHERE REPLACE(REPLACE(REPLACE(cpf_cnpj_sacado, '.', ''), '-', ''), '/', '') = ${cpf}) as qtd_quitado,
+            (SELECT COUNT(*)::int FROM smartsecurities_titulos_recomprados WHERE REPLACE(REPLACE(REPLACE(cpf_cnpj_sacado, '.', ''), '-', ''), '/', '') = ${cpf}) as qtd_recomprados,
+            (SELECT COUNT(*)::int FROM smartsecurities_titulos_quitados_suspeita_fraude WHERE REPLACE(REPLACE(REPLACE(cpf_cnpj_sacado, '.', ''), '-', ''), '/', '') = ${cpf}) as qtd_fraude
+        `;
+
+        return new Response(JSON.stringify({
+          success: true,
+          data: {
+            titulosAberto: aberto,
+            titulosQuitados: quitados,
+            cedentes,
+            fraude,
+            recomprados,
+            resumo: resumo[0],
+          }
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
       case 'socios-por-cedente': {
         if (!filters?.nome_cedente) {
           throw new Error('Nome do cedente é obrigatório');

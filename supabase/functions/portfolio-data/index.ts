@@ -40,13 +40,19 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
+    // Use getClaims for token validation (doesn't require active server session)
+    const supabaseAuth = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!
+    );
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-    if (authError || !user) {
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: 'Token inválido' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    const user = { id: claimsData.claims.sub as string, email: claimsData.claims.email as string };
 
     const { action, cedente_cpf_cnpj, user_id, assignment_id, status, rejection_reason, data_inicio, data_fim, periodo_meses, registros } = await req.json();
 
@@ -78,16 +84,15 @@ serve(async (req) => {
     }
 
     if (action === 'request-assignment') {
-      // All requests start as pending, regardless of role
-      const assignStatus = 'pending';
+      // Direct assignment — no approval needed
       const { data, error } = await supabaseAdmin.from('portfolio_assignments').insert({
         user_id: user_id || user.id,
         cedente_cpf_cnpj,
-        cedente_nome: null, // will be enriched below
-        status: assignStatus,
+        cedente_nome: null,
+        status: 'approved',
         requested_by: user.id,
-        approved_by: null,
-        approved_at: null,
+        approved_by: user.id,
+        approved_at: new Date().toISOString(),
       }).select().single();
 
       if (error) {
@@ -738,6 +743,32 @@ serve(async (req) => {
 
     // === GESTOR DASHBOARD ===
     if (action === 'gestor-dashboard') {
+      // Use date filters from body (already parsed above)
+      const filterDataInicio = data_inicio || null;
+      const filterDataFim = data_fim || null;
+
+      // Build SQL date clauses for operations/receitas
+      let receitaDateClause = "WHERE data_pagamento >= CURRENT_DATE - INTERVAL '6 months'";
+      let volumeDateClause = "WHERE data >= CURRENT_DATE - INTERVAL '6 months'";
+      let receitaMesClause = "WHERE TO_CHAR(data_pagamento, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')";
+      let inadDateClause = "WHERE vencimento < CURRENT_DATE";
+
+      if (filterDataInicio && filterDataFim) {
+        receitaDateClause = `WHERE data_pagamento >= '${filterDataInicio}' AND data_pagamento <= '${filterDataFim}'`;
+        volumeDateClause = `WHERE data >= '${filterDataInicio}' AND data <= '${filterDataFim}'`;
+        receitaMesClause = `WHERE data_pagamento >= '${filterDataInicio}' AND data_pagamento <= '${filterDataFim}'`;
+        inadDateClause = `WHERE vencimento < '${filterDataFim}' AND vencimento >= '${filterDataInicio}'`;
+      } else if (filterDataInicio) {
+        receitaDateClause = `WHERE data_pagamento >= '${filterDataInicio}'`;
+        volumeDateClause = `WHERE data >= '${filterDataInicio}'`;
+        receitaMesClause = `WHERE data_pagamento >= '${filterDataInicio}'`;
+      } else if (filterDataFim) {
+        receitaDateClause = `WHERE data_pagamento <= '${filterDataFim}'`;
+        volumeDateClause = `WHERE data <= '${filterDataFim}'`;
+        receitaMesClause = `WHERE data_pagamento <= '${filterDataFim}'`;
+        inadDateClause = `WHERE vencimento < '${filterDataFim}'`;
+      }
+
       // 1. Get approved cedentes for this user
       let assignQuery = supabaseAdmin.from('portfolio_assignments')
         .select('cedente_cpf_cnpj, cedente_nome')
@@ -748,23 +779,19 @@ serve(async (req) => {
       const { data: assignments } = await assignQuery;
       const cpfList = assignments?.map(a => a.cedente_cpf_cnpj) || [];
 
-      // Build set of portfolio company names for na_carteira flag
       const carteiraNomes = new Set(
         (assignments || []).map(a => (a.cedente_nome || '').toUpperCase().trim()).filter(Boolean)
       );
 
-      // 2. Connect to external DB for aniversariantes + trustee + cheques
       const conn = await connectExternalClient();
       try {
-        // 2a. Aniversariantes: ALL records globally, no portfolio filter
+        // --- ANIVERSARIANTES (global) ---
         const anivRes = await conn.queryObject(`
           SELECT a.nome, a.nascimento, a.empresa
           FROM smartsecurities_aniversariantes a
           WHERE a.nascimento IS NOT NULL
             AND a.empresa IS NOT NULL AND TRIM(a.empresa) != ''
         `);
-
-        const ph = cpfList.length > 0 ? cpfList.map((_, i) => `$${i + 1}`).join(',') : null;
 
         const today = new Date();
         const todayDay = today.getDate();
@@ -778,22 +805,14 @@ serve(async (req) => {
             if (isNaN(d.getTime())) return null;
             const bDay = d.getDate();
             const bMonth = d.getMonth() + 1;
-
-            // Handle invalid day/month (e.g. Feb 30)
             if (bDay < 1 || bDay > 31 || bMonth < 1 || bMonth > 12) return null;
-
             let nextBirthday = new Date(todayYear, bMonth - 1, bDay);
-            // Validate the constructed date
-            if (nextBirthday.getMonth() !== bMonth - 1) {
-              // Invalid date like Feb 30 - skip
-              return null;
-            }
+            if (nextBirthday.getMonth() !== bMonth - 1) return null;
             if (nextBirthday < todayMidnight) {
               nextBirthday = new Date(todayYear + 1, bMonth - 1, bDay);
               if (nextBirthday.getMonth() !== bMonth - 1) return null;
             }
             const diasFaltam = Math.round((nextBirthday.getTime() - todayMidnight.getTime()) / (1000 * 60 * 60 * 24));
-
             const empresaTrimmed = (row.empresa || '').trim();
             return {
               nome: (row.nome || '').trim(),
@@ -804,70 +823,117 @@ serve(async (req) => {
               mes: bMonth,
               na_carteira: carteiraNomes.has(empresaTrimmed.toUpperCase()),
             };
-          } catch {
-            return null;
-          }
+          } catch { return null; }
         })
         .filter((a: any) => a !== null && a.dias_faltam >= 0 && a.dias_faltam <= 365)
-        // Remove duplicates (same nome + empresa)
         .filter((a: any, i: number, arr: any[]) => 
           arr.findIndex((b: any) => b.nome === a.nome && b.empresa === a.empresa) === i
         )
         .sort((a: any, b: any) => a.dias_faltam - b.dias_faltam);
 
-        // 2b & 2c: Only query trustee/cheques if portfolio is not empty
-        let saldoTrustee: any[] = [];
-        let chequesDevolvidos: any[] = [];
+        // --- GENERAL BI METRICS (all cedentes, not just portfolio) ---
+        // 1. Clientes ativos count
+        const clientesRes = await conn.queryObject(`
+          SELECT COUNT(*)::int as total FROM smartsecurities_cedentes 
+          WHERE bloqueado IS NULL OR LOWER(TRIM(bloqueado)) IN ('não', 'nao', 'n', 'false', '')
+        `);
+        const clientesAtivos = (clientesRes.rows[0] as any)?.total || 0;
 
-        if (ph) {
-          // 2b. Saldo Trustee (tipo != 'C')
-          const trusteeRes = await conn.queryObject(`
-            SELECT t.cpf_cnpj_cedente, c.nome, COALESCE(SUM(t.valor), 0)::float as saldo_trustee
-            FROM smartsecurities_titulos_em_aberto t
-            JOIN smartsecurities_cedentes c ON c.cpf_cnpj = t.cpf_cnpj_cedente
-            WHERE t.cpf_cnpj_cedente IN (${ph})
-              AND t.tipo != 'C'
-            GROUP BY t.cpf_cnpj_cedente, c.nome
-            HAVING COALESCE(SUM(t.valor), 0) > 0
-            ORDER BY saldo_trustee DESC
-          `, cpfList);
+        // 2. Carteira total (sum of all títulos em aberto)
+        const carteiraRes = await conn.queryObject(`
+          SELECT COALESCE(SUM(valor), 0)::float as total FROM smartsecurities_titulos_em_aberto
+        `);
+        const carteiraTotal = parseFloat((carteiraRes.rows[0] as any)?.total) || 0;
 
-          saldoTrustee = (trusteeRes.rows as any[]).map(r => ({
-            cpf_cnpj: r.cpf_cnpj_cedente,
-            nome: r.nome,
-            saldo_trustee: parseFloat(r.saldo_trustee) || 0,
-          }));
+        // 3. Inadimplência (títulos em aberto com atraso)
+        const inadRes = await conn.queryObject(`
+          SELECT COALESCE(SUM(valor), 0)::float as total 
+          FROM smartsecurities_titulos_em_aberto 
+          ${inadDateClause}
+        `);
+        const inadimplencia = parseFloat((inadRes.rows[0] as any)?.total) || 0;
 
-          // 2c. Cheques devolvidos
-          const chequesRes = await conn.queryObject(`
-            SELECT t.cpf_cnpj_cedente, c.nome, 
-                   COUNT(*)::int as qtd_cheques, 
-                   COALESCE(SUM(t.valor), 0)::float as valor_total
-            FROM smartsecurities_titulos_em_aberto t
-            JOIN smartsecurities_cedentes c ON c.cpf_cnpj = t.cpf_cnpj_cedente
-            WHERE t.cpf_cnpj_cedente IN (${ph})
-              AND (
-                UPPER(COALESCE(t.situacao, '')) LIKE '%DEVOLV%'
-                OR UPPER(COALESCE(t.motivo, '')) LIKE '%DEVOLV%'
-                OR UPPER(COALESCE(t.motivo, '')) LIKE '%DEV%'
-              )
-            GROUP BY t.cpf_cnpj_cedente, c.nome
-            ORDER BY valor_total DESC
-          `, cpfList);
+        // 4. Receita do período
+        const receitaMesRes = await conn.queryObject(`
+          SELECT COALESCE(SUM(total), 0)::float as total
+          FROM smartsecurities_receita_por_cedente
+          ${receitaMesClause}
+        `);
+        const receitaMesAtual = parseFloat((receitaMesRes.rows[0] as any)?.total) || 0;
 
-          chequesDevolvidos = (chequesRes.rows as any[]).map(r => ({
-            cpf_cnpj: r.cpf_cnpj_cedente,
-            nome: r.nome,
-            qtd_cheques: r.qtd_cheques,
-            valor_total: parseFloat(r.valor_total) || 0,
-          }));
-        }
+        // 5. Risco por cedente (top 10 for donut chart)
+        const riscoCedenteRes = await conn.queryObject(`
+          SELECT c.nome, COALESCE(SUM(t.valor), 0)::float as risco
+          FROM smartsecurities_titulos_em_aberto t
+          JOIN smartsecurities_cedentes c ON c.cpf_cnpj = t.cpf_cnpj_cedente
+          GROUP BY c.nome
+          HAVING COALESCE(SUM(t.valor), 0) > 0
+          ORDER BY risco DESC
+          LIMIT 10
+        `);
+        const riscoCedente = (riscoCedenteRes.rows as any[]).map(r => ({
+          nome: r.nome,
+          valor: parseFloat(r.risco) || 0,
+        }));
+
+        // 6. Receita por mês
+        const receitaMensalRes = await conn.queryObject(`
+          SELECT TO_CHAR(data_pagamento, 'YYYY-MM') as mes, COALESCE(SUM(total), 0)::float as receita
+          FROM smartsecurities_receita_por_cedente
+          ${receitaDateClause}
+          GROUP BY TO_CHAR(data_pagamento, 'YYYY-MM')
+          ORDER BY mes
+        `);
+        const receitaMensal = (receitaMensalRes.rows as any[]).map(r => ({
+          mes: r.mes,
+          receita: parseFloat(r.receita) || 0,
+        }));
+
+        // 7. Volume operado por mês
+        const volumeMensalRes = await conn.queryObject(`
+          SELECT TO_CHAR(data, 'YYYY-MM') as mes, COALESCE(SUM(valor_bruto), 0)::float as volume
+          FROM smartsecurities_operacoes_individualizadas
+          ${volumeDateClause}
+          GROUP BY TO_CHAR(data, 'YYYY-MM')
+          ORDER BY mes
+        `);
+        const volumeMensal = (volumeMensalRes.rows as any[]).map(r => ({
+          mes: r.mes,
+          volume: parseFloat(r.volume) || 0,
+        }));
+
+        // 8. Alertas de inadimplência (títulos vencidos, top 15 por valor)
+        const alertasInadRes = await conn.queryObject(`
+          SELECT t.cpf_cnpj_cedente, c.nome as cedente_nome, t.sacado, 
+                 t.valor::float, t.vencimento,
+                 (CURRENT_DATE - t.vencimento::date)::int as dias_atraso
+          FROM smartsecurities_titulos_em_aberto t
+          LEFT JOIN smartsecurities_cedentes c ON c.cpf_cnpj = t.cpf_cnpj_cedente
+          WHERE t.vencimento < CURRENT_DATE
+          ORDER BY t.valor DESC
+          LIMIT 15
+        `);
+        const alertasInadimplencia = (alertasInadRes.rows as any[]).map(r => ({
+          cedente: r.cedente_nome || r.cpf_cnpj_cedente,
+          sacado: r.sacado || 'N/I',
+          valor: parseFloat(r.valor) || 0,
+          vencimento: r.vencimento,
+          diasAtraso: parseInt(r.dias_atraso) || 0,
+        }));
 
         return new Response(JSON.stringify({
           success: true,
           proximosAniversariantes,
-          saldoTrustee,
-          chequesDevolvidos,
+          alertasInadimplencia,
+          metricas: {
+            clientesAtivos,
+            carteiraTotal,
+            inadimplencia,
+            receitaMesAtual,
+            riscoCedente,
+            receitaMensal,
+            volumeMensal,
+          },
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });

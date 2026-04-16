@@ -32,7 +32,9 @@ const DocumentoDetalhe = lazy(() => import("./pages/DocumentoDetalhe"));
 const AssinaturaDigital = lazy(() => import("./pages/AssinaturaDigital"));
 const AssinaturaToken = lazy(() => import("./pages/AssinaturaToken"));
 const AssinaturaOperacao = lazy(() => import("./pages/AssinaturaOperacao"));
-
+const AnaliseCredito = lazy(() => import("./pages/AnaliseCredito"));
+const NovaAnaliseCredito = lazy(() => import("./pages/NovaAnaliseCredito"));
+const SacadosExternos = lazy(() => import("./pages/SacadosExternos"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -92,7 +94,10 @@ function App() {
               <Route path="/contratos/documentos" element={<ProtectedRoute><AppLayout><Contratos /></AppLayout></ProtectedRoute>} />
               <Route path="/contratos/documentos/:token" element={<ProtectedRoute><AppLayout><DocumentoDetalhe /></AppLayout></ProtectedRoute>} />
               <Route path="/contratos/assinatura-digital" element={<ProtectedRoute><AppLayout><AssinaturaDigital /></AppLayout></ProtectedRoute>} />
-              
+              <Route path="/analise-credito/novo" element={<ProtectedRoute><AppLayout><NovaAnaliseCredito /></AppLayout></ProtectedRoute>} />
+              <Route path="/analise-credito/:sessionId" element={<ProtectedRoute><AppLayout><AnaliseCredito /></AppLayout></ProtectedRoute>} />
+              <Route path="/sacados" element={<ProtectedRoute><AppLayout><SacadosExternos /></AppLayout></ProtectedRoute>} />
+
               <Route path="/admin" element={<ProtectedRoute requireAdmin><AppLayout><AdminSettings /></AppLayout></ProtectedRoute>} />
               {/* Legacy redirects */}
               <Route path="/giro-carteira" element={<Navigate to="/carteira/giro" replace />} />

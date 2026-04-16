@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.serasa-report]
 verify_jwt = false
+
+[functions.endpoints-registry]
+verify_jwt = false

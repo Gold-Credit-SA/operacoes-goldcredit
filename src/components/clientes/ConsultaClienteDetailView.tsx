@@ -1,8 +1,12 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   CheckCircle2, AlertTriangle, Shield, Scale, Leaf,
-  Users, Ban, ChevronUp, ChevronDown, Search, Briefcase, Eye, X, UserRound
+  Users, Ban, ChevronUp, ChevronDown, Search, Briefcase, Eye, X, UserRound,
+  Warehouse, Car, MapPinOff, MapPin, ExternalLink, Download
 } from 'lucide-react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -59,6 +63,18 @@ function formatDocument(value?: string | null): string {
   const digits = String(value).replace(/\D/g, '');
   if (digits.length === 11) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
   if (digits.length === 14) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+  return String(value);
+}
+
+function formatPhone(value: unknown): string {
+  if (!value) return '—';
+  let raw = String(value).replace(/\D/g, '');
+  // Remove country code 55
+  if (raw.startsWith('55') && raw.length > 11) raw = raw.slice(2);
+  if (raw.length === 11) return `(${raw.slice(0, 2)}) ${raw.slice(2, 7)}-${raw.slice(7)}`;
+  if (raw.length === 10) return `(${raw.slice(0, 2)}) ${raw.slice(2, 6)}-${raw.slice(6)}`;
+  if (raw.length === 9) return `${raw.slice(0, 5)}-${raw.slice(5)}`;
+  if (raw.length === 8) return `${raw.slice(0, 4)}-${raw.slice(4)}`;
   return String(value);
 }
 
@@ -158,61 +174,55 @@ function normalizeResponseData(rawData: Record<string, any>, consultaType?: stri
       details.lawsuits ||
       details.compliance ||
       details.groups_family ||
-      details.groups_economic,
+      details.groups_economic ||
+      details.sintegra,
     ),
   );
-  const hasRestritivosPayload = isExpectedType('restritivos', Boolean(details.restritivos || details.bvs || details.quod));
-  const hasEndividamentoPayload = isExpectedType('endividamento', Boolean(details.scr));
-  const hasCprPayload = isExpectedType('cpr', Boolean(details.cpr));
-  const hasImoveisSimplesPayload = isExpectedType('imoveis_simples', Boolean(details.rural || details.urban || details.ruralDetails));
-  const hasImoveisCarPayload = isExpectedType('imoveis_car', Boolean(details.imoveis_car));
-  const hasPatrimonioVeicularPayload = isExpectedType('patrimonio_veicular', Boolean(details.patrimonio_veicular));
 
-  const consultaClienteData =
-    hasConsultaClientePayload
-      ? rawData
-      : null;
-  const restritivosData = hasRestritivosPayload ? (agriskType === 'restritivos' ? details : details.restritivos || details) : null;
-  const endividamentoData = hasEndividamentoPayload ? (agriskType === 'endividamento' ? details : details.scr || details) : null;
-  const cprData = hasCprPayload ? (agriskType === 'cpr' ? details : details.cpr || details) : null;
-  const imoveisSimplesData = hasImoveisSimplesPayload ? details : null;
-  const imoveisCarData = hasImoveisCarPayload ? (agriskType === 'imoveis_car' ? details : details.imoveis_car || details) : null;
-  const patrimonioVeicularData = hasPatrimonioVeicularPayload ? (agriskType === 'patrimonio_veicular' ? details : details.patrimonio_veicular || details) : null;
+  // ── Sintegra ──
+  if (hasConsultaClientePayload && details.sintegra) {
+    result['sintegra'] = [{
+      key: 'sintegra',
+      label: 'Sintegra',
+      status: 'DONE',
+      data: details.sintegra,
+    }];
+  }
+  if (!result['sintegra']) {
+    result['sintegra'] = [
+      { key: 'sintegra', label: 'Sintegra', status: 'NOT_CONSULTED', data: null },
+    ];
+  }
 
-  result['cliente'] = [{
-    key: 'consulta_cliente',
-    label: 'Consulta Cliente',
-    status: consultaClienteData ? 'DONE' : 'NOT_CONSULTED',
-    data: consultaClienteData,
-  }];
-
-  result['restritivos'] = [
-    { key: 'restritivos', label: 'Restritivos Nacional', status: restritivosData ? 'DONE' : 'NOT_CONSULTED', data: restritivosData },
-    { key: 'bvs', label: 'Boa Vista', status: details.bvs ? 'DONE' : 'NOT_CONSULTED', data: details.bvs || null },
-    { key: 'quod', label: 'Quod', status: details.quod ? 'DONE' : 'NOT_CONSULTED', data: details.quod || null },
-  ];
-
-  result['financeiro'] = [
-    { key: 'endividamento', label: 'Endividamento Financeiro', status: endividamentoData ? 'DONE' : 'NOT_CONSULTED', data: endividamentoData },
-    { key: 'cpr', label: 'Consulta CPR', status: cprData ? 'DONE' : 'NOT_CONSULTED', data: cprData },
-  ];
-
-  result['patrimonio'] = [
-    { key: 'imoveis_simples', label: 'Pesquisa de Imóveis - Simples', status: imoveisSimplesData ? 'DONE' : 'NOT_CONSULTED', data: imoveisSimplesData },
-    { key: 'imoveis_car', label: 'Pesquisa Imóveis - CAR', status: imoveisCarData ? 'DONE' : 'NOT_CONSULTED', data: imoveisCarData },
-    { key: 'patrimonio_veicular', label: 'Patrimônio Veicular', status: patrimonioVeicularData ? 'DONE' : 'NOT_CONSULTED', data: patrimonioVeicularData },
-  ];
+  // ── Grupos ──
+  const grupoItems: SubItem[] = [];
+  if (hasConsultaClientePayload && details.groups_family) {
+    grupoItems.push({
+      key: 'grupo-familiar', label: 'Grupo Familiar', status: 'DONE',
+      data: details.groups_family?.items || [],
+    });
+  }
+  if (hasConsultaClientePayload && details.groups_economic) {
+    grupoItems.push({
+      key: 'grupo-economico', label: 'Grupo Econômico', status: 'DONE',
+      data: details.groups_economic?.items || [],
+    });
+  }
+  if (grupoItems.length > 0) {
+    result['grupos'] = grupoItems;
+  }
+  if (!result['grupos']) {
+    result['grupos'] = [
+      { key: 'grupo-familiar', label: 'Grupo Familiar', status: 'NOT_CONSULTED', data: null },
+      { key: 'grupo-economico', label: 'Grupo Econômico', status: 'NOT_CONSULTED', data: null },
+    ];
+  }
 
   // ── Compliance (Ambiental + Trabalhista merged) ──
-  // Suporta múltiplos formatos de resposta da API AgRisk (wrapped ou direto)
-  const rawCompliance = hasConsultaClientePayload ? details.compliance : null;
-  const compliance = rawCompliance
-    ? (rawCompliance?.item || rawCompliance?.data || rawCompliance)
-    : null;
+  const compliance = hasConsultaClientePayload ? (details.compliance?.item || details.compliance) : null;
   const complianceItems: SubItem[] = [];
 
-  // Ambiental sub-items — suporta 'environmental' e 'ambiental'
-  const envData = compliance?.environmental || compliance?.ambiental || compliance?.env;
+  const envData = compliance?.environmental;
   if (envData) {
     const ambientalEntries: any[] = [];
 
@@ -257,10 +267,9 @@ function normalizeResponseData(rawData: Record<string, any>, consultaType?: stri
     });
   }
 
-  // Trabalhista sub-items — suporta 'labour', 'labor', 'trabalhista'
-  if (compliance?.labour || compliance?.labor || compliance?.trabalhista || compliance?.criminal || compliance?.penal) {
-    const l = compliance.labour || compliance.labor || compliance.trabalhista || {};
-    const c = compliance.criminal || compliance.penal || {};
+  if (compliance?.labour || compliance?.criminal) {
+    const l = compliance.labour || {};
+    const c = compliance.criminal || {};
     const trabEntries: any[] = [];
 
     trabEntries.push({
@@ -306,8 +315,14 @@ function normalizeResponseData(rawData: Record<string, any>, consultaType?: stri
   if (complianceItems.length > 0) {
     result['compliance'] = complianceItems;
   }
+  if (!result['compliance']) {
+    result['compliance'] = [
+      { key: 'ambiental', label: 'Ambiental', status: 'NOT_CONSULTED', data: null },
+      { key: 'trabalhista', label: 'Trabalhista', status: 'NOT_CONSULTED', data: null },
+    ];
+  }
 
-  // ── Lawsuits ──
+  // ── Judicial ──
   if (hasConsultaClientePayload && details.lawsuits) {
     result['juridico'] = [{
       key: 'lawsuits',
@@ -316,11 +331,35 @@ function normalizeResponseData(rawData: Record<string, any>, consultaType?: stri
       data: details.lawsuits,
     }];
   }
+  if (!result['juridico']) {
+    result['juridico'] = [
+      { key: 'lawsuits', label: 'Processos Judiciais', status: 'NOT_CONSULTED', data: null },
+    ];
+  }
 
+  // ── Armazéns ──
+  const armazensData = details.armazens || details.warehouses || details.conab;
+  result['armazens'] = [{
+    key: 'armazens',
+    label: 'Armazéns',
+    status: armazensData ? 'DONE' : 'NOT_CONSULTED',
+    data: armazensData || null,
+  }];
+
+  // ── Veicular ──
+  const veicularData = details.veicular || details.vehicleAssets || details.vehicles;
+  result['veicular'] = [{
+    key: 'veicular',
+    label: 'Veicular',
+    status: veicularData ? 'DONE' : 'NOT_CONSULTED',
+    data: veicularData || null,
+  }];
+
+  // ── Imóveis Rurais ──
   result['imoveis'] = [
     {
       key: 'imoveis-simples',
-      label: 'Imóveis Simples',
+      label: 'Simples',
       status: details.rural || details.urban || details.ruralDetails ? 'DONE' : 'NOT_CONSULTED',
       data: details.rural || details.urban || details.ruralDetails
         ? {
@@ -337,37 +376,6 @@ function normalizeResponseData(rawData: Record<string, any>, consultaType?: stri
       data: details.imoveis_car || null,
     },
   ];
-
-  // ── Grupos ──
-  const grupoItems: SubItem[] = [];
-  if (hasConsultaClientePayload && details.groups_family) {
-    grupoItems.push({
-      key: 'grupo-familiar', label: 'Grupo Familiar', status: 'DONE',
-      data: details.groups_family?.items || [],
-    });
-  }
-  if (hasConsultaClientePayload && details.groups_economic) {
-    grupoItems.push({
-      key: 'grupo-economico', label: 'Grupo Economico', status: 'DONE',
-      data: details.groups_economic?.items || [],
-    });
-  }
-  if (grupoItems.length > 0) {
-    result['grupos'] = grupoItems;
-  }
-
-  if (!result['compliance']) {
-    result['compliance'] = [
-      { key: 'ambiental', label: 'Ambiental', status: 'NOT_CONSULTED', data: null },
-      { key: 'trabalhista', label: 'Trabalhista', status: 'NOT_CONSULTED', data: null },
-    ];
-  }
-
-  if (!result['juridico']) {
-    result['juridico'] = [
-      { key: 'lawsuits', label: 'Processos Judiciais', status: 'NOT_CONSULTED', data: null },
-    ];
-  }
 
   if (!result['grupos']) {
     result['grupos'] = [
@@ -449,21 +457,14 @@ function LawsuitsContent({ items, agriskClientId }: { items: SubItem[]; agriskCl
   }
 
   const ls = items[0]?.data || {};
-  // Suporta múltiplos nomes de campo que a API AgRisk pode retornar
-  const list: any[] = ls.items || ls.data?.items || ls.lawsuits || [];
+  const list: any[] = ls.items || [];
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProcess, setSelectedProcess] = useState<any | null>(null);
 
-  const activeCount = ls.active ?? ls.totalActive ?? ls.quantityActive ?? ls.activeCount ?? ls.quantity_active ?? 0;
-  const inactiveCount = ls.inactive ?? ls.totalInactive ?? ls.quantityInactive ?? ls.inactiveCount ?? ls.finished ?? 0;
-  const indefiniteCount = ls.indefinite ?? ls.indeterminate ?? ls.totalIndeterminate ?? ls.quantityIndeterminate ?? ls.indefiniteCount ?? 0;
-  const total = activeCount + inactiveCount + indefiniteCount || list.length;
-  const civil = ls.civil ?? ls.totalCivil ?? ls.quantityCivil ?? ls.civilCount ??
-    list.filter((p: any) => (p.Nature || p.CourtType || p.Type || '').toLowerCase().includes('civ')).length;
-  const criminal = ls.criminal ?? ls.totalCriminal ?? ls.quantityCriminal ?? ls.criminalCount ??
-    list.filter((p: any) => (p.Nature || p.CourtType || p.Type || '').toLowerCase().includes('crim')).length;
-  const trabalhista = ls.labour ?? ls.labor ?? ls.totalLabour ?? ls.trabalhista ?? ls.trabalhistaCount ??
-    list.filter((p: any) => (p.Nature || p.CourtType || p.Type || '').toLowerCase().includes('trab')).length;
+  const total = (ls.active || 0) + (ls.inactive || 0) + (ls.indefinite || 0);
+  const civil = ls.civil || 0;
+  const criminal = ls.criminal || 0;
+  const trabalhista = ls.labour || 0;
 
   const filtered = list.filter(p => {
     if (!searchTerm) return true;
@@ -493,9 +494,9 @@ function LawsuitsContent({ items, agriskClientId }: { items: SubItem[]; agriskCl
             <p className="text-xs font-semibold text-muted-foreground uppercase">Processos</p>
             <p className="text-3xl font-bold text-foreground">{total}</p>
             <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
-              <span>Ativo <strong className="text-foreground">{activeCount}</strong></span>
-              <span>Passivo <strong className="text-foreground">{ls.defendant ?? ls.passive ?? ls.totalDefendant ?? 0}</strong></span>
-              <span>Outros <strong className="text-foreground">{indefiniteCount}</strong></span>
+              <span>Ativo <strong className="text-foreground">{ls.active || 0}</strong></span>
+              <span>Passivo <strong className="text-foreground">{ls.defendant || 0}</strong></span>
+              <span>Outros <strong className="text-foreground">{ls.indefinite || 0}</strong></span>
             </div>
           </CardContent>
         </Card>
@@ -503,9 +504,9 @@ function LawsuitsContent({ items, agriskClientId }: { items: SubItem[]; agriskCl
           <CardContent className="py-3 px-4">
             <p className="text-xs font-semibold text-muted-foreground uppercase">Status</p>
             <div className="flex gap-4 mt-2 text-xs">
-              <div><p className="text-muted-foreground">Ativos</p><p className="text-lg font-bold text-foreground">{activeCount}</p></div>
-              <div><p className="text-muted-foreground">Finalizados</p><p className="text-lg font-bold text-foreground">{inactiveCount}</p></div>
-              <div><p className="text-muted-foreground">Indefinidos</p><p className="text-lg font-bold text-foreground">{indefiniteCount}</p></div>
+              <div><p className="text-muted-foreground">Ativos</p><p className="text-lg font-bold text-foreground">{ls.active || 0}</p></div>
+              <div><p className="text-muted-foreground">Finalizados</p><p className="text-lg font-bold text-foreground">{ls.inactive || 0}</p></div>
+              <div><p className="text-muted-foreground">Indefinidos</p><p className="text-lg font-bold text-foreground">{ls.indefinite || 0}</p></div>
             </div>
           </CardContent>
         </Card>
@@ -628,20 +629,17 @@ function ProcessDetailContent({ process, agriskClientId }: { process: Record<str
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const effectiveClientId = agriskClientId || process?.ClientId || process?.clientId || null;
-  const fetchedRef = useRef(false);
 
   useEffect(() => {
     setDetailProcess(process);
     setLoadingError(null);
-    fetchedRef.current = false;
   }, [process]);
 
   useEffect(() => {
     const lawsuitId = process?._id || process?.LawsuitId || process?.id;
     console.log('[ProcessDetail] effectiveClientId:', effectiveClientId, '| lawsuitId (_id first):', lawsuitId, '| _id:', process?._id, '| LawsuitId:', process?.LawsuitId);
-    if (!effectiveClientId || !lawsuitId || isProcessDetailLoaded(process) || fetchedRef.current) return;
+    if (!effectiveClientId || !lawsuitId || isProcessDetailLoaded(process)) return;
 
-    fetchedRef.current = true;
     let cancelled = false;
     setLoadingDetail(true);
 
@@ -1009,67 +1007,538 @@ function GruposContent({ items }: { items: SubItem[] }) {
   );
 }
 
-function ImoveisContent({ items }: { items: SubItem[] }) {
+function GenericTopicContent({ title, items }: { title: string; items: SubItem[] }) {
+  const item = items[0];
+  if (!item || item.status !== 'DONE' || !item.data) {
+    return <EmptyState title={`${title} não consultado`} description="Esse tópico não foi consultado nesta execução." />;
+  }
+
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-foreground">Imóveis</h2>
+      <h2 className="text-2xl font-bold text-foreground">{title}</h2>
+      <AgriskDetailView data={item.data} title={title} />
+    </div>
+  );
+}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {items.map((section) => {
-          const consulted = section.status === 'DONE' && section.data;
+function ImoveisContent({ items }: { items: SubItem[] }) {
+  // Find the "Simples" sub-item
+  const simplesItem = items.find(i => i.key === 'imoveis-simples');
+  const carItem = items.find(i => i.key === 'imoveis-car');
 
-          return (
-            <Card key={section.key}>
-              <CardContent className="p-5 space-y-4">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-xl font-bold text-foreground">{section.label}</h3>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "text-[10px] font-semibold",
-                      consulted
-                        ? "border-green-500/40 text-green-600 bg-green-50"
-                        : "border-amber-500/40 text-amber-700 bg-amber-50",
-                    )}
-                  >
-                    {consulted ? 'CONSULTADO' : 'NÃO CONSULTADO'}
-                  </Badge>
-                </div>
+  return (
+    <div className="space-y-6">
+      {/* ── Imóveis Rurais - Simples ── */}
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold text-foreground">Imóveis Rurais</h2>
 
-                {consulted ? (
-                  <div className="space-y-3">
-                    {isPlainObject(section.data) ? (
-                      Object.entries(section.data)
-                        .filter(([, value]) => value !== null && value !== undefined)
-                        .map(([key, value]) => (
-                          <div key={key} className="rounded-lg border border-border p-3">
-                            <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
-                              {formatLabel(key)}
-                            </p>
-                            {Array.isArray(value) ? (
-                              <p className="text-sm text-foreground">{`${value.length} item(ns)`}</p>
-                            ) : isPlainObject(value) ? (
-                              <p className="text-sm text-foreground">{`${Object.keys(value).length} campo(s)`}</p>
-                            ) : (
-                              <p className="text-sm text-foreground">{formatPrimitive(value)}</p>
-                            )}
-                          </div>
-                        ))
-                    ) : (
-                      <p className="text-sm text-foreground">Consulta carregada.</p>
-                    )}
-                  </div>
-                ) : (
-                  <EmptyState
-                    title={`${section.label} não consultado`}
-                    description="Esse tópico faz parte do bloco AgRisk, mas não foi consultado nesta execução."
-                  />
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
+        {simplesItem?.status === 'DONE' && simplesItem.data ? (
+          <ImoveisSimplesView data={simplesItem.data as Record<string, any>} />
+        ) : (
+          <EmptyState
+            title="Imóveis Simples não consultado"
+            description="Esse tópico faz parte do bloco AgRisk, mas não foi consultado nesta execução."
+          />
+        )}
       </div>
+
+      {/* ── CAR ── */}
+      {carItem && (
+        <div className="space-y-4">
+          <h3 className="text-xl font-bold text-foreground">CAR – Cadastro Ambiental Rural</h3>
+          {carItem.status === 'DONE' && carItem.data ? (
+            <AgriskDetailView data={carItem.data as Record<string, unknown>} />
+          ) : (
+            <EmptyState
+              title="CAR não consultado"
+              description="Esse tópico faz parte do bloco AgRisk, mas não foi consultado nesta execução."
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PropertyMap({ parcels }: { parcels: any[] }) {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
+
+    const map = L.map(mapRef.current, {
+      zoomControl: true,
+      attributionControl: true,
+    });
+
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '© Esri',
+    }).addTo(map);
+
+    // Labels overlay
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '',
+    }).addTo(map);
+
+    const allBounds: L.LatLngBounds[] = [];
+
+    parcels.forEach((parcel: any) => {
+      const geometry = parcel.geometry;
+      if (!geometry?.coordinates?.length) return;
+
+      // GeoJSON coordinates are [lng, lat, alt?] — Leaflet needs [lat, lng]
+      const coords: L.LatLngExpression[][] = geometry.coordinates.map((ring: number[][]) =>
+        ring.map((pt: number[]) => [pt[1], pt[0]] as L.LatLngExpression)
+      );
+
+      const polygon = L.polygon(coords, {
+        color: '#22C55E',
+        weight: 2,
+        fillColor: '#22C55E',
+        fillOpacity: 0.2,
+      }).addTo(map);
+
+      allBounds.push(polygon.getBounds());
+    });
+
+    if (allBounds.length > 0) {
+      const combined = allBounds.reduce((acc, b) => acc.extend(b), allBounds[0]);
+      map.fitBounds(combined, { padding: [30, 30] });
+    } else {
+      map.setView([-15.78, -47.93], 4);
+    }
+
+    mapInstanceRef.current = map;
+
+    return () => {
+      map.remove();
+      mapInstanceRef.current = null;
+    };
+  }, [parcels]);
+
+  return <div ref={mapRef} className="w-full h-full min-h-[350px] rounded-lg z-0" />;
+}
+
+function ImovelDetailDialog({ property, tipo }: { property: any; tipo: string }) {
+  const [open, setOpen] = useState(false);
+  const [detailTab, setDetailTab] = useState('matriculas');
+  
+  const details = property.details || {};
+  const insertInfo = details.insertInfo || {};
+  const cafir = details.cafir || {};
+
+  const nome = property.name || insertInfo.name || cafir.farmName || '—';
+  const tipoLower = (tipo || '').toString().toLowerCase();
+  const isSociedade = tipoLower.includes('sociedade') || tipoLower.includes('society') || tipoLower.includes('partner');
+
+  const nirf = insertInfo.nirf || cafir.nirf || '—';
+  const incra = insertInfo.numIncra || cafir.numIncra || '—';
+  const area = parseFloat(property.totalArea || insertInfo.totalArea || cafir.totalArea || 0);
+  const areaProdutiva = insertInfo.productiveArea || cafir.productiveArea || null;
+  const modFiscal = insertInfo.fiscalModule || cafir.fiscalModule || null;
+  const valorEstimado = insertInfo.estimatedValue || cafir.estimatedValue || null;
+  const valorAtribuido = parseFloat(property.value || insertInfo.value || 0);
+  const uf = property.state || insertInfo.state || cafir.state || '—';
+  const municipio = property.city || insertInfo.city || cafir.city || '—';
+
+  // Parcels with geometry for the map
+  const parcels: any[] = Array.isArray(details.parcels) ? details.parcels : [];
+  const hasParcels = parcels.some((p: any) => p.geometry?.coordinates?.length > 0);
+
+  // Geo flag detection
+  const parseGeoFlag = (value: unknown): boolean => {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') return ['true', '1', 'sim'].includes(value.trim().toLowerCase());
+    return false;
+  };
+  const hasGeo = [
+    property.isGEORef, details.isGEORef, insertInfo.isGEORef, cafir.isGEORef,
+  ].some(parseGeoFlag) || hasParcels;
+
+  // Matrículas: use parcels (which have registry, area, farmName) as primary source, fallback to insertInfo.registrations
+  const matriculasFromParcels = parcels.map((p: any) => ({
+    registration: p.registry || p.registration || 'None',
+    area: p.area,
+    name: p.farmName || p.name || '—',
+  }));
+  const matriculasFromInsert: any[] = Array.isArray(insertInfo.registrations) ? insertInfo.registrations : [];
+  const matriculas = matriculasFromParcels.length > 0 ? matriculasFromParcels : matriculasFromInsert;
+
+  // CAR
+  const cars: any[] = Array.isArray(details.car) ? details.car
+    : Array.isArray(insertInfo.car) ? insertInfo.car : [];
+  // Proprietários
+  const proprietarios: any[] = Array.isArray(cafir.owners) ? cafir.owners : [];
+
+  const fmtCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(isNaN(v) ? 0 : v);
+
+  // KML export from parcels
+  const handleDownloadKml = () => {
+    if (!parcels.length) return;
+    const placemarks = parcels.map((p: any, i: number) => {
+      const coords = (p.geometry?.coordinates?.[0] || [])
+        .map((pt: number[]) => `${pt[0]},${pt[1]},${pt[2] || 0}`)
+        .join(' ');
+      return `<Placemark><name>${p.farmName || `Parcela ${i + 1}`}</name><Polygon><outerBoundaryIs><LinearRing><coordinates>${coords}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`;
+    }).join('\n');
+    const kml = `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${nome}</name>\n${placemarks}\n</Document></kml>`;
+    const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${nome.replace(/\s+/g, '_')}.kml`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <>
+      <Button variant="ghost" size="sm" className="text-xs text-primary" onClick={() => setOpen(true)}>
+        Ver mais
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 pt-6 pb-2">
+            <div className="flex items-center gap-3">
+              <DialogHeader className="p-0">
+                <DialogTitle className="text-xl font-bold">{nome}</DialogTitle>
+              </DialogHeader>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[10px] font-semibold",
+                  isSociedade
+                    ? "border-cyan-500/40 text-cyan-700 bg-cyan-50"
+                    : "border-green-500/40 text-green-700 bg-green-50"
+                )}
+              >
+                {isSociedade ? 'DE SOCIEDADE' : 'PRÓPRIA'}
+              </Badge>
+            </div>
+            {hasParcels && (
+              <Button variant="outline" size="sm" className="text-primary border-primary/30" onClick={handleDownloadKml}>
+                <Download className="h-4 w-4 mr-1.5" />
+                Baixar KML
+              </Button>
+            )}
+          </div>
+
+          {/* Map + Info grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-0 px-6">
+            {/* Map */}
+            <div className="rounded-lg overflow-hidden border border-border min-h-[350px]">
+              {hasGeo && hasParcels ? (
+                <PropertyMap parcels={parcels} />
+              ) : hasGeo ? (
+                <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground bg-muted/20">
+                  <MapPin className="h-10 w-10 text-primary/40" />
+                  <p className="text-sm font-medium text-foreground">Geo-referenciamento disponível</p>
+                  <p className="text-xs text-muted-foreground">Sem coordenadas para exibição no mapa</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground bg-muted/20">
+                  <MapPinOff className="h-10 w-10" />
+                  <p className="text-sm font-medium text-foreground">Imóvel sem geo-referenciamento</p>
+                </div>
+              )}
+            </div>
+
+            {/* Info panel */}
+            <div className="pl-6 space-y-4">
+              <h4 className="text-lg font-semibold text-foreground">Informações</h4>
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Nome</p>
+                <p className="text-base text-foreground">{nome}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">NIRF / CIB</p>
+                  <p className="text-base text-foreground">{nirf}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Núm. INCRA</p>
+                  <p className="text-base text-foreground">{incra}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Área</p>
+                  <p className="text-base text-foreground">{isNaN(area) ? '—' : `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(area)} ha`}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Área Produtiva</p>
+                  <p className="text-base text-foreground">{areaProdutiva ?? '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Mod. Fiscal</p>
+                  <p className="text-base text-foreground">{modFiscal ?? '—'}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Valor estimado</p>
+                  <p className="text-base text-foreground">{valorEstimado ? fmtCurrency(parseFloat(valorEstimado)) : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Valor atribuído</p>
+                  <p className="text-base text-foreground">{fmtCurrency(valorAtribuido)}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Estado</p>
+                  <p className="text-base text-foreground">{uf}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Município</p>
+                  <p className="text-base text-foreground">{municipio}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div className="px-6 pb-6 pt-4">
+            <Tabs defaultValue="matriculas">
+              <TabsList className="w-full justify-start">
+                <TabsTrigger value="matriculas">Matrículas</TabsTrigger>
+                <TabsTrigger value="car">CAR</TabsTrigger>
+                <TabsTrigger value="proprietarios">Proprietários</TabsTrigger>
+              </TabsList>
+              <TabsContent value="matriculas">
+                {matriculas.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Matrícula</TableHead>
+                        <TableHead className="text-xs">Área</TableHead>
+                        <TableHead className="text-xs">Nome</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {matriculas.map((m: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-sm">{m.registration || m.matricula || m.number || '—'}</TableCell>
+                          <TableCell className="text-sm">{m.area ?? '—'}</TableCell>
+                          <TableCell className="text-sm">{m.name || m.nome || '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-sm text-muted-foreground py-4 text-center">não há itens na lista</p>
+                )}
+              </TabsContent>
+              <TabsContent value="car">
+                {cars.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Código CAR</TableHead>
+                        <TableHead className="text-xs">Área</TableHead>
+                        <TableHead className="text-xs">Situação</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {cars.map((c: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-sm">{c.code || c.codigo || c.carCode || '—'}</TableCell>
+                          <TableCell className="text-sm">{c.area ?? '—'}</TableCell>
+                          <TableCell className="text-sm">{c.status || c.situacao || '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-sm text-muted-foreground py-4 text-center">não há itens na lista</p>
+                )}
+              </TabsContent>
+              <TabsContent value="proprietarios">
+                {proprietarios.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Nome</TableHead>
+                        <TableHead className="text-xs">CPF/CNPJ</TableHead>
+                        <TableHead className="text-xs">Tipo</TableHead>
+                        <TableHead className="text-xs">Participação</TableHead>
+                        <TableHead className="text-xs">Situação</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {proprietarios.map((p: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-sm">{p.name || '—'}</TableCell>
+                          <TableCell className="text-sm">{p.taxId || '—'}</TableCell>
+                          <TableCell className="text-sm">{p.type || p.legalNature || '—'}</TableCell>
+                          <TableCell className="text-sm">{p.share != null ? `${p.share}%` : '—'}</TableCell>
+                          <TableCell className="text-sm">{p.situation || '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-sm text-muted-foreground py-4 text-center">não há itens na lista</p>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function ImoveisSimplesView({ data }: { data: Record<string, any> }) {
+  // Data structure from edge function: { rural: { items, areas, properties, totalArea, totalValue }, ruralDetails: [...items with details merged] }
+  const rawRural = data.rural || data;
+  
+  // Use ruralDetails (items enriched with detail data) for the table, fallback to items
+  const properties: any[] = Array.isArray(data.ruralDetails) ? data.ruralDetails
+    : Array.isArray(rawRural.items) ? rawRural.items
+    : Array.isArray(rawRural.properties) ? rawRural.properties
+    : [];
+
+  // Use API pre-computed summary when available
+  const apiAreas = rawRural.areas || {};
+  const apiProps = rawRural.properties || {};
+  
+  const totalArea = rawRural.totalArea ?? properties.reduce((sum: number, p: any) => {
+    const area = parseFloat(p.totalArea || 0);
+    return sum + (isNaN(area) ? 0 : area);
+  }, 0);
+
+  const propria = apiProps.owned ?? 0;
+  const sociedade = apiProps.inSociety ?? 0;
+  const arrendada = apiProps.leased ?? 0;
+  const parceria = apiProps.partnership ?? 0;
+
+  const totalValue = rawRural.totalValue ?? properties.reduce((sum: number, p: any) => {
+    const val = parseFloat(p.value || 0);
+    return sum + (isNaN(val) ? 0 : val);
+  }, 0);
+
+  return (
+    <div className="space-y-4">
+      {/* Summary cards */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-wrap items-center gap-0 divide-x divide-border">
+            {/* Áreas */}
+            <div className="px-4 first:pl-0">
+              <p className="text-xs text-muted-foreground">Áreas (ha)</p>
+              <p className="text-2xl font-bold text-foreground">
+                {new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(totalArea)}
+              </p>
+              <p className="text-[10px] text-muted-foreground">Total</p>
+            </div>
+            <div className="flex items-center gap-0 divide-x divide-border">
+              {[
+                { label: 'Própria', value: propria },
+                { label: 'De sociedades', value: sociedade },
+                { label: 'Arrendada', value: arrendada },
+                { label: 'Parcerias', value: parceria },
+              ].map(s => (
+                <div key={s.label} className="px-4">
+                  <p className="text-lg font-bold text-foreground">{s.value}</p>
+                  <p className="text-[10px] text-muted-foreground">{s.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Imóveis */}
+            <div className="px-4">
+              <p className="text-xs text-muted-foreground">Imóveis</p>
+              <p className="text-lg font-bold text-foreground">{properties.length}</p>
+            </div>
+
+            {/* Valor total */}
+            <div className="px-4 ml-auto text-right">
+              <p className="text-xs text-muted-foreground">Valor total</p>
+              <p className="text-2xl font-bold text-foreground">
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValue)}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Properties table */}
+      {properties.length > 0 ? (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Tipo</TableHead>
+                  <TableHead className="text-xs">Nome</TableHead>
+                  <TableHead className="text-xs">Área Total</TableHead>
+                  <TableHead className="text-xs">Área Própria</TableHead>
+                  <TableHead className="text-xs">Valor</TableHead>
+                  <TableHead className="text-xs">UF</TableHead>
+                 <TableHead className="text-xs">Município</TableHead>
+                  <TableHead className="text-xs w-20"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {properties.map((prop: any, idx: number) => {
+                  const tipo = prop.type || '—';
+                  const nome = prop.name || '—';
+                  const areaTotal = parseFloat(prop.totalArea || 0);
+                  const areaPropria = parseFloat(prop.areaOwned || 0);
+                  const pct = prop.areaOwnedPercent ?? (areaTotal > 0 ? Math.round((areaPropria / areaTotal) * 100) : 0);
+                  const valor = parseFloat(prop.value || 0);
+                  const uf = prop.state || '—';
+                  const municipio = prop.city || '—';
+
+                  const tipoLower = tipo.toString().toLowerCase();
+                  const isSociedade = tipoLower.includes('sociedade') || tipoLower.includes('society') || tipoLower.includes('partner');
+
+                  return (
+                    <TableRow key={idx}>
+                      <TableCell className="py-3">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10px] font-semibold whitespace-nowrap",
+                            isSociedade
+                              ? "border-cyan-500/40 text-cyan-700 bg-cyan-50"
+                              : "border-green-500/40 text-green-700 bg-green-50"
+                          )}
+                        >
+                          {isSociedade ? 'DE SOCIEDADE' : 'PRÓPRIA'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm font-medium text-foreground">{nome}</TableCell>
+                      <TableCell className="text-sm text-foreground">
+                        {isNaN(areaTotal) ? '—' : `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(areaTotal)} ha`}
+                      </TableCell>
+                      <TableCell className="text-sm text-foreground">
+                        {isNaN(areaPropria) ? '—' : `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(areaPropria)} ha (${pct}%)`}
+                      </TableCell>
+                      <TableCell className="text-sm text-foreground">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(isNaN(valor) ? 0 : valor)}
+                      </TableCell>
+                      <TableCell className="text-sm text-foreground">{uf}</TableCell>
+                      <TableCell className="text-sm text-foreground">{municipio}</TableCell>
+                      <TableCell>
+                        <ImovelDetailDialog property={prop} tipo={tipo} />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : (
+        <EmptyState
+          title="Nenhum imóvel encontrado"
+          description="A consulta não retornou imóveis rurais para este cliente."
+        />
+      )}
     </div>
   );
 }
@@ -1088,114 +1557,108 @@ function ConsultaClienteTopicContent({ data }: { data: Record<string, any> }) {
     { label: 'CPF/CNPJ', value: formatDocument(clientData.taxId || clientData.document || clientData.cpfCnpj || details?.taxId) },
     { label: 'Nascimento', value: clientData.birthDate ? formatDate(clientData.birthDate) : clientData.dataNascimento },
     { label: 'Idade', value: clientData.age ? `${clientData.age} anos` : null },
-    { label: 'GÃªnero', value: clientData.gender || clientData.genero || clientData.sexo },
-    { label: 'Nome da mÃ£e', value: clientData.motherName || clientData.nomeMae },
+    { label: 'Gênero', value: clientData.gender || clientData.genero || clientData.sexo },
+    { label: 'Nome da mãe', value: clientData.motherName || clientData.nomeMae },
     { label: 'Receita Federal', value: clientData.taxIdStatus || validations.receitaFederal },
-    { label: 'Ã“bito', value: typeof clientData.hasObitIndication === 'boolean' ? (clientData.hasObitIndication ? 'PossÃ­vel indicaÃ§Ã£o' : 'Negativo') : validations.obito },
+    { label: 'Óbito', value: typeof clientData.hasObitIndication === 'boolean' ? (clientData.hasObitIndication ? 'Possível indicação' : 'Negativo') : validations.obito },
   ].filter((field) => field.value);
 
   const hasContent = infoFields.length > 0 || addresses.length > 0 || phones.length > 0 || emails.length > 0;
   if (!hasContent) {
     return (
       <EmptyState
-        title="Consulta Cliente nÃ£o consultado"
-        description="Esse tÃ³pico faz parte da estrutura AgRisk, mas nÃ£o foi consultado nesta execuÃ§Ã£o."
+        title="Consulta Cliente não consultado"
+        description="Esse tópico faz parte da estrutura AgRisk, mas não foi consultado nesta execução."
       />
     );
   }
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardContent className="p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <UserRound className="h-5 w-5 text-primary" />
-            <h3 className="text-xl font-bold text-foreground">InformaÃ§Ãµes Cadastrais</h3>
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <UserRound className="h-5 w-5 text-primary" />
+          <h3 className="text-lg font-semibold text-foreground">Informações Cadastrais</h3>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-4">
+          {infoFields.map((field) => (
+            <div key={field.label}>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">{field.label}</p>
+              <p className="text-sm text-foreground mt-0.5">{String(field.value)}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="border-t border-border" />
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <h4 className="text-sm font-semibold text-foreground">Endereços</h4>
+            <span className="inline-flex items-center justify-center h-5 min-w-5 rounded-full bg-muted px-1.5 text-[10px] font-semibold text-muted-foreground">{addresses.length}</span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            {infoFields.map((field) => (
-              <DetailField key={field.label} label={field.label} value={String(field.value)} />
-            ))}
+          {addresses.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum endereço retornado.</p>
+          ) : (
+            <div className="space-y-1">
+              {addresses.slice(0, 5).map((address: any, index: number) => (
+                <div key={index} className="px-1 py-1.5">
+                  <p className="text-sm text-foreground">
+                    {[
+                      address.street || address.logradouro,
+                      address.number || address.numero,
+                      address.district || address.bairro,
+                      address.city || address.cidade,
+                      address.state || address.uf,
+                    ].filter(Boolean).join(', ') || 'Endereço sem detalhamento'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <h4 className="text-sm font-semibold text-foreground">Telefones</h4>
+            <span className="inline-flex items-center justify-center h-5 min-w-5 rounded-full bg-muted px-1.5 text-[10px] font-semibold text-muted-foreground">{phones.length}</span>
           </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-foreground">EndereÃ§os</h3>
-              <Badge variant="secondary">{addresses.length}</Badge>
+          {phones.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum telefone retornado.</p>
+          ) : (
+            <div className="space-y-1">
+              {phones.slice(0, 5).map((phone: any, index: number) => (
+                <div key={index} className="px-1 py-1.5">
+                  <p className="text-sm font-medium text-foreground">
+                    {formatPhone(phone.phone_number || phone.number || phone.numero || phone.phone || phone.phoneNumber || phone.telefone)}
+                  </p>
+                </div>
+              ))}
             </div>
-            {addresses.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum endereÃ§o retornado.</p>
-            ) : (
-              <div className="space-y-3">
-                {addresses.slice(0, 3).map((address, index) => (
-                  <div key={index} className="rounded-lg border border-border p-3">
-                    <p className="text-sm text-foreground">
-                      {[
-                        address.street || address.logradouro,
-                        address.number || address.numero,
-                        address.district || address.bairro,
-                        address.city || address.cidade,
-                        address.state || address.uf,
-                      ].filter(Boolean).join(', ') || 'EndereÃ§o sem detalhamento'}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          )}
+        </div>
 
-        <Card>
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-foreground">Telefones</h3>
-              <Badge variant="secondary">{phones.length}</Badge>
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <h4 className="text-sm font-semibold text-foreground">Emails</h4>
+            <span className="inline-flex items-center justify-center h-5 min-w-5 rounded-full bg-muted px-1.5 text-[10px] font-semibold text-muted-foreground">{emails.length}</span>
+          </div>
+          {emails.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum email retornado.</p>
+          ) : (
+            <div className="space-y-1">
+              {emails.slice(0, 5).map((email: any, index: number) => (
+                <div key={index} className="px-1 py-1.5">
+                  <p className="text-sm font-medium text-foreground">{formatPrimitive(email.email || email.address || email.value)}</p>
+                  <p className="text-[11px] text-muted-foreground uppercase">
+                    {formatPrimitive(email.type || email.tipo || 'Não informado')}
+                  </p>
+                </div>
+              ))}
             </div>
-            {phones.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum telefone retornado.</p>
-            ) : (
-              <div className="space-y-3">
-                {phones.slice(0, 4).map((phone, index) => (
-                  <div key={index} className="rounded-lg border border-border p-3">
-                    <p className="text-sm font-medium text-foreground">
-                      {formatPrimitive(phone.phone_number || phone.number || phone.numero || phone.phone || phone.phoneNumber || phone.telefone)}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {formatPrimitive(phone.type || phone.tipo || phone.classification || 'Nao informado')}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-foreground">Emails</h3>
-              <Badge variant="secondary">{emails.length}</Badge>
-            </div>
-            {emails.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum email retornado.</p>
-            ) : (
-              <div className="space-y-3">
-                {emails.slice(0, 4).map((email, index) => (
-                  <div key={index} className="rounded-lg border border-border p-3">
-                    <p className="text-sm font-medium text-foreground">{formatPrimitive(email.email || email.address || email.value)}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {formatPrimitive(email.type || email.tipo || 'Nao informado')}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1215,184 +1678,229 @@ function ConsultaClienteTopicContentClean({ data }: { data: Record<string, any> 
     { label: 'CPF/CNPJ', value: formatDocument(clientData.taxId || clientData.document || clientData.cpfCnpj || details?.taxId) },
     { label: 'Nascimento', value: clientData.birthDate ? formatDate(clientData.birthDate) : clientData.dataNascimento },
     { label: 'Idade', value: clientData.age ? `${clientData.age} anos` : null },
-    { label: 'Genero', value: clientData.gender || clientData.genero || clientData.sexo },
-    { label: 'Nome da mae', value: clientData.motherName || clientData.nomeMae },
+    { label: 'Gênero', value: clientData.gender || clientData.genero || clientData.sexo },
+    { label: 'Nome da mãe', value: clientData.motherName || clientData.nomeMae },
     { label: 'Receita Federal', value: clientData.taxIdStatus || validations.receitaFederal },
-    { label: 'Obito', value: typeof clientData.hasObitIndication === 'boolean' ? (clientData.hasObitIndication ? 'Possivel indicacao' : 'Negativo') : validations.obito },
+    { label: 'Óbito', value: typeof clientData.hasObitIndication === 'boolean' ? (clientData.hasObitIndication ? 'Possível indicação' : 'Negativo') : validations.obito },
   ].filter((field) => field.value);
 
   const hasContent = infoFields.length > 0 || addresses.length > 0 || phones.length > 0 || emails.length > 0;
   if (!hasContent) {
     return (
       <EmptyState
-        title="Consulta Cliente nao consultado"
-        description="Esse topico faz parte da estrutura AgRisk, mas nao foi consultado nesta execucao."
+        title="Consulta Cliente não consultado"
+        description="Esse tópico faz parte da estrutura AgRisk, mas não foi consultado nesta execução."
       />
     );
   }
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardContent className="p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <UserRound className="h-5 w-5 text-primary" />
-            <h3 className="text-xl font-bold text-foreground">Informacoes Cadastrais</h3>
+    <div className="space-y-6">
+      {/* Informações Cadastrais - flat grid, no card wrapper */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <UserRound className="h-5 w-5 text-primary" />
+          <h3 className="text-lg font-semibold text-foreground">Informações Cadastrais</h3>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-4">
+          {infoFields.map((field) => (
+            <div key={field.label}>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">{field.label}</p>
+              <p className="text-sm text-foreground mt-0.5">{String(field.value)}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="border-t border-border" />
+
+      {/* Contatos - 3 columns, simple lists */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* Endereços */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <h4 className="text-sm font-semibold text-foreground">Endereços</h4>
+            <span className="inline-flex items-center justify-center h-5 min-w-5 rounded-full bg-muted px-1.5 text-[10px] font-semibold text-muted-foreground">{addresses.length}</span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            {infoFields.map((field) => (
-              <DetailField key={field.label} label={field.label} value={String(field.value)} />
-            ))}
+          {addresses.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum endereço retornado.</p>
+          ) : (
+            <div className="space-y-1">
+              {addresses.slice(0, 5).map((address: any, index: number) => (
+                <div key={index} className="px-1 py-1.5">
+                  <p className="text-sm text-foreground">
+                    {[
+                      address.street || address.logradouro,
+                      address.number || address.numero,
+                      address.district || address.bairro,
+                      address.city || address.cidade,
+                      address.state || address.uf,
+                    ].filter(Boolean).join(', ') || 'Endereço sem detalhamento'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Telefones */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <h4 className="text-sm font-semibold text-foreground">Telefones</h4>
+            <span className="inline-flex items-center justify-center h-5 min-w-5 rounded-full bg-muted px-1.5 text-[10px] font-semibold text-muted-foreground">{phones.length}</span>
           </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-foreground">Enderecos</h3>
-              <Badge variant="secondary">{addresses.length}</Badge>
+          {phones.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum telefone retornado.</p>
+          ) : (
+            <div className="space-y-1">
+              {phones.slice(0, 5).map((phone: any, index: number) => (
+                <div key={index} className="px-1 py-1.5">
+                  <p className="text-sm font-medium text-foreground">
+                    {formatPhone(phone.phone_number || phone.number || phone.numero || phone.phone || phone.phoneNumber || phone.telefone)}
+                  </p>
+                </div>
+              ))}
             </div>
-            {addresses.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum endereco retornado.</p>
-            ) : (
-              <div className="space-y-3">
-                {addresses.slice(0, 3).map((address, index) => (
-                  <div key={index} className="rounded-lg border border-border p-3">
-                    <p className="text-sm text-foreground">
-                      {[
-                        address.street || address.logradouro,
-                        address.number || address.numero,
-                        address.district || address.bairro,
-                        address.city || address.cidade,
-                        address.state || address.uf,
-                      ].filter(Boolean).join(', ') || 'Endereco sem detalhamento'}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          )}
+        </div>
 
-        <Card>
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-foreground">Telefones</h3>
-              <Badge variant="secondary">{phones.length}</Badge>
+        {/* Emails */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <h4 className="text-sm font-semibold text-foreground">Emails</h4>
+            <span className="inline-flex items-center justify-center h-5 min-w-5 rounded-full bg-muted px-1.5 text-[10px] font-semibold text-muted-foreground">{emails.length}</span>
+          </div>
+          {emails.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum email retornado.</p>
+          ) : (
+            <div className="space-y-1">
+              {emails.slice(0, 5).map((email: any, index: number) => (
+                <div key={index} className="px-1 py-1.5">
+                  <p className="text-sm font-medium text-foreground">{formatPrimitive(email.email || email.address || email.value)}</p>
+                  <p className="text-[11px] text-muted-foreground uppercase">
+                    {formatPrimitive(email.type || email.tipo || 'Não informado')}
+                  </p>
+                </div>
+              ))}
             </div>
-            {phones.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum telefone retornado.</p>
-            ) : (
-              <div className="space-y-3">
-                {phones.slice(0, 4).map((phone, index) => (
-                  <div key={index} className="rounded-lg border border-border p-3">
-                    <p className="text-sm font-medium text-foreground">
-                      {formatPrimitive(phone.phone_number || phone.number || phone.numero || phone.phone || phone.phoneNumber || phone.telefone)}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {formatPrimitive(phone.type || phone.tipo || phone.classification || 'Nao informado')}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-foreground">Emails</h3>
-              <Badge variant="secondary">{emails.length}</Badge>
-            </div>
-            {emails.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum email retornado.</p>
-            ) : (
-              <div className="space-y-3">
-                {emails.slice(0, 4).map((email, index) => (
-                  <div key={index} className="rounded-lg border border-border p-3">
-                    <p className="text-sm font-medium text-foreground">{formatPrimitive(email.email || email.address || email.value)}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {formatPrimitive(email.type || email.tipo || 'Nao informado')}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-function TopicSectionsContent({ title, items }: { title: string; items: SubItem[] }) {
-  const [selectedKey, setSelectedKey] = useState<string | null>(() => items.find((item) => item.status === 'DONE')?.key || items[0]?.key || null);
-  const selectedItem = items.find((item) => item.key === selectedKey) || items[0] || null;
+function SintegraContent({ items }: { items: SubItem[] }) {
+  const item = items[0];
+  if (!item || item.status !== 'DONE' || !item.data) {
+    return <EmptyState title="Sintegra não consultado" description="Esse tópico não foi consultado nesta execução." />;
+  }
 
-  useEffect(() => {
-    setSelectedKey(items.find((item) => item.status === 'DONE')?.key || items[0]?.key || null);
-  }, [items]);
+  const raw = item.data;
+  // Sintegra can return an object with items/registrations arrays, or be an array itself
+  const registrations: any[] = Array.isArray(raw)
+    ? raw
+    : raw.items || raw.registrations || raw.cadastros || raw.content || (raw.result ? (Array.isArray(raw.result) ? raw.result : [raw.result]) : []);
+
+  // Extract estados (states consulted sidebar)
+  const states: any[] = raw.states || raw.estados || [];
+
+  function getAge(item: any): string {
+    if (item.age || item.idade) return String(item.age || item.idade);
+    const date = item.registrationDate || item.dataRegistro || item.startDate;
+    if (!date) return '—';
+    try {
+      const years = Math.floor((Date.now() - new Date(date).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+      return `${years} anos`;
+    } catch { return '—'; }
+  }
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-foreground">{sanitizeUiText(title)}</h2>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {items.map((item) => {
-          const consulted = item.status === 'DONE' && item.data;
-          const isActive = selectedItem?.key === item.key;
-          return (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => setSelectedKey(item.key)}
-              className={cn(
-                "text-left rounded-xl border p-5 transition-colors",
-                isActive ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/30',
-              )}
-            >
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <h3 className="text-lg font-bold text-foreground">{sanitizeUiText(item.label)}</h3>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "text-[10px] font-semibold",
-                    consulted
-                      ? "border-green-500/40 text-green-600 bg-green-50"
-                      : "border-amber-500/40 text-amber-700 bg-amber-50",
-                  )}
-                >
-                  {consulted ? 'CONSULTADO' : 'NAO CONSULTADO'}
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {consulted ? 'Consulta disponivel para detalhamento.' : 'Esse topico nao foi consultado nesta execucao.'}
-              </p>
-            </button>
-          );
-        })}
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-foreground">Cadastros de Produtor</h2>
       </div>
 
-      {selectedItem && (
-        selectedItem.status === 'DONE' && selectedItem.data ? (
-          selectedItem.key === 'consulta_cliente' ? (
-            <ConsultaClienteTopicContentClean data={selectedItem.data} />
+      <div className="flex gap-6">
+        {/* Main table */}
+        <div className="flex-1 min-w-0">
+          {registrations.length === 0 ? (
+            <EmptyState title="Nenhum cadastro encontrado" description="Não foram encontrados cadastros de produtor no Sintegra." />
           ) : (
-            <AgriskDetailView data={selectedItem.data} title={selectedItem.label} />
-          )
-        ) : (
-          <EmptyState
-            title={`${sanitizeUiText(selectedItem.label)} nao consultado`}
-            description="Esse topico faz parte da estrutura AgRisk, mas nao foi consultado nesta execucao."
-          />
-        )
-      )}
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="font-semibold text-foreground">Fazenda</TableHead>
+                  <TableHead className="font-semibold text-foreground">I.E.</TableHead>
+                  <TableHead className="font-semibold text-foreground">Status</TableHead>
+                  <TableHead className="font-semibold text-foreground">Idade</TableHead>
+                  <TableHead className="font-semibold text-foreground">Atividade</TableHead>
+                  <TableHead className="font-semibold text-foreground">UF</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {registrations.map((reg: any, idx: number) => {
+                  const status = (reg.status || reg.situacao || reg.Status || '').toUpperCase();
+                  const isActive = status === 'ATIVO' || status === 'ACTIVE' || status === 'HABILITADO';
+                  return (
+                    <TableRow key={idx}>
+                      <TableCell className="text-sm text-foreground font-medium max-w-[200px]">
+                        {reg.name || reg.nome || reg.farmName || reg.razaoSocial || reg.companyName || '—'}
+                      </TableCell>
+                      <TableCell className="text-sm text-foreground tabular-nums">
+                        {reg.stateRegistration || reg.inscricaoEstadual || reg.ie || reg.IE || '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={cn(
+                          "text-[11px] font-semibold border-0",
+                          isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                        )}>
+                          {status || '—'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-foreground">{getAge(reg)}</TableCell>
+                      <TableCell className="text-sm text-foreground max-w-[300px]">
+                        {reg.activity || reg.atividade || reg.mainActivity || reg.atividadePrincipal || '—'}
+                      </TableCell>
+                      <TableCell className="text-sm text-foreground font-medium">
+                        {reg.state || reg.uf || reg.UF || reg.estado || '—'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+
+        {/* States sidebar */}
+        {states.length > 0 && (
+          <div className="w-56 shrink-0 border-l border-border pl-4">
+            <h3 className="text-sm font-bold text-foreground mb-3">Estados Consultados</h3>
+            <div className="space-y-2">
+              {states.map((s: any, idx: number) => {
+                const stateLabel = typeof s === 'string' ? s : (s.state || s.uf || s.sigla || '');
+                const stateStatus = typeof s === 'string' ? 'FINALIZADO' : (s.status || 'FINALIZADO');
+                const isDone = stateStatus.toUpperCase().includes('FINAL') || stateStatus.toUpperCase().includes('DONE') || stateStatus.toUpperCase().includes('OK');
+                return (
+                  <div key={idx} className="flex items-center gap-2">
+                    <CheckCircle2 className={cn("h-4 w-4", isDone ? "text-green-500" : "text-muted-foreground")} />
+                    <span className="text-sm text-foreground font-medium">{stateLabel}</span>
+                    <span className="text-[10px] text-muted-foreground uppercase">
+                      {stateStatus.length > 12 ? stateStatus.slice(0, 12) + '…' : stateStatus}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+
+
 
 function EmptyState({ title, description }: { title: string; description: string }) {
   return (
@@ -1416,13 +1924,13 @@ export function ConsultaClienteDetailView({ data: rawData, agriskClientId, consu
 
   const normalized = normalizeResponseData(rawData, consultaType);
   const categoryDefs = [
-    { key: 'cliente', label: 'Cliente', icon: UserRound },
-    { key: 'restritivos', label: 'Restritivos', icon: AlertTriangle },
-    { key: 'financeiro', label: 'Financeiro', icon: Briefcase },
-    { key: 'patrimonio', label: 'Patrimônio', icon: Leaf },
-    { key: 'compliance', label: 'Compliance', icon: Shield },
-    { key: 'juridico', label: 'Processos Judiciais', icon: Scale },
+    { key: 'sintegra', label: 'Sintegra', icon: Search },
     { key: 'grupos', label: 'Grupos', icon: Users },
+    { key: 'compliance', label: 'Compliance', icon: Shield },
+    { key: 'juridico', label: 'Judicial', icon: Scale },
+    { key: 'armazens', label: 'Armazéns', icon: Warehouse },
+    { key: 'veicular', label: 'Veicular', icon: Car },
+    { key: 'imoveis', label: 'Imóveis Rurais', icon: Leaf },
   ];
 
   const categorizedData = categoryDefs
@@ -1449,4 +1957,35 @@ export function ConsultaClienteDetailView({ data: rawData, agriskClientId, consu
               onClick={() => setActiveCategory(cat.key)}
               className={cn(
                 'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px',
-                isActi
+                isActive
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {cat.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Content */}
+      <div className="min-h-[400px]">
+        {selectedCat ? (
+          selectedCat.key === 'sintegra' ? <SintegraContent items={selectedCat.items} /> :
+          selectedCat.key === 'compliance' ? <ComplianceContent items={selectedCat.items} /> :
+          selectedCat.key === 'juridico' ? <LawsuitsContent items={selectedCat.items} agriskClientId={agriskClientId} /> :
+          selectedCat.key === 'grupos' ? <GruposContent items={selectedCat.items} /> :
+          selectedCat.key === 'armazens' ? <GenericTopicContent title="Armazéns" items={selectedCat.items} /> :
+          selectedCat.key === 'veicular' ? <GenericTopicContent title="Veicular" items={selectedCat.items} /> :
+          selectedCat.key === 'imoveis' ? <ImoveisContent items={selectedCat.items} /> :
+          null
+        ) : (
+          <div className="flex items-center justify-center h-full text-muted-foreground py-12">
+            <p>Nenhuma categoria disponível.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

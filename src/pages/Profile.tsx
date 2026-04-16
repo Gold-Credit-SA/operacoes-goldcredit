@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -53,7 +53,12 @@ export default function Profile() {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
 
     if (error) {
-      toast({ title: 'Erro', description: 'Não foi possível alterar a senha.', variant: 'destructive' });
+      const msg = error.message?.includes('been pwned')
+        ? 'Esta senha é muito comum e foi encontrada em vazamentos de dados. Escolha uma senha mais segura.'
+        : error.message?.includes('same_password')
+        ? 'A nova senha não pode ser igual à senha atual.'
+        : error.message || 'Não foi possível alterar a senha.';
+      toast({ title: 'Erro', description: msg, variant: 'destructive' });
       setLoading(false);
       return;
     }
@@ -106,9 +111,8 @@ export default function Profile() {
           <form onSubmit={handleChangePassword} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="current-password">Senha Atual</Label>
-              <Input
+              <PasswordInput
                 id="current-password"
-                type="password"
                 placeholder="••••••••"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
@@ -120,9 +124,8 @@ export default function Profile() {
 
             <div className="space-y-2">
               <Label htmlFor="new-password">Nova Senha</Label>
-              <Input
+              <PasswordInput
                 id="new-password"
-                type="password"
                 placeholder="••••••••"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
@@ -132,9 +135,8 @@ export default function Profile() {
 
             <div className="space-y-2">
               <Label htmlFor="confirm-password">Confirmar Nova Senha</Label>
-              <Input
+              <PasswordInput
                 id="confirm-password"
-                type="password"
                 placeholder="••••••••"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}

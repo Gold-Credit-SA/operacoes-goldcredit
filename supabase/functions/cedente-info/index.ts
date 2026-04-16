@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { action, cpf_cnpj, search } = await req.json();
+    const { action, cpf_cnpj, search, query: searchQuery } = await req.json();
 
     switch (action) {
       case 'list': {
@@ -592,6 +592,26 @@ Deno.serve(async (req) => {
             })) || [],
           }
         }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'search': {
+        const q = search || searchQuery || '';
+        let searchQ = supabase
+          .from('cedentes_completo')
+          .select('id, nome, cpf_cnpj, cidade, uf, gerente, operador, limite_global, risco_atual, saldo, bloqueado')
+          .order('nome');
+
+        if (q) {
+          const cleanQ = q.replace(/[.\-\/]/g, '');
+          searchQ = searchQ.or(`nome.ilike.%${q}%,cpf_cnpj.ilike.%${cleanQ}%`);
+        }
+
+        const { data: searchData, error: searchError } = await searchQ.limit(20);
+        if (searchError) throw searchError;
+
+        return new Response(JSON.stringify({ success: true, data: searchData }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }

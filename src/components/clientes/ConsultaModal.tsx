@@ -282,6 +282,32 @@ export function ConsultaModal({ cpfCnpj, clientName, open, onClose, onDone }: Co
             entity_name: extractedName,
             consulted_by_name: profile?.name || user.email || null,
           } as any);
+
+          // After consulta_cliente, update basic_data with fresh clientData & contacts
+          if (id === 'consulta_cliente') {
+            const details = (data as any)?.details || data;
+            const freshClientData = details?.clientData;
+            const freshContacts = details?.contacts;
+            if (freshClientData || freshContacts) {
+              const { data: currentClient } = await supabase
+                .from('consulta_clients')
+                .select('basic_data')
+                .eq('cpf_cnpj', cpfCnpj)
+                .maybeSingle();
+
+              const currentBd = (currentClient?.basic_data as Record<string, unknown>) || {};
+              const updatedBd = {
+                ...currentBd,
+                ...(freshClientData ? { clientData: freshClientData } : {}),
+                ...(freshContacts ? { contacts: freshContacts } : {}),
+              };
+
+              await supabase
+                .from('consulta_clients')
+                .update({ basic_data: updatedBd as any })
+                .eq('cpf_cnpj', cpfCnpj);
+            }
+          }
         }
       } catch (err: any) {
         setResults(prev => prev.map(r => r.id === id ? { ...r, status: 'error' as const, error: err.message } : r));

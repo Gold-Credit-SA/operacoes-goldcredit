@@ -282,7 +282,7 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
                                 ))}
                                 {sortedVencidos.map(([k, v]) => (
                                   <div key={k} className="flex justify-between text-xs">
-                                    <span className="text-destructive/80">{getVencLabel(k, isLimiteCat)}</span>
+                                    <span className={isLimiteCat ? 'text-muted-foreground' : 'text-destructive/80'}>{getVencLabel(k, isLimiteCat)}</span>
                                     <span className="font-mono ml-4">{formatCurrency(v)}</span>
                                   </div>
                                 ))}
@@ -293,7 +293,7 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
                                     <span className="font-mono ml-4">{formatCurrency(totalAVencer)}</span>
                                   </div>
                                 )}
-                                {totalVencido > 0 && (
+                                {!isLimiteCat && totalVencido > 0 && (
                                   <div className="flex justify-between text-xs font-semibold text-destructive border-t border-border/50 pt-1 mt-0.5">
                                     <span>Total Vencido</span>
                                     <span className="font-mono ml-4">{formatCurrency(totalVencido)}</span>

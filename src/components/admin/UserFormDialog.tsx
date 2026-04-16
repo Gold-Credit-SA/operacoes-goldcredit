@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -39,6 +39,18 @@ export function UserFormDialog({
     password: '',
   });
   const [showPassword, setShowPassword] = useState(false);
+
+  // Sync form when editingUser prop changes
+  useEffect(() => {
+    if (open) {
+      setFormData({
+        name: editingUser?.name || '',
+        email: editingUser?.email || '',
+        password: '',
+      });
+      setShowPassword(false);
+    }
+  }, [open, editingUser]);
 
   // Reset form when dialog opens
   const handleOpenChange = (isOpen: boolean) => {

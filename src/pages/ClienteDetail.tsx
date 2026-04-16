@@ -21,7 +21,8 @@ import { SerasaDetailView } from '@/components/analise-operacao/serasa/SerasaDet
 import { ConsultaModal } from '@/components/clientes/ConsultaModal';
 import { ConsultaClienteDetailView } from '@/components/clientes/ConsultaClienteDetailView';
 import { CedenteInfoPanel } from '@/components/consulta/CedenteInfoPanel';
-import { ClienteAICompilationCard } from '@/components/clientes/ClienteAICompilationCard';
+
+import { CreditAnalysisCard } from '@/components/clientes/CreditAnalysisCard';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 import { PageLoadingSkeleton } from '@/components/ui/PageLoadingSkeleton';
 
@@ -780,10 +781,10 @@ export default function ClienteDetail() {
           })}
         </div>
 
-        <ClienteAICompilationCard
+
+        <CreditAnalysisCard
           client={client}
-          history={history}
-          agriskOverview={agriskOverview}
+          history={history as unknown as { id: string; cnpj: string; entity_name: string | null; consulta_label: string; consulta_type: string; platform: string; result_data: Record<string, unknown> | null; created_at: string; status: string; }[]}
         />
       </div>
 
