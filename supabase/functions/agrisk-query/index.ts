@@ -214,14 +214,14 @@ async function handleFetchExistingDetails(body: Record<string, unknown>): Promis
   const queryId = asString(body?.queryId);
 
   if (!clientId) {
-    return json({ error: "clientId e obrigatorio." }, 400);
+    return json({ ok: false, error: "clientId e obrigatorio." });
   }
 
   const token = await agriskLogin();
   const queryRefs = await waitForQueryRefs(token, clientId);
   const details = await fetchConsultaClienteDetails(token, clientId, queryRefs, queryId);
 
-  return json({ data: details });
+  return json({ ok: true, data: details });
 }
 
 async function handleFetchLawsuitDetail(body: Record<string, unknown>): Promise<Response> {
@@ -230,6 +230,7 @@ async function handleFetchLawsuitDetail(body: Record<string, unknown>): Promise<
 
   if (!clientId || !lawsuitId) {
     return json({
+      ok: false,
       data: null,
       error: "clientId e lawsuitId sao obrigatorios.",
     });
@@ -240,14 +241,14 @@ async function handleFetchLawsuitDetail(body: Record<string, unknown>): Promise<
 
   if (!detail) {
     return json({
+      ok: false,
       data: null,
       error: "Nao foi possivel carregar o detalhe do processo.",
     });
   }
 
-  // Always return what we have, even if Updates is empty
   console.log(`[handleFetchLawsuitDetail] returning detail: _id=${asString(detail._id)} Updates=${Array.isArray(detail.Updates) ? detail.Updates.length : "none"} keys=${Object.keys(detail).join(",")}`);
-  return json({ data: detail });
+  return json({ ok: true, data: detail });
 }
 
 async function handleConsulta(body: Record<string, unknown>): Promise<Response> {
@@ -333,6 +334,9 @@ async function handleConsulta(body: Record<string, unknown>): Promise<Response> 
       queryRefs,
       result: resultData,
       ...(consultaType === "consulta_cliente" ? resultData : { details: resultData }),
+    },
+  });
+}
     },
   });
 }
