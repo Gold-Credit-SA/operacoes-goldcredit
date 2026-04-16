@@ -505,7 +505,7 @@ async function findClientByTaxId(token: string, taxId: string): Promise<string |
       8000,
     );
 
-    if (\!result.ok || \!result.data) {
+    if (!result.ok || !result.data) {
       break;
     }
 
@@ -719,7 +719,7 @@ async function fetchConsultaClienteDetails(
   }
 
   // Fallback compliance para PF quando nao vem via queryRefs
-  if (\!details.compliance) {
+  if (!details.compliance) {
     const complianceFallback = await tryJson(`${AGRISK_BASE}/queries/clients/${clientId}/compliance`, token, 10000);
     if (complianceFallback.ok && complianceFallback.data) {
       details.compliance = complianceFallback.data;
@@ -730,7 +730,7 @@ async function fetchConsultaClienteDetails(
   if (details.compliance && typeof details.compliance === "object") {
     const comp = details.compliance as Record<string, unknown>;
     const inner = (comp.item || comp.data || comp) as Record<string, unknown>;
-    if (inner \!== comp) {
+    if (inner !== comp) {
       details.compliance = inner;
     }
   }
