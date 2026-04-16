@@ -45,13 +45,17 @@ function getLabel(id: ConsultaTypeId): string {
 }
 
 async function executeConsulta(cnpj: string, id: ConsultaTypeId): Promise<Record<string, unknown>> {
+  const getFunctionErrorMessage = (error: any, data: any, fallback: string) => {
+    return data?.error || data?.message || error?.context?.error || error?.message || fallback;
+  };
+
   // SCR - real HBI integration
   if (id === 'scr') {
     const { data, error } = await supabase.functions.invoke('hbi-scr', {
       body: { cnpj },
     });
-    if (error) throw new Error(error.message || 'Erro ao consultar SCR.');
-    if (data?.error) throw new Error(data.error);
+    if (error) throw new Error(getFunctionErrorMessage(error, data, 'Erro ao consultar SCR.'));
+    if (data?.ok === false || data?.error) throw new Error(getFunctionErrorMessage(error, data, 'Erro ao consultar SCR.'));
     return data?.data || data;
   }
 
@@ -60,10 +64,10 @@ async function executeConsulta(cnpj: string, id: ConsultaTypeId): Promise<Record
     const { data, error } = await supabase.functions.invoke('serasa-report', {
       body: { document: cnpj, consultaId: id },
     });
-    if (error) throw new Error(error.message || 'Erro ao consultar Serasa.');
-    if (data?.error) {
-      const msg = data.error as string;
-      if (msg.includes('não encontrado')) {
+    if (error) throw new Error(getFunctionErrorMessage(error, data, 'Erro ao consultar Serasa.'));
+    if (data?.ok === false || data?.error) {
+      const msg = getFunctionErrorMessage(error, data, 'Erro ao consultar Serasa.');
+      if (msg.includes('não encontrado') || msg.includes('nao encontrado')) {
         throw new Error('Documento não encontrado. Verifique se o CPF/CNPJ está correto.');
       }
       throw new Error(msg);
@@ -76,8 +80,8 @@ async function executeConsulta(cnpj: string, id: ConsultaTypeId): Promise<Record
     const { data, error } = await supabase.functions.invoke('agrisk-query', {
       body: { taxId: cnpj.replace(/\D/g, ''), consultaType: id },
     });
-    if (error) throw new Error(error.message || 'Erro ao consultar AgRisk.');
-    if (data?.error) throw new Error(data.error);
+    if (error) throw new Error(getFunctionErrorMessage(error, data, 'Erro ao consultar AgRisk.'));
+    if (data?.ok === false || data?.error) throw new Error(getFunctionErrorMessage(error, data, 'Erro ao consultar AgRisk.'));
     return data?.data || data;
   }
 

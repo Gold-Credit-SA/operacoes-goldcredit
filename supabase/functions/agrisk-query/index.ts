@@ -118,7 +118,7 @@ serve(async (req) => {
     if (action === "list-products") {
       const token = await agriskLogin();
       const products = await listProducts(token);
-      return json({ data: products });
+      return json({ ok: true, data: products });
     }
 
     if (action === "register-client") {
@@ -135,10 +135,9 @@ serve(async (req) => {
 
     return await handleConsulta(body);
   } catch (error) {
-    console.error("[agrisk-query] error:", error);
-    return json({
-      error: error instanceof Error ? error.message : "Erro interno ao consultar AgRisk.",
-    });
+    const message = error instanceof Error ? error.message : "Erro interno ao consultar AgRisk.";
+    console.error("[agrisk-query] error:", message, error);
+    return json({ ok: false, error: message });
   }
 });
 
@@ -147,7 +146,7 @@ async function handleFileProxy(req: Request): Promise<Response> {
   const filePath = url.searchParams.get("file");
 
   if (!filePath) {
-    return json({ error: "Missing file parameter" }, 400);
+    return json({ ok: false, error: "Missing file parameter" });
   }
 
   try {
@@ -179,17 +178,17 @@ async function handleFileProxy(req: Request): Promise<Response> {
       }
     }
 
-    return json({ error: "Arquivo nao encontrado" }, 404);
+    return json({ ok: false, error: "Arquivo nao encontrado" });
   } catch (error) {
     console.error("[agrisk-query] file proxy error:", error);
-    return json({ error: "Erro ao buscar arquivo" }, 500);
+    return json({ ok: false, error: "Erro ao buscar arquivo" });
   }
 }
 
 async function handleRegisterClient(body: Record<string, unknown>): Promise<Response> {
   const taxId = sanitizeTaxId(body?.taxId);
   if (!taxId) {
-    return json({ error: "taxId e obrigatorio." }, 400);
+    return json({ ok: false, error: "taxId e obrigatorio." });
   }
 
   const token = await agriskLogin();
@@ -201,6 +200,7 @@ async function handleRegisterClient(body: Record<string, unknown>): Promise<Resp
   ]);
 
   return json({
+    ok: true,
     data: {
       clientId,
       clientData: clientDataResult.data,
@@ -255,7 +255,7 @@ async function handleConsulta(body: Record<string, unknown>): Promise<Response> 
   const consultaType = asConsultaType(body?.consultaType);
 
   if (!taxId || !consultaType) {
-    return json({ error: "taxId e consultaType sao obrigatorios." }, 400);
+    return json({ ok: false, error: "taxId e consultaType sao obrigatorios." });
   }
 
   const token = await agriskLogin();
@@ -265,6 +265,7 @@ async function handleConsulta(body: Record<string, unknown>): Promise<Response> 
 
   if (!product) {
     return json({
+      ok: false,
       error: `Nenhum produto AgRisk compativel encontrado para '${consultaType}'.`,
     });
   }
@@ -272,6 +273,7 @@ async function handleConsulta(body: Record<string, unknown>): Promise<Response> 
   const productId = product._id || product.id;
   if (!productId) {
     return json({
+      ok: false,
       error: `Produto AgRisk sem identificador para '${consultaType}'.`,
     });
   }
@@ -312,11 +314,14 @@ async function handleConsulta(body: Record<string, unknown>): Promise<Response> 
 
   if (!resultData) {
     return json({
+      ok: false,
       error: "Consulta enviada, mas nao foi possivel obter os resultados detalhados.",
+      diagnostics: { clientId, consultaType, queryRefsCount: queryRefs.length },
     });
   }
 
   return json({
+    ok: true,
     data: {
       clientId,
       product: {
