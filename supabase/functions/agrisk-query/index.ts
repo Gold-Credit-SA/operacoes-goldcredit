@@ -321,6 +321,10 @@ async function handleConsulta(body: Record<string, unknown>): Promise<Response> 
     });
   }
 
+  const responseDetails = consultaType === "consulta_cliente"
+    ? resultData
+    : { details: resultData };
+
   return json({
     ok: true,
     data: {
@@ -333,7 +337,7 @@ async function handleConsulta(body: Record<string, unknown>): Promise<Response> 
       },
       queryRefs,
       result: resultData,
-      ...(consultaType === "consulta_cliente" ? resultData : { details: resultData }),
+      ...responseDetails,
     },
   });
 }
