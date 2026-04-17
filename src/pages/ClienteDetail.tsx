@@ -69,9 +69,26 @@ function buildAgriskOverviewEntry(entries: HistoryEntry[]): HistoryEntry | null 
 
   if (agriskEntries.length === 0) return null;
 
+  // Heurística: detecta payloads "vazios" (sem items/details/properties) para preferir uma execução anterior populada
+  const isEmptyAgriskPayload = (entry: HistoryEntry): boolean => {
+    const payload: any = getAgriskPayload(entry);
+    if (!payload || typeof payload !== 'object') return true;
+    const root: any = payload.result || payload.details || payload;
+    const itemsLen = Array.isArray(root?.items) ? root.items.length : 0;
+    const detailsLen = Array.isArray(root?.details) ? root.details.length : 0;
+    const props = Number(root?.properties ?? 0);
+    return itemsLen === 0 && detailsLen === 0 && props === 0;
+  };
+
   const latestByType = new Map<string, HistoryEntry>();
   agriskEntries.forEach((entry) => {
-    if (!latestByType.has(entry.consulta_type)) {
+    const existing = latestByType.get(entry.consulta_type);
+    if (!existing) {
+      latestByType.set(entry.consulta_type, entry);
+      return;
+    }
+    // Se a atual armazenada está vazia e a nova tem dados, substitui (mesmo sendo mais antiga)
+    if (isEmptyAgriskPayload(existing) && !isEmptyAgriskPayload(entry)) {
       latestByType.set(entry.consulta_type, entry);
     }
   });
