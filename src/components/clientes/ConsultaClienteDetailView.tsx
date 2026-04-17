@@ -1333,7 +1333,7 @@ function ImoveisSimplesFromCarView({ data }: { data: Record<string, unknown> }) 
             <TableHeader>
               <TableRow>
                 <TableHead className="text-xs">Tipo</TableHead>
-                <TableHead className="text-xs">Nome</TableHead>
+                <TableHead className="text-xs">Nome/CAR</TableHead>
                 <TableHead className="text-xs">Área Total</TableHead>
                 <TableHead className="text-xs">Área Própria</TableHead>
                 <TableHead className="text-xs">Geo</TableHead>
@@ -1364,7 +1364,8 @@ function ImoveisSimplesFromCarView({ data }: { data: Record<string, unknown> }) 
                 const valor = Number(item.vti?.mean ?? 0);
                 const geoArr: any[] = Array.isArray(item.geo) ? item.geo : [];
                 const hasGeo = geoArr.length > 0;
-                const nome = item.name || item.car || '—';
+                const carCode = item.car || item.carCode || item.code || null;
+                const nome = item.name || (carCode ? null : '—');
 
                 return (
                   <TableRow key={idx} className="hover:bg-muted/30">
@@ -1373,7 +1374,22 @@ function ImoveisSimplesFromCarView({ data }: { data: Record<string, unknown> }) 
                         {labelMap[cls]}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-foreground max-w-[320px] truncate" title={nome}>{nome}</TableCell>
+                    <TableCell className="text-sm text-foreground max-w-[360px]">
+                      <div className="flex flex-col gap-0.5 min-w-0">
+                        {nome && (
+                          <span className="font-medium truncate" title={nome}>{nome}</span>
+                        )}
+                        {carCode && (
+                          <span
+                            className="font-mono text-[11px] text-muted-foreground truncate"
+                            title={carCode}
+                          >
+                            {carCode}
+                          </span>
+                        )}
+                        {!nome && !carCode && <span>—</span>}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-sm text-foreground whitespace-nowrap">
                       {totalA > 0 ? `${fmtNum(totalA, 1)} ha` : '—'}
                     </TableCell>
