@@ -350,7 +350,12 @@ function normalizeResponseData(rawData: Record<string, any>, consultaType?: stri
   }];
 
   // ── Veicular ──
-  const veicularData = details.veicular || details.vehicleAssets || details.vehicles;
+  const veicularData = isExpectedType(
+    'patrimonio_veicular',
+    Boolean(details.veicular || details.vehicleAssets || details.vehicles),
+  )
+    ? (details.veicular || details.vehicleAssets || details.vehicles || details)
+    : null;
   result['veicular'] = [{
     key: 'veicular',
     label: 'Veicular',
