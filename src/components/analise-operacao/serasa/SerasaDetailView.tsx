@@ -479,7 +479,7 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
           </div>
           <div className="border border-border rounded-lg p-3">
             <p className="text-[10px] font-medium text-muted-foreground">Filiais</p>
-            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(identificationReport, ['branches', 'branchCount', 'numberBranches']) || '0')}</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{String(pick(identificationReport, ['branchOffices', 'branches', 'branchCount', 'numberBranches']) ?? '0')}</p>
           </div>
           <div className="border border-border rounded-lg p-3">
             <p className="text-[10px] font-medium text-muted-foreground">Opção tributária</p>
