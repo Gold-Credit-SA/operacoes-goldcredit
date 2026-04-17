@@ -1278,3 +1278,168 @@ function RiskGauge({ level }: { level: string }) {
     </div>
   );
 }
+
+// ─────────────────────────────────────────────
+// SacadosOverview — Resumo comparativo + drill-down selector for multi-sacado operations
+// ─────────────────────────────────────────────
+interface SacadoSummaryRow {
+  cpf_cnpj: string;
+  name: string;
+  score: number | null;
+  scoreColor: string;
+  scoreFaixa: string;
+  restricoes: number | null;
+  protestos: number | null;
+  nadaConsta: boolean;
+  scrCarteira: number | null;
+  scrVencido: number | null;
+  hasSerasa: boolean;
+  hasScr: boolean;
+}
+
+function SacadosOverview({ summary, activeCpf, onSelect }: {
+  summary: SacadoSummaryRow[];
+  activeCpf: string;
+  onSelect: (cpf: string) => void;
+}) {
+  if (summary.length === 0) return null;
+
+  return (
+    <Card className="border-2 border-primary/20 overflow-hidden">
+      <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Users className="h-4 w-4 text-primary" />
+          Resumo Comparativo dos Sacados
+          <Badge variant="outline" className="ml-1 text-[10px]">{summary.length}</Badge>
+          <span className="ml-auto text-[10px] font-normal text-muted-foreground">
+            Clique em um sacado para ver os detalhes
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        {/* Desktop table */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-muted/40 border-b">
+              <tr className="text-left text-[10px] uppercase tracking-wider text-muted-foreground">
+                <th className="px-4 py-2.5 font-semibold">Sacado</th>
+                <th className="px-3 py-2.5 font-semibold text-center">Score</th>
+                <th className="px-3 py-2.5 font-semibold text-center">Restrições</th>
+                <th className="px-3 py-2.5 font-semibold text-center">Protestos</th>
+                <th className="px-3 py-2.5 font-semibold text-right">Carteira SCR</th>
+                <th className="px-3 py-2.5 font-semibold text-right">Vencido SCR</th>
+                <th className="px-3 py-2.5 font-semibold text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {summary.map(s => {
+                const isActive = s.cpf_cnpj === activeCpf;
+                return (
+                  <tr
+                    key={s.cpf_cnpj}
+                    onClick={() => onSelect(s.cpf_cnpj)}
+                    className={cn(
+                      'border-b cursor-pointer transition-colors hover:bg-muted/30',
+                      isActive && 'bg-primary/5 ring-1 ring-inset ring-primary/30'
+                    )}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        {isActive && <ChevronRight className="h-3.5 w-3.5 text-primary shrink-0" />}
+                        <div className="min-w-0">
+                          <p className="font-semibold text-foreground truncate max-w-[280px]">{s.name}</p>
+                          <p className="text-[10px] text-muted-foreground font-mono">{s.cpf_cnpj}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {s.score !== null ? (
+                        <div>
+                          <p className={cn('font-black text-base leading-none', s.scoreColor)}>{s.score}</p>
+                          <p className="text-[9px] text-muted-foreground mt-0.5">{s.scoreFaixa}</p>
+                        </div>
+                      ) : <span className="text-muted-foreground">—</span>}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {s.restricoes !== null ? (
+                        <Badge variant="outline" className={cn('text-[10px]',
+                          s.restricoes > 0 ? 'text-destructive border-destructive/30 bg-destructive/5' : 'text-emerald-700 border-emerald-300 bg-emerald-50'
+                        )}>
+                          {s.restricoes}
+                        </Badge>
+                      ) : <span className="text-muted-foreground">—</span>}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {s.protestos !== null ? (
+                        <Badge variant="outline" className={cn('text-[10px]',
+                          s.protestos > 0 ? 'text-amber-700 border-amber-300 bg-amber-50' : 'text-emerald-700 border-emerald-300 bg-emerald-50'
+                        )}>
+                          {s.protestos}
+                        </Badge>
+                      ) : <span className="text-muted-foreground">—</span>}
+                    </td>
+                    <td className="px-3 py-3 text-right font-mono text-foreground">
+                      {s.scrCarteira !== null && s.scrCarteira > 0 ? fmt(s.scrCarteira) : <span className="text-muted-foreground">—</span>}
+                    </td>
+                    <td className="px-3 py-3 text-right font-mono">
+                      {s.scrVencido !== null && s.scrVencido > 0 ? (
+                        <span className="text-destructive font-semibold">{fmt(s.scrVencido)}</span>
+                      ) : s.scrVencido === 0 ? <span className="text-emerald-600">R$ 0</span> : <span className="text-muted-foreground">—</span>}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <span title="Serasa" className={cn('w-2 h-2 rounded-full', s.hasSerasa ? 'bg-blue-500' : 'bg-muted')} />
+                        <span title="SCR" className={cn('w-2 h-2 rounded-full', s.hasScr ? 'bg-emerald-500' : 'bg-muted')} />
+                        {s.nadaConsta && <AlertTriangle className="h-3 w-3 text-red-600" />}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile cards */}
+        <div className="md:hidden divide-y">
+          {summary.map(s => {
+            const isActive = s.cpf_cnpj === activeCpf;
+            return (
+              <button
+                key={s.cpf_cnpj}
+                onClick={() => onSelect(s.cpf_cnpj)}
+                className={cn(
+                  'w-full p-3 text-left transition-colors hover:bg-muted/30',
+                  isActive && 'bg-primary/5'
+                )}
+              >
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold truncate">{s.name}</p>
+                    <p className="text-[10px] text-muted-foreground font-mono">{s.cpf_cnpj}</p>
+                  </div>
+                  {s.score !== null && (
+                    <p className={cn('text-2xl font-black leading-none', s.scoreColor)}>{s.score}</p>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1.5 text-[10px]">
+                  {s.restricoes !== null && (
+                    <Badge variant="outline" className={cn(s.restricoes > 0 ? 'text-destructive border-destructive/30' : 'text-emerald-700 border-emerald-300')}>
+                      {s.restricoes} restr.
+                    </Badge>
+                  )}
+                  {s.protestos !== null && s.protestos > 0 && (
+                    <Badge variant="outline" className="text-amber-700 border-amber-300">{s.protestos} protestos</Badge>
+                  )}
+                  {s.scrVencido !== null && s.scrVencido > 0 && (
+                    <Badge variant="outline" className="text-destructive border-destructive/30">Vencido SCR {fmt(s.scrVencido)}</Badge>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
