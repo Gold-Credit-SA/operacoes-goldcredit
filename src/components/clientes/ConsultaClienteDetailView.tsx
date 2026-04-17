@@ -350,18 +350,34 @@ function normalizeResponseData(rawData: Record<string, any>, consultaType?: stri
   }];
 
   // ── Veicular ──
-  const veicularItems = Array.isArray((details as any).items) ? (details as any).items : [];
-  const looksLikeVehicle = veicularItems.some((it: any) =>
+  // Aceita múltiplas formas: details.patrimonio_veicular, details.vehicleAssets, details.veicular,
+  // details.vehicles, ou o próprio details/result com { items: [{plate,renavam,chassis,...}] }
+  const veicularNested: any =
+    (details as any).patrimonio_veicular ||
+    (details as any).vehicleAssets ||
+    (details as any).veicular ||
+    (details as any).vehicles ||
+    null;
+  // Normaliza shapes aninhados { result: {items}, details: {items} }
+  const unwrapVehicle = (val: any): any => {
+    if (!val || typeof val !== 'object') return null;
+    if (Array.isArray(val.items)) return val;
+    if (val.details && Array.isArray(val.details.items)) return val.details;
+    if (val.result && Array.isArray(val.result.items)) return val.result;
+    return val;
+  };
+  const veicularUnwrapped = unwrapVehicle(veicularNested);
+  const veicularItemsCandidate: any[] = Array.isArray(veicularUnwrapped?.items)
+    ? veicularUnwrapped.items
+    : (Array.isArray((details as any).items) ? (details as any).items : []);
+  const looksLikeVehicle = veicularItemsCandidate.some((it: any) =>
     it && typeof it === 'object' && (
       'plate' in it || 'renavam' in it || 'chassis' in it || 'vehicle' in it || 'modelYear' in it
     ),
   );
-  const veicularFromItems = looksLikeVehicle ? details : null;
   const veicularData =
-    details.veicular ||
-    details.vehicleAssets ||
-    details.vehicles ||
-    (isExpectedType('patrimonio_veicular', looksLikeVehicle) ? (veicularFromItems || details) : null);
+    veicularUnwrapped ||
+    (isExpectedType('patrimonio_veicular', looksLikeVehicle) ? details : null);
   result['veicular'] = [{
     key: 'veicular',
     label: 'Veicular',

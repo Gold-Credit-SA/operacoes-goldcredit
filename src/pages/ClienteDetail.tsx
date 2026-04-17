@@ -108,9 +108,22 @@ function buildAgriskOverviewEntry(entries: HistoryEntry[]): HistoryEntry | null 
       case 'imoveis_car':
         combinedDetails.imoveis_car = (payload as any).imoveis_car || payload;
         break;
-      case 'patrimonio_veicular':
-        combinedDetails.patrimonio_veicular = (payload as any).patrimonio_veicular || payload;
+      case 'patrimonio_veicular': {
+        // Payload veicular vem como { result: {items,...}, details: {items,...} } ou já normalizado.
+        const veicularRaw: any = (payload as any);
+        const veicularPayload =
+          veicularRaw?.patrimonio_veicular ||
+          veicularRaw?.vehicleAssets ||
+          veicularRaw?.veicular ||
+          // Caso típico: o próprio payload já é { items: [...] } ou { result: {items}, details: {items} }
+          (Array.isArray(veicularRaw?.items) ? veicularRaw : null) ||
+          (isPlainObject(veicularRaw?.result) && Array.isArray((veicularRaw.result as any).items) ? veicularRaw.result : null) ||
+          veicularRaw;
+        combinedDetails.patrimonio_veicular = veicularPayload;
+        // Espelha em chaves reconhecidas pelo normalizer da view agregada
+        combinedDetails.vehicleAssets = veicularPayload;
         break;
+      }
       default:
         break;
     }
