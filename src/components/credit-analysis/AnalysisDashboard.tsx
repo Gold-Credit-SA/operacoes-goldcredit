@@ -14,14 +14,23 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell, Legend
 } from 'recharts';
 
+interface SacadoEntry {
+  cpf_cnpj: string;
+  name: string | null;
+}
+
 interface AnalysisDashboardProps {
   analysis: any;
   clientConsultations: any;
+  /** Live (re-fetched) consultations from the page; preferred over the snapshot in clientConsultations when present. */
+  liveConsultations?: any;
   cedenteData: any;
   clientName: string | null;
   clientCpfCnpj: string | null;
   cedenteName: string | null;
   cedenteCpfCnpj?: string | null;
+  /** Full list of sacados (for multi-sacado operations). */
+  sacados?: SacadoEntry[];
 }
 
 const PIE_COLORS = [
