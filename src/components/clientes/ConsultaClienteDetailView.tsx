@@ -1184,18 +1184,22 @@ function VehicleCard({ vehicle }: { vehicle: any }) {
 }
 
 function ImoveisContent({ items }: { items: SubItem[] }) {
-  // Find the "Simples" sub-item
   const simplesItem = items.find(i => i.key === 'imoveis-simples');
   const carItem = items.find(i => i.key === 'imoveis-car');
 
+  const hasSimplesNative = simplesItem?.status === 'DONE' && !!simplesItem.data;
+  const hasCar = carItem?.status === 'DONE' && !!carItem.data;
+
   return (
     <div className="space-y-6">
-      {/* ── Imóveis Rurais - Simples ── */}
+      {/* ── Imóveis Rurais (Simples) ── */}
       <div className="space-y-4">
         <h2 className="text-2xl font-bold text-foreground">Imóveis Rurais</h2>
 
-        {simplesItem?.status === 'DONE' && simplesItem.data ? (
-          <ImoveisSimplesView data={simplesItem.data as Record<string, any>} />
+        {hasSimplesNative ? (
+          <ImoveisSimplesView data={simplesItem!.data as Record<string, any>} />
+        ) : hasCar ? (
+          <ImoveisSimplesFromCarView data={carItem!.data as Record<string, unknown>} />
         ) : (
           <EmptyState
             title="Imóveis Simples não consultado"
@@ -1208,7 +1212,7 @@ function ImoveisContent({ items }: { items: SubItem[] }) {
       {carItem && (
         <div className="space-y-4">
           <h3 className="text-xl font-bold text-foreground">CAR – Cadastro Ambiental Rural</h3>
-          {carItem.status === 'DONE' && carItem.data ? (
+          {hasCar ? (
             <CarItemsView data={carItem.data as Record<string, unknown>} />
           ) : (
             <EmptyState
@@ -1218,6 +1222,183 @@ function ImoveisContent({ items }: { items: SubItem[] }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// Visão "Imóveis Rurais (Simples)" do AgRisk derivada dos itens CAR.
+function ImoveisSimplesFromCarView({ data }: { data: Record<string, unknown> }) {
+  const root: any = (data as any)?.details || (data as any)?.result || data;
+  const items: any[] = Array.isArray(root?.items) ? root.items : [];
+
+  const fmtNum = (n: number, dec = 1) => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: dec }).format(n);
+  const fmtCurr = (n: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
+
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        title="Nenhum imóvel encontrado"
+        description="A consulta de imóveis rurais não retornou registros para este cliente."
+      />
+    );
+  }
+
+  const classify = (s: string) => {
+    const v = (s || '').toLowerCase();
+    if (v.includes('sociedade') || v.includes('society') || v.includes('partner')) return 'sociedade';
+    if (v.includes('arrend')) return 'arrendada';
+    if (v.includes('parc')) return 'parceria';
+    return 'propria';
+  };
+
+  const totals = items.reduce(
+    (acc: any, it: any) => {
+      const cls = classify(it.ownership || '');
+      const area = Number(it.totalArea ?? 0);
+      acc.areaTotal += area;
+      acc[`area_${cls}`] = (acc[`area_${cls}`] || 0) + area;
+      acc[`count_${cls}`] = (acc[`count_${cls}`] || 0) + 1;
+      acc.valorTotal += Number(it.vti?.mean ?? 0);
+      return acc;
+    },
+    { areaTotal: 0, valorTotal: 0 } as any
+  );
+
+  return (
+    <div className="space-y-5">
+      <Card className="border-border">
+        <CardContent className="p-5">
+          <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto] gap-6 items-start">
+            <div>
+              <p className="text-sm font-semibold text-muted-foreground mb-3">Áreas (ha)</p>
+              <div className="flex items-end gap-6 flex-wrap">
+                <div>
+                  <p className="text-3xl font-bold text-foreground leading-tight">{fmtNum(totals.areaTotal, 0)}</p>
+                  <p className="text-xs text-muted-foreground">Total</p>
+                </div>
+                <div className="border-l border-border pl-6">
+                  <p className="text-2xl font-bold text-foreground leading-tight">{fmtNum(totals.area_propria || 0, 0)}</p>
+                  <p className="text-xs text-muted-foreground">Própria</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground leading-tight">{fmtNum(totals.area_sociedade || 0, 0)}</p>
+                  <p className="text-xs text-muted-foreground">De sociedades</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground leading-tight">{fmtNum(totals.area_arrendada || 0, 0)}</p>
+                  <p className="text-xs text-muted-foreground">Arrendada</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground leading-tight">{fmtNum(totals.area_parceria || 0, 0)}</p>
+                  <p className="text-xs text-muted-foreground">Parcerias</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="md:border-l md:border-border md:pl-6">
+              <p className="text-sm font-semibold text-muted-foreground mb-3">Imóveis</p>
+              <div className="flex items-end gap-6 flex-wrap">
+                <div>
+                  <p className="text-2xl font-bold text-foreground leading-tight">{totals.count_propria || 0}</p>
+                  <p className="text-xs text-muted-foreground">Próprios</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground leading-tight">{totals.count_sociedade || 0}</p>
+                  <p className="text-xs text-muted-foreground">De sociedades</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground leading-tight">{totals.count_arrendada || 0}</p>
+                  <p className="text-xs text-muted-foreground">Arrendados</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground leading-tight">{totals.count_parceria || 0}</p>
+                  <p className="text-xs text-muted-foreground">Parcerias</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="md:border-l md:border-border md:pl-6">
+              <p className="text-sm font-semibold text-muted-foreground mb-3">Valor total</p>
+              <p className="text-2xl font-bold text-foreground leading-tight">
+                {totals.valorTotal > 0 ? fmtCurr(totals.valorTotal) : 'R$ 0,00'}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs">Tipo</TableHead>
+                <TableHead className="text-xs">Nome</TableHead>
+                <TableHead className="text-xs">Área Total</TableHead>
+                <TableHead className="text-xs">Área Própria</TableHead>
+                <TableHead className="text-xs">Geo</TableHead>
+                <TableHead className="text-xs">Valor</TableHead>
+                <TableHead className="text-xs">UF</TableHead>
+                <TableHead className="text-xs">Município</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.map((item: any, idx: number) => {
+                const cls = classify(item.ownership || '');
+                const labelMap: Record<string, string> = {
+                  propria: 'PRÓPRIA',
+                  sociedade: 'DE SOCIEDADE',
+                  arrendada: 'ARRENDADA',
+                  parceria: 'PARCERIA',
+                };
+                const colorMap: Record<string, string> = {
+                  propria: 'border-emerald-500/40 text-emerald-700 bg-emerald-50',
+                  sociedade: 'border-cyan-500/40 text-cyan-700 bg-cyan-50',
+                  arrendada: 'border-amber-500/40 text-amber-700 bg-amber-50',
+                  parceria: 'border-violet-500/40 text-violet-700 bg-violet-50',
+                };
+
+                const totalA = Number(item.totalArea ?? 0);
+                const prodA = Number(item.productiveArea ?? 0);
+                const pct = totalA > 0 ? (prodA / totalA) * 100 : 0;
+                const valor = Number(item.vti?.mean ?? 0);
+                const geoArr: any[] = Array.isArray(item.geo) ? item.geo : [];
+                const hasGeo = geoArr.length > 0;
+                const nome = item.name || item.car || '—';
+
+                return (
+                  <TableRow key={idx} className="hover:bg-muted/30">
+                    <TableCell className="py-3">
+                      <Badge variant="outline" className={cn("text-[10px] font-semibold whitespace-nowrap", colorMap[cls])}>
+                        {labelMap[cls]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-foreground max-w-[320px] truncate" title={nome}>{nome}</TableCell>
+                    <TableCell className="text-sm text-foreground whitespace-nowrap">
+                      {totalA > 0 ? `${fmtNum(totalA, 1)} ha` : '—'}
+                    </TableCell>
+                    <TableCell className="text-sm text-foreground whitespace-nowrap">
+                      {prodA > 0 ? `${fmtNum(prodA, 2)} ha (${fmtNum(pct, 0)}%)` : '—'}
+                    </TableCell>
+                    <TableCell>
+                      {hasGeo ? (
+                        <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white text-[10px]">GEO</Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-foreground whitespace-nowrap">
+                      {valor > 0 ? fmtCurr(valor) : 'R$ 0,00'}
+                    </TableCell>
+                    <TableCell className="text-sm text-foreground">{item.state || '—'}</TableCell>
+                    <TableCell className="text-sm text-foreground">{item.city || '—'}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }
