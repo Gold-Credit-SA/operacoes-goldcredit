@@ -2139,7 +2139,7 @@ export function ConsultaClienteDetailView({ data: rawData, agriskClientId, consu
           selectedCat.key === 'juridico' ? <LawsuitsContent items={selectedCat.items} agriskClientId={agriskClientId} /> :
           selectedCat.key === 'grupos' ? <GruposContent items={selectedCat.items} /> :
           selectedCat.key === 'armazens' ? <GenericTopicContent title="Armazéns" items={selectedCat.items} /> :
-          selectedCat.key === 'veicular' ? <GenericTopicContent title="Veicular" items={selectedCat.items} /> :
+          selectedCat.key === 'veicular' ? <VeicularContent items={selectedCat.items} /> :
           selectedCat.key === 'imoveis' ? <ImoveisContent items={selectedCat.items} /> :
           null
         ) : (
