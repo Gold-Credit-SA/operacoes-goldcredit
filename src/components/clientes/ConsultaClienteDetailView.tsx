@@ -1282,8 +1282,67 @@ function PropertyMap({ parcels }: { parcels: any[] }) {
   return <div ref={mapRef} className="w-full h-full min-h-[350px] rounded-lg z-0" />;
 }
 
-function ImovelDetailDialog({ property, tipo }: { property: any; tipo: string }) {
-  const [open, setOpen] = useState(false);
+function MiniPropertyMap({ parcels }: { parcels: any[] }) {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
+
+    const map = L.map(mapRef.current, {
+      zoomControl: false,
+      attributionControl: false,
+      dragging: false,
+      scrollWheelZoom: false,
+      doubleClickZoom: false,
+      boxZoom: false,
+      keyboard: false,
+      touchZoom: false,
+    });
+
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '',
+    }).addTo(map);
+
+    const allBounds: L.LatLngBounds[] = [];
+
+    parcels.forEach((parcel: any) => {
+      const geometry = parcel.geometry;
+      if (!geometry?.coordinates?.length) return;
+      const coords: L.LatLngExpression[][] = geometry.coordinates.map((ring: number[][]) =>
+        ring.map((pt: number[]) => [pt[1], pt[0]] as L.LatLngExpression)
+      );
+      const polygon = L.polygon(coords, {
+        color: '#22C55E',
+        weight: 1.5,
+        fillColor: '#22C55E',
+        fillOpacity: 0.35,
+      }).addTo(map);
+      allBounds.push(polygon.getBounds());
+    });
+
+    if (allBounds.length > 0) {
+      const combined = allBounds.reduce((acc, b) => acc.extend(b), allBounds[0]);
+      map.fitBounds(combined, { padding: [4, 4] });
+    } else {
+      map.setView([-15.78, -47.93], 4);
+    }
+
+    mapInstanceRef.current = map;
+
+    return () => {
+      map.remove();
+      mapInstanceRef.current = null;
+    };
+  }, [parcels]);
+
+  return <div ref={mapRef} className="w-full h-full pointer-events-none" />;
+}
+
+function ImovelDetailDialog({ property, tipo, open: openProp, onOpenChange }: { property: any; tipo: string; open?: boolean; onOpenChange?: (open: boolean) => void }) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = openProp ?? internalOpen;
+  const setOpen = onOpenChange ?? setInternalOpen;
   const [detailTab, setDetailTab] = useState('matriculas');
   
   const details = property.details || {};
