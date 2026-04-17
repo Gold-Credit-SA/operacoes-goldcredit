@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import {
   Shield, CreditCard, TrendingUp, AlertTriangle, MapPin,
-  Activity, Clock, FileWarning, CheckCircle2, Gauge,
+  Activity, Clock, FileWarning, CheckCircle2, Gauge, FileText,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -409,6 +409,18 @@ function ChartTooltipContent({ active, payload, label }: any) {
           {p.name}: {fmtFull(p.value)}
         </p>
       ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Linha de resumo (label + value)
+// ─────────────────────────────────────────────
+function ResumoLinha({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={cn('text-foreground', valueClass)}>{value}</span>
     </div>
   );
 }
