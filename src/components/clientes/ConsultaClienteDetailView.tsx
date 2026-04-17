@@ -1415,9 +1415,11 @@ function ImovelDetailDialog({ property, tipo, open: openProp, onOpenChange }: { 
 
   return (
     <>
-      <Button variant="ghost" size="sm" className="text-xs text-primary" onClick={() => setOpen(true)}>
-        Ver mais
-      </Button>
+      {openProp === undefined && (
+        <Button variant="ghost" size="sm" className="text-xs text-primary" onClick={() => setOpen(true)}>
+          Ver mais
+        </Button>
+      )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0">
           {/* Header */}
