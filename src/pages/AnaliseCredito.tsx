@@ -360,6 +360,8 @@ export default function AnaliseCredito() {
       if (analysisData?.error) throw new Error(analysisData.error);
 
       // Create session
+      const sacadosPayload = allClients.map(c => ({ id: c.id, cpf_cnpj: c.cpf_cnpj, name: c.name }));
+
       const { data: newSession, error: sessErr } = await supabase
         .from('credit_analysis_sessions')
         .insert({
@@ -371,6 +373,7 @@ export default function AnaliseCredito() {
           cedente_data: selectedCedente.data as any,
           documents: documentPayload as any,
           client_consultations: clientConsultations as any,
+          sacados: sacadosPayload as any,
           initial_analysis: analysisData.analysis as any,
           created_by: user.id,
         })
