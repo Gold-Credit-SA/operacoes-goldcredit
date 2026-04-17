@@ -629,6 +629,7 @@ export default function AdminSettings() {
         editingUser={editingUser ? { name: editingUser.name, email: editingUser.email } : null}
         onSave={handleSave}
         saving={saving}
+        isMasterUser={editingUser?.email === MASTER_EMAIL}
       />
 
       {/* Rejection reason dialog */}
