@@ -237,53 +237,138 @@ function extractSCR(entry: HistoryEntry | null) {
 }
 
 // ─────────────────────────────────────────────
-// AgRisk extraction (patrimônio rural agregado)
+// AgRisk extraction — agrega consulta_cliente, imoveis e veicular
 // ─────────────────────────────────────────────
 function extractAgrisk(entries: HistoryEntry[]) {
   if (!entries.length) return null;
 
-  let totalArea = 0;
-  let qtdImoveis = 0;
-  let valorVTI = 0;
+  let totalAreaRural = 0;
+  let qtdImoveisRural = 0;
+  let qtdImoveisUrbanos = 0;
+  let valorImoveis = 0;
+  let qtdVeiculos = 0;
+  let valorVeiculos = 0;
+  let processosTotal = 0;
   let processosAtivos = 0;
+  let processosPassivos = 0;
+  let valorProcessos = 0;
+  let protestosTotal = 0;
+  let valorProtestos = 0;
+  let bndesItens = 0;
+  let scrMessage: string | null = null;
+  let sintegraQtd = 0;
+  let sintegraAtivos = 0;
+  let qtdContatos = 0;
+  let qtdEnderecos = 0;
+  let gruposFamilia = 0;
+  let gruposEconomicos = 0;
+  const breakdownAreas = { propria: 0, sociedade: 0, arrendada: 0, parceria: 0 };
+  let consultadoEm: string | null = null;
   let foundAny = false;
 
   for (const entry of entries) {
     const raw: any = entry.result_data;
     if (!raw) continue;
-    const root = raw?.data || raw;
-    const sections = asArray(root?.sections || root?.queries || root?.execution?.sections);
+    if (!consultadoEm || +new Date(entry.created_at) > +new Date(consultadoEm)) {
+      consultadoEm = entry.created_at;
+    }
+    const root = raw?.result || raw?.data || raw;
+    const details = root?.details || root;
 
-    // Try imoveis-car or imoveis-simples
-    const findSection = (key: string) => sections.find((s: any) => {
-      const t = String(s?.type || s?.key || s?.id || s?.consulta || '').toLowerCase();
-      return t.includes(key);
-    });
-
-    const carSection = findSection('car') || findSection('imovel') || findSection('rural');
-    const carItems = asArray(carSection?.data?.items || carSection?.data?.list || carSection?.data || carSection?.items);
-
-    if (carItems.length > 0) {
+    // ── Consulta Cliente (details.{lawsuits,protests,bndes,scr,contacts,sintegra,groups_family,groups_economic})
+    if (details?.lawsuits) {
       foundAny = true;
-      qtdImoveis += carItems.length;
-      carItems.forEach((it: any) => {
-        totalArea += toNumber(it.totalArea || it.area || it.areaTotal || it.areaHa);
-        valorVTI += toNumber(it.vti || it.vtiTotal || it.valor || it.valorVTI);
-      });
+      const l = details.lawsuits;
+      processosTotal += toNumber(l.total ?? l.todos);
+      processosAtivos += toNumber(l.active ?? l.ativo);
+      processosPassivos += toNumber(l.passivo);
+    }
+    if (details?.protests) {
+      foundAny = true;
+      const p = details.protests;
+      protestosTotal += toNumber(p.totalCompanies);
+      valorProtestos += toNumber(p.valueTotalOfProtests);
+    }
+    if (details?.bndes?.items) {
+      foundAny = true;
+      bndesItens += asArray(details.bndes.items).length;
+    }
+    if (details?.scr?.message) {
+      foundAny = true;
+      scrMessage = Array.isArray(details.scr.message) ? details.scr.message.join(' ') : String(details.scr.message);
+    }
+    if (details?.contacts) {
+      foundAny = true;
+      qtdContatos += asArray(details.contacts.emails).length + asArray(details.contacts.phones).length;
+      qtdEnderecos += asArray(details.contacts.addresses).length;
+    }
+    if (details?.sintegra?.items) {
+      foundAny = true;
+      const items = asArray(details.sintegra.items);
+      sintegraQtd += items.length;
+      sintegraAtivos += items.filter((s: any) => String(s?.status || '').toLowerCase().includes('habilitado') && !String(s?.status || '').toLowerCase().includes('não')).length;
+    }
+    if (details?.groups_family?.items) {
+      gruposFamilia += asArray(details.groups_family.items).length;
+    }
+    if (details?.groups_economic?.items) {
+      gruposEconomicos += asArray(details.groups_economic.items).length;
     }
 
-    const procSection = findSection('processo') || findSection('judicial') || findSection('lawsuit');
-    const procItems = asArray(procSection?.data?.items || procSection?.data?.list || procSection?.data);
-    if (procItems.length > 0) {
+    // ── Imóveis (root.rural / root.urban)
+    if (root?.rural || root?.urban) {
       foundAny = true;
-      processosAtivos += procItems.filter((p: any) =>
-        String(p?.status || p?.situacao || '').toLowerCase().includes('ativ')
-      ).length || procItems.length;
+      const rural = root.rural || {};
+      totalAreaRural += toNumber(rural.totalArea);
+      const props = rural.properties || {};
+      qtdImoveisRural += toNumber(props.owned) + toNumber(props.leased) + toNumber(props.inSociety) + toNumber(props.partnership);
+      breakdownAreas.propria += toNumber(rural.areas?.owned);
+      breakdownAreas.sociedade += toNumber(rural.areas?.inSociety);
+      breakdownAreas.arrendada += toNumber(rural.areas?.leased);
+      breakdownAreas.parceria += toNumber(rural.areas?.partnership);
+      valorImoveis += toNumber(rural.totalValue);
+      const urban = root.urban || {};
+      qtdImoveisUrbanos += toNumber(urban.totalProperties);
+      valorImoveis += toNumber(urban.totalValueProperties);
+    }
+
+    // ── Veículos (root.items / root.totalValue / root.quantity)
+    if (entry.consulta_type === 'patrimonio_veicular' || (root?.product?.code === 'vehicle-assets')) {
+      foundAny = true;
+      qtdVeiculos += toNumber(root?.quantity ?? asArray(root?.items).length);
+      valorVeiculos += toNumber(root?.totalValue);
     }
   }
 
   if (!foundAny) return null;
-  return { totalArea, qtdImoveis, valorVTI, processosAtivos };
+
+  const valorPatrimonio = valorImoveis + valorVeiculos;
+
+  return {
+    totalAreaRural,
+    qtdImoveisRural,
+    qtdImoveisUrbanos,
+    valorImoveis,
+    qtdVeiculos,
+    valorVeiculos,
+    valorPatrimonio,
+    processosTotal,
+    processosAtivos,
+    processosPassivos,
+    valorProcessos,
+    protestosTotal,
+    valorProtestos,
+    bndesItens,
+    scrMessage,
+    sintegraQtd,
+    sintegraAtivos,
+    qtdContatos,
+    qtdEnderecos,
+    gruposFamilia,
+    gruposEconomicos,
+    breakdownAreas,
+    consultadoEm,
+  };
 }
 
 // ─────────────────────────────────────────────
