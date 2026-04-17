@@ -651,47 +651,170 @@ export function ClienteCreditoConsolidadoCard({ client, history }: Props) {
             </section>
           )}
 
-          {/* Patrimônio AgRisk */}
+          {/* AgRisk — Patrimônio + Risco */}
           {agrisk && (
             <section>
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3 flex items-center gap-2">
                 <MapPin className="h-3.5 w-3.5" />
-                Patrimônio Rural
+                Patrimônio e Risco · AgRisk
                 <img src={logoAgrisk} alt="" className="h-3 w-auto ml-auto opacity-60" />
               </h3>
-              <div className="rounded-lg border bg-card p-3 h-full">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-md bg-muted/40 p-3">
-                    <p className="text-[10px] uppercase text-muted-foreground">Imóveis</p>
-                    <p className="text-xl font-bold text-foreground mt-1">{agrisk.qtdImoveis}</p>
-                  </div>
-                  <div className="rounded-md bg-muted/40 p-3">
-                    <p className="text-[10px] uppercase text-muted-foreground">Área total</p>
-                    <p className="text-xl font-bold text-foreground mt-1">
-                      {agrisk.totalArea.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}
-                      <span className="text-xs font-normal text-muted-foreground ml-1">ha</span>
+              <div className="rounded-lg border bg-card p-3 h-full space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-md bg-muted/40 p-2.5">
+                    <p className="text-[10px] uppercase text-muted-foreground">Imóveis rurais</p>
+                    <p className="text-lg font-bold text-foreground mt-0.5">{agrisk.qtdImoveisRural}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {agrisk.totalAreaRural.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ha
                     </p>
                   </div>
-                  {agrisk.valorVTI > 0 && (
-                    <div className="rounded-md bg-muted/40 p-3 col-span-2">
-                      <p className="text-[10px] uppercase text-muted-foreground">VTI estimado</p>
-                      <p className="text-xl font-bold text-emerald-700 mt-1">{fmt(agrisk.valorVTI)}</p>
-                    </div>
-                  )}
-                  {agrisk.processosAtivos > 0 && (
-                    <div className="rounded-md bg-amber-50 border border-amber-200 p-3 col-span-2 flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0" />
-                      <div>
-                        <p className="text-xs font-semibold text-amber-900">{agrisk.processosAtivos} processo(s) ativo(s)</p>
-                        <p className="text-[10px] text-amber-800/80">Identificados pelo AgRisk</p>
-                      </div>
-                    </div>
-                  )}
+                  <div className="rounded-md bg-muted/40 p-2.5">
+                    <p className="text-[10px] uppercase text-muted-foreground">Veículos</p>
+                    <p className="text-lg font-bold text-foreground mt-0.5">{agrisk.qtdVeiculos}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {agrisk.valorVeiculos > 0 ? fmt(agrisk.valorVeiculos) : 'Sem valor'}
+                    </p>
+                  </div>
+                </div>
+
+                {agrisk.valorPatrimonio > 0 && (
+                  <div className="rounded-md bg-emerald-50 border border-emerald-200 p-2.5">
+                    <p className="text-[10px] uppercase text-emerald-800">Patrimônio total</p>
+                    <p className="text-lg font-bold text-emerald-900">{fmt(agrisk.valorPatrimonio)}</p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className={cn('rounded-md border p-2',
+                    agrisk.processosAtivos > 0 ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'
+                  )}>
+                    <p className="text-[10px] uppercase opacity-80">Processos</p>
+                    <p className="font-semibold">
+                      {agrisk.processosTotal === 0 ? 'Nada consta'
+                        : `${agrisk.processosTotal} (${agrisk.processosAtivos} ativos)`}
+                    </p>
+                  </div>
+                  <div className={cn('rounded-md border p-2',
+                    agrisk.protestosTotal > 0 ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'
+                  )}>
+                    <p className="text-[10px] uppercase opacity-80">Protestos</p>
+                    <p className="font-semibold">
+                      {agrisk.protestosTotal === 0 ? 'Nada consta'
+                        : `${agrisk.protestosTotal} · ${fmt(agrisk.valorProtestos)}`}
+                    </p>
+                  </div>
                 </div>
               </div>
             </section>
           )}
         </div>
+
+        {/* ════════ RESUMO DETALHADO POR BIRÔ ════════ */}
+        <section>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3 flex items-center gap-2">
+            <FileText className="h-3.5 w-3.5" />
+            Resumo por birô
+          </h3>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            {/* SERASA */}
+            {serasa && (
+              <div className="rounded-lg border bg-card overflow-hidden">
+                <div className="bg-blue-50 border-b border-blue-200 px-3 py-2 flex items-center gap-2">
+                  <img src={logoSerasa} alt="" className="h-3.5 w-auto" />
+                  <span className="text-xs font-semibold text-blue-900">Serasa</span>
+                  <Badge variant="outline" className={cn('ml-auto text-[10px]', getRiskBadgeBg(serasa.score))}>
+                    Score {serasa.score ?? '—'}
+                  </Badge>
+                </div>
+                <div className="p-3 space-y-1.5 text-xs">
+                  <ResumoLinha label="Faixa de risco" value={getScoreFaixa(serasa.score)} />
+                  <ResumoLinha label="Limite sugerido" value={serasa.limiteSugerido ? fmt(serasa.limiteSugerido) : '—'} />
+                  <ResumoLinha label="Total de restrições" value={String(serasa.totalRestricoes)}
+                    valueClass={serasa.totalRestricoes > 0 ? 'text-red-700 font-semibold' : 'text-emerald-700 font-semibold'} />
+                  {serasa.pefinCount > 0 && <ResumoLinha label="PEFIN" value={`${serasa.pefinCount} reg.`} />}
+                  {serasa.refinCount > 0 && <ResumoLinha label="REFIN" value={`${serasa.refinCount} reg.`} />}
+                  {serasa.protestos > 0 && <ResumoLinha label="Protestos" value={`${serasa.protestos} reg.`} />}
+                  {serasa.acoes > 0 && <ResumoLinha label="Ações judiciais" value={`${serasa.acoes} reg.`} />}
+                  {serasa.valorTotalRestricoes > 0 && (
+                    <ResumoLinha label="Valor em aberto" value={fmtFull(serasa.valorTotalRestricoes)}
+                      valueClass="text-red-700 font-semibold" />
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* SCR */}
+            {scr && (
+              <div className="rounded-lg border bg-card overflow-hidden">
+                <div className="bg-emerald-50 border-b border-emerald-200 px-3 py-2 flex items-center gap-2">
+                  <img src={logoHbi} alt="" className="h-3.5 w-auto" />
+                  <span className="text-xs font-semibold text-emerald-900">SCR · Bacen</span>
+                  <Badge variant="outline" className="ml-auto text-[10px] bg-white border-emerald-300 text-emerald-800">
+                    {scr.dtbLabel}
+                  </Badge>
+                </div>
+                <div className="p-3 space-y-1.5 text-xs">
+                  <ResumoLinha label="Carteira ativa" value={fmt(scr.totalCarteira)} valueClass="font-semibold" />
+                  <ResumoLinha label="A vencer" value={fmt(scr.totalAVencer)} valueClass="text-emerald-700" />
+                  <ResumoLinha label="Vencido" value={fmt(scr.totalVencido)}
+                    valueClass={scr.totalVencido > 0 ? 'text-red-700 font-semibold' : 'text-muted-foreground'} />
+                  <ResumoLinha label="Limites concedidos" value={fmt(scr.totalLimites)} valueClass="text-blue-700" />
+                  <ResumoLinha label="Inadimplência" value={`${scr.inadimplenciaPerc.toFixed(1)}%`}
+                    valueClass={scr.inadimplenciaPerc > 0 ? 'text-red-700 font-semibold' : 'text-emerald-700 font-semibold'} />
+                  <ResumoLinha label="Instituições financeiras" value={`${scr.qtdIfs} IF(s)`} />
+                  <ResumoLinha label="Operações ativas" value={`${scr.qtdOps} op.`} />
+                </div>
+              </div>
+            )}
+
+            {/* AGRISK */}
+            {agrisk && (
+              <div className="rounded-lg border bg-card overflow-hidden">
+                <div className="bg-amber-50 border-b border-amber-200 px-3 py-2 flex items-center gap-2">
+                  <img src={logoAgrisk} alt="" className="h-3.5 w-auto" />
+                  <span className="text-xs font-semibold text-amber-900">AgRisk</span>
+                  <Badge variant="outline" className="ml-auto text-[10px] bg-white border-amber-300 text-amber-800">
+                    Cadastral
+                  </Badge>
+                </div>
+                <div className="p-3 space-y-1.5 text-xs">
+                  <ResumoLinha label="Área rural total" value={`${agrisk.totalAreaRural.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ha`}
+                    valueClass="font-semibold" />
+                  <ResumoLinha label="Imóveis rurais" value={`${agrisk.qtdImoveisRural}`} />
+                  {agrisk.qtdImoveisUrbanos > 0 && (
+                    <ResumoLinha label="Imóveis urbanos" value={`${agrisk.qtdImoveisUrbanos}`} />
+                  )}
+                  {agrisk.breakdownAreas.propria > 0 && (
+                    <ResumoLinha label="Área própria" value={`${agrisk.breakdownAreas.propria.toFixed(1)} ha`}
+                      valueClass="text-emerald-700" />
+                  )}
+                  {agrisk.breakdownAreas.arrendada > 0 && (
+                    <ResumoLinha label="Área arrendada" value={`${agrisk.breakdownAreas.arrendada.toFixed(1)} ha`}
+                      valueClass="text-amber-700" />
+                  )}
+                  <ResumoLinha label="Veículos" value={agrisk.qtdVeiculos > 0 ? `${agrisk.qtdVeiculos} (${fmt(agrisk.valorVeiculos)})` : 'Nenhum'} />
+                  <ResumoLinha label="Processos judiciais" value={agrisk.processosTotal === 0 ? 'Nada consta' : `${agrisk.processosTotal}`}
+                    valueClass={agrisk.processosTotal > 0 ? 'text-amber-700 font-semibold' : 'text-emerald-700 font-semibold'} />
+                  <ResumoLinha label="Protestos" value={agrisk.protestosTotal === 0 ? 'Nada consta' : `${agrisk.protestosTotal} · ${fmt(agrisk.valorProtestos)}`}
+                    valueClass={agrisk.protestosTotal > 0 ? 'text-red-700 font-semibold' : 'text-emerald-700 font-semibold'} />
+                  {agrisk.bndesItens > 0 && <ResumoLinha label="Operações BNDES" value={`${agrisk.bndesItens}`} />}
+                  {agrisk.sintegraQtd > 0 && (
+                    <ResumoLinha label="Inscrições Sintegra"
+                      value={`${agrisk.sintegraQtd}${agrisk.sintegraAtivos > 0 ? ` (${agrisk.sintegraAtivos} ativas)` : ''}`} />
+                  )}
+                  {agrisk.gruposEconomicos > 0 && (
+                    <ResumoLinha label="Grupos econômicos" value={`${agrisk.gruposEconomicos}`} />
+                  )}
+                  {agrisk.scrMessage && (
+                    <div className="mt-2 pt-2 border-t text-[10px] text-muted-foreground italic">
+                      {agrisk.scrMessage}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
 
         {/* ════════ TIMELINE ════════ */}
         <section>
