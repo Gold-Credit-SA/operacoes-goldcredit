@@ -1088,11 +1088,11 @@ function VeicularContent({ items }: { items: SubItem[] }) {
             </span>
           </h2>
         </div>
-        <div className="rounded-md bg-[hsl(220_60%_18%)] text-white px-5 py-3 min-w-[220px] text-right shadow-sm">
-          <div className="text-[11px] font-semibold text-cyan-300 tracking-wide">
+        <div className="rounded-md bg-foreground text-background px-5 py-3 min-w-[220px] text-right shadow-sm">
+          <div className="text-[11px] font-semibold text-primary tracking-wide">
             Quantidade: {quantity}
           </div>
-          <div className="text-base font-bold text-cyan-300 mt-0.5">
+          <div className="text-base font-bold text-primary mt-0.5">
             TOTAL: {formatCurrency(totalValue)}
           </div>
         </div>
@@ -1132,19 +1132,19 @@ function VehicleCard({ vehicle }: { vehicle: any }) {
       <div className="bg-muted/40 px-5 py-3 flex items-center justify-between flex-wrap gap-2 border-b border-border">
         <div className="flex flex-col">
           <div className="text-sm">
-            <span className="text-cyan-700 font-semibold">Veículo: </span>
+            <span className="text-primary font-semibold">Veículo: </span>
             <span className="font-bold text-foreground">{v.vehicle || '—'}</span>
           </div>
           {(v.manufacturingYear || v.modelYear) && (
             <div className="text-xs text-muted-foreground mt-0.5">
-              <span className="text-cyan-700">Ano fabricação: </span>
+              <span className="text-primary">Ano fabricação: </span>
               <span>{v.manufacturingYear || v.modelYear}</span>
             </div>
           )}
         </div>
         <div className="text-right">
           <div className="text-sm">
-            <span className="text-cyan-700 font-semibold">FIPE: </span>
+            <span className="text-primary font-semibold">FIPE: </span>
             <span className="font-bold text-foreground">
               {Number.isFinite(Number(v.value)) ? formatCurrency(Number(v.value)) : '—'}
             </span>
@@ -1169,9 +1169,9 @@ function VehicleCard({ vehicle }: { vehicle: any }) {
         </div>
 
         {Array.isArray(v.restrictions) && v.restrictions.length > 0 && (
-          <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
-            <p className="text-xs font-semibold text-amber-800 mb-1">Restrições</p>
-            <ul className="text-xs text-amber-900 list-disc pl-4 space-y-0.5">
+          <div className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
+            <p className="text-xs font-semibold text-destructive mb-1">Restrições</p>
+            <ul className="text-xs text-destructive list-disc pl-4 space-y-0.5">
               {v.restrictions.map((r: any, i: number) => (
                 <li key={i}>{typeof r === 'string' ? r : JSON.stringify(r)}</li>
               ))}
