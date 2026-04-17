@@ -193,7 +193,7 @@ export default function AnaliseCredito() {
   const clientCpfCnpj = searchParams.get('cpfCnpj');
   const clientName = searchParams.get('name');
 
-  // Load all sacados from sessionStorage (multi-select)
+  // Load all sacados from sessionStorage (multi-select) — used only when starting a new session
   const [allClients, setAllClients] = useState<Array<{ id: string; cpf_cnpj: string; name: string | null }>>([]);
   useEffect(() => {
     try {
@@ -234,6 +234,13 @@ export default function AnaliseCredito() {
           setSelectedCedente({ cpf_cnpj: s.cedente_cpf_cnpj, nome: s.cedente_nome || '', data: (s.cedente_data || {}) as Record<string, unknown> });
         }
         setDocuments((s.documents || []) as ImportedDocument[]);
+
+        // Hydrate allClients from persisted sacados (fall back to single client)
+        if (Array.isArray(s.sacados) && s.sacados.length > 0) {
+          setAllClients(s.sacados.map(sc => ({ id: sc.id || sc.cpf_cnpj, cpf_cnpj: sc.cpf_cnpj, name: sc.name })));
+        } else if (s.client_cpf_cnpj) {
+          setAllClients([{ id: s.client_id, cpf_cnpj: s.client_cpf_cnpj, name: s.client_name }]);
+        }
 
         // Load messages
         const { data: msgs } = await supabase
