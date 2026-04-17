@@ -1517,7 +1517,13 @@ function MiniPropertyMap({ parcels }: { parcels: any[] }) {
     };
   }, [parcels]);
 
-  return <div ref={mapRef} className="w-full h-full pointer-events-none" />;
+  return (
+    <div
+      ref={mapRef}
+      className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden rounded-md"
+      style={{ contain: 'strict' }}
+    />
+  );
 }
 
 function ImovelDetailDialog({ property, tipo, open: openProp, onOpenChange }: { property: any; tipo: string; open?: boolean; onOpenChange?: (open: boolean) => void }) {
