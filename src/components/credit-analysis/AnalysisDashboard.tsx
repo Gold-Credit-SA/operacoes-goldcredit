@@ -868,28 +868,37 @@ export function AnalysisDashboard({ analysis, clientConsultations, cedenteData, 
       {/* 4) PARECER TÉCNICO / ANALÍTICO                         */}
       {/* ═══════════════════════════════════════════════════════ */}
       {analysis && (
-        <Card className="border-2">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <FileText className="h-5 w-5 text-primary" />
-                Parecer da Análise
-              </CardTitle>
-              <div className={cn('flex items-center gap-2 rounded-lg border px-4 py-2', decConfig.bg)}>
-                <DecIcon className={cn('h-5 w-5', decConfig.color)} />
-                <span className={cn('font-bold text-sm', decConfig.color)}>{decConfig.label}</span>
-                {analysis.riscoGeral && (
-                  <Badge className={cn('text-xs font-semibold ml-1', RISK_COLORS[analysis.riscoGeral] || '')}>
-                    Risco {analysis.riscoGeral}
-                  </Badge>
-                )}
+        <Card className="border-2 overflow-hidden">
+          {/* HERO — Decisão em destaque */}
+          <div className={cn('border-b-2 px-6 py-5', decConfig.bg)}>
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-4">
+                <div className={cn('rounded-2xl bg-white/70 p-3 shadow-sm border', decConfig.color.replace('text-', 'border-').replace('-700', '-300'))}>
+                  <DecIcon className={cn('h-8 w-8', decConfig.color)} />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground flex items-center gap-1.5">
+                    <FileText className="h-3 w-3" /> Parecer da Análise
+                  </p>
+                  <p className={cn('text-2xl font-black leading-tight', decConfig.color)}>{decConfig.label}</p>
+                  {analysis.parecer && (
+                    <p className="text-xs text-foreground/70 mt-1 max-w-2xl leading-relaxed line-clamp-2">{analysis.parecer}</p>
+                  )}
+                </div>
               </div>
+
+              {/* Risk Gauge */}
+              {analysis.riscoGeral && (
+                <RiskGauge level={analysis.riscoGeral} />
+              )}
             </div>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            {/* Parecer resumo */}
-            {analysis.parecer && (
-              <div className="rounded-lg bg-muted/50 border p-4">
+          </div>
+
+          <CardContent className="space-y-5 pt-5">
+            {/* Parecer completo (expandido) */}
+            {analysis.parecer && analysis.parecer.length > 180 && (
+              <div className="rounded-xl border bg-muted/30 p-4 border-l-4 border-l-primary">
+                <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-2">Parecer Completo</p>
                 <p className="text-sm leading-relaxed text-foreground">{analysis.parecer}</p>
               </div>
             )}
@@ -904,12 +913,17 @@ export function AnalysisDashboard({ analysis, clientConsultations, cedenteData, 
               </div>
             )}
 
-            {/* Operation metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <KPICard icon={DollarSign} label="Valor Operação" value={analysis?.blocos?.titulosLastro?.detalhes?.valorTotal || '—'} />
-              <KPICard icon={FileText} label="Qtd. Títulos" value={analysis?.blocos?.titulosLastro?.detalhes?.quantidadeTitulos || '—'} />
-              <KPICard icon={Clock} label="Prazo Médio" value={analysis?.blocos?.titulosLastro?.detalhes?.prazoMedio || '—'} />
-              <KPICard icon={Activity} label="Ticket Médio" value={analysis?.blocos?.titulosLastro?.detalhes?.ticketMedio || '—'} />
+            {/* Operation metrics — destaque */}
+            <div>
+              <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-2 flex items-center gap-1.5">
+                <BarChart3 className="h-3 w-3" /> Indicadores da Operação
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <KPICard icon={DollarSign} label="Valor Operação" value={analysis?.blocos?.titulosLastro?.detalhes?.valorTotal || '—'} color="text-primary" />
+                <KPICard icon={FileText} label="Qtd. Títulos" value={analysis?.blocos?.titulosLastro?.detalhes?.quantidadeTitulos || '—'} />
+                <KPICard icon={Clock} label="Prazo Médio" value={analysis?.blocos?.titulosLastro?.detalhes?.prazoMedio || '—'} />
+                <KPICard icon={Activity} label="Ticket Médio" value={analysis?.blocos?.titulosLastro?.detalhes?.ticketMedio || '—'} />
+              </div>
             </div>
 
             {/* Analysis blocks */}
