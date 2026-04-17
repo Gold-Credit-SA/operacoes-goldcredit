@@ -22,7 +22,7 @@ import { ConsultaModal } from '@/components/clientes/ConsultaModal';
 import { ConsultaClienteDetailView } from '@/components/clientes/ConsultaClienteDetailView';
 import { CedenteInfoPanel } from '@/components/consulta/CedenteInfoPanel';
 
-import { CreditAnalysisCard } from '@/components/clientes/CreditAnalysisCard';
+import { ClienteCreditoConsolidadoCard } from '@/components/clientes/ClienteCreditoConsolidadoCard';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 import { PageLoadingSkeleton } from '@/components/ui/PageLoadingSkeleton';
 
@@ -812,7 +812,7 @@ export default function ClienteDetail() {
         </div>
 
 
-        <CreditAnalysisCard
+        <ClienteCreditoConsolidadoCard
           client={client}
           history={history as unknown as { id: string; cnpj: string; entity_name: string | null; consulta_label: string; consulta_type: string; platform: string; result_data: Record<string, unknown> | null; created_at: string; status: string; }[]}
         />
