@@ -1333,7 +1333,7 @@ function ImoveisSimplesFromCarView({ data }: { data: Record<string, unknown> }) 
             <TableHeader>
               <TableRow>
                 <TableHead className="text-xs">Tipo</TableHead>
-                <TableHead className="text-xs">Nome</TableHead>
+                <TableHead className="text-xs">Nome/CAR</TableHead>
                 <TableHead className="text-xs">Área Total</TableHead>
                 <TableHead className="text-xs">Área Própria</TableHead>
                 <TableHead className="text-xs">Geo</TableHead>
