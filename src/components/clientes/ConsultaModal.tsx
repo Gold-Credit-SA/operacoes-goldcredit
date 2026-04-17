@@ -404,15 +404,19 @@ export function ConsultaModal({ cpfCnpj, clientName, open, onClose, onDone }: Co
                             const price = getPrice(ct.id);
                             const isFree = price === 0;
                             return (
-                              <label
+                              <div
                                 key={ct.id}
-                                className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => toggle(ct.id)}
+                                onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(ct.id); } }}
+                                className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors select-none ${
                                   selected.has(ct.id)
                                     ? 'border-primary bg-primary/5'
                                     : 'border-border hover:border-muted-foreground/30'
                                 }`}
                               >
-                                <Checkbox checked={selected.has(ct.id)} onCheckedChange={() => toggle(ct.id)} />
+                                <Checkbox checked={selected.has(ct.id)} onCheckedChange={() => toggle(ct.id)} onClick={(e) => e.stopPropagation()} />
                                 <span className="text-sm text-foreground flex-1">{ct.label}</span>
                                 {price !== null && (
                                   <Badge
