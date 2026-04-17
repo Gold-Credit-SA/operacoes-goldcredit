@@ -350,12 +350,18 @@ function normalizeResponseData(rawData: Record<string, any>, consultaType?: stri
   }];
 
   // ── Veicular ──
-  const veicularData = isExpectedType(
-    'patrimonio_veicular',
-    Boolean(details.veicular || details.vehicleAssets || details.vehicles),
-  )
-    ? (details.veicular || details.vehicleAssets || details.vehicles || details)
-    : null;
+  const veicularItems = Array.isArray((details as any).items) ? (details as any).items : [];
+  const looksLikeVehicle = veicularItems.some((it: any) =>
+    it && typeof it === 'object' && (
+      'plate' in it || 'renavam' in it || 'chassis' in it || 'vehicle' in it || 'modelYear' in it
+    ),
+  );
+  const veicularFromItems = looksLikeVehicle ? details : null;
+  const veicularData =
+    details.veicular ||
+    details.vehicleAssets ||
+    details.vehicles ||
+    (isExpectedType('patrimonio_veicular', looksLikeVehicle) ? (veicularFromItems || details) : null);
   result['veicular'] = [{
     key: 'veicular',
     label: 'Veicular',
