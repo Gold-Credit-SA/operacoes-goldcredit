@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
       }
 
       case 'update': {
-        const { userId, name, password, role } = data;
+        const { userId, name, email, password, role } = data;
 
         if (!userId) {
           return new Response(
@@ -152,6 +152,13 @@ Deno.serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
+
+        // Get current profile to check master status and current email
+        const { data: currentProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('email')
+          .eq('user_id', userId)
+          .single();
 
         // Update profile name if provided
         if (name) {
@@ -161,6 +168,34 @@ Deno.serve(async (req) => {
             .eq('user_id', userId);
 
           if (profileError) throw profileError;
+        }
+
+        // Update email if provided (not allowed for master admin)
+        if (email && email !== currentProfile?.email) {
+          if (currentProfile?.email === MASTER_EMAIL) {
+            return new Response(
+              JSON.stringify({ error: 'Não é permitido alterar o e-mail do administrador master.' }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+
+          const { error: authEmailError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+            email,
+            email_confirm: true,
+          });
+          if (authEmailError) {
+            return new Response(
+              JSON.stringify({ error: `Erro ao atualizar e-mail: ${authEmailError.message}` }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+
+          const { error: profileEmailError } = await supabaseAdmin
+            .from('profiles')
+            .update({ email })
+            .eq('user_id', userId);
+
+          if (profileEmailError) throw profileEmailError;
         }
 
         // Update password if provided
