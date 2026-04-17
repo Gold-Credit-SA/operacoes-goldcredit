@@ -1153,3 +1153,41 @@ function AnalysisBlock({ icon: Icon, title, data, keyPoint }: {
     </div>
   );
 }
+
+function RiskGauge({ level }: { level: string }) {
+  const config: Record<string, { pct: number; color: string; ring: string; label: string }> = {
+    BAIXO: { pct: 25, color: 'text-emerald-600', ring: 'stroke-emerald-500', label: 'Baixo' },
+    MEDIO: { pct: 60, color: 'text-amber-600', ring: 'stroke-amber-500', label: 'Médio' },
+    ALTO:  { pct: 90, color: 'text-red-600',    ring: 'stroke-red-500',    label: 'Alto' },
+  };
+  const c = config[level] || config.MEDIO;
+  const r = 32;
+  const circumference = 2 * Math.PI * r;
+  const offset = circumference - (c.pct / 100) * circumference;
+
+  return (
+    <div className="flex items-center gap-3 rounded-xl bg-white/70 border px-4 py-2.5 shadow-sm">
+      <div className="relative h-[78px] w-[78px]">
+        <svg className="h-full w-full -rotate-90" viewBox="0 0 80 80">
+          <circle cx="40" cy="40" r={r} className="stroke-muted fill-none" strokeWidth="8" />
+          <circle
+            cx="40" cy="40" r={r}
+            className={cn('fill-none transition-all', c.ring)}
+            strokeWidth="8"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className={cn('text-lg font-black leading-none', c.color)}>{c.pct}</span>
+          <span className="text-[8px] uppercase tracking-wider text-muted-foreground font-bold">risco</span>
+        </div>
+      </div>
+      <div>
+        <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Nível de Risco</p>
+        <p className={cn('text-xl font-black leading-tight', c.color)}>{c.label}</p>
+      </div>
+    </div>
+  );
+}
