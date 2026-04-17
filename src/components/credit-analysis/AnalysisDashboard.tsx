@@ -605,12 +605,33 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
     <div className="space-y-6">
 
       {/* ═══════════════════════════════════════════════════════ */}
+      {/* 0) MULTI-SACADO — RESUMO COMPARATIVO + SELECTOR        */}
+      {/* ═══════════════════════════════════════════════════════ */}
+      {isMultiSacado && (
+        <SacadosOverview
+          summary={sacadosSummary}
+          activeCpf={activeSacadoCpf}
+          onSelect={setActiveSacadoCpf}
+        />
+      )}
+
+      {/* Active sacado context badge (when multi) */}
+      {isMultiSacado && (
+        <div className="flex items-center gap-2 rounded-lg border-2 border-primary/30 bg-primary/5 px-4 py-2.5">
+          <Users className="h-4 w-4 text-primary shrink-0" />
+          <span className="text-xs text-muted-foreground">Visualizando dados de:</span>
+          <span className="text-sm font-bold text-foreground truncate">{activeSacadoName}</span>
+          <Badge variant="outline" className="ml-auto text-[10px] font-mono">{activeSacadoCpf}</Badge>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════ */}
       {/* 1) SCR — ENDIVIDAMENTO BANCÁRIO                        */}
       {/* ═══════════════════════════════════════════════════════ */}
       <SectionCard
         icon={BarChart3}
         title="SCR — Endividamento Bancário"
-        subtitle={scrData?.entityName || clientName || undefined}
+        subtitle={scrData?.entityName || activeSacadoName || undefined}
         badge={scrData?.dtbLabel}
         available={!!scrData}
         emptyLabel="SCR — sem consulta disponível"
