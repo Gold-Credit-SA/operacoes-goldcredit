@@ -838,11 +838,15 @@ export default function AnaliseCredito() {
               <AnalysisDashboard
                 analysis={analysis}
                 clientConsultations={session.client_consultations}
+                liveConsultations={clientConsultations}
                 cedenteData={session.cedente_data}
                 clientName={session.client_name}
                 clientCpfCnpj={session.client_cpf_cnpj}
                 cedenteName={session.cedente_nome}
                 cedenteCpfCnpj={session.cedente_cpf_cnpj}
+                sacados={(session.sacados && session.sacados.length > 0)
+                  ? session.sacados.map(s => ({ cpf_cnpj: s.cpf_cnpj, name: s.name }))
+                  : allClients.map(c => ({ cpf_cnpj: c.cpf_cnpj, name: c.name }))}
               />
               <div className="mt-6 text-center">
                 <Button variant="outline" onClick={() => setActiveTab('chat')} className="gap-2">
