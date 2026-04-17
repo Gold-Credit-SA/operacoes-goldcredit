@@ -72,6 +72,7 @@ interface SessionData {
   documents: any[];
   client_consultations: any;
   initial_analysis: any;
+  sacados?: Array<{ id?: string; cpf_cnpj: string; name: string | null }> | null;
 }
 
 // ─── Streaming helper ───
@@ -192,7 +193,7 @@ export default function AnaliseCredito() {
   const clientCpfCnpj = searchParams.get('cpfCnpj');
   const clientName = searchParams.get('name');
 
-  // Load all sacados from sessionStorage (multi-select)
+  // Load all sacados from sessionStorage (multi-select) — used only when starting a new session
   const [allClients, setAllClients] = useState<Array<{ id: string; cpf_cnpj: string; name: string | null }>>([]);
   useEffect(() => {
     try {
@@ -233,6 +234,13 @@ export default function AnaliseCredito() {
           setSelectedCedente({ cpf_cnpj: s.cedente_cpf_cnpj, nome: s.cedente_nome || '', data: (s.cedente_data || {}) as Record<string, unknown> });
         }
         setDocuments((s.documents || []) as ImportedDocument[]);
+
+        // Hydrate allClients from persisted sacados (fall back to single client)
+        if (Array.isArray(s.sacados) && s.sacados.length > 0) {
+          setAllClients(s.sacados.map(sc => ({ id: sc.id || sc.cpf_cnpj, cpf_cnpj: sc.cpf_cnpj, name: sc.name })));
+        } else if (s.client_cpf_cnpj) {
+          setAllClients([{ id: s.client_id, cpf_cnpj: s.client_cpf_cnpj, name: s.client_name }]);
+        }
 
         // Load messages
         const { data: msgs } = await supabase
@@ -352,6 +360,8 @@ export default function AnaliseCredito() {
       if (analysisData?.error) throw new Error(analysisData.error);
 
       // Create session
+      const sacadosPayload = allClients.map(c => ({ id: c.id, cpf_cnpj: c.cpf_cnpj, name: c.name }));
+
       const { data: newSession, error: sessErr } = await supabase
         .from('credit_analysis_sessions')
         .insert({
@@ -363,6 +373,7 @@ export default function AnaliseCredito() {
           cedente_data: selectedCedente.data as any,
           documents: documentPayload as any,
           client_consultations: clientConsultations as any,
+          sacados: sacadosPayload as any,
           initial_analysis: analysisData.analysis as any,
           created_by: user.id,
         })
@@ -827,11 +838,15 @@ export default function AnaliseCredito() {
               <AnalysisDashboard
                 analysis={analysis}
                 clientConsultations={session.client_consultations}
+                liveConsultations={clientConsultations}
                 cedenteData={session.cedente_data}
                 clientName={session.client_name}
                 clientCpfCnpj={session.client_cpf_cnpj}
                 cedenteName={session.cedente_nome}
                 cedenteCpfCnpj={session.cedente_cpf_cnpj}
+                sacados={(session.sacados && session.sacados.length > 0)
+                  ? session.sacados.map(s => ({ cpf_cnpj: s.cpf_cnpj, name: s.name }))
+                  : allClients.map(c => ({ cpf_cnpj: c.cpf_cnpj, name: c.name }))}
               />
               <div className="mt-6 text-center">
                 <Button variant="outline" onClick={() => setActiveTab('chat')} className="gap-2">
