@@ -1660,7 +1660,7 @@ function RuralPropertyRow({ prop, fmtNum, fmtCurr }: { prop: any; fmtNum: (n: nu
             )}
             title={hasGeo ? "Ver georreferenciamento" : "Sem geo"}
           >
-            {hasParcels && <MiniPropertyMap parcels={parcels} />}
+            {hasParcels && !open && <MiniPropertyMap parcels={parcels} />}
             {hasGeo && (
               <span className="absolute bottom-0.5 left-0.5 text-[8px] font-bold px-1 py-0.5 rounded bg-emerald-500 text-white pointer-events-none z-10">
                 GEO
