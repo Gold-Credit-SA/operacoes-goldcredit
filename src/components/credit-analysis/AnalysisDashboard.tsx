@@ -732,7 +732,7 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
       <SectionCard
         icon={Shield}
         title="Serasa — Análise de Crédito"
-        subtitle={serasaData?.entityName || clientName || undefined}
+        subtitle={serasaData?.entityName || activeSacadoName || undefined}
         available={!!serasaData}
         emptyLabel="Serasa — sem consulta disponível"
       >
