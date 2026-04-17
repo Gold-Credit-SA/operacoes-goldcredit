@@ -24,6 +24,7 @@ interface UserFormDialogProps {
   editingUser: { name: string; email: string } | null;
   onSave: (data: UserFormData) => Promise<void>;
   saving: boolean;
+  isMasterUser?: boolean;
 }
 
 export function UserFormDialog({
@@ -32,6 +33,7 @@ export function UserFormDialog({
   editingUser,
   onSave,
   saving,
+  isMasterUser = false,
 }: UserFormDialogProps) {
   const [formData, setFormData] = useState<UserFormData>({
     name: editingUser?.name || '',
@@ -117,12 +119,14 @@ export function UserFormDialog({
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               placeholder="email@exemplo.com"
               className="h-11"
-              disabled={isEditing}
+              disabled={isEditing && isMasterUser}
               required
             />
             <p className="text-xs text-muted-foreground">
-              {isEditing
-                ? 'O e-mail não pode ser alterado'
+              {isEditing && isMasterUser
+                ? 'O e-mail do administrador master não pode ser alterado'
+                : isEditing
+                ? 'Alterar o e-mail trocará o login de acesso do usuário'
                 : 'Usado para login no sistema'}
             </p>
           </div>

@@ -203,6 +203,9 @@ export default function AdminSettings() {
       if (editingUser) {
         const updateData: any = { userId: editingUser.user_id, name: formData.name };
         if (formData.password) updateData.password = formData.password;
+        if (formData.email && formData.email !== editingUser.email) {
+          updateData.email = formData.email;
+        }
         const { data, error } = await supabase.functions.invoke('admin-users', {
           body: { action: 'update', ...updateData },
         });
