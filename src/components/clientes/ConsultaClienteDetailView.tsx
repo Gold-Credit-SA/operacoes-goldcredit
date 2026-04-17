@@ -1725,87 +1725,9 @@ function ImoveisSimplesView({ data }: { data: Record<string, any> }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {properties.map((prop: any, idx: number) => {
-                  const tipo = prop.type || '—';
-                  const details = prop.details || {};
-                  const insertInfo = details.insertInfo || {};
-                  const cafir = details.cafir || {};
-                  const parcels: any[] = Array.isArray(details.parcels) ? details.parcels : [];
-                  const hasGeo = parcels.some((p: any) => p.geometry?.coordinates?.length > 0)
-                    || [prop.isGEORef, details.isGEORef, insertInfo.isGEORef, cafir.isGEORef].some(v =>
-                      typeof v === 'boolean' ? v : (typeof v === 'string' && ['true', '1', 'sim'].includes(v.trim().toLowerCase()))
-                    );
-
-                  // Nome/CAR: priorizar registro do CAR se disponível
-                  const carRegs: any[] = Array.isArray(details.car) ? details.car : Array.isArray(insertInfo.car) ? insertInfo.car : [];
-                  const carCode = carRegs[0]?.registry || carRegs[0]?.code || carRegs[0]?.car || null;
-                  const nomeOuCar = carCode || prop.name || '—';
-
-                  const proprietarios = Array.isArray(cafir.owners) ? cafir.owners.length
-                    : Array.isArray(insertInfo.owners) ? insertInfo.owners.length
-                    : 1;
-
-                  const areaTotal = parseFloat(prop.totalArea || 0);
-                  const areaConsolidada = parseFloat(prop.areaOwned || insertInfo.productiveArea || cafir.productiveArea || 0);
-                  const valor = parseFloat(prop.value || 0);
-                  const uf = prop.state || '—';
-                  const municipio = prop.city || '—';
-
-                  const tipoLower = tipo.toString().toLowerCase();
-                  const isSociedade = tipoLower.includes('sociedade') || tipoLower.includes('society') || tipoLower.includes('partner');
-
-                  return (
-                    <TableRow key={idx} className="hover:bg-muted/30">
-                      {/* Thumbnail */}
-                      <TableCell className="py-3">
-                        <div className={cn(
-                          "relative w-12 h-12 rounded-md overflow-hidden flex items-center justify-center",
-                          hasGeo
-                            ? "bg-gradient-to-br from-emerald-700 via-emerald-600 to-amber-700"
-                            : "bg-muted"
-                        )}>
-                          {hasGeo && (
-                            <span className="absolute bottom-0.5 left-0.5 text-[8px] font-bold px-1 py-0.5 rounded bg-emerald-500 text-white">
-                              GEO
-                            </span>
-                          )}
-                          {!hasGeo && <MapPinOff className="h-4 w-4 text-muted-foreground" />}
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-3">
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "text-[10px] font-semibold whitespace-nowrap",
-                            isSociedade
-                              ? "border-cyan-500/40 text-cyan-700 bg-cyan-50"
-                              : "border-emerald-500/40 text-emerald-700 bg-emerald-50"
-                          )}
-                        >
-                          {isSociedade ? 'DE SOCIEDADE' : 'PRÓPRIA'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm font-medium text-foreground max-w-[280px] truncate" title={nomeOuCar}>
-                        {nomeOuCar}
-                      </TableCell>
-                      <TableCell className="text-sm text-foreground text-center">{proprietarios}</TableCell>
-                      <TableCell className="text-sm text-foreground whitespace-nowrap">
-                        {isNaN(areaTotal) ? '—' : `${fmtNum(areaTotal, 1)} ha`}
-                      </TableCell>
-                      <TableCell className="text-sm text-foreground whitespace-nowrap">
-                        {isNaN(areaConsolidada) || areaConsolidada === 0 ? '—' : `${fmtNum(areaConsolidada, 1)} ha`}
-                      </TableCell>
-                      <TableCell className="text-sm text-foreground whitespace-nowrap">
-                        {valor > 0 ? fmtCurr(valor) : '—'}
-                      </TableCell>
-                      <TableCell className="text-sm text-foreground">{uf}</TableCell>
-                      <TableCell className="text-sm text-foreground">{municipio}</TableCell>
-                      <TableCell className="text-right">
-                        <ImovelDetailDialog property={prop} tipo={tipo} />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {properties.map((prop: any, idx: number) => (
+                  <RuralPropertyRow key={idx} prop={prop} fmtNum={fmtNum} fmtCurr={fmtCurr} />
+                ))}
               </TableBody>
             </Table>
           </CardContent>
