@@ -25,20 +25,20 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-    // Validate token using getUser
+    // Validate token using getClaims (compatible with signing-keys)
     const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
     const token = authHeader.replace('Bearer ', '');
-    const { data: userData, error: userError } = await supabaseAuth.auth.getUser(token);
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
     
-    if (userError || !userData?.user) {
-      console.error('Auth error:', userError);
+    if (claimsError || !claimsData?.claims?.sub) {
+      console.error('Auth error:', claimsError);
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const callingUser = { id: userData.user.id, email: userData.user.email as string };
+    const callingUser = { id: claimsData.claims.sub as string, email: claimsData.claims.email as string };
 
     const userEmail = callingUser.email as string;
     const userId = callingUser.id;
