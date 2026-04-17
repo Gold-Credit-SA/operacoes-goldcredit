@@ -113,12 +113,32 @@ async function runSingleConsulta(cnpj: string, id: ConsultaTypeId): Promise<Reco
   };
 
   if (id === 'smart_cedente') {
-    const { data, error } = await supabase.functions.invoke('external-db', {
+    // 1) Tenta como cedente
+    const cedRes = await supabase.functions.invoke('external-db', {
       body: { action: 'cedente-info', filters: { cpf_cnpj: cnpj } },
     });
-    if (error) throw new Error(error.message || 'Erro Smart');
-    if (!data?.success || !data?.data) throw new Error(data?.error || 'Nenhum dado encontrado no Smart.');
-    return transformSmartCedenteData(data.data);
+    if (!cedRes.error && cedRes.data?.success && cedRes.data?.data) {
+      const transformed = transformSmartCedenteData(cedRes.data.data) as Record<string, unknown>;
+      return { ...transformed, _smartView: 'cedente' };
+    }
+
+    // 2) Fallback: tenta como sacado
+    const sacRes = await supabase.functions.invoke('external-db', {
+      body: { action: 'sacado-detail', filters: { cpf_cnpj: cnpj } },
+    });
+    if (sacRes.error) throw new Error(sacRes.error.message || 'Erro Smart');
+    if (!sacRes.data?.success || !sacRes.data?.data) {
+      throw new Error('CNPJ/CPF não localizado no Smart (nem como cedente, nem como sacado).');
+    }
+    const sacData = sacRes.data.data as Record<string, unknown>;
+    const hasAny = (sacData?.resumo as any)?.qtd_aberto > 0
+      || (sacData?.resumo as any)?.qtd_quitado > 0
+      || ((sacData as any)?.titulosAberto?.length ?? 0) > 0
+      || ((sacData as any)?.titulosQuitados?.length ?? 0) > 0;
+    if (!hasAny) {
+      throw new Error('CNPJ/CPF não localizado no Smart (nem como cedente, nem como sacado).');
+    }
+    return { ...sacData, _smartView: 'sacado' };
   }
 
   if (id === 'scr') {
@@ -274,12 +294,19 @@ export function ConsultaModal({ cpfCnpj, clientName, open, onClose, onDone }: Co
             || (data as any)?.data?.name
             || null;
 
+          // Label dinâmico para Smart: Visão Cedente / Visão Sacado
+          let dynamicLabel = getLabel(id);
+          if (id === 'smart_cedente') {
+            const view = (data as any)?._smartView;
+            dynamicLabel = view === 'sacado' ? 'Visão Sacado' : 'Visão Cedente';
+          }
+
           await supabase.from('consulta_history').insert({
             user_id: user.id,
             cnpj: cpfCnpj,
             platform: getPlatform(id),
             consulta_type: id,
-            consulta_label: getLabel(id),
+            consulta_label: dynamicLabel,
             result_data: data as any,
             status: 'success',
             entity_name: extractedName,
