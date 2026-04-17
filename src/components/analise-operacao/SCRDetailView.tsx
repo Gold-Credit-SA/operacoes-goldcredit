@@ -38,10 +38,31 @@ export function SCRDetailView({ data }: SCRDetailViewProps) {
   }
 
   const validDtbEntries = response.lsDtb.filter(entry => Array.isArray(entry?.lsOp) && entry.lsOp.length > 0);
-  const latestDtb = (validDtbEntries.length > 0
-    ? validDtbEntries[validDtbEntries.length - 1]
-    : response.lsDtb[response.lsDtb.length - 1]);
-  const historicoDtb = validDtbEntries.length > 0 ? validDtbEntries : response.lsDtb;
+
+  // Se nenhuma data-base tem operações, mostra mensagem informativa em vez de quebrar
+  if (validDtbEntries.length === 0) {
+    const messages = response.lsDtb
+      .map(e => e?.msg)
+      .filter(Boolean)
+      .filter((v, i, a) => a.indexOf(v) === i);
+    return (
+      <div className="space-y-4 p-4">
+        <div className="flex items-center gap-2 text-amber-600">
+          <AlertTriangle className="h-5 w-5" />
+          <span className="font-medium">Cliente sem operações no SCR</span>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Período consultado: <span className="font-mono">{response.dtbConsult || '—'}</span>
+        </p>
+        {messages.map((m, i) => (
+          <p key={i} className="text-sm text-muted-foreground">• {m}</p>
+        ))}
+      </div>
+    );
+  }
+
+  const latestDtb = validDtbEntries[validDtbEntries.length - 1];
+  const historicoDtb = validDtbEntries;
 
   const entityName = (data as any)?.data?.name || (data as any)?.name || response.name || '';
   const totalOperacoes = Array.isArray(latestDtb?.lsOp) ? latestDtb.lsOp.length : 0;
