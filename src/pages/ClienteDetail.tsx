@@ -21,6 +21,7 @@ import { SerasaDetailView } from '@/components/analise-operacao/serasa/SerasaDet
 import { ConsultaModal } from '@/components/clientes/ConsultaModal';
 import { ConsultaClienteDetailView } from '@/components/clientes/ConsultaClienteDetailView';
 import { CedenteInfoPanel } from '@/components/consulta/CedenteInfoPanel';
+import { SacadoSmartView } from '@/components/clientes/SacadoSmartView';
 
 import { ClienteCreditoConsolidadoCard } from '@/components/clientes/ClienteCreditoConsolidadoCard';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
