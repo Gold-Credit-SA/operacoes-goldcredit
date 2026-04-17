@@ -471,10 +471,67 @@ const RISK_COLORS: Record<string, string> = {
 // ═══════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════
-export function AnalysisDashboard({ analysis, clientConsultations, cedenteData, clientName, clientCpfCnpj, cedenteName, cedenteCpfCnpj }: AnalysisDashboardProps) {
-  const scrData = useMemo(() => extractSCRData(clientConsultations?.scr), [clientConsultations?.scr]);
-  const serasaData = useMemo(() => extractSerasaData(clientConsultations?.serasa), [clientConsultations?.serasa]);
+export function AnalysisDashboard({ analysis, clientConsultations, liveConsultations, cedenteData, clientName, clientCpfCnpj, cedenteName, cedenteCpfCnpj, sacados }: AnalysisDashboardProps) {
+  // ─── Multi-sacado handling ───
+  const sacadoList: SacadoEntry[] = useMemo(() => {
+    if (sacados && sacados.length > 0) return sacados;
+    if (clientCpfCnpj) return [{ cpf_cnpj: clientCpfCnpj, name: clientName }];
+    return [];
+  }, [sacados, clientCpfCnpj, clientName]);
+
+  const isMultiSacado = sacadoList.length > 1;
+
+  // Prefer live (re-fetched) consultations over the snapshot saved at session creation time.
+  const consultationsSource = liveConsultations ?? clientConsultations;
+
+  const isPerCpfMap = useMemo(() => {
+    if (!consultationsSource || typeof consultationsSource !== 'object') return false;
+    return Object.entries(consultationsSource).some(([k, v]) =>
+      /^\d{11,14}$/.test(k) && v && typeof v === 'object' && ('scr' in (v as any) || 'serasa' in (v as any) || 'smart' in (v as any))
+    );
+  }, [consultationsSource]);
+
+  const [activeSacadoCpf, setActiveSacadoCpf] = useState<string>(sacadoList[0]?.cpf_cnpj || '');
+  useEffect(() => {
+    if (sacadoList.length > 0 && !sacadoList.find(s => s.cpf_cnpj === activeSacadoCpf)) {
+      setActiveSacadoCpf(sacadoList[0].cpf_cnpj);
+    }
+  }, [sacadoList, activeSacadoCpf]);
+
+  const activeConsultations = useMemo(() => {
+    if (isPerCpfMap) return (consultationsSource as any)?.[activeSacadoCpf] || null;
+    return consultationsSource;
+  }, [consultationsSource, activeSacadoCpf, isPerCpfMap]);
+
+  const activeSacadoName = sacadoList.find(s => s.cpf_cnpj === activeSacadoCpf)?.name || clientName;
+
+  const scrData = useMemo(() => extractSCRData(activeConsultations?.scr), [activeConsultations?.scr]);
+  const serasaData = useMemo(() => extractSerasaData(activeConsultations?.serasa), [activeConsultations?.serasa]);
   const smartData = useMemo(() => extractSmartData(cedenteData, analysis?.documents), [cedenteData, analysis?.documents]);
+
+  // Per-sacado summary for the comparison card (multi-sacado only)
+  const sacadosSummary = useMemo(() => {
+    if (!isMultiSacado) return [];
+    return sacadoList.map(s => {
+      const c = isPerCpfMap ? (consultationsSource as any)?.[s.cpf_cnpj] : null;
+      const ser = extractSerasaData(c?.serasa);
+      const scr = extractSCRData(c?.scr);
+      return {
+        cpf_cnpj: s.cpf_cnpj,
+        name: s.name || s.cpf_cnpj,
+        score: ser?.score ?? null,
+        scoreColor: ser?.scoreColor || 'text-muted-foreground',
+        scoreFaixa: ser?.scoreFaixa || '—',
+        restricoes: ser?.restricoes ?? null,
+        protestos: ser?.protestos ?? null,
+        nadaConsta: ser?.nadaConsta || false,
+        scrCarteira: scr?.totalCarteira ?? null,
+        scrVencido: scr?.totalVencido ?? null,
+        hasSerasa: !!ser,
+        hasScr: !!scr,
+      };
+    });
+  }, [isMultiSacado, sacadoList, isPerCpfMap, consultationsSource]);
 
   // Fetch concentration by sacado from external DB
   const [sacadoConcentracao, setSacadoConcentracao] = useState<{ nome: string; valor: number; percentual: number }[]>([]);
