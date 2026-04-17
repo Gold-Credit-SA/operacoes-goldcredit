@@ -21,6 +21,7 @@ import { SerasaDetailView } from '@/components/analise-operacao/serasa/SerasaDet
 import { ConsultaModal } from '@/components/clientes/ConsultaModal';
 import { ConsultaClienteDetailView } from '@/components/clientes/ConsultaClienteDetailView';
 import { CedenteInfoPanel } from '@/components/consulta/CedenteInfoPanel';
+import { SacadoSmartView } from '@/components/clientes/SacadoSmartView';
 
 import { ClienteCreditoConsolidadoCard } from '@/components/clientes/ClienteCreditoConsolidadoCard';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
@@ -362,7 +363,15 @@ export default function ClienteDetail() {
                   consultaType={detailEntry.isAggregated ? null : detailEntry.consulta_type}
                 />
               ) : detailEntry.platform === 'smart' ? (
-                <CedenteInfoPanel data={detailEntry.result_data as any} />
+                ((detailEntry.result_data as any)?._smartView === 'sacado') ? (
+                  <SacadoSmartView
+                    data={detailEntry.result_data as any}
+                    cpfCnpj={detailEntry.cnpj}
+                    nome={detailEntry.entity_name}
+                  />
+                ) : (
+                  <CedenteInfoPanel data={detailEntry.result_data as any} />
+                )
               ) : (
                 <pre className="text-xs text-foreground whitespace-pre-wrap bg-muted p-4 rounded-lg">
                   {JSON.stringify(detailEntry.result_data, null, 2)}
