@@ -1209,7 +1209,7 @@ function ImoveisContent({ items }: { items: SubItem[] }) {
         <div className="space-y-4">
           <h3 className="text-xl font-bold text-foreground">CAR – Cadastro Ambiental Rural</h3>
           {carItem.status === 'DONE' && carItem.data ? (
-            <AgriskDetailView data={carItem.data as Record<string, unknown>} />
+            <CarItemsView data={carItem.data as Record<string, unknown>} />
           ) : (
             <EmptyState
               title="CAR não consultado"
