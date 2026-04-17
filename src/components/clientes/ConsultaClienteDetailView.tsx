@@ -1209,7 +1209,7 @@ function ImoveisContent({ items }: { items: SubItem[] }) {
         <div className="space-y-4">
           <h3 className="text-xl font-bold text-foreground">CAR – Cadastro Ambiental Rural</h3>
           {carItem.status === 'DONE' && carItem.data ? (
-            <AgriskDetailView data={carItem.data as Record<string, unknown>} />
+            <CarItemsView data={carItem.data as Record<string, unknown>} />
           ) : (
             <EmptyState
               title="CAR não consultado"
@@ -1611,6 +1611,172 @@ function ImovelDetailDialog({ property, tipo, open: openProp, onOpenChange }: { 
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function CarItemsView({ data }: { data: Record<string, unknown> }) {
+  const root: any = (data as any)?.details || (data as any)?.result || data;
+  const items: any[] = Array.isArray(root?.items) ? root.items : [];
+  const totalArea = Number(root?.totalArea ?? 0);
+  const productiveArea = Number(root?.productiveArea ?? 0);
+  const properties = Number(root?.properties ?? items.length);
+  const ownedProperties = Number(root?.ownedProperties ?? 0);
+  const totalVti = Number(root?.totalVti ?? 0);
+
+  const fmtNum = (n: number, dec = 1) => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: dec }).format(n);
+  const fmtCurr = (n: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
+
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        title="Nenhum imóvel CAR encontrado"
+        description="A consulta CAR não retornou registros para este cliente."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card className="border-border">
+          <CardContent className="p-5">
+            <p className="text-sm font-semibold text-muted-foreground mb-3">Áreas (ha)</p>
+            <div className="flex items-end gap-8">
+              <div>
+                <p className="text-xs text-muted-foreground">Total</p>
+                <p className="text-3xl font-bold text-foreground leading-tight">{fmtNum(totalArea, 0)}</p>
+              </div>
+              <div className="border-l border-border pl-8">
+                <p className="text-xs text-muted-foreground">Produtiva</p>
+                <p className="text-3xl font-bold text-foreground leading-tight">{fmtNum(productiveArea, 0)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border">
+          <CardContent className="p-5">
+            <p className="text-sm font-semibold text-muted-foreground mb-3">Imóveis</p>
+            <div className="flex items-end gap-8">
+              <div>
+                <p className="text-xs text-muted-foreground">Total</p>
+                <p className="text-3xl font-bold text-foreground leading-tight">{properties}</p>
+              </div>
+              <div className="border-l border-border pl-8">
+                <p className="text-xs text-muted-foreground">Próprios</p>
+                <p className="text-3xl font-bold text-foreground leading-tight">{ownedProperties}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border">
+          <CardContent className="p-5">
+            <p className="text-sm font-semibold text-muted-foreground mb-3">Valor total dos imóveis</p>
+            <div>
+              <p className="text-xs text-muted-foreground">VTI total</p>
+              <p className="text-3xl font-bold text-foreground leading-tight">
+                {totalVti > 0 ? fmtCurr(totalVti) : '—'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Items table */}
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs w-16"></TableHead>
+                <TableHead className="text-xs">Tipo</TableHead>
+                <TableHead className="text-xs">CAR</TableHead>
+                <TableHead className="text-xs">Nome</TableHead>
+                <TableHead className="text-xs">Área Total</TableHead>
+                <TableHead className="text-xs">Área Produtiva</TableHead>
+                <TableHead className="text-xs">VTI (média)</TableHead>
+                <TableHead className="text-xs">UF</TableHead>
+                <TableHead className="text-xs">Município</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.map((item: any, idx: number) => {
+                const ownership = (item.ownership || '').toString().toLowerCase();
+                const isSociedade = ownership.includes('sociedade') || ownership.includes('society') || ownership.includes('partner');
+                const car = item.car || '—';
+                const name = item.name || '—';
+                const totalA = Number(item.totalArea ?? 0);
+                const prodA = Number(item.productiveArea ?? 0);
+                const vti = item.vti?.mean ? Number(item.vti.mean) : 0;
+                const uf = item.state || '—';
+                const city = item.city || '—';
+
+                // Geo parcels
+                const geoArr: any[] = Array.isArray(item.geo) ? item.geo : [];
+                const parcels = geoArr
+                  .map((g: any) => g?.geoJson)
+                  .filter((g: any) => g?.coordinates?.length > 0)
+                  .map((geometry: any) => ({ geometry }));
+                const hasParcels = parcels.length > 0;
+                const hasGeo = hasParcels || geoArr.length > 0;
+
+                return (
+                  <TableRow key={idx} className="hover:bg-muted/30">
+                    <TableCell className="py-3">
+                      <div
+                        className={cn(
+                          "relative w-12 h-12 rounded-md overflow-hidden flex items-center justify-center ring-1 ring-border",
+                          hasParcels ? "" : hasGeo ? "bg-gradient-to-br from-emerald-700 via-emerald-600 to-amber-700" : "bg-muted"
+                        )}
+                        title={hasGeo ? "Geo disponível" : "Sem geo"}
+                      >
+                        {hasParcels && <MiniPropertyMap parcels={parcels} />}
+                        {hasGeo && (
+                          <span className="absolute bottom-0.5 left-0.5 text-[8px] font-bold px-1 py-0.5 rounded bg-emerald-500 text-white pointer-events-none z-10">
+                            GEO
+                          </span>
+                        )}
+                        {!hasGeo && <MapPinOff className="h-4 w-4 text-muted-foreground" />}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-[10px] font-semibold whitespace-nowrap",
+                          isSociedade
+                            ? "border-cyan-500/40 text-cyan-700 bg-cyan-50"
+                            : "border-emerald-500/40 text-emerald-700 bg-emerald-50"
+                        )}
+                      >
+                        {isSociedade ? 'DE SOCIEDADE' : 'PRÓPRIA'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs font-mono text-foreground max-w-[260px] truncate" title={car}>
+                      {car}
+                    </TableCell>
+                    <TableCell className="text-sm text-foreground">{name}</TableCell>
+                    <TableCell className="text-sm text-foreground whitespace-nowrap">
+                      {totalA > 0 ? `${fmtNum(totalA, 1)} ha` : '—'}
+                    </TableCell>
+                    <TableCell className="text-sm text-foreground whitespace-nowrap">
+                      {prodA > 0 ? `${fmtNum(prodA, 1)} ha` : '—'}
+                    </TableCell>
+                    <TableCell className="text-sm text-foreground whitespace-nowrap">
+                      {vti > 0 ? fmtCurr(vti) : '—'}
+                    </TableCell>
+                    <TableCell className="text-sm text-foreground">{uf}</TableCell>
+                    <TableCell className="text-sm text-foreground">{city}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
