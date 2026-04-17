@@ -42,7 +42,7 @@ export function SCRDetailView({ data }: SCRDetailViewProps) {
   // Se nenhuma data-base tem operações, mostra mensagem informativa em vez de quebrar
   if (validDtbEntries.length === 0) {
     const messages = response.lsDtb
-      .map(e => e?.msg)
+      .map(e => (e as any)?.msg)
       .filter(Boolean)
       .filter((v, i, a) => a.indexOf(v) === i);
     return (
