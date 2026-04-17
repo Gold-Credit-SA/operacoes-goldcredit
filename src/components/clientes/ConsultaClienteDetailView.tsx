@@ -1191,36 +1191,21 @@ function ImoveisContent({ items }: { items: SubItem[] }) {
   const hasCar = carItem?.status === 'DONE' && !!carItem.data;
 
   return (
-    <div className="space-y-6">
-      {/* ── Imóveis Rurais (Simples) ── */}
-      <div className="space-y-4">
-        <h2 className="text-2xl font-bold text-foreground">Imóveis Rurais</h2>
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold text-foreground">Imóveis Rurais</h2>
+      <p className="text-sm text-muted-foreground -mt-2">
+        Cadastro Ambiental Rural (CAR) — visão consolidada de imóveis, áreas, georreferenciamento e VTI.
+      </p>
 
-        {hasSimplesNative ? (
-          <ImoveisSimplesView data={simplesItem!.data as Record<string, any>} />
-        ) : hasCar ? (
-          <ImoveisSimplesFromCarView data={carItem!.data as Record<string, unknown>} />
-        ) : (
-          <EmptyState
-            title="Imóveis Simples não consultado"
-            description="Esse tópico faz parte do bloco AgRisk, mas não foi consultado nesta execução."
-          />
-        )}
-      </div>
-
-      {/* ── CAR ── */}
-      {carItem && (
-        <div className="space-y-4">
-          <h3 className="text-xl font-bold text-foreground">CAR – Cadastro Ambiental Rural</h3>
-          {hasCar ? (
-            <CarItemsView data={carItem.data as Record<string, unknown>} />
-          ) : (
-            <EmptyState
-              title="CAR não consultado"
-              description="Esse tópico faz parte do bloco AgRisk, mas não foi consultado nesta execução."
-            />
-          )}
-        </div>
+      {hasCar ? (
+        <CarItemsView data={carItem!.data as Record<string, unknown>} />
+      ) : hasSimplesNative ? (
+        <ImoveisSimplesView data={simplesItem!.data as Record<string, any>} />
+      ) : (
+        <EmptyState
+          title="Imóveis rurais não consultados"
+          description="Esse tópico faz parte do bloco AgRisk, mas não foi consultado nesta execução."
+        />
       )}
     </div>
   );
