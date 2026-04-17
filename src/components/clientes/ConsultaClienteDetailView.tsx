@@ -1556,7 +1556,7 @@ function ImovelDetailDialog({ property, tipo }: { property: any; tipo: string })
 function ImoveisSimplesView({ data }: { data: Record<string, any> }) {
   // Data structure from edge function: { rural: { items, areas, properties, totalArea, totalValue }, ruralDetails: [...items with details merged] }
   const rawRural = data.rural || data;
-  
+
   // Use ruralDetails (items enriched with detail data) for the table, fallback to items
   const properties: any[] = Array.isArray(data.ruralDetails) ? data.ruralDetails
     : Array.isArray(rawRural.items) ? rawRural.items
@@ -1566,66 +1566,83 @@ function ImoveisSimplesView({ data }: { data: Record<string, any> }) {
   // Use API pre-computed summary when available
   const apiAreas = rawRural.areas || {};
   const apiProps = rawRural.properties || {};
-  
-  const totalArea = rawRural.totalArea ?? properties.reduce((sum: number, p: any) => {
+
+  const totalArea = rawRural.totalArea ?? apiAreas.total ?? properties.reduce((sum: number, p: any) => {
     const area = parseFloat(p.totalArea || 0);
     return sum + (isNaN(area) ? 0 : area);
   }, 0);
 
-  const propria = apiProps.owned ?? 0;
-  const sociedade = apiProps.inSociety ?? 0;
-  const arrendada = apiProps.leased ?? 0;
-  const parceria = apiProps.partnership ?? 0;
+  // Consolidated area = sum of "areaOwned" portion across properties (fallback)
+  const consolidatedArea = apiAreas.consolidated ?? apiAreas.owned ?? properties.reduce((sum: number, p: any) => {
+    const a = parseFloat(p.areaOwned || 0);
+    return sum + (isNaN(a) ? 0 : a);
+  }, 0);
+
+  const propria = apiProps.owned ?? properties.filter((p: any) => {
+    const t = (p.type || '').toString().toLowerCase();
+    return !t.includes('sociedade') && !t.includes('society') && !t.includes('partner');
+  }).length;
 
   const totalValue = rawRural.totalValue ?? properties.reduce((sum: number, p: any) => {
     const val = parseFloat(p.value || 0);
     return sum + (isNaN(val) ? 0 : val);
   }, 0);
 
+  const vtiMedia = properties.length > 0 && totalValue > 0 ? totalValue / properties.length : 0;
+  const fmtNum = (n: number, dec = 0) => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: dec }).format(n);
+  const fmtCurr = (n: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
+
   return (
-    <div className="space-y-4">
-      {/* Summary cards */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap items-center gap-0 divide-x divide-border">
-            {/* Áreas */}
-            <div className="px-4 first:pl-0">
-              <p className="text-xs text-muted-foreground">Áreas (ha)</p>
-              <p className="text-2xl font-bold text-foreground">
-                {new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(totalArea)}
-              </p>
-              <p className="text-[10px] text-muted-foreground">Total</p>
+    <div className="space-y-5">
+      {/* Summary cards — three independent boxes */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Áreas (ha) */}
+        <Card className="border-border">
+          <CardContent className="p-5">
+            <p className="text-sm font-semibold text-muted-foreground mb-3">Áreas (ha)</p>
+            <div className="flex items-end gap-8">
+              <div>
+                <p className="text-xs text-muted-foreground">Total</p>
+                <p className="text-3xl font-bold text-foreground leading-tight">{fmtNum(totalArea)}</p>
+              </div>
+              <div className="border-l border-border pl-8">
+                <p className="text-xs text-muted-foreground">Consolidada</p>
+                <p className="text-3xl font-bold text-foreground leading-tight">{fmtNum(consolidatedArea)}</p>
+              </div>
             </div>
-            <div className="flex items-center gap-0 divide-x divide-border">
-              {[
-                { label: 'Própria', value: propria },
-                { label: 'De sociedades', value: sociedade },
-                { label: 'Arrendada', value: arrendada },
-                { label: 'Parcerias', value: parceria },
-              ].map(s => (
-                <div key={s.label} className="px-4">
-                  <p className="text-lg font-bold text-foreground">{s.value}</p>
-                  <p className="text-[10px] text-muted-foreground">{s.label}</p>
-                </div>
-              ))}
-            </div>
+          </CardContent>
+        </Card>
 
-            {/* Imóveis */}
-            <div className="px-4">
-              <p className="text-xs text-muted-foreground">Imóveis</p>
-              <p className="text-lg font-bold text-foreground">{properties.length}</p>
+        {/* Imóveis */}
+        <Card className="border-border">
+          <CardContent className="p-5">
+            <p className="text-sm font-semibold text-muted-foreground mb-3">Imóveis</p>
+            <div className="flex items-end gap-8">
+              <div>
+                <p className="text-xs text-muted-foreground">Total</p>
+                <p className="text-3xl font-bold text-foreground leading-tight">{properties.length}</p>
+              </div>
+              <div className="border-l border-border pl-8">
+                <p className="text-xs text-muted-foreground">Próprios</p>
+                <p className="text-3xl font-bold text-foreground leading-tight">{propria}</p>
+              </div>
             </div>
+          </CardContent>
+        </Card>
 
-            {/* Valor total */}
-            <div className="px-4 ml-auto text-right">
-              <p className="text-xs text-muted-foreground">Valor total</p>
-              <p className="text-2xl font-bold text-foreground">
-                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValue)}
+        {/* Valor total dos imóveis */}
+        <Card className="border-border">
+          <CardContent className="p-5">
+            <p className="text-sm font-semibold text-muted-foreground mb-3">Valor total dos imóveis</p>
+            <div>
+              <p className="text-xs text-muted-foreground">VTI (média)</p>
+              <p className="text-3xl font-bold text-foreground leading-tight">
+                {vtiMedia > 0 ? fmtCurr(vtiMedia) : '—'}
               </p>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Properties table */}
       {properties.length > 0 ? (
@@ -1634,23 +1651,41 @@ function ImoveisSimplesView({ data }: { data: Record<string, any> }) {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="text-xs w-16"></TableHead>
                   <TableHead className="text-xs">Tipo</TableHead>
-                  <TableHead className="text-xs">Nome</TableHead>
+                  <TableHead className="text-xs">Nome/CAR</TableHead>
+                  <TableHead className="text-xs text-center">Proprietários</TableHead>
                   <TableHead className="text-xs">Área Total</TableHead>
-                  <TableHead className="text-xs">Área Própria</TableHead>
-                  <TableHead className="text-xs">Valor</TableHead>
+                  <TableHead className="text-xs">Área Consolidada</TableHead>
+                  <TableHead className="text-xs">VTI (média)</TableHead>
                   <TableHead className="text-xs">UF</TableHead>
-                 <TableHead className="text-xs">Município</TableHead>
+                  <TableHead className="text-xs">Município</TableHead>
                   <TableHead className="text-xs w-20"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {properties.map((prop: any, idx: number) => {
                   const tipo = prop.type || '—';
-                  const nome = prop.name || '—';
+                  const details = prop.details || {};
+                  const insertInfo = details.insertInfo || {};
+                  const cafir = details.cafir || {};
+                  const parcels: any[] = Array.isArray(details.parcels) ? details.parcels : [];
+                  const hasGeo = parcels.some((p: any) => p.geometry?.coordinates?.length > 0)
+                    || [prop.isGEORef, details.isGEORef, insertInfo.isGEORef, cafir.isGEORef].some(v =>
+                      typeof v === 'boolean' ? v : (typeof v === 'string' && ['true', '1', 'sim'].includes(v.trim().toLowerCase()))
+                    );
+
+                  // Nome/CAR: priorizar registro do CAR se disponível
+                  const carRegs: any[] = Array.isArray(details.car) ? details.car : Array.isArray(insertInfo.car) ? insertInfo.car : [];
+                  const carCode = carRegs[0]?.registry || carRegs[0]?.code || carRegs[0]?.car || null;
+                  const nomeOuCar = carCode || prop.name || '—';
+
+                  const proprietarios = Array.isArray(cafir.owners) ? cafir.owners.length
+                    : Array.isArray(insertInfo.owners) ? insertInfo.owners.length
+                    : 1;
+
                   const areaTotal = parseFloat(prop.totalArea || 0);
-                  const areaPropria = parseFloat(prop.areaOwned || 0);
-                  const pct = prop.areaOwnedPercent ?? (areaTotal > 0 ? Math.round((areaPropria / areaTotal) * 100) : 0);
+                  const areaConsolidada = parseFloat(prop.areaOwned || insertInfo.productiveArea || cafir.productiveArea || 0);
                   const valor = parseFloat(prop.value || 0);
                   const uf = prop.state || '—';
                   const municipio = prop.city || '—';
@@ -1659,7 +1694,23 @@ function ImoveisSimplesView({ data }: { data: Record<string, any> }) {
                   const isSociedade = tipoLower.includes('sociedade') || tipoLower.includes('society') || tipoLower.includes('partner');
 
                   return (
-                    <TableRow key={idx}>
+                    <TableRow key={idx} className="hover:bg-muted/30">
+                      {/* Thumbnail */}
+                      <TableCell className="py-3">
+                        <div className={cn(
+                          "relative w-12 h-12 rounded-md overflow-hidden flex items-center justify-center",
+                          hasGeo
+                            ? "bg-gradient-to-br from-emerald-700 via-emerald-600 to-amber-700"
+                            : "bg-muted"
+                        )}>
+                          {hasGeo && (
+                            <span className="absolute bottom-0.5 left-0.5 text-[8px] font-bold px-1 py-0.5 rounded bg-emerald-500 text-white">
+                              GEO
+                            </span>
+                          )}
+                          {!hasGeo && <MapPinOff className="h-4 w-4 text-muted-foreground" />}
+                        </div>
+                      </TableCell>
                       <TableCell className="py-3">
                         <Badge
                           variant="outline"
@@ -1667,25 +1718,28 @@ function ImoveisSimplesView({ data }: { data: Record<string, any> }) {
                             "text-[10px] font-semibold whitespace-nowrap",
                             isSociedade
                               ? "border-cyan-500/40 text-cyan-700 bg-cyan-50"
-                              : "border-green-500/40 text-green-700 bg-green-50"
+                              : "border-emerald-500/40 text-emerald-700 bg-emerald-50"
                           )}
                         >
                           {isSociedade ? 'DE SOCIEDADE' : 'PRÓPRIA'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm font-medium text-foreground">{nome}</TableCell>
-                      <TableCell className="text-sm text-foreground">
-                        {isNaN(areaTotal) ? '—' : `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(areaTotal)} ha`}
+                      <TableCell className="text-sm font-medium text-foreground max-w-[280px] truncate" title={nomeOuCar}>
+                        {nomeOuCar}
                       </TableCell>
-                      <TableCell className="text-sm text-foreground">
-                        {isNaN(areaPropria) ? '—' : `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(areaPropria)} ha (${pct}%)`}
+                      <TableCell className="text-sm text-foreground text-center">{proprietarios}</TableCell>
+                      <TableCell className="text-sm text-foreground whitespace-nowrap">
+                        {isNaN(areaTotal) ? '—' : `${fmtNum(areaTotal, 1)} ha`}
                       </TableCell>
-                      <TableCell className="text-sm text-foreground">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(isNaN(valor) ? 0 : valor)}
+                      <TableCell className="text-sm text-foreground whitespace-nowrap">
+                        {isNaN(areaConsolidada) || areaConsolidada === 0 ? '—' : `${fmtNum(areaConsolidada, 1)} ha`}
+                      </TableCell>
+                      <TableCell className="text-sm text-foreground whitespace-nowrap">
+                        {valor > 0 ? fmtCurr(valor) : '—'}
                       </TableCell>
                       <TableCell className="text-sm text-foreground">{uf}</TableCell>
                       <TableCell className="text-sm text-foreground">{municipio}</TableCell>
-                      <TableCell>
+                      <TableCell className="text-right">
                         <ImovelDetailDialog property={prop} tipo={tipo} />
                       </TableCell>
                     </TableRow>
