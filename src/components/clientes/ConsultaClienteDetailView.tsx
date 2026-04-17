@@ -1057,6 +1057,132 @@ function GenericTopicContent({ title, items }: { title: string; items: SubItem[]
   );
 }
 
+// ─── Veicular: layout dedicado (header + total + cards de veículos) ───
+function VeicularContent({ items }: { items: SubItem[] }) {
+  const item = items[0];
+  if (!item || item.status !== 'DONE' || !item.data) {
+    return (
+      <EmptyState
+        title="Veicular não consultado"
+        description="Esse tópico não foi consultado nesta execução."
+      />
+    );
+  }
+
+  const data: any = item.data;
+  const vehicles: any[] = Array.isArray(data?.items) ? data.items : [];
+  const quantity: number = typeof data?.quantity === 'number' ? data.quantity : vehicles.length;
+  const totalValue: number = typeof data?.totalValue === 'number'
+    ? data.totalValue
+    : vehicles.reduce((acc, v) => acc + (Number(v?.value) || 0), 0);
+
+  return (
+    <div className="space-y-5">
+      {/* Header com título e card de total */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-3xl font-bold text-foreground tracking-tight">
+            Patrimônio veicular{' '}
+            <span className="text-base font-normal text-muted-foreground">
+              - Até os últimos 10 veículos registrados
+            </span>
+          </h2>
+        </div>
+        <div className="rounded-md bg-[hsl(220_60%_18%)] text-white px-5 py-3 min-w-[220px] text-right shadow-sm">
+          <div className="text-[11px] font-semibold text-cyan-300 tracking-wide">
+            Quantidade: {quantity}
+          </div>
+          <div className="text-base font-bold text-cyan-300 mt-0.5">
+            TOTAL: {formatCurrency(totalValue)}
+          </div>
+        </div>
+      </div>
+
+      {vehicles.length === 0 ? (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            Nenhum veículo retornado.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {vehicles.map((v, idx) => (
+            <VehicleCard key={v?._id || idx} vehicle={v} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VehicleCard({ vehicle }: { vehicle: any }) {
+  const v = vehicle || {};
+  const fields: { label: string; value: string }[] = [
+    { label: 'Cor', value: v.color ? String(v.color) : '—' },
+    { label: 'Município', value: v.city ? String(v.city) : '—' },
+    { label: 'UF', value: v.uf ? String(v.uf) : '—' },
+    { label: 'Placa', value: v.plate ? String(v.plate) : '—' },
+    { label: 'Chassi', value: v.chassis ? String(v.chassis) : '—' },
+    { label: 'Renavam', value: v.renavam ? String(v.renavam) : '—' },
+  ];
+
+  return (
+    <Card className="overflow-hidden border border-border">
+      {/* Faixa superior: identificação do veículo */}
+      <div className="bg-muted/40 px-5 py-3 flex items-center justify-between flex-wrap gap-2 border-b border-border">
+        <div className="flex flex-col">
+          <div className="text-sm">
+            <span className="text-cyan-700 font-semibold">Veículo: </span>
+            <span className="font-bold text-foreground">{v.vehicle || '—'}</span>
+          </div>
+          {(v.manufacturingYear || v.modelYear) && (
+            <div className="text-xs text-muted-foreground mt-0.5">
+              <span className="text-cyan-700">Ano fabricação: </span>
+              <span>{v.manufacturingYear || v.modelYear}</span>
+            </div>
+          )}
+        </div>
+        <div className="text-right">
+          <div className="text-sm">
+            <span className="text-cyan-700 font-semibold">FIPE: </span>
+            <span className="font-bold text-foreground">
+              {Number.isFinite(Number(v.value)) ? formatCurrency(Number(v.value)) : '—'}
+            </span>
+          </div>
+          {v.validity && (
+            <div className="text-[11px] text-muted-foreground tracking-wide uppercase mt-0.5">
+              {String(v.validity).trim()}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Grid de atributos */}
+      <CardContent className="px-5 py-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          {fields.map((f) => (
+            <div key={f.label}>
+              <p className="text-[11px] font-medium text-muted-foreground">{f.label}</p>
+              <p className="text-sm font-bold text-foreground mt-0.5 break-words">{f.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {Array.isArray(v.restrictions) && v.restrictions.length > 0 && (
+          <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+            <p className="text-xs font-semibold text-amber-800 mb-1">Restrições</p>
+            <ul className="text-xs text-amber-900 list-disc pl-4 space-y-0.5">
+              {v.restrictions.map((r: any, i: number) => (
+                <li key={i}>{typeof r === 'string' ? r : JSON.stringify(r)}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function ImoveisContent({ items }: { items: SubItem[] }) {
   // Find the "Simples" sub-item
   const simplesItem = items.find(i => i.key === 'imoveis-simples');
