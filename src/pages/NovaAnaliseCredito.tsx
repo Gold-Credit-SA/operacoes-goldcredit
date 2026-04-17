@@ -176,8 +176,9 @@ export default function NovaAnaliseCredito() {
   // ─── Navigate to analysis ───
   const handleProsseguir = () => {
     if (selectedClientes.length === 0 || !selectedCedente) return;
-    // Store all sacados in sessionStorage for the analysis page
+    // Store all sacados + cedente in sessionStorage for the analysis page
     sessionStorage.setItem('analysisClients', JSON.stringify(selectedClientes));
+    sessionStorage.setItem('analysisCedente', JSON.stringify(selectedCedente));
     const primary = selectedClientes[0];
     navigate(`/analise-credito/new?clientId=${primary.id}&cpfCnpj=${encodeURIComponent(primary.cpf_cnpj)}&name=${encodeURIComponent(primary.name || '')}`);
   };

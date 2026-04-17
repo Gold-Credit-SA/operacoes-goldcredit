@@ -203,6 +203,12 @@ export default function AnaliseCredito() {
       } else if (clientId && clientCpfCnpj) {
         setAllClients([{ id: clientId, cpf_cnpj: clientCpfCnpj, name: clientName }]);
       }
+      const storedCedente = sessionStorage.getItem('analysisCedente');
+      if (storedCedente) {
+        const c = JSON.parse(storedCedente) as CedenteSmartResult;
+        if (c?.cpf_cnpj) setSelectedCedente(c);
+        sessionStorage.removeItem('analysisCedente');
+      }
     } catch { /* ignore */ }
   }, []);
 
