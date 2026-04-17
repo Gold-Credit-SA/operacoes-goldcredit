@@ -165,6 +165,7 @@ export type Database = {
           documents: Json | null
           id: string
           initial_analysis: Json | null
+          sacados: Json | null
           updated_at: string
         }
         Insert: {
@@ -180,6 +181,7 @@ export type Database = {
           documents?: Json | null
           id?: string
           initial_analysis?: Json | null
+          sacados?: Json | null
           updated_at?: string
         }
         Update: {
@@ -195,6 +197,7 @@ export type Database = {
           documents?: Json | null
           id?: string
           initial_analysis?: Json | null
+          sacados?: Json | null
           updated_at?: string
         }
         Relationships: []
