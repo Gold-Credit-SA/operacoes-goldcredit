@@ -72,6 +72,7 @@ interface SessionData {
   documents: any[];
   client_consultations: any;
   initial_analysis: any;
+  sacados?: Array<{ id?: string; cpf_cnpj: string; name: string | null }> | null;
 }
 
 // ─── Streaming helper ───
