@@ -43,6 +43,14 @@ function maskDocInput(value: string): string {
   );
 }
 
+function formatDate(date: string): string {
+  try {
+    return new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch {
+    return '-';
+  }
+}
+
 export default function Clientes() {
   const navigate = useNavigate();
   const { user } = useAuth();
