@@ -365,6 +365,10 @@ export default function Clientes() {
                         {formatDoc(client.cpf_cnpj)}
                       </p>
                     </div>
+                    <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
+                      <Calendar className="h-3 w-3" />
+                      {formatDate(client.created_at)}
+                    </span>
                     <Badge
                       variant="outline"
                       className="text-[10px] gap-1 border-primary/30 text-primary bg-primary/5 shrink-0"
