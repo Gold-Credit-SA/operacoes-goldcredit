@@ -314,17 +314,23 @@ export default function Clientes() {
                     </div>
 
                     <div className="flex items-center justify-between mt-4">
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] gap-1 ${
-                          isPJ
-                            ? 'border-primary/30 text-primary bg-primary/5'
-                            : 'border-primary/30 text-primary bg-primary/5'
-                        }`}
-                      >
-                        {isPJ ? <Building2 className="h-3 w-3" /> : <User className="h-3 w-3" />}
-                        {isPJ ? 'Jurídica' : 'Física'}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] gap-1 ${
+                            isPJ
+                              ? 'border-primary/30 text-primary bg-primary/5'
+                              : 'border-primary/30 text-primary bg-primary/5'
+                          }`}
+                        >
+                          {isPJ ? <Building2 className="h-3 w-3" /> : <User className="h-3 w-3" />}
+                          {isPJ ? 'Jurídica' : 'Física'}
+                        </Badge>
+                        <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <Calendar className="h-3 w-3" />
+                          {formatDate(client.created_at)}
+                        </span>
+                      </div>
                       <Button
                         variant="outline"
                         size="sm"
