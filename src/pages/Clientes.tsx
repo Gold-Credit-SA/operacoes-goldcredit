@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Users, Loader2, X, LayoutGrid, List, MoreVertical, Building2, User, Trash2, Eye } from 'lucide-react';
+import { Plus, Search, Users, Loader2, X, LayoutGrid, List, MoreVertical, Building2, User, Trash2, Eye, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -41,6 +41,14 @@ function maskDocInput(value: string): string {
   return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2})/, (_, a, b, c, f, e) =>
     `${a}.${b}.${c}/${f}` + (e ? `-${e}` : '')
   );
+}
+
+function formatDate(date: string): string {
+  try {
+    return new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch {
+    return '-';
+  }
 }
 
 export default function Clientes() {
@@ -306,17 +314,23 @@ export default function Clientes() {
                     </div>
 
                     <div className="flex items-center justify-between mt-4">
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] gap-1 ${
-                          isPJ
-                            ? 'border-primary/30 text-primary bg-primary/5'
-                            : 'border-primary/30 text-primary bg-primary/5'
-                        }`}
-                      >
-                        {isPJ ? <Building2 className="h-3 w-3" /> : <User className="h-3 w-3" />}
-                        {isPJ ? 'Jurídica' : 'Física'}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] gap-1 ${
+                            isPJ
+                              ? 'border-primary/30 text-primary bg-primary/5'
+                              : 'border-primary/30 text-primary bg-primary/5'
+                          }`}
+                        >
+                          {isPJ ? <Building2 className="h-3 w-3" /> : <User className="h-3 w-3" />}
+                          {isPJ ? 'Jurídica' : 'Física'}
+                        </Badge>
+                        <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <Calendar className="h-3 w-3" />
+                          {formatDate(client.created_at)}
+                        </span>
+                      </div>
                       <Button
                         variant="outline"
                         size="sm"
@@ -351,6 +365,10 @@ export default function Clientes() {
                         {formatDoc(client.cpf_cnpj)}
                       </p>
                     </div>
+                    <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
+                      <Calendar className="h-3 w-3" />
+                      {formatDate(client.created_at)}
+                    </span>
                     <Badge
                       variant="outline"
                       className="text-[10px] gap-1 border-primary/30 text-primary bg-primary/5 shrink-0"
