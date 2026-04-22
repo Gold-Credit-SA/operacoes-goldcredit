@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { formatDateBR } from '@/lib/utils';
 
 interface AlertaInadimplencia {
   cedente: string;
@@ -71,15 +72,7 @@ export function AlertasInadimplenciaCard({ alertas, loading }: AlertasInadimplen
             <div className="divide-y divide-border">
               {alertas.map((alerta, idx) => {
                 const severity = getSeverity(alerta.diasAtraso);
-                const vencDate = alerta.vencimento
-                  ? (() => {
-                      const d = new Date(alerta.vencimento);
-                      if (!isNaN(d.getTime())) return d.toLocaleDateString('pt-BR');
-                      // Try adding time if it's just a date string
-                      const d2 = new Date(alerta.vencimento + 'T12:00:00');
-                      return !isNaN(d2.getTime()) ? d2.toLocaleDateString('pt-BR') : 'N/I';
-                    })()
-                  : 'N/I';
+                const vencDate = formatDateBR(alerta.vencimento, 'N/I');
 
                 return (
                   <div key={idx} className="px-5 py-3 hover:bg-muted/30 transition-colors">
