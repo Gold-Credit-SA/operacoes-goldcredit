@@ -34,6 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { formatDateBR } from '@/lib/utils';
 
 interface CedenteGiro {
   cpf_cnpj: string;
@@ -77,10 +78,7 @@ export default function GiroCarteira() {
     return value;
   };
 
-  const formatDate = (date: string | undefined) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString('pt-BR');
-  };
+  const formatDate = (date: string | undefined) => formatDateBR(date, '-');
 
   const fetchCedentes = async () => {
     setIsLoading(true);

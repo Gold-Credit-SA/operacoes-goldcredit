@@ -3,6 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { FileCheck, FileWarning, Clock, CheckCircle2 } from 'lucide-react';
+import { formatDateBR } from '@/lib/utils';
 
 interface TituloAberto {
   id: number;
@@ -42,14 +43,7 @@ const formatCurrency = (value: number | null) => {
   }).format(value);
 };
 
-const formatDate = (date: string | null) => {
-  if (!date) return '-';
-  try {
-    return new Date(date).toLocaleDateString('pt-BR');
-  } catch {
-    return date;
-  }
-};
+const formatDate = (date: string | null) => formatDateBR(date, '-');
 
 const formatCpfCnpj = (value: string | null) => {
   if (!value) return '-';

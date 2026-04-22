@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, Users, ArrowLeft, AlertTriangle, FileText, RotateCcw, Building2, DollarSign, TrendingUp, RefreshCw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { formatDateBR } from '@/lib/utils';
 
 // ── Cache config ─────────────────────────────────────────────────────
 const LIST_STALE = 10 * 60 * 1000;   // 10 min — lista muda pouco
@@ -22,8 +23,7 @@ function formatCurrency(value: number | string | null) {
 }
 
 function formatDate(d: string | null) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('pt-BR');
+  return formatDateBR(d, '—');
 }
 
 function formatDoc(doc: string | null) {
