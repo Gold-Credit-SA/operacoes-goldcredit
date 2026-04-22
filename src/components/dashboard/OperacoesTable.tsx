@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { DashboardFiltersState } from '@/pages/Dashboard';
+import { formatDateBR } from '@/lib/utils';
 
 interface Operacao {
   id: number;
@@ -53,14 +54,7 @@ const formatCurrency = (value: number | null) => {
   }).format(value);
 };
 
-const formatDate = (date: string | null) => {
-  if (!date) return '-';
-  try {
-    return new Date(date).toLocaleDateString('pt-BR');
-  } catch {
-    return date;
-  }
-};
+const formatDate = (date: string | null) => formatDateBR(date, '-');
 export function OperacoesTable({ filters, onlyFormalizacao = false }: OperacoesTableProps) {
   const [data, setData] = useState<Operacao[]>([]);
   const [isLoading, setIsLoading] = useState(true);

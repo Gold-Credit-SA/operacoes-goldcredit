@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Users, AlertTriangle, FileText, RotateCcw, Building2, DollarSign, TrendingUp } from 'lucide-react';
+import { formatDateBR } from '@/lib/utils';
 
 interface SacadoSmartViewProps {
   data: any;
@@ -17,12 +18,7 @@ function formatCurrency(value: number | string | null | undefined) {
 }
 
 function formatDate(d: string | null | undefined) {
-  if (!d) return '—';
-  try {
-    return new Date(d).toLocaleDateString('pt-BR');
-  } catch {
-    return '—';
-  }
+  return formatDateBR(d, '—');
 }
 
 function formatDoc(doc: string | null | undefined) {

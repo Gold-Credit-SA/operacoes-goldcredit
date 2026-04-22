@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertTriangle, ShieldAlert, ChevronLeft, ChevronRight } from 'lucide-react';
+import { formatDateBR } from '@/lib/utils';
 
 interface SuspeitaFraudeItem {
   id: number;
@@ -35,8 +36,7 @@ function formatCurrency(value: number | null) {
 }
 
 function formatDate(date: string | null) {
-  if (!date) return '-';
-  return new Date(date).toLocaleDateString('pt-BR');
+  return formatDateBR(date, '-');
 }
 
 export function SuspeitaFraude({ suspeitasFraude }: SuspeitaFraudeProps) {

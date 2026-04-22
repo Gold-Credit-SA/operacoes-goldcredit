@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { formatDateBR } from '@/lib/utils';
 
 interface OperacoesRecentesProps {
   operacoes: Array<{
@@ -23,14 +24,7 @@ const formatCurrency = (value: number | null) => {
   }).format(value);
 };
 
-const formatDate = (date: string | null) => {
-  if (!date) return '-';
-  try {
-    return new Date(date).toLocaleDateString('pt-BR');
-  } catch {
-    return date;
-  }
-};
+const formatDate = (date: string | null) => formatDateBR(date, '-');
 
 export function OperacoesRecentes({ operacoes }: OperacoesRecentesProps) {
   return (

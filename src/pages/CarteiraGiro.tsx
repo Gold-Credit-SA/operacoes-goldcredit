@@ -21,6 +21,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { formatDateBR } from '@/lib/utils';
 
 interface CedenteCarteira {
   cpf_cnpj: string;
@@ -74,10 +75,7 @@ export default function CarteiraGiro() {
     return value;
   };
 
-  const formatDate = (date: string | undefined) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString('pt-BR');
-  };
+  const formatDate = (date: string | undefined) => formatDateBR(date, '-');
 
   const fetchPortfolio = async () => {
     setIsLoading(true);

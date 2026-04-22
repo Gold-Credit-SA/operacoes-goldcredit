@@ -4,6 +4,7 @@ import { FileDown, Loader2 } from 'lucide-react';
 import { CedenteDetail } from '@/pages/CedenteConsulta';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { formatDateBR } from '@/lib/utils';
 
 interface PdfReportButtonProps {
   data: CedenteDetail;
@@ -18,12 +19,7 @@ function formatCurrency(value: number | null | undefined): string {
 }
 
 function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return '-';
-  try {
-    return new Date(dateStr).toLocaleDateString('pt-BR');
-  } catch {
-    return dateStr;
-  }
+  return formatDateBR(dateStr, '-');
 }
 
 function formatPercent(value: number | null | undefined): string {

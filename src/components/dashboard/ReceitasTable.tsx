@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DashboardFiltersState } from '@/pages/Dashboard';
+import { formatDateBR } from '@/lib/utils';
 
 interface Receita {
   id: number;
@@ -30,14 +31,7 @@ const formatCurrency = (value: number | null) => {
   }).format(value);
 };
 
-const formatDate = (date: string | null) => {
-  if (!date) return '-';
-  try {
-    return new Date(date).toLocaleDateString('pt-BR');
-  } catch {
-    return date;
-  }
-};
+const formatDate = (date: string | null) => formatDateBR(date, '-');
 
 export function ReceitasTable({ filters }: ReceitasTableProps) {
   const [data, setData] = useState<Receita[]>([]);
