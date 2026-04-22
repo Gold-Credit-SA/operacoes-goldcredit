@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { DashboardFiltersState } from '@/pages/Dashboard';
+import { formatDateBR } from '@/lib/utils';
 
 interface Titulo {
   id: number;
@@ -32,14 +33,7 @@ const formatCurrency = (value: number | null) => {
   }).format(value);
 };
 
-const formatDate = (date: string | null) => {
-  if (!date) return '-';
-  try {
-    return new Date(date).toLocaleDateString('pt-BR');
-  } catch {
-    return date;
-  }
-};
+const formatDate = (date: string | null) => formatDateBR(date, '-');
 
 const getSituacaoVariant = (situacao: string | null) => {
   if (!situacao) return 'secondary';
