@@ -16,6 +16,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+// Format seguro: nunca lança exceção (evita tela branca por data inválida)
+function safeFormat(value: unknown, fmt: string): string {
+  try {
+    if (!value) return '—';
+    const d = new Date(value as string);
+    if (isNaN(d.getTime())) return '—';
+    return format(d, fmt, { locale: ptBR });
+  } catch {
+    return '—';
+  }
+}
 import { SCRDetailView } from '@/components/analise-operacao/SCRDetailView';
 import { SerasaDetailView } from '@/components/analise-operacao/serasa/SerasaDetailView';
 import { ConsultaModal } from '@/components/clientes/ConsultaModal';
