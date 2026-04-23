@@ -16,6 +16,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+// Format seguro: nunca lança exceção (evita tela branca por data inválida)
+function safeFormat(value: unknown, fmt: string): string {
+  try {
+    if (!value) return '—';
+    const d = new Date(value as string);
+    if (isNaN(d.getTime())) return '—';
+    return format(d, fmt, { locale: ptBR });
+  } catch {
+    return '—';
+  }
+}
 import { SCRDetailView } from '@/components/analise-operacao/SCRDetailView';
 import { SerasaDetailView } from '@/components/analise-operacao/serasa/SerasaDetailView';
 import { ConsultaModal } from '@/components/clientes/ConsultaModal';
@@ -340,7 +352,7 @@ export default function ClienteDetail() {
             <div className="flex items-center gap-2">
               <PlatformBadge platform={detailEntry.platform} />
               <span className="text-xs text-muted-foreground">
-                {format(new Date(detailEntry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                {safeFormat(detailEntry.created_at, "dd/MM/yyyy 'às' HH:mm")}
               </span>
             </div>
           </div>
@@ -432,7 +444,7 @@ export default function ClienteDetail() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground">{entry.consulta_label}</p>
                       <p className="text-xs text-muted-foreground">
-                        {format(new Date(entry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        {safeFormat(entry.created_at, "dd/MM/yyyy 'às' HH:mm")}
                         {entry.consulted_by_name && <> · <span className="italic">por {entry.consulted_by_name}</span></>}
                       </p>
                     </div>
@@ -472,7 +484,7 @@ export default function ClienteDetail() {
             {/* Update badge */}
             <div className="flex items-center gap-3">
               <Badge variant="outline" className="text-xs border-primary/40 text-primary">
-                Última Atualização {format(new Date(lastUpdate), 'dd/MM/yyyy')}
+                Última Atualização {safeFormat(lastUpdate, 'dd/MM/yyyy')}
               </Badge>
               <Button variant="outline" size="sm" className="text-xs h-7">
                 <RefreshCw className="h-3 w-3 mr-1" />
@@ -862,7 +874,7 @@ function AgriskUpdateTimeline({ timeline }: { timeline: HistoryEntry[] }) {
             <span className="absolute left-0 top-1.5 h-2 w-2 rounded-full bg-primary" />
             <p className="text-xs font-semibold text-foreground">{entry.consulta_label}</p>
             <p className="text-[11px] text-muted-foreground">
-              {format(new Date(entry.created_at), "dd/MM/yyyy 'as' HH:mm", { locale: ptBR })}
+              {safeFormat(entry.created_at, "dd/MM/yyyy 'às' HH:mm")}
             </p>
             {entry.consulted_by_name && (
               <p className="text-[11px] text-muted-foreground">{entry.consulted_by_name}</p>
