@@ -10,16 +10,26 @@ interface State {
   hasError: boolean;
   error: Error | null;
   isChunkError: boolean;
+  isDomMutationError: boolean;
+  recoveryKey: number;
 }
 
 /**
  * Captura erros de render que normalmente causariam tela branca.
- * Detecta ChunkLoadError (cache desatualizado após deploy) e força reload limpo.
+ * - ChunkLoadError (cache desatualizado após deploy) → reload limpo automático
+ * - DOM mutation errors (removeChild/insertBefore) causados por extensões do navegador
+ *   (Google Translate, etc.) → auto-recovery silencioso por re-mount
  */
 export class ErrorBoundary extends React.Component<Props, State> {
-  state: State = { hasError: false, error: null, isChunkError: false };
+  state: State = {
+    hasError: false,
+    error: null,
+    isChunkError: false,
+    isDomMutationError: false,
+    recoveryKey: 0,
+  };
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     const msg = String(error?.message || '');
     const name = String(error?.name || '');
     const isChunkError =
@@ -28,17 +38,42 @@ export class ErrorBoundary extends React.Component<Props, State> {
       /Failed to fetch dynamically imported module/i.test(msg) ||
       /Importing a module script failed/i.test(msg);
 
-    return { hasError: true, error, isChunkError };
+    // Erros causados por extensões que mexem no DOM (Google Translate, etc.)
+    const isDomMutationError =
+      /removeChild|insertBefore|Failed to execute 'removeChild'|Failed to execute 'insertBefore'|não é filho deste nó|is not a child of this node/i.test(
+        msg
+      );
+
+    return { hasError: true, error, isChunkError, isDomMutationError };
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     // Log estruturado para debug remoto
     console.error('[ErrorBoundary] Render error:', error, info);
 
-    // Se for chunk error, força reload limpo automaticamente (1x)
+    // Chunk error: força reload limpo automaticamente (1x)
     if (this.state.isChunkError && !sessionStorage.getItem('chunk-reload-attempted')) {
       sessionStorage.setItem('chunk-reload-attempted', '1');
       window.location.reload();
+      return;
+    }
+
+    // DOM mutation error de extensão: re-monta a árvore silenciosamente
+    if (this.state.isDomMutationError) {
+      const attempts = Number(sessionStorage.getItem('dom-recovery-attempts') || '0');
+      if (attempts < 2) {
+        sessionStorage.setItem('dom-recovery-attempts', String(attempts + 1));
+        // Re-monta no próximo tick para deixar o DOM se estabilizar
+        setTimeout(() => {
+          this.setState((s) => ({
+            hasError: false,
+            error: null,
+            isChunkError: false,
+            isDomMutationError: false,
+            recoveryKey: s.recoveryKey + 1,
+          }));
+        }, 50);
+      }
     }
   }
 
