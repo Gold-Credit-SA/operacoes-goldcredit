@@ -79,16 +79,30 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   handleReload = () => {
     sessionStorage.removeItem('chunk-reload-attempted');
+    sessionStorage.removeItem('dom-recovery-attempts');
     window.location.reload();
   };
 
   handleGoHome = () => {
     sessionStorage.removeItem('chunk-reload-attempted');
+    sessionStorage.removeItem('dom-recovery-attempts');
     window.location.href = '/';
   };
 
   render() {
-    if (!this.state.hasError) return this.props.children;
+    // Re-mount silencioso após recovery: nova key força árvore limpa
+    if (!this.state.hasError) {
+      return (
+        <React.Fragment key={this.state.recoveryKey}>
+          {this.props.children}
+        </React.Fragment>
+      );
+    }
+
+    // Em recovery silencioso (DOM mutation), não mostra tela de erro
+    if (this.state.isDomMutationError) {
+      return null;
+    }
 
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
