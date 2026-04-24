@@ -127,22 +127,13 @@ export function AppSidebar() {
         to={item.path}
         onMouseEnter={item.prefetch}
         className={cn(
-          'group flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-medium transition-all duration-150',
+          'flex items-center gap-3 px-4 py-3 rounded-full text-sm font-medium transition-all duration-150',
           active
-            ? 'bg-card shadow-card text-foreground'
-            : 'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground'
+            ? 'bg-card shadow-card text-primary font-semibold'
+            : 'text-muted-foreground hover:text-foreground'
         )}
       >
-        <span
-          className={cn(
-            'flex items-center justify-center w-8 h-8 rounded-xl transition-colors',
-            active
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-secondary text-muted-foreground group-hover:bg-card'
-          )}
-        >
-          <Icon className="h-4 w-4" />
-        </span>
+        <Icon className={cn('h-5 w-5 shrink-0', active ? 'text-primary' : 'text-muted-foreground')} />
         <span className="truncate">{item.label}</span>
       </Link>
     );
@@ -183,23 +174,14 @@ export function AppSidebar() {
           onClick={() => setCarteiraOpen(!carteiraOpen)}
           onMouseEnter={prefetchPortfolio}
           className={cn(
-            'group flex items-center justify-between w-full px-3 py-2.5 rounded-2xl text-sm font-medium transition-all duration-150',
+            'flex items-center justify-between w-full px-4 py-3 rounded-full text-sm font-medium transition-all duration-150',
             isCarteiraActive
-              ? 'bg-card shadow-card text-foreground'
-              : 'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground'
+              ? 'bg-card shadow-card text-primary font-semibold'
+              : 'text-muted-foreground hover:text-foreground'
           )}
         >
           <span className="flex items-center gap-3">
-            <span
-              className={cn(
-                'flex items-center justify-center w-8 h-8 rounded-xl',
-                isCarteiraActive
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary text-muted-foreground group-hover:bg-card'
-              )}
-            >
-              <Briefcase className="h-4 w-4" />
-            </span>
+            <Briefcase className={cn('h-5 w-5', isCarteiraActive ? 'text-primary' : 'text-muted-foreground')} />
             Carteira
           </span>
           <ChevronDown className={cn('h-4 w-4 transition-transform', carteiraOpen && 'rotate-180')} />
@@ -233,23 +215,14 @@ export function AppSidebar() {
         <button
           onClick={() => setContratosOpen(!contratosOpen)}
           className={cn(
-            'group flex items-center justify-between w-full px-3 py-2.5 rounded-2xl text-sm font-medium transition-all duration-150',
+            'flex items-center justify-between w-full px-4 py-3 rounded-full text-sm font-medium transition-all duration-150',
             isContratosActive
-              ? 'bg-card shadow-card text-foreground'
-              : 'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground'
+              ? 'bg-card shadow-card text-primary font-semibold'
+              : 'text-muted-foreground hover:text-foreground'
           )}
         >
           <span className="flex items-center gap-3">
-            <span
-              className={cn(
-                'flex items-center justify-center w-8 h-8 rounded-xl',
-                isContratosActive
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary text-muted-foreground group-hover:bg-card'
-              )}
-            >
-              <FileSignature className="h-4 w-4" />
-            </span>
+            <FileSignature className={cn('h-5 w-5', isContratosActive ? 'text-primary' : 'text-muted-foreground')} />
             GoldSign
           </span>
           <ChevronDown className={cn('h-4 w-4 transition-transform', contratosOpen && 'rotate-180')} />
@@ -290,11 +263,9 @@ export function AppSidebar() {
       <div className="border-t border-sidebar-border p-3">
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-2xl text-sm font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
+          className="flex items-center gap-3 w-full px-4 py-3 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
-          <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-secondary">
-            <LogOut className="h-4 w-4" />
-          </span>
+          <LogOut className="h-5 w-5" />
           Sair
         </button>
       </div>
