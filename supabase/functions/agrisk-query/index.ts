@@ -300,7 +300,7 @@ async function handleConsulta(body: Record<string, unknown>): Promise<Response> 
       resultData = await fetchCpr(token, clientId, queryRefs);
       break;
     case "imoveis_simples":
-      resultData = await fetchImoveisSimples(token, clientId);
+      resultData = await fetchImoveisSimples(token, clientId, queryRefs);
       break;
     case "imoveis_car":
       resultData = await fetchImoveisCar(token, clientId, queryRefs);
@@ -937,16 +937,50 @@ async function enrichCprDetails(
   return { ...cprData, detailedItems };
 }
 
-async function fetchImoveisSimples(token: string, clientId: string): Promise<Record<string, unknown> | null> {
-  const [rural, urban] = await Promise.all([
-    tryJson(`${AGRISK_BASE}/assets/${clientId}/properties/rural?page=1`, token, 12000),
-    tryJson(`${AGRISK_BASE}/assets/${clientId}/properties/urban/list`, token, 12000),
-  ]);
+async function fetchImoveisSimples(
+  token: string,
+  clientId: string,
+  queryRefs: QueryRef[] = [],
+): Promise<Record<string, unknown> | null> {
+  // Wait until the underlying "pesquisa-imoveis" query is no longer pending.
+  // The /assets/.../properties endpoints return an empty shell while the query
+  // is still being processed, which previously caused this consulta to be
+  // saved as "zerada" even when the client actually had properties.
+  const ref = findQueryRef(queryRefs, ["pesquisa-imoveis", "imoveis", "properties"]);
+  if (ref?.queryId && isPendingStatus(ref.status)) {
+    await waitForQueryCompletion(token, clientId, ref.queryId);
+  }
 
-  const ruralData =
-    rural.ok && rural.data && typeof rural.data === "object" ? (rural.data as Record<string, unknown>) : null;
-  const urbanData =
-    urban.ok && urban.data && typeof urban.data === "object" ? (urban.data as Record<string, unknown>) : null;
+  // Poll the assets endpoints: AgRisk populates them only after the query
+  // finishes. Accept the response when at least one side has items, or when
+  // we run out of attempts (truly empty result).
+  const fetchBoth = async () => {
+    const [rural, urban] = await Promise.all([
+      tryJson(`${AGRISK_BASE}/assets/${clientId}/properties/rural?page=1`, token, 12000),
+      tryJson(`${AGRISK_BASE}/assets/${clientId}/properties/urban/list`, token, 12000),
+    ]);
+    const ruralData =
+      rural.ok && rural.data && typeof rural.data === "object" ? (rural.data as Record<string, unknown>) : null;
+    const urbanData =
+      urban.ok && urban.data && typeof urban.data === "object" ? (urban.data as Record<string, unknown>) : null;
+    return { ruralData, urbanData };
+  };
+
+  let { ruralData, urbanData } = await fetchBoth();
+
+  for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
+    const ruralItems = ruralData && Array.isArray(ruralData.items) ? ruralData.items : [];
+    const urbanItems = urbanData && Array.isArray(urbanData.items) ? urbanData.items : [];
+    if (ruralItems.length > 0 || urbanItems.length > 0) {
+      console.log(
+        `[fetchImoveisSimples] data ready after attempt ${attempt + 1}: rural=${ruralItems.length} urban=${urbanItems.length}`,
+      );
+      break;
+    }
+    if (attempt >= POLL_ATTEMPTS - 1) break;
+    await sleep(POLL_DELAY_MS);
+    ({ ruralData, urbanData } = await fetchBoth());
+  }
 
   if (!ruralData && !urbanData) {
     return null;
@@ -970,6 +1004,28 @@ async function fetchImoveisSimples(token: string, clientId: string): Promise<Rec
     urban: urbanData,
     ruralDetails,
   };
+}
+
+async function waitForQueryCompletion(
+  token: string,
+  clientId: string,
+  queryId: string,
+): Promise<void> {
+  for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
+    const result = await tryJson(`${AGRISK_BASE}/v2/queries/clients/${clientId}`, token, 10000);
+    if (result.ok && result.data && typeof result.data === "object") {
+      const refs = extractQueryRefs(result.data);
+      const match = refs.find((r) => r.queryId === queryId);
+      if (match && !isPendingStatus(match.status)) {
+        console.log(`[waitForQueryCompletion] queryId=${queryId} reached status=${match.status} after ${attempt + 1} attempts`);
+        return;
+      }
+    }
+    if (attempt < POLL_ATTEMPTS - 1) {
+      await sleep(POLL_DELAY_MS);
+    }
+  }
+  console.log(`[waitForQueryCompletion] queryId=${queryId} still pending after ${POLL_ATTEMPTS} attempts`);
 }
 
 async function fetchImoveisCar(
