@@ -804,30 +804,38 @@ export default function ClienteDetail() {
                 size="sm"
                 className="text-xs h-7"
                 onClick={handleReopenSCR}
-                disabled={!hasSavedScr}
+                disabled={!hasSavedScr || reopeningScr}
                 title={
                   hasSavedScr
-                    ? 'Reabre o último relatório SCR salvo (sem consumir créditos)'
+                    ? 'Reabre o último relatório SCR. Se detectar erro técnico, refaz a consulta automaticamente.'
                     : 'Nenhum relatório SCR salvo'
                 }
               >
-                <FileText className="h-3 w-3 mr-1" />
-                Reabrir SCR
+                {reopeningScr ? (
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                ) : (
+                  <FileText className="h-3 w-3 mr-1" />
+                )}
+                {reopeningScr ? 'Refazendo SCR...' : 'Reabrir SCR'}
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 className="text-xs h-7"
                 onClick={handleReopenSerasa}
-                disabled={!hasSavedSerasa}
+                disabled={!hasSavedSerasa || reopeningSerasa}
                 title={
                   hasSavedSerasa
-                    ? 'Reabre o último relatório Serasa salvo (sem consumir créditos)'
+                    ? 'Reabre o último relatório Serasa. Se detectar erro técnico, refaz a consulta automaticamente.'
                     : 'Nenhum relatório Serasa salvo'
                 }
               >
-                <FileText className="h-3 w-3 mr-1" />
-                Reabrir Serasa
+                {reopeningSerasa ? (
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                ) : (
+                  <FileText className="h-3 w-3 mr-1" />
+                )}
+                {reopeningSerasa ? 'Refazendo Serasa...' : 'Reabrir Serasa'}
               </Button>
             </div>
 
