@@ -270,6 +270,12 @@ function SacadoDetailView({
         </Card>
       )}
 
+      <EntityNotes
+        entityType="sacado"
+        entityCpfCnpj={sacado.cpf_cnpj_sacado}
+        entityName={sacado.nome || undefined}
+      />
+
       <Tabs defaultValue="aberto">
         <TabsList>
           <TabsTrigger value="aberto">Títulos Abertos ({detail?.titulosAberto?.length || 0})</TabsTrigger>
