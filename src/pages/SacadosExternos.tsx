@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, Users, ArrowLeft, AlertTriangle, FileText, RotateCcw, Building2, DollarSign, TrendingUp, RefreshCw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDateBR } from '@/lib/utils';
+import { EntityNotes } from '@/components/notes/EntityNotes';
 
 // ── Cache config ─────────────────────────────────────────────────────
 const LIST_STALE = 10 * 60 * 1000;   // 10 min — lista muda pouco
