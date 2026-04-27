@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { CedenteDetail } from '@/components/CedenteDetail';
+import { EntityNotes } from '@/components/notes/EntityNotes';
 import { getCedenteById } from '@/lib/api';
 import { Cedente } from '@/types/cedente';
 import { Button } from '@/components/ui/button';
