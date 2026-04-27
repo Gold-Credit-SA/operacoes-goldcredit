@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -228,6 +229,7 @@ export default function ClienteDetail() {
   const [consultaOpen, setConsultaOpen] = useState(false);
   const [detailEntry, setDetailEntry] = useState<HistoryEntry | null>(null);
   const [filterPlatform, setFilterPlatform] = useState<string | null>(null);
+  const [refreshingAgrisk, setRefreshingAgrisk] = useState(false);
 
   const openAgriskOverview = useCallback(async (cpfCnpj: string) => {
     const { data } = await supabase
