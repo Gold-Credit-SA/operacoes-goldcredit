@@ -1944,16 +1944,14 @@ function CarItemsView({ data }: { data: Record<string, unknown> }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="text-xs w-16"></TableHead>
-                <TableHead className="text-xs">Tipo</TableHead>
-                <TableHead className="text-xs">Nome/CAR</TableHead>
-                <TableHead className="text-xs text-center">Proprietários</TableHead>
-                <TableHead className="text-xs">Área Total</TableHead>
-                <TableHead className="text-xs">Área Consolidada</TableHead>
-                <TableHead className="text-xs">VTI (média)</TableHead>
-                <TableHead className="text-xs">UF</TableHead>
-                <TableHead className="text-xs">Município</TableHead>
-                <TableHead className="text-xs w-16 text-right pr-4"></TableHead>
+                <TableHead className="text-xs w-14"></TableHead>
+                <TableHead className="text-xs">Nome / CAR</TableHead>
+                <TableHead className="text-xs text-center w-12">Prop.</TableHead>
+                <TableHead className="text-xs text-right w-24">Área Total</TableHead>
+                <TableHead className="text-xs text-right w-24">Consolidada</TableHead>
+                <TableHead className="text-xs text-right w-24">VTI (média)</TableHead>
+                <TableHead className="text-xs w-32">Local</TableHead>
+                <TableHead className="text-xs w-12 text-right pr-3"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1983,56 +1981,57 @@ function CarItemsView({ data }: { data: Record<string, unknown> }) {
 
                 return (
                   <TableRow key={idx} className="hover:bg-muted/30">
-                    <TableCell className="py-3">
+                    <TableCell className="py-2.5 pl-3 pr-1">
                       <div
                         className={cn(
-                          "relative w-12 h-12 rounded-md overflow-hidden flex items-center justify-center ring-1 ring-border",
+                          "relative w-10 h-10 rounded-md overflow-hidden flex items-center justify-center ring-1 ring-border",
                           hasParcels ? "" : hasGeo ? "bg-gradient-to-br from-emerald-700 via-emerald-600 to-amber-700" : "bg-muted"
                         )}
                         title={hasGeo ? "Geo disponível" : "Sem geo"}
                       >
                         {hasParcels && <MiniPropertyMap parcels={parcels} />}
                         {hasGeo && (
-                          <span className="absolute bottom-0.5 left-0.5 text-[8px] font-bold px-1 py-0.5 rounded bg-emerald-500 text-white pointer-events-none z-10">
+                          <span className="absolute bottom-0 left-0 text-[7px] font-bold px-0.5 rounded-tr bg-emerald-500 text-white pointer-events-none z-10">
                             GEO
                           </span>
                         )}
                         {!hasGeo && <MapPinOff className="h-4 w-4 text-muted-foreground" />}
                       </div>
                     </TableCell>
-                    <TableCell className="py-3">
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "text-[10px] font-semibold whitespace-nowrap",
-                          isSociedade
-                            ? "border-cyan-500/40 text-cyan-700 bg-cyan-50"
-                            : "border-emerald-500/40 text-emerald-700 bg-emerald-50"
-                        )}
-                      >
-                        {isSociedade ? 'DE SOCIEDADE' : 'PRÓPRIA'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-foreground max-w-[320px] truncate" title={displayName}>
-                      {displayName}
+                    <TableCell className="py-2.5 max-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[9px] font-semibold whitespace-nowrap shrink-0 px-1.5 py-0",
+                            isSociedade
+                              ? "border-cyan-500/40 text-cyan-700 bg-cyan-50"
+                              : "border-emerald-500/40 text-emerald-700 bg-emerald-50"
+                          )}
+                        >
+                          {isSociedade ? 'SOC.' : 'PRÓP.'}
+                        </Badge>
+                        <span className="text-sm text-foreground truncate" title={displayName}>{displayName}</span>
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm text-foreground text-center">{ownersQty}</TableCell>
-                    <TableCell className="text-sm text-foreground whitespace-nowrap">
+                    <TableCell className="text-sm text-foreground whitespace-nowrap text-right">
                       {totalA > 0 ? `${fmtNum(totalA, 0)} ha` : '—'}
                     </TableCell>
-                    <TableCell className="text-sm text-foreground whitespace-nowrap">
+                    <TableCell className="text-sm text-foreground whitespace-nowrap text-right">
                       {prodA > 0 ? `${fmtNum(prodA, 0)} ha` : '—'}
                     </TableCell>
-                    <TableCell className="text-sm text-foreground whitespace-nowrap">
+                    <TableCell className="text-sm text-foreground whitespace-nowrap text-right">
                       {vti > 0 ? fmtCurr(vti) : '—'}
                     </TableCell>
-                    <TableCell className="text-sm text-foreground">{uf}</TableCell>
-                    <TableCell className="text-sm text-foreground">{city}</TableCell>
-                    <TableCell className="text-right pr-4">
+                    <TableCell className="text-sm text-foreground whitespace-nowrap">
+                      <span className="text-muted-foreground">{uf}</span> · {city}
+                    </TableCell>
+                    <TableCell className="text-right pr-3">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-primary hover:text-primary"
+                        className="text-primary hover:text-primary h-7 px-2"
                         onClick={() => setOpenDetail({ item, detail: richDetail })}
                       >
                         Ver
