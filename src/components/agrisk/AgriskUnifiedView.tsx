@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Leaf, ShieldAlert, UserRound } from 'lucide-react';
+import { Leaf, ShieldAlert, UserRound, MapPin } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -132,6 +132,13 @@ function buildSections(rawData: Record<string, any>, consultaType?: string): Top
           data: imoveisSimplesData,
           summary: buildSummary(imoveisSimplesData),
         },
+      ],
+    },
+    {
+      key: 'car',
+      label: 'Cadastro Ambiental Rural - CAR',
+      icon: MapPin,
+      items: [
         {
           key: 'imoveis_car',
           label: 'Pesquisa Imóveis - CAR',
