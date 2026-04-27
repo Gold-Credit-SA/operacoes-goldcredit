@@ -367,6 +367,39 @@ export default function ClienteDetail() {
     setRefreshingAgrisk(false);
   }, [client, user, history, loadData]);
 
+  // Reabre o último relatório SCR salvo (sem custo — não chama a API)
+  const handleReopenSCR = useCallback(() => {
+    const latestScr = history
+      .filter((h) => h.platform === 'scr' && h.status === 'success' && h.result_data)
+      .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))[0];
+    if (!latestScr) {
+      toast.info('Nenhum relatório SCR salvo para este cliente.');
+      return;
+    }
+    setDetailEntry(latestScr);
+  }, [history]);
+
+  // Reabre o último relatório Serasa salvo (sem custo — não chama a API)
+  const handleReopenSerasa = useCallback(() => {
+    const latestSerasa = history
+      .filter((h) => h.platform === 'serasa' && h.status === 'success' && h.result_data)
+      .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))[0];
+    if (!latestSerasa) {
+      toast.info('Nenhum relatório Serasa salvo para este cliente.');
+      return;
+    }
+    setDetailEntry(latestSerasa);
+  }, [history]);
+
+  const hasSavedScr = useMemo(
+    () => history.some((h) => h.platform === 'scr' && h.status === 'success' && h.result_data),
+    [history],
+  );
+  const hasSavedSerasa = useMemo(
+    () => history.some((h) => h.platform === 'serasa' && h.status === 'success' && h.result_data),
+    [history],
+  );
+
   const agriskOverview = useMemo(() => buildAgriskOverviewEntry(history), [history]);
   const agriskSnapshot = agriskOverview ? getAgriskPayload(agriskOverview) : {};
   const agriskClientData = isPlainObject((agriskSnapshot as any).clientData) ? ((agriskSnapshot as any).clientData as any) : {};
@@ -560,7 +593,7 @@ export default function ClienteDetail() {
           {/* Left sidebar */}
           <div className="lg:w-[340px] shrink-0 space-y-4">
             {/* Update badge */}
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline" className="text-xs border-primary/40 text-primary">
                 Última Atualização {safeFormat(lastUpdate, 'dd/MM/yyyy')}
               </Badge>
@@ -582,6 +615,36 @@ export default function ClienteDetail() {
                   <RefreshCw className="h-3 w-3 mr-1" />
                 )}
                 {refreshingAgrisk ? 'Atualizando...' : 'Atualizar AgRisk'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs h-7"
+                onClick={handleReopenSCR}
+                disabled={!hasSavedScr}
+                title={
+                  hasSavedScr
+                    ? 'Reabre o último relatório SCR salvo (sem consumir créditos)'
+                    : 'Nenhum relatório SCR salvo'
+                }
+              >
+                <FileText className="h-3 w-3 mr-1" />
+                Reabrir SCR
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs h-7"
+                onClick={handleReopenSerasa}
+                disabled={!hasSavedSerasa}
+                title={
+                  hasSavedSerasa
+                    ? 'Reabre o último relatório Serasa salvo (sem consumir créditos)'
+                    : 'Nenhum relatório Serasa salvo'
+                }
+              >
+                <FileText className="h-3 w-3 mr-1" />
+                Reabrir Serasa
               </Button>
             </div>
 
