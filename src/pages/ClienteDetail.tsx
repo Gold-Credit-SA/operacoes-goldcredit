@@ -367,6 +367,39 @@ export default function ClienteDetail() {
     setRefreshingAgrisk(false);
   }, [client, user, history, loadData]);
 
+  // Reabre o último relatório SCR salvo (sem custo — não chama a API)
+  const handleReopenSCR = useCallback(() => {
+    const latestScr = history
+      .filter((h) => h.platform === 'scr' && h.status === 'success' && h.result_data)
+      .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))[0];
+    if (!latestScr) {
+      toast.info('Nenhum relatório SCR salvo para este cliente.');
+      return;
+    }
+    setDetailEntry(latestScr);
+  }, [history]);
+
+  // Reabre o último relatório Serasa salvo (sem custo — não chama a API)
+  const handleReopenSerasa = useCallback(() => {
+    const latestSerasa = history
+      .filter((h) => h.platform === 'serasa' && h.status === 'success' && h.result_data)
+      .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))[0];
+    if (!latestSerasa) {
+      toast.info('Nenhum relatório Serasa salvo para este cliente.');
+      return;
+    }
+    setDetailEntry(latestSerasa);
+  }, [history]);
+
+  const hasSavedScr = useMemo(
+    () => history.some((h) => h.platform === 'scr' && h.status === 'success' && h.result_data),
+    [history],
+  );
+  const hasSavedSerasa = useMemo(
+    () => history.some((h) => h.platform === 'serasa' && h.status === 'success' && h.result_data),
+    [history],
+  );
+
   const agriskOverview = useMemo(() => buildAgriskOverviewEntry(history), [history]);
   const agriskSnapshot = agriskOverview ? getAgriskPayload(agriskOverview) : {};
   const agriskClientData = isPlainObject((agriskSnapshot as any).clientData) ? ((agriskSnapshot as any).clientData as any) : {};
