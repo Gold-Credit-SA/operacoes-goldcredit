@@ -1822,7 +1822,12 @@ function ImovelDetailDialog({ property, tipo, open: openProp, onOpenChange }: { 
 }
 
 function CarItemsView({ data }: { data: Record<string, unknown> }) {
-  const root: any = (data as any)?.details || (data as any)?.result || data;
+  const d: any = data || {};
+  // Nota: CAR pode ter uma chave `details` interna do tipo array (detalhes por imóvel) — não confundir com o envelope.
+  const root: any =
+    (d?.details && !Array.isArray(d.details) && typeof d.details === 'object' ? d.details : null) ||
+    (d?.result && typeof d.result === 'object' ? d.result : null) ||
+    d;
   const items: any[] = Array.isArray(root?.items) ? root.items : [];
   const totalArea = Number(root?.totalArea ?? 0);
   const productiveArea = Number(root?.productiveArea ?? 0);
