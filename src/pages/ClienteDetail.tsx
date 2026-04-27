@@ -367,29 +367,119 @@ export default function ClienteDetail() {
     setRefreshingAgrisk(false);
   }, [client, user, history, loadData]);
 
-  // Reabre o último relatório SCR salvo (sem custo — não chama a API)
+  // Heurística: detecta se um relatório SCR está vazio/zerado (sem operações, limites ou histórico)
+  const isEmptyScrPayload = useCallback((entry: HistoryEntry): boolean => {
+    const raw: any = entry.result_data;
+    if (!raw || typeof raw !== 'object') return true;
+    // Estrutura típica: { data: { response: {...} } } ou { response: {...} } ou direto
+    const root: any = raw.data?.response || raw.response || raw.data || raw;
+    if (!root || typeof root !== 'object') return true;
+    // Código 52 ou similar = data-base indisponível
+    const code = root.codigo ?? root.code;
+    if (code === '52' || code === 52) return true;
+    // Verifica presença de operações/limites/modalidades
+    const candidates = [
+      root.operacoes, root.operations,
+      root.modalidades, root.modalities,
+      root.limites, root.limits, root.limitesCredito,
+      root.detalhamento, root.carteira, root.carteiraAtiva,
+      root.historico, root.history,
+      root.resumo, root.summary,
+    ];
+    const hasAnyData = candidates.some((c) => {
+      if (!c) return false;
+      if (Array.isArray(c)) return c.length > 0;
+      if (typeof c === 'object') return Object.keys(c).length > 0;
+      return false;
+    });
+    if (hasAnyData) return false;
+    // Fallback: se o payload tem mais de 500 chars de conteúdo, considera não-vazio
+    return JSON.stringify(root).length < 500;
+  }, []);
+
+  // Heurística: detecta se um relatório Serasa está vazio/zerado
+  const isEmptySerasaPayload = useCallback((entry: HistoryEntry): boolean => {
+    const raw: any = entry.result_data;
+    if (!raw || typeof raw !== 'object') return true;
+    const root: any = raw.data || raw;
+    if (!root || typeof root !== 'object') return true;
+    // Mensagem "NADA CONSTA" sozinha não é vazio — é informação válida.
+    // Procura por blocos com dados reais.
+    const candidates = [
+      root.reports, root.report,
+      root.advancedCommercialPaymentHistory,
+      root.negativeData, root.pendencies, root.pendencias,
+      root.protests, root.protestos,
+      root.scoreData, root.score,
+      root.companyData, root.personData,
+      root.queryInfo, root.basicData,
+    ];
+    const hasAnyData = candidates.some((c) => {
+      if (!c) return false;
+      if (Array.isArray(c)) return c.length > 0;
+      if (typeof c === 'object') return Object.keys(c).length > 0;
+      return false;
+    });
+    if (hasAnyData) return false;
+    return JSON.stringify(root).length < 500;
+  }, []);
+
+  // Reabre o melhor relatório SCR salvo: prefere o mais recente; se vazio, busca um anterior populado
   const handleReopenSCR = useCallback(() => {
-    const latestScr = history
+    const scrEntries = history
       .filter((h) => h.platform === 'scr' && h.status === 'success' && h.result_data)
-      .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))[0];
-    if (!latestScr) {
+      .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+
+    if (scrEntries.length === 0) {
       toast.info('Nenhum relatório SCR salvo para este cliente.');
       return;
     }
-    setDetailEntry(latestScr);
-  }, [history]);
 
-  // Reabre o último relatório Serasa salvo (sem custo — não chama a API)
+    const latest = scrEntries[0];
+    if (!isEmptyScrPayload(latest)) {
+      setDetailEntry(latest);
+      return;
+    }
+
+    // Última consulta veio zerada — procura uma anterior com dados
+    const populated = scrEntries.find((e) => !isEmptyScrPayload(e));
+    if (populated) {
+      const dataConsulta = safeFormat(populated.created_at, 'dd/MM/yyyy');
+      toast.info(`Última consulta SCR veio sem dados. Exibindo relatório anterior de ${dataConsulta}.`);
+      setDetailEntry(populated);
+    } else {
+      toast.warning('Todos os relatórios SCR salvos estão sem dados. Faça uma nova consulta.');
+      setDetailEntry(latest);
+    }
+  }, [history, isEmptyScrPayload]);
+
+  // Reabre o melhor relatório Serasa salvo: prefere o mais recente; se vazio, busca um anterior populado
   const handleReopenSerasa = useCallback(() => {
-    const latestSerasa = history
+    const serasaEntries = history
       .filter((h) => h.platform === 'serasa' && h.status === 'success' && h.result_data)
-      .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))[0];
-    if (!latestSerasa) {
+      .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+
+    if (serasaEntries.length === 0) {
       toast.info('Nenhum relatório Serasa salvo para este cliente.');
       return;
     }
-    setDetailEntry(latestSerasa);
-  }, [history]);
+
+    const latest = serasaEntries[0];
+    if (!isEmptySerasaPayload(latest)) {
+      setDetailEntry(latest);
+      return;
+    }
+
+    const populated = serasaEntries.find((e) => !isEmptySerasaPayload(e));
+    if (populated) {
+      const dataConsulta = safeFormat(populated.created_at, 'dd/MM/yyyy');
+      toast.info(`Última consulta Serasa veio sem dados. Exibindo relatório anterior de ${dataConsulta}.`);
+      setDetailEntry(populated);
+    } else {
+      toast.warning('Todos os relatórios Serasa salvos estão sem dados. Faça uma nova consulta.');
+      setDetailEntry(latest);
+    }
+  }, [history, isEmptySerasaPayload]);
 
   const hasSavedScr = useMemo(
     () => history.some((h) => h.platform === 'scr' && h.status === 'success' && h.result_data),
