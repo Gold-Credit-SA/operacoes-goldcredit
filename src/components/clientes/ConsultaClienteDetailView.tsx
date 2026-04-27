@@ -2596,7 +2596,7 @@ export function ConsultaClienteDetailView({ data: rawData, agriskClientId, consu
     { key: 'juridico', label: 'Judicial', icon: Scale },
     { key: 'armazens', label: 'Armazéns', icon: Warehouse },
     { key: 'veicular', label: 'Veicular', icon: Car },
-    { key: 'imoveis', label: 'Imóveis Rurais', icon: Leaf },
+    { key: 'imoveis', label: 'Imóveis', icon: Leaf },
     { key: 'car', label: 'CAR', icon: MapPin },
   ];
 
