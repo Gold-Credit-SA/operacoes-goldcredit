@@ -780,63 +780,6 @@ export default function ClienteDetail() {
               <Badge variant="outline" className="text-xs border-primary/40 text-primary">
                 Última Atualização {safeFormat(lastUpdate, 'dd/MM/yyyy')}
               </Badge>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs h-7"
-                onClick={handleRefreshAgrisk}
-                disabled={refreshingAgrisk || !agriskOverview}
-                title={
-                  agriskOverview
-                    ? 'Reexecuta as consultas AgRisk já feitas e atualiza os resultados'
-                    : 'Nenhuma consulta AgRisk realizada ainda'
-                }
-              >
-                {refreshingAgrisk ? (
-                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-3 w-3 mr-1" />
-                )}
-                {refreshingAgrisk ? 'Atualizando...' : 'Atualizar AgRisk'}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs h-7"
-                onClick={handleReopenSCR}
-                disabled={!hasSavedScr || reopeningScr}
-                title={
-                  hasSavedScr
-                    ? 'Reabre o último relatório SCR. Se detectar erro técnico, refaz a consulta automaticamente.'
-                    : 'Nenhum relatório SCR salvo'
-                }
-              >
-                {reopeningScr ? (
-                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                ) : (
-                  <FileText className="h-3 w-3 mr-1" />
-                )}
-                {reopeningScr ? 'Refazendo SCR...' : 'Reabrir SCR'}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs h-7"
-                onClick={handleReopenSerasa}
-                disabled={!hasSavedSerasa || reopeningSerasa}
-                title={
-                  hasSavedSerasa
-                    ? 'Reabre o último relatório Serasa. Se detectar erro técnico, refaz a consulta automaticamente.'
-                    : 'Nenhum relatório Serasa salvo'
-                }
-              >
-                {reopeningSerasa ? (
-                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                ) : (
-                  <FileText className="h-3 w-3 mr-1" />
-                )}
-                {reopeningSerasa ? 'Refazendo Serasa...' : 'Reabrir Serasa'}
-              </Button>
             </div>
 
             {/* Informações Cadastrais */}
@@ -1128,22 +1071,6 @@ export default function ClienteDetail() {
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 mt-6">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              if (agriskOverview) {
-                setDetailEntry(agriskOverview);
-              } else {
-                setConsultaOpen(true);
-              }
-            }}
-          >
-            {agriskOverview ? 'Abrir painel AgRisk' : 'Consultar AgRisk'}
-          </Button>
-        </div>
-
         {/* Platform history cards - full width */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-4">
           {(['serasa', 'scr', 'agrisk', 'smart'] as const).map(platform => {
@@ -1155,14 +1082,81 @@ export default function ClienteDetail() {
               smart: { src: logoSmart, label: 'Smart' },
             };
             const { src, label, fallback } = logos[platform];
+
+            // Action button per platform (top-right corner)
+            let action: { onClick: () => void; disabled: boolean; loading: boolean; label: string; title: string } | null = null;
+            if (platform === 'agrisk') {
+              action = {
+                onClick: handleRefreshAgrisk,
+                disabled: refreshingAgrisk || !agriskOverview,
+                loading: refreshingAgrisk,
+                label: refreshingAgrisk ? 'Atualizando...' : 'Atualizar',
+                title: agriskOverview
+                  ? 'Reexecuta as consultas AgRisk já feitas e atualiza os resultados'
+                  : 'Nenhuma consulta AgRisk realizada ainda',
+              };
+            } else if (platform === 'scr') {
+              action = {
+                onClick: handleReopenSCR,
+                disabled: !hasSavedScr || reopeningScr,
+                loading: reopeningScr,
+                label: reopeningScr ? 'Refazendo...' : 'Reabrir',
+                title: hasSavedScr
+                  ? 'Reabre o último relatório SCR. Se detectar erro técnico, refaz a consulta automaticamente.'
+                  : 'Nenhum relatório SCR salvo',
+              };
+            } else if (platform === 'serasa') {
+              action = {
+                onClick: handleReopenSerasa,
+                disabled: !hasSavedSerasa || reopeningSerasa,
+                loading: reopeningSerasa,
+                label: reopeningSerasa ? 'Refazendo...' : 'Reabrir',
+                title: hasSavedSerasa
+                  ? 'Reabre o último relatório Serasa. Se detectar erro técnico, refaz a consulta automaticamente.'
+                  : 'Nenhum relatório Serasa salvo',
+              };
+            }
+
+            const handleCardClick = () => {
+              if (platform === 'agrisk') {
+                if (agriskOverview) {
+                  setDetailEntry(agriskOverview);
+                } else {
+                  setConsultaOpen(true);
+                }
+                return;
+              }
+              setFilterPlatform(platform);
+            };
+
             return (
               <div
                 key={platform}
-                className="flex items-center gap-4 rounded-xl border border-border bg-card p-4 hover:border-primary/40 hover:shadow-md cursor-pointer transition-all"
-                onClick={() => {
-                  setFilterPlatform(platform);
-                }}
+                className="relative flex items-center gap-4 rounded-xl border border-border bg-card p-4 hover:border-primary/40 hover:shadow-md cursor-pointer transition-all"
+                onClick={handleCardClick}
               >
+                {action && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-1.5 right-1.5 h-6 px-2 text-[10px]"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      action!.onClick();
+                    }}
+                    disabled={action.disabled}
+                    title={action.title}
+                  >
+                    {action.loading ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : platform === 'agrisk' ? (
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                    ) : (
+                      <FileText className="h-3 w-3 mr-1" />
+                    )}
+                    {action.label}
+                  </Button>
+                )}
                 {src ? (
                   <img src={src} alt={label} className="h-10 w-10 object-contain shrink-0" />
                 ) : (
