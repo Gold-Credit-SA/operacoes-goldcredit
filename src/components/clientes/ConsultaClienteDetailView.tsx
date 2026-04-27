@@ -2596,7 +2596,7 @@ export function ConsultaClienteDetailView({ data: rawData, agriskClientId, consu
     { key: 'juridico', label: 'Judicial', icon: Scale },
     { key: 'armazens', label: 'Armazéns', icon: Warehouse },
     { key: 'veicular', label: 'Veicular', icon: Car },
-    { key: 'imoveis', label: 'Imóveis Rurais', icon: Leaf },
+    { key: 'imoveis', label: 'Imóveis', icon: Leaf },
     { key: 'car', label: 'CAR', icon: MapPin },
   ];
 
@@ -2613,7 +2613,7 @@ export function ConsultaClienteDetailView({ data: rawData, agriskClientId, consu
   return (
     <div className="space-y-4">
       {/* Navbar tabs */}
-      <div className="flex items-center gap-1 border-b border-border">
+      <div className="flex items-center gap-1 border-b border-border overflow-x-auto scrollbar-thin">
         {categorizedData.map(cat => {
           const Icon = cat.icon;
           const isActive = cat.key === selectedKey;
@@ -2623,13 +2623,13 @@ export function ConsultaClienteDetailView({ data: rawData, agriskClientId, consu
               key={cat.key}
               onClick={() => setActiveCategory(cat.key)}
               className={cn(
-                'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px',
+                'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px shrink-0 whitespace-nowrap',
                 isActive
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
               )}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-4 w-4 shrink-0" />
               {cat.label}
             </button>
           );
