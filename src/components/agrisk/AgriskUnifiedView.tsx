@@ -132,6 +132,13 @@ function buildSections(rawData: Record<string, any>, consultaType?: string): Top
           data: imoveisSimplesData,
           summary: buildSummary(imoveisSimplesData),
         },
+      ],
+    },
+    {
+      key: 'car',
+      label: 'Cadastro Ambiental Rural - CAR',
+      icon: MapPin,
+      items: [
         {
           key: 'imoveis_car',
           label: 'Pesquisa Imóveis - CAR',
