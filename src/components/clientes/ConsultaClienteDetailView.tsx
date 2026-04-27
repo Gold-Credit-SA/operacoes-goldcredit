@@ -399,6 +399,10 @@ function normalizeResponseData(rawData: Record<string, any>, consultaType?: stri
           }
         : null,
     },
+  ];
+
+  // ── CAR (Cadastro Ambiental Rural) — categoria própria ──
+  result['car'] = [
     {
       key: 'imoveis-car',
       label: 'CAR',
@@ -2593,6 +2597,7 @@ export function ConsultaClienteDetailView({ data: rawData, agriskClientId, consu
     { key: 'armazens', label: 'Armazéns', icon: Warehouse },
     { key: 'veicular', label: 'Veicular', icon: Car },
     { key: 'imoveis', label: 'Imóveis Rurais', icon: Leaf },
+    { key: 'car', label: 'CAR', icon: MapPin },
   ];
 
   const categorizedData = categoryDefs
@@ -2641,6 +2646,7 @@ export function ConsultaClienteDetailView({ data: rawData, agriskClientId, consu
           selectedCat.key === 'armazens' ? <GenericTopicContent title="Armazéns" items={selectedCat.items} /> :
           selectedCat.key === 'veicular' ? <VeicularContent items={selectedCat.items} /> :
           selectedCat.key === 'imoveis' ? <ImoveisContent items={selectedCat.items} /> :
+          selectedCat.key === 'car' ? <ImoveisContent items={selectedCat.items} /> :
           null
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground py-12">
