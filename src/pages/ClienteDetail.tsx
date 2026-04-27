@@ -1130,16 +1130,12 @@ export default function ClienteDetail() {
             };
 
             return (
-              <div
-                key={platform}
-                className="relative flex items-center gap-4 rounded-xl border border-border bg-card p-4 hover:border-primary/40 hover:shadow-md cursor-pointer transition-all"
-                onClick={handleCardClick}
-              >
+              <div key={platform} className="relative">
                 {action && (
                   <Button
                     variant="ghost"
-                    size="sm"
-                    className="absolute top-1.5 right-1.5 h-6 px-2 text-[10px]"
+                    size="icon"
+                    className="absolute -top-2 -right-2 z-10 h-7 w-7 rounded-full border border-border bg-background shadow-sm hover:bg-muted"
                     onClick={(e) => {
                       e.stopPropagation();
                       action!.onClick();
@@ -1148,25 +1144,27 @@ export default function ClienteDetail() {
                     title={action.title}
                   >
                     {action.loading ? (
-                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                    ) : platform === 'agrisk' ? (
-                      <RefreshCw className="h-3 w-3 mr-1" />
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
-                      <FileText className="h-3 w-3 mr-1" />
+                      <RefreshCw className="h-3.5 w-3.5" />
                     )}
-                    {action.label}
                   </Button>
                 )}
-                {src ? (
-                  <img src={src} alt={label} className="h-10 w-10 object-contain shrink-0" />
-                ) : (
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-sm font-semibold text-stone-700">
-                    {fallback || label.slice(0, 1)}
+                <div
+                  className="flex items-center gap-4 rounded-xl border border-border bg-card p-4 hover:border-primary/40 hover:shadow-md cursor-pointer transition-all"
+                  onClick={handleCardClick}
+                >
+                  {src ? (
+                    <img src={src} alt={label} className="h-10 w-10 object-contain shrink-0" />
+                  ) : (
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-sm font-semibold text-stone-700">
+                      {fallback || label.slice(0, 1)}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground">{label}</p>
+                    <p className="text-xs text-muted-foreground">{count} consulta(s)</p>
                   </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground">{label}</p>
-                  <p className="text-xs text-muted-foreground">{count} consulta(s)</p>
                 </div>
               </div>
             );
