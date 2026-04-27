@@ -289,6 +289,42 @@ export type Database = {
         }
         Relationships: []
       }
+      entity_notes: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          created_by_name: string | null
+          entity_cpf_cnpj: string
+          entity_name: string | null
+          entity_type: Database["public"]["Enums"]["entity_note_type"]
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by: string
+          created_by_name?: string | null
+          entity_cpf_cnpj: string
+          entity_name?: string | null
+          entity_type: Database["public"]["Enums"]["entity_note_type"]
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          created_by_name?: string | null
+          entity_cpf_cnpj?: string
+          entity_name?: string | null
+          entity_type?: Database["public"]["Enums"]["entity_note_type"]
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       goldsign_settings: {
         Row: {
           created_at: string
@@ -594,6 +630,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "user"
       assignment_status: "pending" | "approved" | "rejected"
+      entity_note_type: "cliente" | "cedente" | "sacado"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -723,6 +760,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "user"],
       assignment_status: ["pending", "approved", "rejected"],
+      entity_note_type: ["cliente", "cedente", "sacado"],
     },
   },
 } as const
