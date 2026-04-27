@@ -1072,6 +1072,15 @@ export default function ClienteDetail() {
           </div>
         </div>
 
+        {/* Notes block - per client */}
+        <div className="mt-4">
+          <EntityNotes
+            entityType="cliente"
+            entityCpfCnpj={client.cpf_cnpj}
+            entityName={client.name || undefined}
+          />
+        </div>
+
         {/* Platform history cards - full width */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-4">
           {(['serasa', 'scr', 'agrisk', 'smart'] as const).map(platform => {
