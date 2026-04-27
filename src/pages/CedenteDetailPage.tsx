@@ -100,6 +100,16 @@ export default function CedenteDetailPage() {
             </div>
 
             <CedenteDetail cedente={cedente} />
+
+            {(cedente.cnpj || cedente.cpf) && (
+              <div className="mt-6">
+                <EntityNotes
+                  entityType="cedente"
+                  entityCpfCnpj={String(cedente.cnpj || cedente.cpf)}
+                  entityName={cedente.nome || cedente.razao_social}
+                />
+              </div>
+            )}
           </div>
         )}
       </main>
