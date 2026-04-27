@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { EntityNotes } from '@/components/notes/EntityNotes';
+
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -1070,15 +1070,6 @@ export default function ClienteDetail() {
             </Tabs>
 
           </div>
-        </div>
-
-        {/* Notes block - per client */}
-        <div className="mt-4">
-          <EntityNotes
-            entityType="cliente"
-            entityCpfCnpj={client.cpf_cnpj}
-            entityName={client.name || undefined}
-          />
         </div>
 
         {/* Platform history cards - full width */}
