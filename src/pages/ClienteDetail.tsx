@@ -780,63 +780,6 @@ export default function ClienteDetail() {
               <Badge variant="outline" className="text-xs border-primary/40 text-primary">
                 Última Atualização {safeFormat(lastUpdate, 'dd/MM/yyyy')}
               </Badge>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs h-7"
-                onClick={handleRefreshAgrisk}
-                disabled={refreshingAgrisk || !agriskOverview}
-                title={
-                  agriskOverview
-                    ? 'Reexecuta as consultas AgRisk já feitas e atualiza os resultados'
-                    : 'Nenhuma consulta AgRisk realizada ainda'
-                }
-              >
-                {refreshingAgrisk ? (
-                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-3 w-3 mr-1" />
-                )}
-                {refreshingAgrisk ? 'Atualizando...' : 'Atualizar AgRisk'}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs h-7"
-                onClick={handleReopenSCR}
-                disabled={!hasSavedScr || reopeningScr}
-                title={
-                  hasSavedScr
-                    ? 'Reabre o último relatório SCR. Se detectar erro técnico, refaz a consulta automaticamente.'
-                    : 'Nenhum relatório SCR salvo'
-                }
-              >
-                {reopeningScr ? (
-                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                ) : (
-                  <FileText className="h-3 w-3 mr-1" />
-                )}
-                {reopeningScr ? 'Refazendo SCR...' : 'Reabrir SCR'}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs h-7"
-                onClick={handleReopenSerasa}
-                disabled={!hasSavedSerasa || reopeningSerasa}
-                title={
-                  hasSavedSerasa
-                    ? 'Reabre o último relatório Serasa. Se detectar erro técnico, refaz a consulta automaticamente.'
-                    : 'Nenhum relatório Serasa salvo'
-                }
-              >
-                {reopeningSerasa ? (
-                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                ) : (
-                  <FileText className="h-3 w-3 mr-1" />
-                )}
-                {reopeningSerasa ? 'Refazendo Serasa...' : 'Reabrir Serasa'}
-              </Button>
             </div>
 
             {/* Informações Cadastrais */}
