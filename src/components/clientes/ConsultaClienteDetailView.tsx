@@ -1833,11 +1833,18 @@ function CarItemsView({ data }: { data: Record<string, unknown> }) {
     (d?.result && typeof d.result === 'object' ? d.result : null) ||
     d;
   const items: any[] = Array.isArray(root?.items) ? root.items : [];
+  // Lookup de detalhes ricos (geo, agcheck, owners, etc) indexados por _id
+  const detailsArr: any[] = Array.isArray(d?.details) ? d.details
+    : Array.isArray(root?.details) ? root.details : [];
+  const detailsById = new Map<string, any>();
+  detailsArr.forEach((det: any) => { if (det?._id) detailsById.set(det._id, det); });
+
   const totalArea = Number(root?.totalArea ?? 0);
   const productiveArea = Number(root?.productiveArea ?? 0);
   const properties = Number(root?.properties ?? items.length);
   const ownedProperties = Number(root?.ownedProperties ?? 0);
   const totalVti = Number(root?.totalVti ?? 0);
+  const [openDetail, setOpenDetail] = useState<any | null>(null);
 
   const fmtNum = (n: number, dec = 1) => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: dec }).format(n);
   const fmtCurr = (n: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
