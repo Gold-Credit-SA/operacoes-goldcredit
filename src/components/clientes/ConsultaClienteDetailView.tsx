@@ -1915,33 +1915,38 @@ function CarItemsView({ data }: { data: Record<string, unknown> }) {
               <TableRow>
                 <TableHead className="text-xs w-16"></TableHead>
                 <TableHead className="text-xs">Tipo</TableHead>
-                <TableHead className="text-xs">CAR</TableHead>
-                <TableHead className="text-xs">Nome</TableHead>
+                <TableHead className="text-xs">Nome/CAR</TableHead>
+                <TableHead className="text-xs text-center">Proprietários</TableHead>
                 <TableHead className="text-xs">Área Total</TableHead>
-                <TableHead className="text-xs">Área Produtiva</TableHead>
+                <TableHead className="text-xs">Área Consolidada</TableHead>
                 <TableHead className="text-xs">VTI (média)</TableHead>
                 <TableHead className="text-xs">UF</TableHead>
                 <TableHead className="text-xs">Município</TableHead>
+                <TableHead className="text-xs w-16 text-right pr-4"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {items.map((item: any, idx: number) => {
-                const ownership = (item.ownership || '').toString().toLowerCase();
+                const richDetail = (item?._id && detailsById.get(item._id)) || {};
+                const ownership = (item.ownership || richDetail.ownership || '').toString().toLowerCase();
                 const isSociedade = ownership.includes('sociedade') || ownership.includes('society') || ownership.includes('partner');
-                const car = item.car || '—';
-                const name = item.name || '—';
-                const totalA = Number(item.totalArea ?? 0);
-                const prodA = Number(item.productiveArea ?? 0);
+                const car = item.car || richDetail.car || '—';
+                const displayName = item.name || richDetail.name || car;
+                const totalA = Number(item.totalArea ?? richDetail.totalArea ?? 0);
+                const prodA = Number(item.productiveArea ?? richDetail.productiveArea ?? 0);
                 const vti = item.vti?.mean ? Number(item.vti.mean) : 0;
-                const uf = item.state || '—';
-                const city = item.city || '—';
+                const uf = item.state || richDetail.state || '—';
+                const city = item.city || richDetail.city || '—';
+                const ownersQty = Number(item.ownersQuantity ?? (Array.isArray(richDetail.owner) ? richDetail.owner.length : 1));
 
-                // Geo parcels
-                const geoArr: any[] = Array.isArray(item.geo) ? item.geo : [];
-                const parcels = geoArr
-                  .map((g: any) => g?.geoJson)
-                  .filter((g: any) => g?.coordinates?.length > 0)
-                  .map((geometry: any) => ({ geometry }));
+                // Geo parcels — preferir o detalhe rico (que contém coordinates de verdade)
+                const richGeo: any[] = Array.isArray(richDetail.geo) ? richDetail.geo : [];
+                const itemGeo: any[] = Array.isArray(item.geo) ? item.geo : [];
+                const geoArr = richGeo.length > 0 ? richGeo : itemGeo;
+                const areaImovelGeo = geoArr.find((g: any) => (g?.tipo || '').toString().toUpperCase() === 'AREA_IMOVEL') || geoArr[0];
+                const parcels = areaImovelGeo?.geoJson?.coordinates?.length
+                  ? [{ geometry: areaImovelGeo.geoJson }]
+                  : [];
                 const hasParcels = parcels.length > 0;
                 const hasGeo = hasParcels || geoArr.length > 0;
 
@@ -1977,21 +1982,31 @@ function CarItemsView({ data }: { data: Record<string, unknown> }) {
                         {isSociedade ? 'DE SOCIEDADE' : 'PRÓPRIA'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs font-mono text-foreground max-w-[260px] truncate" title={car}>
-                      {car}
+                    <TableCell className="text-sm text-foreground max-w-[320px] truncate" title={displayName}>
+                      {displayName}
                     </TableCell>
-                    <TableCell className="text-sm text-foreground">{name}</TableCell>
+                    <TableCell className="text-sm text-foreground text-center">{ownersQty}</TableCell>
                     <TableCell className="text-sm text-foreground whitespace-nowrap">
-                      {totalA > 0 ? `${fmtNum(totalA, 1)} ha` : '—'}
+                      {totalA > 0 ? `${fmtNum(totalA, 0)} ha` : '—'}
                     </TableCell>
                     <TableCell className="text-sm text-foreground whitespace-nowrap">
-                      {prodA > 0 ? `${fmtNum(prodA, 1)} ha` : '—'}
+                      {prodA > 0 ? `${fmtNum(prodA, 0)} ha` : '—'}
                     </TableCell>
                     <TableCell className="text-sm text-foreground whitespace-nowrap">
                       {vti > 0 ? fmtCurr(vti) : '—'}
                     </TableCell>
                     <TableCell className="text-sm text-foreground">{uf}</TableCell>
                     <TableCell className="text-sm text-foreground">{city}</TableCell>
+                    <TableCell className="text-right pr-4">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-primary hover:text-primary"
+                        onClick={() => setOpenDetail({ item, detail: richDetail })}
+                      >
+                        Ver
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -1999,6 +2014,13 @@ function CarItemsView({ data }: { data: Record<string, unknown> }) {
           </Table>
         </CardContent>
       </Card>
+
+      <CarItemDetailDialog
+        open={!!openDetail}
+        onOpenChange={(o) => !o && setOpenDetail(null)}
+        item={openDetail?.item}
+        detail={openDetail?.detail}
+      />
     </div>
   );
 }
