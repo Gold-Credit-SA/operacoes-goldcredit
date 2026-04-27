@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -228,6 +229,7 @@ export default function ClienteDetail() {
   const [consultaOpen, setConsultaOpen] = useState(false);
   const [detailEntry, setDetailEntry] = useState<HistoryEntry | null>(null);
   const [filterPlatform, setFilterPlatform] = useState<string | null>(null);
+  const [refreshingAgrisk, setRefreshingAgrisk] = useState(false);
 
   const openAgriskOverview = useCallback(async (cpfCnpj: string) => {
     const { data } = await supabase
@@ -288,6 +290,82 @@ export default function ClienteDetail() {
     }
     loadData();
   }, [client, loadData, openAgriskOverview]);
+
+  // Re-executa todas as consultas AgRisk já realizadas para este cliente,
+  // grava novos resultados em consulta_history e recarrega.
+  const handleRefreshAgrisk = useCallback(async () => {
+    if (!client || !user) return;
+
+    // Coleta os tipos AgRisk únicos já consultados (mesmos que aparecem no Painel AgRisk)
+    const agriskTypes = Array.from(
+      new Set(
+        history
+          .filter((h) => h.platform === 'agrisk' && h.consulta_type)
+          .map((h) => h.consulta_type),
+      ),
+    );
+
+    if (agriskTypes.length === 0) {
+      toast.info('Nenhuma consulta AgRisk encontrada para atualizar.');
+      return;
+    }
+
+    setRefreshingAgrisk(true);
+    const t = toast.loading(`Atualizando ${agriskTypes.length} consulta(s) AgRisk...`);
+
+    let successCount = 0;
+    const errors: string[] = [];
+
+    for (const consultaType of agriskTypes) {
+      try {
+        const { data, error } = await supabase.functions.invoke('agrisk-query', {
+          body: { taxId: client.cpf_cnpj.replace(/\D/g, ''), consultaType },
+        });
+
+        if (error || data?.ok === false || data?.error) {
+          throw new Error(data?.error || error?.message || 'Falha na consulta');
+        }
+
+        const payload = data?.data || data;
+        const label =
+          history.find((h) => h.consulta_type === consultaType)?.consulta_label || consultaType;
+
+        await supabase.from('consulta_history').insert({
+          user_id: user.id,
+          cnpj: client.cpf_cnpj,
+          platform: 'agrisk',
+          consulta_type: consultaType,
+          consulta_label: label,
+          result_data: payload as any,
+          status: 'success',
+          entity_name: client.name,
+          consulted_by_name: user.email || null,
+        } as any);
+
+        successCount += 1;
+      } catch (err: any) {
+        const label =
+          history.find((h) => h.consulta_type === consultaType)?.consulta_label || consultaType;
+        errors.push(`${label}: ${err?.message || 'erro desconhecido'}`);
+      }
+    }
+
+    toast.dismiss(t);
+    if (successCount > 0 && errors.length === 0) {
+      toast.success(`${successCount} consulta(s) AgRisk atualizada(s).`);
+    } else if (successCount > 0) {
+      toast.warning(`${successCount} atualizada(s), ${errors.length} com erro.`, {
+        description: errors.slice(0, 3).join(' · '),
+      });
+    } else {
+      toast.error('Nenhuma consulta AgRisk pôde ser atualizada.', {
+        description: errors.slice(0, 3).join(' · '),
+      });
+    }
+
+    await loadData();
+    setRefreshingAgrisk(false);
+  }, [client, user, history, loadData]);
 
   const agriskOverview = useMemo(() => buildAgriskOverviewEntry(history), [history]);
   const agriskSnapshot = agriskOverview ? getAgriskPayload(agriskOverview) : {};
@@ -486,9 +564,24 @@ export default function ClienteDetail() {
               <Badge variant="outline" className="text-xs border-primary/40 text-primary">
                 Última Atualização {safeFormat(lastUpdate, 'dd/MM/yyyy')}
               </Badge>
-              <Button variant="outline" size="sm" className="text-xs h-7">
-                <RefreshCw className="h-3 w-3 mr-1" />
-                Atualizar
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs h-7"
+                onClick={handleRefreshAgrisk}
+                disabled={refreshingAgrisk || !agriskOverview}
+                title={
+                  agriskOverview
+                    ? 'Reexecuta as consultas AgRisk já feitas e atualiza os resultados'
+                    : 'Nenhuma consulta AgRisk realizada ainda'
+                }
+              >
+                {refreshingAgrisk ? (
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                )}
+                {refreshingAgrisk ? 'Atualizando...' : 'Atualizar AgRisk'}
               </Button>
             </div>
 
