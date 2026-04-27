@@ -367,45 +367,66 @@ export default function ClienteDetail() {
     setRefreshingAgrisk(false);
   }, [client, user, history, loadData]);
 
-  // Heurística: detecta se um relatório SCR está vazio/zerado (sem operações, limites ou histórico)
-  const isEmptyScrPayload = useCallback((entry: HistoryEntry): boolean => {
+  const [reopeningScr, setReopeningScr] = useState(false);
+  const [reopeningSerasa, setReopeningSerasa] = useState(false);
+
+  // Classifica um relatório SCR em: 'ok' (tem dados), 'sem-dados-legitimo' (CNPJ realmente sem operações)
+  // ou 'erro-tecnico' (timeout, payload truncado, código 52, sem estrutura esperada)
+  const classifyScrPayload = useCallback((entry: HistoryEntry): 'ok' | 'sem-dados-legitimo' | 'erro-tecnico' => {
     const raw: any = entry.result_data;
-    if (!raw || typeof raw !== 'object') return true;
-    // Estrutura típica: { data: { response: {...} } } ou { response: {...} } ou direto
+    if (!raw || typeof raw !== 'object') return 'erro-tecnico';
+
     const root: any = raw.data?.response || raw.response || raw.data || raw;
-    if (!root || typeof root !== 'object') return true;
-    // Código 52 ou similar = data-base indisponível
+    if (!root || typeof root !== 'object') return 'erro-tecnico';
+
+    // Código 52 = data-base indisponível (erro técnico recuperável reconsultando)
     const code = root.codigo ?? root.code;
-    if (code === '52' || code === 52) return true;
-    // Verifica presença de operações/limites/modalidades
-    const candidates = [
+    if (code === '52' || code === 52) return 'erro-tecnico';
+
+    // Tem dados reais (operações, limites, etc.)
+    const dataCandidates = [
       root.operacoes, root.operations,
       root.modalidades, root.modalities,
       root.limites, root.limits, root.limitesCredito,
       root.detalhamento, root.carteira, root.carteiraAtiva,
       root.historico, root.history,
-      root.resumo, root.summary,
     ];
-    const hasAnyData = candidates.some((c) => {
+    const hasData = dataCandidates.some((c) => {
       if (!c) return false;
       if (Array.isArray(c)) return c.length > 0;
       if (typeof c === 'object') return Object.keys(c).length > 0;
       return false;
     });
-    if (hasAnyData) return false;
-    // Fallback: se o payload tem mais de 500 chars de conteúdo, considera não-vazio
-    return JSON.stringify(root).length < 500;
+    if (hasData) return 'ok';
+
+    // Sem dados, mas a API retornou estrutura coerente (resposta válida = CNPJ sem operações no SCR)
+    // Indicadores de resposta legítima: presença de campos meta como 'cliente', 'documento', 'mensagem', 'dataBase', 'totalOperacoes: 0'
+    const metaIndicators = [
+      root.cliente, root.documento, root.cnpj, root.cpf,
+      root.mensagem, root.message, root.descricao,
+      root.dataBase, root.dataConsulta,
+      root.totalOperacoes,
+    ];
+    const hasMeta = metaIndicators.some((v) => v !== undefined && v !== null);
+    const payloadSize = JSON.stringify(root).length;
+
+    // Resposta estruturada e razoavelmente populada => sem-dados é legítimo
+    if (hasMeta && payloadSize > 200) return 'sem-dados-legitimo';
+
+    // Caso contrário, payload truncado/vazio => erro técnico
+    return 'erro-tecnico';
   }, []);
 
-  // Heurística: detecta se um relatório Serasa está vazio/zerado
-  const isEmptySerasaPayload = useCallback((entry: HistoryEntry): boolean => {
+  // Classifica um relatório Serasa: 'ok', 'sem-dados-legitimo' (NADA CONSTA legítimo) ou 'erro-tecnico'
+  const classifySerasaPayload = useCallback((entry: HistoryEntry): 'ok' | 'sem-dados-legitimo' | 'erro-tecnico' => {
     const raw: any = entry.result_data;
-    if (!raw || typeof raw !== 'object') return true;
+    if (!raw || typeof raw !== 'object') return 'erro-tecnico';
+
     const root: any = raw.data || raw;
-    if (!root || typeof root !== 'object') return true;
-    // Mensagem "NADA CONSTA" sozinha não é vazio — é informação válida.
-    // Procura por blocos com dados reais.
-    const candidates = [
+    if (!root || typeof root !== 'object') return 'erro-tecnico';
+
+    // Tem dados reais
+    const dataCandidates = [
       root.reports, root.report,
       root.advancedCommercialPaymentHistory,
       root.negativeData, root.pendencies, root.pendencias,
@@ -414,18 +435,31 @@ export default function ClienteDetail() {
       root.companyData, root.personData,
       root.queryInfo, root.basicData,
     ];
-    const hasAnyData = candidates.some((c) => {
+    const hasData = dataCandidates.some((c) => {
       if (!c) return false;
       if (Array.isArray(c)) return c.length > 0;
       if (typeof c === 'object') return Object.keys(c).length > 0;
       return false;
     });
-    if (hasAnyData) return false;
-    return JSON.stringify(root).length < 500;
+    if (hasData) return 'ok';
+
+    // "NADA CONSTA" legítimo costuma vir com um envelope de resposta válida
+    const metaIndicators = [
+      root.optionalFeatures, root.consultaInfo, root.consulta,
+      root.documentNumber, root.document, root.cnpj, root.cpf,
+      root.message, root.messages, root.status,
+      root.reportName, root.consultaTimestamp,
+    ];
+    const hasMeta = metaIndicators.some((v) => v !== undefined && v !== null);
+    const payloadSize = JSON.stringify(root).length;
+
+    if (hasMeta && payloadSize > 200) return 'sem-dados-legitimo';
+
+    return 'erro-tecnico';
   }, []);
 
-  // Reabre o melhor relatório SCR salvo: prefere o mais recente; se vazio, busca um anterior populado
-  const handleReopenSCR = useCallback(() => {
+  // Refaz a consulta SCR via API e ATUALIZA o registro existente (não cria um novo) em caso de erro técnico anterior
+  const handleReopenSCR = useCallback(async () => {
     const scrEntries = history
       .filter((h) => h.platform === 'scr' && h.status === 'success' && h.result_data)
       .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
@@ -436,25 +470,55 @@ export default function ClienteDetail() {
     }
 
     const latest = scrEntries[0];
-    if (!isEmptyScrPayload(latest)) {
+    const classification = classifyScrPayload(latest);
+
+    if (classification !== 'erro-tecnico') {
+      // Resultado válido (com dados ou sem dados legítimo) — apenas reabre, sem chamar a API
       setDetailEntry(latest);
       return;
     }
 
-    // Última consulta veio zerada — procura uma anterior com dados
-    const populated = scrEntries.find((e) => !isEmptyScrPayload(e));
-    if (populated) {
-      const dataConsulta = safeFormat(populated.created_at, 'dd/MM/yyyy');
-      toast.info(`Última consulta SCR veio sem dados. Exibindo relatório anterior de ${dataConsulta}.`);
-      setDetailEntry(populated);
-    } else {
-      toast.warning('Todos os relatórios SCR salvos estão sem dados. Faça uma nova consulta.');
-      setDetailEntry(latest);
-    }
-  }, [history, isEmptyScrPayload]);
+    // Detectou erro técnico — refaz a consulta e SUBSTITUI o registro zerado
+    if (!client) return;
+    setReopeningScr(true);
+    const t = toast.loading('Última consulta SCR veio com erro técnico. Refazendo automaticamente...');
+    try {
+      const cnpj = client.cpf_cnpj.replace(/\D/g, '');
+      const { data, error } = await supabase.functions.invoke('hbi-scr', { body: { cnpj } });
+      if (error || data?.ok === false || data?.error) {
+        throw new Error(data?.error || error?.message || 'Falha ao reconsultar SCR');
+      }
+      const newPayload = data?.data || data;
 
-  // Reabre o melhor relatório Serasa salvo: prefere o mais recente; se vazio, busca um anterior populado
-  const handleReopenSerasa = useCallback(() => {
+      // Substitui o resultado zerado em vez de criar um novo registro de histórico
+      const { error: upErr } = await supabase
+        .from('consulta_history')
+        .update({ result_data: newPayload as any })
+        .eq('id', latest.id);
+
+      if (upErr) throw upErr;
+
+      toast.dismiss(t);
+      toast.success('Relatório SCR atualizado com os dados corretos.');
+
+      // Atualiza estado local imediatamente
+      const refreshed: HistoryEntry = { ...latest, result_data: newPayload as any };
+      setHistory((prev) => prev.map((h) => (h.id === latest.id ? refreshed : h)));
+      setDetailEntry(refreshed);
+    } catch (err: any) {
+      toast.dismiss(t);
+      toast.error('Não foi possível refazer a consulta SCR.', {
+        description: err?.message || 'Erro desconhecido',
+      });
+      // Mostra o que tinha mesmo assim
+      setDetailEntry(latest);
+    } finally {
+      setReopeningScr(false);
+    }
+  }, [history, classifyScrPayload, client]);
+
+  // Refaz a consulta Serasa via API e ATUALIZA o registro existente em caso de erro técnico anterior
+  const handleReopenSerasa = useCallback(async () => {
     const serasaEntries = history
       .filter((h) => h.platform === 'serasa' && h.status === 'success' && h.result_data)
       .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
@@ -465,21 +529,50 @@ export default function ClienteDetail() {
     }
 
     const latest = serasaEntries[0];
-    if (!isEmptySerasaPayload(latest)) {
+    const classification = classifySerasaPayload(latest);
+
+    if (classification !== 'erro-tecnico') {
       setDetailEntry(latest);
       return;
     }
 
-    const populated = serasaEntries.find((e) => !isEmptySerasaPayload(e));
-    if (populated) {
-      const dataConsulta = safeFormat(populated.created_at, 'dd/MM/yyyy');
-      toast.info(`Última consulta Serasa veio sem dados. Exibindo relatório anterior de ${dataConsulta}.`);
-      setDetailEntry(populated);
-    } else {
-      toast.warning('Todos os relatórios Serasa salvos estão sem dados. Faça uma nova consulta.');
+    if (!client) return;
+    setReopeningSerasa(true);
+    const t = toast.loading('Última consulta Serasa veio com erro técnico. Refazendo automaticamente...');
+    try {
+      const cnpj = client.cpf_cnpj.replace(/\D/g, '');
+      const consultaId = latest.consulta_type;
+      const { data, error } = await supabase.functions.invoke('serasa-report', {
+        body: { document: cnpj, consultaId },
+      });
+      if (error || data?.ok === false || data?.error) {
+        throw new Error(data?.error || error?.message || 'Falha ao reconsultar Serasa');
+      }
+      const newPayload = data?.data || data;
+
+      const { error: upErr } = await supabase
+        .from('consulta_history')
+        .update({ result_data: newPayload as any })
+        .eq('id', latest.id);
+
+      if (upErr) throw upErr;
+
+      toast.dismiss(t);
+      toast.success('Relatório Serasa atualizado com os dados corretos.');
+
+      const refreshed: HistoryEntry = { ...latest, result_data: newPayload as any };
+      setHistory((prev) => prev.map((h) => (h.id === latest.id ? refreshed : h)));
+      setDetailEntry(refreshed);
+    } catch (err: any) {
+      toast.dismiss(t);
+      toast.error('Não foi possível refazer a consulta Serasa.', {
+        description: err?.message || 'Erro desconhecido',
+      });
       setDetailEntry(latest);
+    } finally {
+      setReopeningSerasa(false);
     }
-  }, [history, isEmptySerasaPayload]);
+  }, [history, classifySerasaPayload, client]);
 
   const hasSavedScr = useMemo(
     () => history.some((h) => h.platform === 'scr' && h.status === 'success' && h.result_data),
