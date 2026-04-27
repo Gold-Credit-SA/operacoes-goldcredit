@@ -1542,7 +1542,10 @@ function MiniPropertyMap({ parcels }: { parcels: any[] }) {
     parcels.forEach((parcel: any) => {
       const geometry = parcel.geometry;
       if (!geometry?.coordinates?.length) return;
-      const coords: L.LatLngExpression[][] = geometry.coordinates.map((ring: number[][]) =>
+      const c = geometry.coordinates;
+      const isMulti = Array.isArray(c?.[0]?.[0]?.[0]);
+      const polygons: number[][][] = isMulti ? c.flat() : c;
+      const coords: L.LatLngExpression[][] = polygons.map((ring: number[][]) =>
         ring.map((pt: number[]) => [pt[1], pt[0]] as L.LatLngExpression)
       );
       const polygon = L.polygon(coords, {
