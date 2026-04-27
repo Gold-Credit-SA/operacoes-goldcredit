@@ -399,6 +399,10 @@ function normalizeResponseData(rawData: Record<string, any>, consultaType?: stri
           }
         : null,
     },
+  ];
+
+  // ── CAR (Cadastro Ambiental Rural) — categoria própria ──
+  result['car'] = [
     {
       key: 'imoveis-car',
       label: 'CAR',
