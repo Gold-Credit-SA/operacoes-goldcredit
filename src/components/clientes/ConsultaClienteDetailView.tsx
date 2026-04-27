@@ -1938,111 +1938,114 @@ function CarItemsView({ data }: { data: Record<string, unknown> }) {
         </Card>
       </div>
 
-      {/* Items table */}
+      {/* Items table — compacta para caber sem scroll horizontal */}
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-xs w-16"></TableHead>
-                <TableHead className="text-xs">Tipo</TableHead>
-                <TableHead className="text-xs">Nome/CAR</TableHead>
-                <TableHead className="text-xs text-center">Proprietários</TableHead>
-                <TableHead className="text-xs">Área Total</TableHead>
-                <TableHead className="text-xs">Área Consolidada</TableHead>
-                <TableHead className="text-xs">VTI (média)</TableHead>
-                <TableHead className="text-xs">UF</TableHead>
-                <TableHead className="text-xs">Município</TableHead>
-                <TableHead className="text-xs w-16 text-right pr-4"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((item: any, idx: number) => {
-                const richDetail = (item?._id && detailsById.get(item._id)) || {};
-                const ownership = (item.ownership || richDetail.ownership || '').toString().toLowerCase();
-                const isSociedade = ownership.includes('sociedade') || ownership.includes('society') || ownership.includes('partner');
-                const car = item.car || richDetail.car || '—';
-                const displayName = item.name || richDetail.name || car;
-                const totalA = Number(item.totalArea ?? richDetail.totalArea ?? 0);
-                const prodA = Number(item.productiveArea ?? richDetail.productiveArea ?? 0);
-                const vti = item.vti?.mean ? Number(item.vti.mean) : 0;
-                const uf = item.state || richDetail.state || '—';
-                const city = item.city || richDetail.city || '—';
-                const ownersQty = Number(item.ownersQuantity ?? (Array.isArray(richDetail.owner) ? richDetail.owner.length : 1));
+          <div className="w-full">
+            <table className="w-full text-sm table-fixed">
+              <thead className="border-b">
+                <tr className="text-muted-foreground">
+                  <th className="h-10 pl-3 pr-1 text-left font-medium text-xs w-[60px]"></th>
+                  <th className="h-10 px-2 text-left font-medium text-xs w-[68px]">Tipo</th>
+                  <th className="h-10 px-2 text-left font-medium text-xs">Nome/CAR</th>
+                  <th className="h-10 px-2 text-center font-medium text-xs w-[44px]">Prop.</th>
+                  <th className="h-10 px-2 text-right font-medium text-xs w-[80px]">Área Total</th>
+                  <th className="h-10 px-2 text-right font-medium text-xs w-[88px]">Consolidada</th>
+                  <th className="h-10 px-2 text-right font-medium text-xs w-[80px]">VTI (méd.)</th>
+                  <th className="h-10 px-2 text-left font-medium text-xs w-[40px]">UF</th>
+                  <th className="h-10 px-2 text-left font-medium text-xs w-[100px]">Município</th>
+                  <th className="h-10 pl-1 pr-3 text-right font-medium text-xs w-[52px]"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item: any, idx: number) => {
+                  const richDetail = (item?._id && detailsById.get(item._id)) || {};
+                  const ownership = (item.ownership || richDetail.ownership || '').toString().toLowerCase();
+                  const isSociedade = ownership.includes('sociedade') || ownership.includes('society') || ownership.includes('partner');
+                  const car = item.car || richDetail.car || '—';
+                  const displayName = item.name || richDetail.name || car;
+                  const totalA = Number(item.totalArea ?? richDetail.totalArea ?? 0);
+                  const prodA = Number(item.productiveArea ?? richDetail.productiveArea ?? 0);
+                  const vti = item.vti?.mean ? Number(item.vti.mean) : 0;
+                  const uf = item.state || richDetail.state || '—';
+                  const city = item.city || richDetail.city || '—';
+                  const ownersQty = Number(item.ownersQuantity ?? (Array.isArray(richDetail.owner) ? richDetail.owner.length : 1));
 
-                // Geo parcels — preferir o detalhe rico (que contém coordinates de verdade)
-                const richGeo: any[] = Array.isArray(richDetail.geo) ? richDetail.geo : [];
-                const itemGeo: any[] = Array.isArray(item.geo) ? item.geo : [];
-                const geoArr = richGeo.length > 0 ? richGeo : itemGeo;
-                const areaImovelGeo = geoArr.find((g: any) => (g?.tipo || '').toString().toUpperCase() === 'AREA_IMOVEL') || geoArr[0];
-                const parcels = areaImovelGeo?.geoJson?.coordinates?.length
-                  ? [{ geometry: areaImovelGeo.geoJson }]
-                  : [];
-                const hasParcels = parcels.length > 0;
-                const hasGeo = hasParcels || geoArr.length > 0;
+                  const richGeo: any[] = Array.isArray(richDetail.geo) ? richDetail.geo : [];
+                  const itemGeo: any[] = Array.isArray(item.geo) ? item.geo : [];
+                  const geoArr = richGeo.length > 0 ? richGeo : itemGeo;
+                  const areaImovelGeo = geoArr.find((g: any) => (g?.tipo || '').toString().toUpperCase() === 'AREA_IMOVEL') || geoArr[0];
+                  const parcels = areaImovelGeo?.geoJson?.coordinates?.length
+                    ? [{ geometry: areaImovelGeo.geoJson }]
+                    : [];
+                  const hasParcels = parcels.length > 0;
+                  const hasGeo = hasParcels || geoArr.length > 0;
 
-                return (
-                  <TableRow key={idx} className="hover:bg-muted/30">
-                    <TableCell className="py-3">
-                      <div
-                        className={cn(
-                          "relative w-12 h-12 rounded-md overflow-hidden flex items-center justify-center ring-1 ring-border",
-                          hasParcels ? "" : hasGeo ? "bg-gradient-to-br from-emerald-700 via-emerald-600 to-amber-700" : "bg-muted"
-                        )}
-                        title={hasGeo ? "Geo disponível" : "Sem geo"}
-                      >
-                        {hasParcels && <MiniPropertyMap parcels={parcels} />}
-                        {hasGeo && (
-                          <span className="absolute bottom-0.5 left-0.5 text-[8px] font-bold px-1 py-0.5 rounded bg-emerald-500 text-white pointer-events-none z-10">
-                            GEO
-                          </span>
-                        )}
-                        {!hasGeo && <MapPinOff className="h-4 w-4 text-muted-foreground" />}
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "text-[10px] font-semibold whitespace-nowrap",
-                          isSociedade
-                            ? "border-cyan-500/40 text-cyan-700 bg-cyan-50"
-                            : "border-emerald-500/40 text-emerald-700 bg-emerald-50"
-                        )}
-                      >
-                        {isSociedade ? 'DE SOCIEDADE' : 'PRÓPRIA'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-foreground max-w-[320px] truncate" title={displayName}>
-                      {displayName}
-                    </TableCell>
-                    <TableCell className="text-sm text-foreground text-center">{ownersQty}</TableCell>
-                    <TableCell className="text-sm text-foreground whitespace-nowrap">
-                      {totalA > 0 ? `${fmtNum(totalA, 0)} ha` : '—'}
-                    </TableCell>
-                    <TableCell className="text-sm text-foreground whitespace-nowrap">
-                      {prodA > 0 ? `${fmtNum(prodA, 0)} ha` : '—'}
-                    </TableCell>
-                    <TableCell className="text-sm text-foreground whitespace-nowrap">
-                      {vti > 0 ? fmtCurr(vti) : '—'}
-                    </TableCell>
-                    <TableCell className="text-sm text-foreground">{uf}</TableCell>
-                    <TableCell className="text-sm text-foreground">{city}</TableCell>
-                    <TableCell className="text-right pr-4">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-primary hover:text-primary"
-                        onClick={() => setOpenDetail({ item, detail: richDetail })}
-                      >
-                        Ver
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                  return (
+                    <tr key={idx} className="border-b last:border-0 hover:bg-muted/30">
+                      <td className="py-2 pl-3 pr-1 align-middle">
+                        <div
+                          className={cn(
+                            "relative w-10 h-10 rounded-md overflow-hidden flex items-center justify-center ring-1 ring-border",
+                            hasParcels ? "" : hasGeo ? "bg-gradient-to-br from-emerald-700 via-emerald-600 to-amber-700" : "bg-muted"
+                          )}
+                          title={hasGeo ? "Geo disponível" : "Sem geo"}
+                        >
+                          {hasParcels && <MiniPropertyMap parcels={parcels} />}
+                          {hasGeo && (
+                            <span className="absolute bottom-0 left-0 text-[7px] font-bold px-0.5 rounded-tr bg-emerald-500 text-white pointer-events-none z-10">
+                              GEO
+                            </span>
+                          )}
+                          {!hasGeo && <MapPinOff className="h-4 w-4 text-muted-foreground" />}
+                        </div>
+                      </td>
+                      <td className="py-2 px-2 align-middle">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[9px] font-semibold whitespace-nowrap px-1.5 py-0",
+                            isSociedade
+                              ? "border-cyan-500/40 text-cyan-700 bg-cyan-50"
+                              : "border-emerald-500/40 text-emerald-700 bg-emerald-50"
+                          )}
+                        >
+                          {isSociedade ? 'SOC.' : 'PRÓP.'}
+                        </Badge>
+                      </td>
+                      <td className="py-2 px-2 text-sm text-foreground align-middle">
+                        <div className="truncate" title={displayName}>{displayName}</div>
+                      </td>
+                      <td className="py-2 px-2 text-sm text-foreground text-center align-middle">{ownersQty}</td>
+                      <td className="py-2 px-2 text-sm text-foreground whitespace-nowrap text-right align-middle">
+                        {totalA > 0 ? `${fmtNum(totalA, 0)} ha` : '—'}
+                      </td>
+                      <td className="py-2 px-2 text-sm text-foreground whitespace-nowrap text-right align-middle">
+                        {prodA > 0 ? `${fmtNum(prodA, 0)} ha` : '—'}
+                      </td>
+                      <td className="py-2 px-2 text-sm text-foreground whitespace-nowrap text-right align-middle">
+                        {vti > 0 ? fmtCurr(vti) : '—'}
+                      </td>
+                      <td className="py-2 px-2 text-sm text-foreground align-middle">{uf}</td>
+                      <td className="py-2 px-2 text-sm text-foreground align-middle">
+                        <div className="truncate" title={city}>{city}</div>
+                      </td>
+                      <td className="py-2 pl-1 pr-3 text-right align-middle">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-primary hover:text-primary h-7 px-2"
+                          onClick={() => setOpenDetail({ item, detail: richDetail })}
+                        >
+                          Ver
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </CardContent>
       </Card>
 
