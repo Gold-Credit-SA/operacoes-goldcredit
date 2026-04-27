@@ -1454,16 +1454,26 @@ function PropertyMap({ parcels }: { parcels: any[] }) {
       const geometry = parcel.geometry;
       if (!geometry?.coordinates?.length) return;
 
-      // GeoJSON coordinates are [lng, lat, alt?] — Leaflet needs [lat, lng]
-      const coords: L.LatLngExpression[][] = geometry.coordinates.map((ring: number[][]) =>
+      // GeoJSON Polygon: coordinates = [ring, ring...] with each ring = [[lng,lat], ...]
+      // GeoJSON MultiPolygon: coordinates = [polygon, polygon...] with each polygon = [ring, ring...]
+      // Detect by inspecting depth.
+      const c = geometry.coordinates;
+      const isMulti = Array.isArray(c?.[0]?.[0]?.[0]);
+      const polygons: number[][][] = isMulti ? c.flat() : c;
+
+      const coords: L.LatLngExpression[][] = polygons.map((ring: number[][]) =>
         ring.map((pt: number[]) => [pt[1], pt[0]] as L.LatLngExpression)
       );
 
+      const color = parcel.color || '#22C55E';
+      const fillColor = parcel.fill || color;
+      const fillOpacity = typeof parcel.fillOpacity === 'number' ? parcel.fillOpacity : 0.25;
+
       const polygon = L.polygon(coords, {
-        color: '#22C55E',
+        color,
         weight: 2,
-        fillColor: '#22C55E',
-        fillOpacity: 0.2,
+        fillColor,
+        fillOpacity,
       }).addTo(map);
 
       allBounds.push(polygon.getBounds());
@@ -1471,14 +1481,32 @@ function PropertyMap({ parcels }: { parcels: any[] }) {
 
     if (allBounds.length > 0) {
       const combined = allBounds.reduce((acc, b) => acc.extend(b), allBounds[0]);
-      map.fitBounds(combined, { padding: [30, 30] });
+      map.fitBounds(combined, { padding: [20, 20], maxZoom: 16 });
     } else {
       map.setView([-15.78, -47.93], 4);
     }
 
     mapInstanceRef.current = map;
 
+    // Leaflet precisa recalcular o tamanho quando o container está dentro de um Dialog (animação).
+    const t1 = setTimeout(() => {
+      map.invalidateSize();
+      if (allBounds.length > 0) {
+        const combined = allBounds.reduce((acc, b) => acc.extend(b), allBounds[0]);
+        map.fitBounds(combined, { padding: [20, 20], maxZoom: 16 });
+      }
+    }, 250);
+    const t2 = setTimeout(() => {
+      map.invalidateSize();
+      if (allBounds.length > 0) {
+        const combined = allBounds.reduce((acc, b) => acc.extend(b), allBounds[0]);
+        map.fitBounds(combined, { padding: [20, 20], maxZoom: 16 });
+      }
+    }, 600);
+
     return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
       map.remove();
       mapInstanceRef.current = null;
     };
