@@ -291,6 +291,82 @@ export default function ClienteDetail() {
     loadData();
   }, [client, loadData, openAgriskOverview]);
 
+  // Re-executa todas as consultas AgRisk já realizadas para este cliente,
+  // grava novos resultados em consulta_history e recarrega.
+  const handleRefreshAgrisk = useCallback(async () => {
+    if (!client || !user) return;
+
+    // Coleta os tipos AgRisk únicos já consultados (mesmos que aparecem no Painel AgRisk)
+    const agriskTypes = Array.from(
+      new Set(
+        history
+          .filter((h) => h.platform === 'agrisk' && h.consulta_type)
+          .map((h) => h.consulta_type),
+      ),
+    );
+
+    if (agriskTypes.length === 0) {
+      toast.info('Nenhuma consulta AgRisk encontrada para atualizar.');
+      return;
+    }
+
+    setRefreshingAgrisk(true);
+    const t = toast.loading(`Atualizando ${agriskTypes.length} consulta(s) AgRisk...`);
+
+    let successCount = 0;
+    const errors: string[] = [];
+
+    for (const consultaType of agriskTypes) {
+      try {
+        const { data, error } = await supabase.functions.invoke('agrisk-query', {
+          body: { taxId: client.cpf_cnpj.replace(/\D/g, ''), consultaType },
+        });
+
+        if (error || data?.ok === false || data?.error) {
+          throw new Error(data?.error || error?.message || 'Falha na consulta');
+        }
+
+        const payload = data?.data || data;
+        const label =
+          history.find((h) => h.consulta_type === consultaType)?.consulta_label || consultaType;
+
+        await supabase.from('consulta_history').insert({
+          user_id: user.id,
+          cnpj: client.cpf_cnpj,
+          platform: 'agrisk',
+          consulta_type: consultaType,
+          consulta_label: label,
+          result_data: payload as any,
+          status: 'success',
+          entity_name: client.name,
+          consulted_by_name: user.email || null,
+        } as any);
+
+        successCount += 1;
+      } catch (err: any) {
+        const label =
+          history.find((h) => h.consulta_type === consultaType)?.consulta_label || consultaType;
+        errors.push(`${label}: ${err?.message || 'erro desconhecido'}`);
+      }
+    }
+
+    toast.dismiss(t);
+    if (successCount > 0 && errors.length === 0) {
+      toast.success(`${successCount} consulta(s) AgRisk atualizada(s).`);
+    } else if (successCount > 0) {
+      toast.warning(`${successCount} atualizada(s), ${errors.length} com erro.`, {
+        description: errors.slice(0, 3).join(' · '),
+      });
+    } else {
+      toast.error('Nenhuma consulta AgRisk pôde ser atualizada.', {
+        description: errors.slice(0, 3).join(' · '),
+      });
+    }
+
+    await loadData();
+    setRefreshingAgrisk(false);
+  }, [client, user, history, loadData]);
+
   const agriskOverview = useMemo(() => buildAgriskOverviewEntry(history), [history]);
   const agriskSnapshot = agriskOverview ? getAgriskPayload(agriskOverview) : {};
   const agriskClientData = isPlainObject((agriskSnapshot as any).clientData) ? ((agriskSnapshot as any).clientData as any) : {};
