@@ -2025,6 +2025,234 @@ function CarItemsView({ data }: { data: Record<string, unknown> }) {
   );
 }
 
+// Diálogo de detalhe completo de um imóvel CAR — espelha o layout original do AgRisk:
+// Dados do imóvel + Mapa + AgCheck + Proprietários
+function CarItemDetailDialog({
+  open,
+  onOpenChange,
+  item,
+  detail,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  item?: any;
+  detail?: any;
+}) {
+  if (!item) return null;
+  const d = detail || {};
+  const fmtNum = (n: number, dec = 0) => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: dec }).format(n);
+
+  const car = item.car || d.car || '—';
+  const nome = item.name || d.name || 'NÃO INFORMADO';
+  const city = item.city || d.city || '—';
+  const state = item.state || d.state || '—';
+  const totalArea = Number(item.totalArea ?? d.totalArea ?? 0);
+  const productiveArea = Number(item.productiveArea ?? d.productiveArea ?? 0);
+  const description = d.description || item.description || null;
+  const taxMode = d.taxMode || item.taxMode || null;
+
+  // Geo: cores por tipo (Área do Imóvel / Consolidada / Reserva Legal / APP)
+  const geoArr: any[] = Array.isArray(d.geo) ? d.geo : Array.isArray(item.geo) ? item.geo : [];
+  const COLOR_MAP: Record<string, { color: string; fill: string }> = {
+    AREA_IMOVEL: { color: '#FFFFFF', fill: '#FFFFFF' },
+    AREA_CONSOLIDADA: { color: '#A855F7', fill: '#A855F7' },
+    RESERVA_LEGAL: { color: '#22C55E', fill: '#22C55E' },
+    APP: { color: '#3B82F6', fill: '#3B82F6' },
+  };
+  const parcels = geoArr
+    .filter((g: any) => g?.geoJson?.coordinates?.length > 0)
+    .map((g: any) => {
+      const tipo = (g?.tipo || '').toString().toUpperCase();
+      const style = COLOR_MAP[tipo] || { color: '#22C55E', fill: '#22C55E' };
+      return { geometry: g.geoJson, color: style.color, fill: style.fill, fillOpacity: tipo === 'AREA_IMOVEL' ? 0 : 0.35 };
+    });
+  const hasParcels = parcels.length > 0;
+
+  // AgCheck — converte o objeto em uma lista padronizada
+  const agcheck = d.agcheck || item.agcheck || {};
+  const AGCHECK_LABELS: Array<{ key: string; label: string }> = [
+    { key: 'prodes', label: 'PRODES' },
+    { key: 'ldi', label: 'LDI' },
+    { key: 'settlement', label: 'Assentamento' },
+    { key: 'quilombolaares', label: 'Área quilombola' },
+    { key: 'indigenuoslands', label: 'Área indígena' },
+    { key: 'preserv_ambiental', label: 'Unidade de conservação ambiental' },
+    { key: 'cad_nacional', label: 'Cadastro Nacional de Florestas Públicas' },
+  ];
+  const agcheckRows = AGCHECK_LABELS.map(({ key, label }) => {
+    const raw = (agcheck as any)?.[key];
+    const isPositive = Array.isArray(raw) ? raw.length > 0 : !!raw;
+    return { label, isPositive };
+  });
+
+  // Proprietários
+  const owners: any[] = Array.isArray(d.owner) ? d.owner
+    : Array.isArray(item.owner) ? item.owner
+    : [];
+
+  const formatTaxId = (tax: string) => {
+    const v = (tax || '').replace(/\D/g, '');
+    if (v.length === 11) return `${v.slice(0,3)}.${v.slice(3,6)}.${v.slice(6,9)}-${v.slice(9)}`;
+    if (v.length === 14) return `${v.slice(0,2)}.${v.slice(2,5)}.${v.slice(5,8)}/${v.slice(8,12)}-${v.slice(12)}`;
+    return tax || '—';
+  };
+
+  // KML download
+  const handleDownloadKml = () => {
+    if (!hasParcels) return;
+    const placemarks = parcels.map((p: any, i: number) => {
+      const flat = (p.geometry?.coordinates?.[0]?.[0] || p.geometry?.coordinates?.[0] || []) as number[][];
+      const coords = flat.map((pt: number[]) => `${pt[0]},${pt[1]},${pt[2] || 0}`).join(' ');
+      return `<Placemark><name>Parcela ${i + 1}</name><Polygon><outerBoundaryIs><LinearRing><coordinates>${coords}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`;
+    }).join('\n');
+    const kml = `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${car}</name>\n${placemarks}\n</Document></kml>`;
+    const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${car.replace(/[^a-z0-9_-]/gi, '_')}.kml`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-6xl max-h-[92vh] overflow-y-auto p-0">
+        <div className="flex items-center justify-between px-6 pt-5 pb-3">
+          <DialogHeader className="p-0">
+            <DialogTitle className="text-base font-semibold text-foreground">Detalhe do imóvel</DialogTitle>
+          </DialogHeader>
+          {hasParcels && (
+            <Button variant="outline" size="sm" className="text-primary border-primary/30" onClick={handleDownloadKml}>
+              <Download className="h-4 w-4 mr-1.5" />
+              Baixar KML
+            </Button>
+          )}
+        </div>
+
+        {/* Top: Dados do imóvel + Valor do imóvel */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 px-6">
+          <Card>
+            <CardContent className="p-5">
+              <h3 className="text-base font-semibold text-foreground mb-4">Dados do imóvel</h3>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Nome:</p>
+                  <p className="text-foreground font-medium">{nome}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Área total:</p>
+                  <p className="text-foreground font-medium">{totalArea > 0 ? `${fmtNum(totalArea, 0)} ha` : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Município:</p>
+                  <p className="text-foreground font-medium">{city}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Área consolidada:</p>
+                  <p className="text-foreground font-medium">{productiveArea > 0 ? `${fmtNum(productiveArea, 0)} ha` : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Estado:</p>
+                  <p className="text-foreground font-medium">{state}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Mod. fiscal:</p>
+                  <p className="text-foreground font-medium">{taxMode ?? '—'}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-muted-foreground mb-1">Registro no CAR:</p>
+                  <div className="px-3 py-2 bg-muted/50 rounded text-xs font-mono text-foreground break-all">{car}</div>
+                </div>
+                {description && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-muted-foreground">Descrição de acesso:</p>
+                    <p className="text-foreground text-sm">{description}</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-5 flex flex-col items-center justify-center text-center min-h-[200px]">
+              <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                <MapPin className="h-7 w-7 text-primary" />
+              </div>
+              <h4 className="text-base font-semibold text-foreground mb-1">Consulte o valor do imóvel</h4>
+              <p className="text-sm text-muted-foreground max-w-md">
+                Consulte o VTN (Valor da Terra Nua) e VTI (Valor total do imóvel) da propriedade.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Map + AgCheck + Proprietários */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 px-6 pb-6 mt-4">
+          <div className="rounded-lg overflow-hidden border border-border min-h-[420px] relative bg-muted/20">
+            {hasParcels ? (
+              <PropertyMap parcels={parcels} />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground absolute inset-0">
+                <MapPinOff className="h-10 w-10" />
+                <p className="text-sm font-medium text-foreground">Sem geo-referenciamento</p>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="p-4">
+                <h4 className="text-sm font-semibold text-foreground mb-3">Ag Check</h4>
+                <div className="space-y-1 max-h-[260px] overflow-y-auto pr-1">
+                  {agcheckRows.map(({ label, isPositive }) => (
+                    <div key={label} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
+                      <div className="flex items-center gap-2 text-sm text-foreground">
+                        <Check className={cn('h-4 w-4', isPositive ? 'text-amber-600' : 'text-emerald-600')} />
+                        {label}
+                      </div>
+                      <span className={cn('text-xs font-bold', isPositive ? 'text-amber-600' : 'text-emerald-600')}>
+                        {isPositive ? 'POSITIVA' : 'NEGATIVA'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <h4 className="text-sm font-semibold text-foreground mb-3">Proprietários</h4>
+                <p className="text-xs text-muted-foreground mb-3">Proprietários, Posseiros ou Concessionários</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-xs text-muted-foreground uppercase">
+                        <th className="text-left font-semibold pb-2">Nome</th>
+                        <th className="text-right font-semibold pb-2">CPF/CNPJ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {owners.length === 0 ? (
+                        <tr><td colSpan={2} className="text-center py-3 text-muted-foreground text-xs">Sem proprietários informados</td></tr>
+                      ) : owners.map((o: any, i: number) => (
+                        <tr key={i} className="border-t border-border/50">
+                          <td className="py-2 text-foreground">{o.name || '—'}</td>
+                          <td className="py-2 text-foreground text-right font-mono text-xs">{formatTaxId(o.taxId || '')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function RuralPropertyRow({ prop, fmtNum, fmtCurr }: { prop: any; fmtNum: (n: number, dec?: number) => string; fmtCurr: (n: number) => string }) {
   const [open, setOpen] = useState(false);
 
