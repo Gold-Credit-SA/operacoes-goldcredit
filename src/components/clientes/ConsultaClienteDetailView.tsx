@@ -2646,6 +2646,7 @@ export function ConsultaClienteDetailView({ data: rawData, agriskClientId, consu
           selectedCat.key === 'armazens' ? <GenericTopicContent title="Armazéns" items={selectedCat.items} /> :
           selectedCat.key === 'veicular' ? <VeicularContent items={selectedCat.items} /> :
           selectedCat.key === 'imoveis' ? <ImoveisContent items={selectedCat.items} /> :
+          selectedCat.key === 'car' ? <ImoveisContent items={selectedCat.items} /> :
           null
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground py-12">
