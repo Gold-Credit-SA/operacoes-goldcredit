@@ -12,6 +12,7 @@ import { SuspeitaFraude } from './SuspeitaFraude';
 import { PdfReportButton } from './PdfReportButton';
 import { TitulosHistorico } from './TitulosHistorico';
 import { AnaliseIA } from './AnaliseIA';
+import { EntityNotes } from '@/components/notes/EntityNotes';
 
 interface CedenteInfoPanelProps {
   data: CedenteDetail;
@@ -83,6 +84,14 @@ export function CedenteInfoPanel({ data }: CedenteInfoPanelProps) {
       <OperacoesRecentes operacoes={data.ultimasOperacoes} />
 
       <SuspeitaFraude suspeitasFraude={data.suspeitasFraude} />
+
+      {data.cedente?.cpf_cnpj && (
+        <EntityNotes
+          entityType="cedente"
+          entityCpfCnpj={String(data.cedente.cpf_cnpj)}
+          entityName={data.cedente.nome || undefined}
+        />
+      )}
     </div>
   );
 }
