@@ -12,6 +12,7 @@ import { SuspeitaFraude } from './SuspeitaFraude';
 import { PdfReportButton } from './PdfReportButton';
 import { TitulosHistorico } from './TitulosHistorico';
 import { AnaliseIA } from './AnaliseIA';
+import { EntityNotes } from '@/components/notes/EntityNotes';
 
 interface CedenteInfoPanelProps {
   data: CedenteDetail;
