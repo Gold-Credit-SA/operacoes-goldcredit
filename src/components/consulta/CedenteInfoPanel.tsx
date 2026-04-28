@@ -84,6 +84,14 @@ export function CedenteInfoPanel({ data }: CedenteInfoPanelProps) {
       <OperacoesRecentes operacoes={data.ultimasOperacoes} />
 
       <SuspeitaFraude suspeitasFraude={data.suspeitasFraude} />
+
+      {data.cedente?.cpf_cnpj && (
+        <EntityNotes
+          entityType="cedente"
+          entityCpfCnpj={String(data.cedente.cpf_cnpj)}
+          entityName={data.cedente.nome || undefined}
+        />
+      )}
     </div>
   );
 }
