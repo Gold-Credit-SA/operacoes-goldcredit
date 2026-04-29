@@ -81,7 +81,19 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister,
+        // Cache válido por 24h; novas versões da app invalidam tudo automaticamente
+        maxAge: 24 * 60 * 60 * 1000,
+        buster: CACHE_VERSION,
+        // Não persistir queries com erro
+        dehydrateOptions: {
+          shouldDehydrateQuery: (q) => q.state.status === 'success',
+        },
+      }}
+    >
       <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -125,7 +137,7 @@ function App() {
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }
 
