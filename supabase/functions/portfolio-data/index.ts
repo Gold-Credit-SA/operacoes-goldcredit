@@ -505,13 +505,12 @@ serve(async (req) => {
         dateFilterPrev = `AND data >= CURRENT_DATE - INTERVAL '${pMeses * 2} months' AND data < CURRENT_DATE - INTERVAL '${pMeses} months'`;
       }
 
-      // Get assigned cedentes
-      let assignQuery = supabaseAdmin.from('portfolio_assignments')
+      // Get assigned cedentes — always restricted to the logged-in user's portfolio
+      // (even admins see only their own carteira here, not the global view)
+      const assignQuery = supabaseAdmin.from('portfolio_assignments')
         .select('cedente_cpf_cnpj, cedente_nome')
-        .eq('status', 'approved');
-      if (!isAdmin) {
-        assignQuery = assignQuery.eq('user_id', user.id);
-      }
+        .eq('status', 'approved')
+        .eq('user_id', user.id);
       const { data: assignments } = await assignQuery;
       const cpfList = assignments?.map(a => a.cedente_cpf_cnpj) || [];
 
