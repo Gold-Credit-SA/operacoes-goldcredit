@@ -51,14 +51,23 @@ function PageFallback() {
   return <DashboardSkeleton message="Carregando..." />;
 }
 
-function AppLayout({ children }: { children: React.ReactNode }) {
+function AppLayoutInner({ children }: { children: React.ReactNode }) {
+  const { collapsed } = useSidebarState();
   return (
     <div className="min-h-screen bg-background flex">
       <AppSidebar />
-      <div className="flex-1 ml-64">
+      <div className={`flex-1 transition-[margin] duration-200 ${collapsed ? 'ml-16' : 'ml-64'}`}>
         <Suspense fallback={<PageFallback />}>{children}</Suspense>
       </div>
     </div>
+  );
+}
+
+function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <SidebarProvider>
+      <AppLayoutInner>{children}</AppLayoutInner>
+    </SidebarProvider>
   );
 }
 
