@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { setCacheUserScope, clearPersistedCache } from '@/lib/queryPersister';
 
 const MASTER_EMAIL = 'renan@goldcreditsa.com.br';
 
@@ -33,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const initializedRef = useRef(false);
+  const queryClient = useQueryClient();
 
   const isMaster = user?.email === MASTER_EMAIL;
   const isAdmin = isMaster;
@@ -72,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!mounted) return;
 
         if (initialSession?.user) {
+          setCacheUserScope(initialSession.user.id);
           setSession(initialSession);
           setUser(initialSession.user);
           
@@ -79,6 +83,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (mounted) {
             setProfile(profileData);
           }
+        } else {
+          setCacheUserScope(null);
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
@@ -101,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(currentSession?.user ?? null);
 
         if (currentSession?.user) {
+          setCacheUserScope(currentSession.user.id);
           // Use setTimeout to avoid Supabase deadlock issue
           setTimeout(async () => {
             if (!mounted) return;
@@ -110,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }, 0);
         } else {
+          setCacheUserScope(null);
           setProfile(null);
         }
 
@@ -131,10 +139,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
+    // Limpa cache em memória + persistido (evita vazar dados entre usuários)
+    queryClient.clear();
+    await clearPersistedCache();
+    setCacheUserScope(null);
     setUser(null);
     setSession(null);
     setProfile(null);
-  }, []);
+  }, [queryClient]);
 
   const refreshProfile = useCallback(async () => {
     if (user) {

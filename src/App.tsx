@@ -2,7 +2,9 @@ import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { createIDBPersister, CACHE_VERSION } from "@/lib/queryPersister";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -41,11 +43,17 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
+      // staleTime: dados ficam "frescos" por 5min — sem refetch automático
       staleTime: 5 * 60 * 1000,
+      // gcTime: cache em memória/persistido por 24h
+      gcTime: 24 * 60 * 60 * 1000,
       refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
     },
   },
 });
+
+const persister = createIDBPersister();
 
 function PageFallback() {
   return <DashboardSkeleton message="Carregando..." />;
@@ -73,7 +81,19 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister,
+        // Cache válido por 24h; novas versões da app invalidam tudo automaticamente
+        maxAge: 24 * 60 * 60 * 1000,
+        buster: CACHE_VERSION,
+        // Não persistir queries com erro
+        dehydrateOptions: {
+          shouldDehydrateQuery: (q) => q.state.status === 'success',
+        },
+      }}
+    >
       <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -117,7 +137,7 @@ function App() {
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }
 
