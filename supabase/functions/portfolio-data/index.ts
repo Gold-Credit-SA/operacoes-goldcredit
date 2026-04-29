@@ -178,16 +178,11 @@ serve(async (req) => {
     // === PORTFOLIO DATA (from external DB) ===
 
     if (action === 'my-portfolio' || action === 'portfolio-overview') {
-      // Get assigned cedentes for this user (or all for admin overview)
-      let assignQuery = supabaseAdmin.from('portfolio_assignments')
+      // Always restricted to the logged-in user's portfolio (even admins see only their own)
+      const assignQuery = supabaseAdmin.from('portfolio_assignments')
         .select('cedente_cpf_cnpj, cedente_nome')
-        .eq('status', 'approved');
-
-      if (action === 'my-portfolio') {
-        assignQuery = assignQuery.eq('user_id', user.id);
-      } else if (!isAdmin) {
-        assignQuery = assignQuery.eq('user_id', user.id);
-      }
+        .eq('status', 'approved')
+        .eq('user_id', user.id);
 
       const { data: assignments, error: aErr } = await assignQuery;
       if (aErr) throw aErr;
