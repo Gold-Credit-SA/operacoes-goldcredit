@@ -1,7 +1,8 @@
 import { Operacao } from './scr-types';
 
-// SCR Modalidade codes to labels
+// SCR Modalidade codes to labels (Bacen)
 export const MODALIDADE_MAP: Record<string, string> = {
+  // Empréstimos (02xx)
   '0201': 'Adiantamentos a depositantes',
   '0202': 'Empréstimos',
   '0203': 'Títulos descontados',
@@ -14,29 +15,75 @@ export const MODALIDADE_MAP: Record<string, string> = {
   '0210': 'Crédito pessoal sem consignação',
   '0211': 'Crédito rotativo',
   '0212': 'Financiamento imobiliário',
-  '0213': 'Empréstimos Cheque especial',
+  '0213': 'Cheque especial',
   '0214': 'Cheque especial',
-  '0215': 'Empréstimos Capital de giro com prazo de vencimento até 365 dias',
-  '0217': 'Empréstimos Capital de giro com teto rotativo',
-  '0299': 'Empréstimos Outros empréstimos',
-  '0301': 'Títulos descontado Direitos creditorios descontados Desconto de duplicatas',
+  '0215': 'Capital de giro com prazo até 365 dias',
+  '0216': 'Capital de giro com prazo superior a 365 dias',
+  '0217': 'Capital de giro com teto rotativo',
+  '0218': 'Conta garantida',
+  '0219': 'Crédito rotativo vinculado a cartão de crédito',
+  '0220': 'Microcrédito',
+  '0221': 'Crédito pessoal consignado - INSS',
+  '0222': 'Crédito pessoal consignado - Servidor público',
+  '0223': 'Crédito pessoal consignado - Privado',
+  '0224': 'Crédito pessoal não consignado',
+  '0225': 'Crédito rural',
+  '0299': 'Outros empréstimos',
+
+  // Títulos e direitos creditórios descontados (03xx)
+  '0301': 'Desconto de duplicatas',
   '0302': 'Desconto de duplicatas',
   '0303': 'Desconto de cheques',
-  '0399': 'Títulos descontado Direitos creditorios descontados Outros títulos descontados',
+  '0304': 'Antecipação de recebíveis de cartão de crédito',
+  '0305': 'Desconto de notas promissórias',
+  '0306': 'Desconto de outros títulos',
+  '0399': 'Outros títulos descontados',
+
+  // Financiamentos (04xx)
   '0401': 'Financiamento imobiliário',
   '0402': 'Financiamento de veículos',
   '0403': 'Financiamento rural',
   '0404': 'Financiamento de máquinas e equipamentos',
   '0405': 'Financiamento de infraestrutura',
+  '0406': 'Financiamento à exportação',
+  '0407': 'Financiamento à importação',
+  '0408': 'Financiamento agroindustrial',
+  '0409': 'Financiamento BNDES',
+  '0410': 'Financiamento estudantil',
   '0499': 'Outros financiamentos',
-  '1304': 'Outros créditos Cartão de crédito - compra à vista e parcelado lojista',
-  '1305': 'Capital de giro com prazo de vencimento superior a 365 dias',
+
+  // Financiamentos rurais e agroindustriais (05xx)
+  '0501': 'Financiamento rural - Custeio',
+  '0502': 'Financiamento rural - Investimento',
+  '0503': 'Financiamento rural - Comercialização',
+  '0504': 'Financiamento agroindustrial',
+  '0599': 'Outros financiamentos rurais',
+
+  // Financiamentos imobiliários (06xx)
+  '0601': 'Financiamento habitacional - SFH',
+  '0602': 'Financiamento habitacional - Fora do SFH',
+  '0603': 'Financiamento imobiliário não habitacional',
+  '0699': 'Outros financiamentos imobiliários',
+
+  // Operações com recebíveis (13xx)
+  '1301': 'Aquisição de recebíveis',
+  '1302': 'Antecipação de fatura de cartão de crédito',
+  '1303': 'Antecipação de recebíveis comerciais',
+  '1304': 'Cartão de crédito - compra à vista e parcelado lojista',
+  '1305': 'Capital de giro com prazo superior a 365 dias',
+  '1399': 'Outras operações com recebíveis',
+
+  // Outros créditos (19xx)
   '1901': 'Outros créditos',
   '1902': 'Outros empréstimos',
   '1903': 'Outros títulos descontados',
   '1904': 'Outros financiamentos',
   '1905': 'Capital de giro com teto rotativo',
+  '1906': 'Adiantamento sobre contratos de câmbio',
+  '1907': 'Coobrigações e riscos em garantias prestadas',
+  '1908': 'Operações vinculadas a câmbio',
   '1909': 'Cheque especial / Cartão de crédito',
+  '1999': 'Outras operações de crédito',
 };
 
 // Vencimento labels for CARTEIRA ATIVA table
@@ -181,7 +228,10 @@ export function getDisplayCategory(mod: string, isLimite: boolean): CategoryKey 
 }
 
 export function getModalidadeLabel(mod: string): string {
-  return MODALIDADE_MAP[mod] || `Modalidade ${mod}`;
+  if (MODALIDADE_MAP[mod]) return MODALIDADE_MAP[mod];
+  // Fallback amigável baseado na categoria, sem expor "Modalidade {código}"
+  const cat = getModalidadeCategory(mod);
+  return CATEGORY_LABELS[cat] || 'Operação de crédito';
 }
 
 export function sortOpsByPriority(ops: Operacao[]): Operacao[] {
