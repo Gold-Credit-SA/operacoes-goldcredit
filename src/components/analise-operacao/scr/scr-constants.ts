@@ -228,7 +228,10 @@ export function getDisplayCategory(mod: string, isLimite: boolean): CategoryKey 
 }
 
 export function getModalidadeLabel(mod: string): string {
-  return MODALIDADE_MAP[mod] || `Modalidade ${mod}`;
+  if (MODALIDADE_MAP[mod]) return MODALIDADE_MAP[mod];
+  // Fallback amigável baseado na categoria, sem expor "Modalidade {código}"
+  const cat = getModalidadeCategory(mod);
+  return CATEGORY_LABELS[cat] || 'Operação de crédito';
 }
 
 export function sortOpsByPriority(ops: Operacao[]): Operacao[] {
