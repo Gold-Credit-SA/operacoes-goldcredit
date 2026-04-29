@@ -68,11 +68,10 @@ serve(async (req) => {
     // === ASSIGNMENT MANAGEMENT ===
 
     if (action === 'list-assignments') {
-      // Admin sees all, gestor sees own
-      let query = supabaseAdmin.from('portfolio_assignments').select('*');
-      if (!isAdmin) {
-        query = query.eq('user_id', user.id);
-      }
+      // Always restricted to the logged-in user's portfolio (even admins see only their own)
+      let query = supabaseAdmin.from('portfolio_assignments')
+        .select('*')
+        .eq('user_id', user.id);
       if (status) {
         query = query.eq('status', status);
       }
