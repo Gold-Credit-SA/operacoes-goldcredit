@@ -183,6 +183,7 @@ export default function AnaliseCredito() {
   const [manualDocType, setManualDocType] = useState<ManualDocType>('cheque');
   const [manualValor, setManualValor] = useState('');
   const [manualVencimento, setManualVencimento] = useState<Date | undefined>();
+  const [manualVencimentoStr, setManualVencimentoStr] = useState<string>('');
   const [manualObs, setManualObs] = useState('');
   const [isInitializing, setIsInitializing] = useState(false);
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
