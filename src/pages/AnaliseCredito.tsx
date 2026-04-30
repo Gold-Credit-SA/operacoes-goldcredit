@@ -24,6 +24,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { AnalysisDashboard } from '@/components/credit-analysis/AnalysisDashboard';
+import { ManagerFeedbackCard } from '@/components/credit-analysis/ManagerFeedbackCard';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { parseNfeXml, type NotaFiscalXml } from '@/lib/xml-nfe-parser';
@@ -878,6 +879,19 @@ export default function AnaliseCredito() {
                   ? session.sacados.map(s => ({ cpf_cnpj: s.cpf_cnpj, name: s.name }))
                   : allClients.map(c => ({ cpf_cnpj: c.cpf_cnpj, name: c.name }))}
               />
+
+              <div className="mt-6">
+                <ManagerFeedbackCard
+                  sessionId={session.id}
+                  iaAnalysis={analysis}
+                  cedenteCpfCnpj={session.cedente_cpf_cnpj}
+                  cedenteNome={session.cedente_nome}
+                  sacados={(session.sacados && session.sacados.length > 0)
+                    ? session.sacados.map(s => ({ cpf_cnpj: s.cpf_cnpj, name: s.name }))
+                    : allClients.map(c => ({ cpf_cnpj: c.cpf_cnpj, name: c.name }))}
+                />
+              </div>
+
               <div className="mt-6 text-center">
                 <Button variant="outline" onClick={() => setActiveTab('chat')} className="gap-2">
                   <MessageCircle className="h-4 w-4" /> Conversar com a IA sobre esta análise
