@@ -1215,7 +1215,7 @@ function AnalysisBlock({ icon: Icon, title, data, keyPoint }: {
   const hasAlerts = data.alertas?.length > 0;
 
   return (
-    <div className={cn('rounded-xl border bg-card p-4 space-y-2', hasAlerts && 'border-amber-200')}>
+    <div className={cn('rounded-xl border bg-card p-4 space-y-2 h-full', hasAlerts && 'border-amber-200')}>
       <div className="flex items-center gap-2">
         <Icon className="h-4 w-4 text-primary" />
         <p className="text-sm font-bold">{title}</p>
