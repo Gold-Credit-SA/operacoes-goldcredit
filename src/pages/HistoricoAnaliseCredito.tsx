@@ -94,6 +94,34 @@ export default function HistoricoAnaliseCredito() {
     })();
   }, []);
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await supabase.from('credit_analysis_messages').delete().eq('session_id', deleteTarget.id);
+      await supabase.from('credit_analysis_feedback').delete().eq('session_id', deleteTarget.id);
+      const { error } = await supabase.from('credit_analysis_sessions').delete().eq('id', deleteTarget.id);
+      if (error) throw error;
+
+      setSessions(prev => prev.filter(s => s.id !== deleteTarget.id));
+      setFeedbacks(prev => {
+        const next = { ...prev };
+        delete next[deleteTarget.id];
+        return next;
+      });
+      toast({ title: 'Análise excluída', description: 'A análise foi removida do histórico.' });
+      setDeleteTarget(null);
+    } catch (e: any) {
+      toast({
+        title: 'Erro ao excluir',
+        description: e?.message || 'Não foi possível excluir esta análise.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const filtered = useMemo(() => {
     const cQ = searchCedente.trim().toLowerCase();
     const sQ = searchSacado.trim().toLowerCase();
