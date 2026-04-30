@@ -59,6 +59,8 @@ export default function HistoricoAnaliseCredito() {
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [feedbacks, setFeedbacks] = useState<Record<string, FeedbackRow>>({});
+  const [deleteTarget, setDeleteTarget] = useState<SessionRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [searchCedente, setSearchCedente] = useState('');
   const [searchSacado, setSearchSacado] = useState('');
