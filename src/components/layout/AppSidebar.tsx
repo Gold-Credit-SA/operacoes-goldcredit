@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, LogOut, Settings, Briefcase, ChevronDown, RefreshCw, BarChart3, Settings2, LayoutDashboard, Users, FileSignature, PenTool, FileText, Brain, UserCheck, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Search, LogOut, Settings, Briefcase, ChevronDown, RefreshCw, BarChart3, Settings2, LayoutDashboard, Users, FileSignature, PenTool, FileText, Brain, UserCheck, PanelLeftClose, PanelLeftOpen, Sparkles, History } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,11 +34,19 @@ export function AppSidebar() {
     { path: '/contratos/assinatura-digital', label: 'Assinatura Digital', icon: PenTool },
   ];
 
+  const [analiseOpen, setAnaliseOpen] = useState(
+    location.pathname.startsWith('/analise-credito')
+  );
+
+  const analiseItems = [
+    { path: '/analise-credito/novo', label: 'Nova Análise', icon: Sparkles },
+    { path: '/analise-credito/historico', label: 'Histórico', icon: History },
+  ];
+
   const navItemsAfter = [
     { path: '/clientes', label: 'Clientes', icon: Users },
     { path: '/sacados', label: 'Sacados', icon: UserCheck },
     { path: '/consulta', label: 'Cedentes', icon: Search },
-    { path: '/analise-credito/novo', label: 'Análise de Crédito', icon: Brain },
     ...(isMaster ? [{ path: '/admin', label: 'Configurações', icon: Settings }] : []),
   ];
 
@@ -50,6 +58,7 @@ export function AppSidebar() {
   const userInitial = profile?.name?.charAt(0).toUpperCase() || 'U';
   const isCarteiraActive = location.pathname.startsWith('/carteira');
   const isContratosActive = location.pathname.startsWith('/contratos');
+  const isAnaliseActive = location.pathname.startsWith('/analise-credito');
 
   // ── Prefetch helpers ──────────────────────────────────────────────
   const prefetchDashboard = useCallback(() => {
@@ -164,6 +173,9 @@ export function AppSidebar() {
 
             {/* Contratos: ícone leva para documentos */}
             {renderIconLink('/contratos/documentos', 'GoldSign', FileSignature, isContratosActive)}
+
+            {/* Análise de Crédito: ícone leva para nova análise */}
+            {renderIconLink('/analise-credito/novo', 'Análise de Crédito', Brain, isAnaliseActive)}
 
             {navItemsAfter.map((item) => {
               const isActive =
@@ -313,6 +325,46 @@ export function AppSidebar() {
           </div>
         )}
 
+        {/* Análise de Crédito dropdown */}
+        <button
+          onClick={() => setAnaliseOpen(!analiseOpen)}
+          className={cn(
+            "flex items-center justify-between w-full px-4 py-3 rounded-lg text-sm font-medium transition-all duration-150",
+            isAnaliseActive
+              ? "text-sidebar-foreground bg-sidebar-accent"
+              : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+          )}
+        >
+          <span className="flex items-center gap-3">
+            <Brain className={cn("h-5 w-5", isAnaliseActive ? "text-primary" : "text-sidebar-foreground/50")} />
+            Análise de Crédito
+          </span>
+          <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", analiseOpen ? "rotate-180" : "")} />
+        </button>
+
+        {analiseOpen && (
+          <div className="ml-4 pl-4 border-l border-sidebar-border space-y-1">
+            {analiseItems.map((item) => {
+              const isActive = location.pathname === item.path
+                || (item.path === '/analise-credito/novo' && location.pathname.startsWith('/analise-credito/') && !location.pathname.startsWith('/analise-credito/historico'));
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150",
+                    isActive
+                      ? "text-sidebar-foreground bg-sidebar-accent font-medium"
+                      : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/40"
+                  )}
+                >
+                  <item.icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-sidebar-foreground/40")} />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        )}
 
         {navItemsAfter.map((item) => {
           const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
