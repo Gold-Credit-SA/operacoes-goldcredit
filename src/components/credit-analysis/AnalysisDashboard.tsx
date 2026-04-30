@@ -854,7 +854,7 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
             </div>
 
             {/* Row 3: Info cards + Concentration + Limits */}
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className={cn('grid gap-4', sacadoConcentracao.length > 0 ? 'md:grid-cols-2' : 'grid-cols-1')}>
               {/* Info panel */}
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Informações do Cedente</p>
