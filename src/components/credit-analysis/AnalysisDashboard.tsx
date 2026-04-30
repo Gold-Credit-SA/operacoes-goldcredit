@@ -854,11 +854,11 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
             </div>
 
             {/* Row 3: Info cards + Concentration + Limits */}
-            <div className={cn('grid gap-4', sacadoConcentracao.length > 0 ? 'md:grid-cols-2' : 'grid-cols-1')}>
+            <div className={cn('grid gap-4 items-stretch', sacadoConcentracao.length > 0 ? 'md:grid-cols-2' : 'grid-cols-1')}>
               {/* Info panel */}
-              <div className="space-y-2">
+              <div className="space-y-2 flex flex-col">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Informações do Cedente</p>
-                <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2 text-sm">
+                <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2 text-sm flex-1">
                   {smartData.setor && (
                     <div className="flex justify-between"><span className="text-muted-foreground">Setor</span><span className="font-medium">{smartData.setor}</span></div>
                   )}
