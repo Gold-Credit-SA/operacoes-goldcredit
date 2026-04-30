@@ -684,17 +684,46 @@ export default function AnaliseCredito() {
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs text-muted-foreground">Vencimento (bom para)</label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !manualVencimento && "text-muted-foreground")}>
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {manualVencimento ? format(manualVencimento, 'dd/MM/yyyy') : <span>Selecionar data</span>}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar mode="single" selected={manualVencimento} onSelect={setManualVencimento} initialFocus className="p-3 pointer-events-auto" />
-                        </PopoverContent>
-                      </Popover>
+                      <div className="flex gap-1">
+                        <Input
+                          placeholder="dd/mm/aaaa"
+                          inputMode="numeric"
+                          value={manualVencimentoStr}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/\D/g, '').slice(0, 8);
+                            let masked = raw;
+                            if (raw.length > 4) masked = `${raw.slice(0, 2)}/${raw.slice(2, 4)}/${raw.slice(4)}`;
+                            else if (raw.length > 2) masked = `${raw.slice(0, 2)}/${raw.slice(2)}`;
+                            setManualVencimentoStr(masked);
+                            const m = masked.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+                            if (m) {
+                              const dt = new Date(+m[3], +m[2] - 1, +m[1]);
+                              if (!isNaN(dt.getTime())) setManualVencimento(dt);
+                            } else {
+                              setManualVencimento(undefined);
+                            }
+                          }}
+                        />
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="icon" type="button" aria-label="Selecionar no calendário">
+                              <CalendarIcon className="h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="end">
+                            <Calendar
+                              mode="single"
+                              selected={manualVencimento}
+                              onSelect={(d) => {
+                                setManualVencimento(d);
+                                if (d) setManualVencimentoStr(format(d, 'dd/MM/yyyy'));
+                              }}
+                              initialFocus
+                              className="p-3 pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs text-muted-foreground">Observação</label>
