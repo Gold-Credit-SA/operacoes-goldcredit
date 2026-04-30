@@ -326,11 +326,22 @@ export default function HistoricoAnaliseCredito() {
                             )}
                           </TableCell>
                           <TableCell className="text-right">
-                            <Link to={`/analise-credito/${s.id}`}>
-                              <Button variant="ghost" size="sm" className="gap-1.5">
-                                Abrir <ArrowRight className="h-3.5 w-3.5" />
+                            <div className="flex items-center justify-end gap-1">
+                              <Link to={`/analise-credito/${s.id}`}>
+                                <Button variant="ghost" size="sm" className="gap-1.5">
+                                  Abrir <ArrowRight className="h-3.5 w-3.5" />
+                                </Button>
+                              </Link>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => setDeleteTarget(s)}
+                                aria-label="Excluir análise"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
                               </Button>
-                            </Link>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
