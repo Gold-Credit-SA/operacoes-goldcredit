@@ -1014,7 +1014,7 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
             </div>
 
             {/* Analysis blocks */}
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid md:grid-cols-2 gap-4 items-start">
               <AnalysisBlock icon={Building2} title="Cedente" data={analysis?.blocos?.cedente} keyPoint={analysis?.pontosChave?.cedente} />
 
               {/* Multi-sacado: render each sacado in accordion */}
@@ -1125,7 +1125,7 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
             {/* Ressalvas & Dados Faltantes */}
             {((analysis.ressalvas?.length > 0 && analysis.ressalvas[0] !== 'Sem ressalvas relevantes.') ||
               analysis.dadosFaltantes?.length > 0) && (
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid md:grid-cols-2 gap-4 items-start">
                 {analysis.ressalvas?.length > 0 && analysis.ressalvas[0] !== 'Sem ressalvas relevantes.' && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50/30 p-4">
                     <p className="text-xs font-bold text-amber-800 mb-2">⚠️ Ressalvas</p>
