@@ -325,6 +325,46 @@ export function AppSidebar() {
           </div>
         )}
 
+        {/* Análise de Crédito dropdown */}
+        <button
+          onClick={() => setAnaliseOpen(!analiseOpen)}
+          className={cn(
+            "flex items-center justify-between w-full px-4 py-3 rounded-lg text-sm font-medium transition-all duration-150",
+            isAnaliseActive
+              ? "text-sidebar-foreground bg-sidebar-accent"
+              : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+          )}
+        >
+          <span className="flex items-center gap-3">
+            <Brain className={cn("h-5 w-5", isAnaliseActive ? "text-primary" : "text-sidebar-foreground/50")} />
+            Análise de Crédito
+          </span>
+          <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", analiseOpen ? "rotate-180" : "")} />
+        </button>
+
+        {analiseOpen && (
+          <div className="ml-4 pl-4 border-l border-sidebar-border space-y-1">
+            {analiseItems.map((item) => {
+              const isActive = location.pathname === item.path
+                || (item.path === '/analise-credito/novo' && location.pathname.startsWith('/analise-credito/') && !location.pathname.startsWith('/analise-credito/historico'));
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150",
+                    isActive
+                      ? "text-sidebar-foreground bg-sidebar-accent font-medium"
+                      : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/40"
+                  )}
+                >
+                  <item.icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-sidebar-foreground/40")} />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        )}
 
         {navItemsAfter.map((item) => {
           const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
