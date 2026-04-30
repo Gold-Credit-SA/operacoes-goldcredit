@@ -542,7 +542,7 @@ export default function AnaliseCredito() {
 
   const finishAddDocument = (doc: ImportedDocument) => {
     setDocuments(prev => [...prev, doc]);
-    setManualValor(''); setManualVencimento(undefined); setManualObs(''); setShowManualForm(false);
+    setManualValor(''); setManualVencimento(undefined); setManualVencimentoStr(''); setManualObs(''); setShowManualForm(false);
     const label = doc.manualData ? MANUAL_DOC_LABELS[doc.manualData.docType] : 'Documento';
     toast.success(`${label} adicionado.`);
   };
