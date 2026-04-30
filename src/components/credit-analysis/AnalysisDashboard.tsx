@@ -854,7 +854,7 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
             </div>
 
             {/* Row 3: Info cards + Concentration + Limits */}
-            <div className={cn('grid gap-4 items-stretch', sacadoConcentracao.length > 0 ? 'md:grid-cols-2' : 'grid-cols-1')}>
+            <div className={cn('grid gap-4 items-stretch', sacadoConcentracao.length > 0 ? 'md:grid-cols-2' : 'grid-cols-1')} data-testid="grid-cedente-concentracao">
               {/* Info panel */}
               <div className="space-y-2 flex flex-col">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Informações do Cedente</p>
@@ -1014,7 +1014,7 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
             </div>
 
             {/* Analysis blocks — Cedente + Sacados side by side */}
-            <div className="grid md:grid-cols-2 gap-4 items-stretch">
+            <div className="grid md:grid-cols-2 gap-4 items-stretch" data-testid="grid-cedente-sacados">
               <AnalysisBlock icon={Building2} title="Cedente" data={analysis?.blocos?.cedente} keyPoint={analysis?.pontosChave?.cedente} />
 
               {/* Multi-sacado: render each sacado in accordion */}
