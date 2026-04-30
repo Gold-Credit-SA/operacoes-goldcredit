@@ -1092,13 +1092,16 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
                   </Accordion>
                 </div>
               ) : (
-                <>
-                  {/* Backward compat: old single sacado format */}
-                  <AnalysisBlock icon={Users} title="Sacado" data={analysis?.blocos?.sacado} keyPoint={analysis?.pontosChave?.sacado} />
-                  <AnalysisBlock icon={TrendingUp} title="Relação Comercial" data={analysis?.blocos?.relacaoCedenteSacado} keyPoint={analysis?.pontosChave?.relacao} />
-                </>
+                /* Backward compat: old single sacado format */
+                <AnalysisBlock icon={Users} title="Sacado" data={analysis?.blocos?.sacado} keyPoint={analysis?.pontosChave?.sacado} />
               )}
+            </div>
 
+            {/* Relação Comercial (legacy) + Títulos / Lastro — full width row */}
+            <div className="grid md:grid-cols-2 gap-4 items-stretch">
+              {!Array.isArray(analysis?.blocos?.sacados) && analysis?.blocos?.relacaoCedenteSacado && (
+                <AnalysisBlock icon={TrendingUp} title="Relação Comercial" data={analysis?.blocos?.relacaoCedenteSacado} keyPoint={analysis?.pontosChave?.relacao} />
+              )}
               <AnalysisBlock icon={CreditCard} title="Títulos / Lastro" data={analysis?.blocos?.titulosLastro} keyPoint={analysis?.pontosChave?.titulos} />
             </div>
 
