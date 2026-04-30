@@ -30,30 +30,25 @@ describe('AnalysisDashboard — invariantes de layout (sem espaços em branco)',
   });
 
   it('grid Relação/Títulos colapsa quando só há Títulos (multi-sacado)', () => {
-    // Deve existir verificação `hasRelacao` e classe condicional
     expect(SOURCE).toMatch(/hasRelacao\s*\?\s*['"]md:grid-cols-2['"]\s*:\s*['"]grid-cols-1['"]/);
     expect(SOURCE).toContain('data-testid="grid-relacao-titulos"');
   });
 
   it('grid Ressalvas/Faltantes colapsa quando só um existe', () => {
     expect(SOURCE).toContain('data-testid="grid-ressalvas-faltantes"');
-    // Deve verificar AMBOS antes de aplicar md:grid-cols-2
-    const ressalvasGrid = SOURCE.match(
-      /data-testid="grid-ressalvas-faltantes"[\s\S]{0,400}/
-    )?.[0] ?? '';
-    expect(ressalvasGrid).toMatch(/ressalvas[\s\S]*&&[\s\S]*dadosFaltantes/);
-    expect(ressalvasGrid).toMatch(/md:grid-cols-2[\s\S]*grid-cols-1/);
+    const idx = SOURCE.indexOf('data-testid="grid-ressalvas-faltantes"');
+    const block = SOURCE.slice(Math.max(0, idx - 400), idx + 400);
+    expect(block).toMatch(/ressalvas[\s\S]*&&[\s\S]*dadosFaltantes/);
+    expect(block).toMatch(/md:grid-cols-2[\s\S]*grid-cols-1/);
   });
 
   it('grid Cedente/Sacados sempre tem 2 filhos (cedente + sacado/sacados)', () => {
-    // Sempre tem AnalysisBlock cedente + (multi-sacado OR fallback single sacado)
-    const block = SOURCE.match(
-      /data-testid="grid-cedente-sacados"[\s\S]{0,3500}/
-    )?.[0] ?? '';
+    expect(SOURCE).toContain('data-testid="grid-cedente-sacados"');
+    const idx = SOURCE.indexOf('data-testid="grid-cedente-sacados"');
+    // Block estende até o fechamento do grid (após o accordion de sacados)
+    const block = SOURCE.slice(idx, idx + 6000);
     expect(block).toContain('title="Cedente"');
-    // Branch multi-sacado
     expect(block).toMatch(/Array\.isArray\(analysis\?\.blocos\?\.sacados\)/);
-    // Branch fallback single
     expect(block).toMatch(/title="Sacado"/);
   });
 
