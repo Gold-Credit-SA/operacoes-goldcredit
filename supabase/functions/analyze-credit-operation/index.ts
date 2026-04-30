@@ -155,14 +155,50 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
+    // ─── Fetch historical feedback for AI learning ───
+    let historicalFeedback: any[] = [];
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL");
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (supabaseUrl && serviceKey) {
+        const sb = createClient(supabaseUrl, serviceKey);
+        const cedenteCpf = (cedenteData as any)?.cpf_cnpj || (cedenteData as any)?.cpfCnpj || null;
+        const sacadoCpfs: string[] = Array.isArray((clientProfile as any)?.sacados)
+          ? (clientProfile as any).sacados.map((s: any) => s.cpfCnpj).filter(Boolean)
+          : (clientProfile as any)?.cpfCnpj ? [(clientProfile as any).cpfCnpj] : [];
+
+        const filters: string[] = [];
+        if (cedenteCpf) filters.push(`cedente_cpf_cnpj.eq.${cedenteCpf}`);
+        if (sacadoCpfs.length > 0) {
+          for (const cpf of sacadoCpfs) {
+            filters.push(`sacados.cs.[{"cpf_cnpj":"${cpf}"}]`);
+          }
+        }
+
+        if (filters.length > 0) {
+          const { data: fbs } = await sb
+            .from("credit_analysis_feedback")
+            .select("decisao_final, finalidade, parecer_gestor, observacoes, ia_decisao, ia_risco, resultado_real, resultado_observacao, cedente_nome, sacados, created_at")
+            .or(filters.join(","))
+            .order("created_at", { ascending: false })
+            .limit(8);
+          if (Array.isArray(fbs)) historicalFeedback = fbs;
+        }
+      }
+    } catch (err) {
+      console.error("Could not fetch historical feedback:", err);
+    }
+
     const context = JSON.stringify({
       documentosImportados: documents,
       dadosCedenteSmart: cedenteData,
       consultasSacado: clientConsultations,
       perfilCliente: clientProfile,
+      historicoDecisoesGestor: historicalFeedback,
     });
 
-    console.log("Calling AI for credit operation analysis (multi-sacado model)...");
+    console.log(`Calling AI for credit operation analysis (${historicalFeedback.length} historical feedback cases included)...`);
+
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
