@@ -1097,13 +1097,18 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
               )}
             </div>
 
-            {/* Relação Comercial (legacy) + Títulos / Lastro — full width row */}
-            <div className="grid md:grid-cols-2 gap-4 items-stretch">
-              {!Array.isArray(analysis?.blocos?.sacados) && analysis?.blocos?.relacaoCedenteSacado && (
-                <AnalysisBlock icon={TrendingUp} title="Relação Comercial" data={analysis?.blocos?.relacaoCedenteSacado} keyPoint={analysis?.pontosChave?.relacao} />
-              )}
-              <AnalysisBlock icon={CreditCard} title="Títulos / Lastro" data={analysis?.blocos?.titulosLastro} keyPoint={analysis?.pontosChave?.titulos} />
-            </div>
+            {/* Relação Comercial (legacy) + Títulos / Lastro — collapses to single column when only one block exists */}
+            {(() => {
+              const hasRelacao = !Array.isArray(analysis?.blocos?.sacados) && !!analysis?.blocos?.relacaoCedenteSacado;
+              return (
+                <div className={cn('grid gap-4 items-stretch', hasRelacao ? 'md:grid-cols-2' : 'grid-cols-1')} data-testid="grid-relacao-titulos">
+                  {hasRelacao && (
+                    <AnalysisBlock icon={TrendingUp} title="Relação Comercial" data={analysis?.blocos?.relacaoCedenteSacado} keyPoint={analysis?.pontosChave?.relacao} />
+                  )}
+                  <AnalysisBlock icon={CreditCard} title="Títulos / Lastro" data={analysis?.blocos?.titulosLastro} keyPoint={analysis?.pontosChave?.titulos} />
+                </div>
+              );
+            })()}
 
             {/* Cross-referencing Alerts */}
             {crossAlerts.length > 0 && (
@@ -1128,7 +1133,10 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
             {/* Ressalvas & Dados Faltantes */}
             {((analysis.ressalvas?.length > 0 && analysis.ressalvas[0] !== 'Sem ressalvas relevantes.') ||
               analysis.dadosFaltantes?.length > 0) && (
-              <div className="grid md:grid-cols-2 gap-4 items-start">
+              <div className={cn('grid gap-4 items-start',
+                ((analysis.ressalvas?.length > 0 && analysis.ressalvas[0] !== 'Sem ressalvas relevantes.') &&
+                 analysis.dadosFaltantes?.length > 0) ? 'md:grid-cols-2' : 'grid-cols-1'
+              )} data-testid="grid-ressalvas-faltantes">
                 {analysis.ressalvas?.length > 0 && analysis.ressalvas[0] !== 'Sem ressalvas relevantes.' && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50/30 p-4">
                     <p className="text-xs font-bold text-amber-800 mb-2">⚠️ Ressalvas</p>
