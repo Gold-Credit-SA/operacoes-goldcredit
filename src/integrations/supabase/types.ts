@@ -119,6 +119,69 @@ export type Database = {
         }
         Relationships: []
       }
+      credit_analysis_feedback: {
+        Row: {
+          cedente_cpf_cnpj: string | null
+          cedente_nome: string | null
+          created_at: string
+          created_by: string
+          created_by_name: string | null
+          decisao_final: string
+          finalidade: string | null
+          ia_decisao: string | null
+          ia_parecer: string | null
+          ia_risco: string | null
+          id: string
+          observacoes: string | null
+          parecer_gestor: string
+          resultado_observacao: string | null
+          resultado_real: string | null
+          sacados: Json | null
+          session_id: string
+          updated_at: string
+        }
+        Insert: {
+          cedente_cpf_cnpj?: string | null
+          cedente_nome?: string | null
+          created_at?: string
+          created_by: string
+          created_by_name?: string | null
+          decisao_final: string
+          finalidade?: string | null
+          ia_decisao?: string | null
+          ia_parecer?: string | null
+          ia_risco?: string | null
+          id?: string
+          observacoes?: string | null
+          parecer_gestor: string
+          resultado_observacao?: string | null
+          resultado_real?: string | null
+          sacados?: Json | null
+          session_id: string
+          updated_at?: string
+        }
+        Update: {
+          cedente_cpf_cnpj?: string | null
+          cedente_nome?: string | null
+          created_at?: string
+          created_by?: string
+          created_by_name?: string | null
+          decisao_final?: string
+          finalidade?: string | null
+          ia_decisao?: string | null
+          ia_parecer?: string | null
+          ia_risco?: string | null
+          id?: string
+          observacoes?: string | null
+          parecer_gestor?: string
+          resultado_observacao?: string | null
+          resultado_real?: string | null
+          sacados?: Json | null
+          session_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       credit_analysis_messages: {
         Row: {
           content: string
