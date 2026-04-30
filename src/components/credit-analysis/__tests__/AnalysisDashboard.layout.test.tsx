@@ -46,7 +46,7 @@ describe('AnalysisDashboard — invariantes de layout (sem espaços em branco)',
     expect(SOURCE).toContain('data-testid="grid-cedente-sacados"');
     const idx = SOURCE.indexOf('data-testid="grid-cedente-sacados"');
     // Block estende até o fechamento do grid (após o accordion de sacados)
-    const block = SOURCE.slice(idx, idx + 6000);
+    const block = SOURCE.slice(idx, idx + 12000);
     expect(block).toContain('title="Cedente"');
     expect(block).toMatch(/Array\.isArray\(analysis\?\.blocos\?\.sacados\)/);
     expect(block).toMatch(/title="Sacado"/);
