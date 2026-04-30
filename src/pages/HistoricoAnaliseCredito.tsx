@@ -11,9 +11,14 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { Brain, Search, Filter, ArrowRight, Loader2, MessageSquareQuote, Sparkles } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Brain, Search, Filter, ArrowRight, Loader2, MessageSquareQuote, Sparkles, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { toast } from '@/hooks/use-toast';
 
 interface SessionRow {
   id: string;
@@ -54,6 +59,8 @@ export default function HistoricoAnaliseCredito() {
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [feedbacks, setFeedbacks] = useState<Record<string, FeedbackRow>>({});
+  const [deleteTarget, setDeleteTarget] = useState<SessionRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [searchCedente, setSearchCedente] = useState('');
   const [searchSacado, setSearchSacado] = useState('');
@@ -86,6 +93,34 @@ export default function HistoricoAnaliseCredito() {
       setLoading(false);
     })();
   }, []);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await supabase.from('credit_analysis_messages').delete().eq('session_id', deleteTarget.id);
+      await supabase.from('credit_analysis_feedback').delete().eq('session_id', deleteTarget.id);
+      const { error } = await supabase.from('credit_analysis_sessions').delete().eq('id', deleteTarget.id);
+      if (error) throw error;
+
+      setSessions(prev => prev.filter(s => s.id !== deleteTarget.id));
+      setFeedbacks(prev => {
+        const next = { ...prev };
+        delete next[deleteTarget.id];
+        return next;
+      });
+      toast({ title: 'Análise excluída', description: 'A análise foi removida do histórico.' });
+      setDeleteTarget(null);
+    } catch (e: any) {
+      toast({
+        title: 'Erro ao excluir',
+        description: e?.message || 'Não foi possível excluir esta análise.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     const cQ = searchCedente.trim().toLowerCase();
@@ -291,11 +326,22 @@ export default function HistoricoAnaliseCredito() {
                             )}
                           </TableCell>
                           <TableCell className="text-right">
-                            <Link to={`/analise-credito/${s.id}`}>
-                              <Button variant="ghost" size="sm" className="gap-1.5">
-                                Abrir <ArrowRight className="h-3.5 w-3.5" />
+                            <div className="flex items-center justify-end gap-1">
+                              <Link to={`/analise-credito/${s.id}`}>
+                                <Button variant="ghost" size="sm" className="gap-1.5">
+                                  Abrir <ArrowRight className="h-3.5 w-3.5" />
+                                </Button>
+                              </Link>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => setDeleteTarget(s)}
+                                aria-label="Excluir análise"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
                               </Button>
-                            </Link>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -307,6 +353,32 @@ export default function HistoricoAnaliseCredito() {
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir análise de crédito?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação é permanente. A sessão, suas mensagens e o parecer do gestor associado serão removidos.
+              {deleteTarget?.cedente_nome && (
+                <span className="block mt-2 font-medium text-foreground">
+                  {deleteTarget.cedente_nome}
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleDelete(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
