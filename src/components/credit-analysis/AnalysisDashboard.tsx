@@ -1019,7 +1019,7 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
 
               {/* Multi-sacado: render each sacado in accordion */}
               {Array.isArray(analysis?.blocos?.sacados) && analysis.blocos.sacados.length > 0 ? (
-                <div className="rounded-xl border bg-card p-4 space-y-2">
+                <div className="rounded-xl border bg-card p-4 space-y-2 h-full">
                   <div className="flex items-center gap-2 mb-1">
                     <Users className="h-4 w-4 text-primary" />
                     <p className="text-sm font-bold">Sacados ({analysis.blocos.sacados.length})</p>
