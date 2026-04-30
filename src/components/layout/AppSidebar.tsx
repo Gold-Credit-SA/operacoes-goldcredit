@@ -174,6 +174,9 @@ export function AppSidebar() {
             {/* Contratos: ícone leva para documentos */}
             {renderIconLink('/contratos/documentos', 'GoldSign', FileSignature, isContratosActive)}
 
+            {/* Análise de Crédito: ícone leva para nova análise */}
+            {renderIconLink('/analise-credito/novo', 'Análise de Crédito', Brain, isAnaliseActive)}
+
             {navItemsAfter.map((item) => {
               const isActive =
                 location.pathname === item.path || location.pathname.startsWith(item.path + '/');
