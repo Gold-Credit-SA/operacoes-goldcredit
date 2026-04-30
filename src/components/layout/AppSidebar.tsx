@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, LogOut, Settings, Briefcase, ChevronDown, RefreshCw, BarChart3, Settings2, LayoutDashboard, Users, FileSignature, PenTool, FileText, Brain, UserCheck, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Search, LogOut, Settings, Briefcase, ChevronDown, RefreshCw, BarChart3, Settings2, LayoutDashboard, Users, FileSignature, PenTool, FileText, Brain, UserCheck, PanelLeftClose, PanelLeftOpen, Sparkles, History } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,11 +34,19 @@ export function AppSidebar() {
     { path: '/contratos/assinatura-digital', label: 'Assinatura Digital', icon: PenTool },
   ];
 
+  const [analiseOpen, setAnaliseOpen] = useState(
+    location.pathname.startsWith('/analise-credito')
+  );
+
+  const analiseItems = [
+    { path: '/analise-credito/novo', label: 'Nova Análise', icon: Sparkles },
+    { path: '/analise-credito/historico', label: 'Histórico', icon: History },
+  ];
+
   const navItemsAfter = [
     { path: '/clientes', label: 'Clientes', icon: Users },
     { path: '/sacados', label: 'Sacados', icon: UserCheck },
     { path: '/consulta', label: 'Cedentes', icon: Search },
-    { path: '/analise-credito/novo', label: 'Análise de Crédito', icon: Brain },
     ...(isMaster ? [{ path: '/admin', label: 'Configurações', icon: Settings }] : []),
   ];
 
