@@ -1014,7 +1014,7 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
             </div>
 
             {/* Analysis blocks — Cedente + Sacados side by side */}
-            <div className="grid md:grid-cols-2 gap-4 items-stretch" data-testid="grid-cedente-sacados">
+            <div className="grid md:grid-cols-2 gap-4 items-start" data-testid="grid-cedente-sacados">
               <AnalysisBlock icon={Building2} title="Cedente" data={analysis?.blocos?.cedente} keyPoint={analysis?.pontosChave?.cedente} />
 
               {/* Multi-sacado: render each sacado in accordion */}
