@@ -1014,12 +1014,12 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
             </div>
 
             {/* Analysis blocks — Cedente + Sacados side by side */}
-            <div className="grid md:grid-cols-2 gap-4 items-stretch" data-testid="grid-cedente-sacados">
+            <div className="grid md:grid-cols-2 gap-4 items-start" data-testid="grid-cedente-sacados">
               <AnalysisBlock icon={Building2} title="Cedente" data={analysis?.blocos?.cedente} keyPoint={analysis?.pontosChave?.cedente} />
 
               {/* Multi-sacado: render each sacado in accordion */}
               {Array.isArray(analysis?.blocos?.sacados) && analysis.blocos.sacados.length > 0 ? (
-                <div className="rounded-xl border bg-card p-4 space-y-2 h-full">
+                <div className="rounded-xl border bg-card p-4 space-y-2">
                   <div className="flex items-center gap-2 mb-1">
                     <Users className="h-4 w-4 text-primary" />
                     <p className="text-sm font-bold">Sacados ({analysis.blocos.sacados.length})</p>
@@ -1223,7 +1223,7 @@ function AnalysisBlock({ icon: Icon, title, data, keyPoint }: {
   const hasAlerts = data.alertas?.length > 0;
 
   return (
-    <div className={cn('rounded-xl border bg-card p-4 space-y-2 h-full', hasAlerts && 'border-amber-200')}>
+    <div className={cn('rounded-xl border bg-card p-4 space-y-2', hasAlerts && 'border-amber-200')}>
       <div className="flex items-center gap-2">
         <Icon className="h-4 w-4 text-primary" />
         <p className="text-sm font-bold">{title}</p>
