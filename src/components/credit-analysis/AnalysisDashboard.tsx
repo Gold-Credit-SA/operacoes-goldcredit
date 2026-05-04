@@ -1130,31 +1130,47 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
               </div>
             )}
 
-            {/* Ressalvas & Dados Faltantes */}
-            {((analysis.ressalvas?.length > 0 && analysis.ressalvas[0] !== 'Sem ressalvas relevantes.') ||
-              analysis.dadosFaltantes?.length > 0) && (
-              <div className={cn('grid gap-4 items-start',
-                ((analysis.ressalvas?.length > 0 && analysis.ressalvas[0] !== 'Sem ressalvas relevantes.') &&
-                 analysis.dadosFaltantes?.length > 0) ? 'md:grid-cols-2' : 'grid-cols-1'
-              )} data-testid="grid-ressalvas-faltantes">
-                {analysis.ressalvas?.length > 0 && analysis.ressalvas[0] !== 'Sem ressalvas relevantes.' && (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50/30 p-4">
-                    <p className="text-xs font-bold text-amber-800 mb-2">⚠️ Ressalvas</p>
-                    <ol className="list-decimal list-inside space-y-1 text-xs text-foreground leading-relaxed">
-                      {analysis.ressalvas.map((r: string, i: number) => <li key={i}>{r}</li>)}
-                    </ol>
-                  </div>
-                )}
-                {analysis.dadosFaltantes?.length > 0 && (
-                  <div className="rounded-lg border border-blue-200 bg-blue-50/30 p-4">
-                    <p className="text-xs font-bold text-blue-800 mb-2">📋 Dados Faltantes</p>
-                    <ul className="list-disc list-inside space-y-1 text-xs text-foreground leading-relaxed">
-                      {analysis.dadosFaltantes.map((d: string, i: number) => <li key={i}>{d}</li>)}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Ressalvas & Dados Faltantes — agrupados em accordion para reduzir ruído visual */}
+            {(() => {
+              const ressalvasValid = analysis.ressalvas?.length > 0 && analysis.ressalvas[0] !== 'Sem ressalvas relevantes.';
+              const faltantesValid = analysis.dadosFaltantes?.length > 0;
+              if (!ressalvasValid && !faltantesValid) return null;
+              const totalCount = (ressalvasValid ? analysis.ressalvas.length : 0) + (faltantesValid ? analysis.dadosFaltantes.length : 0);
+              return (
+                <Accordion type="single" collapsible className="rounded-xl border border-amber-200 bg-amber-50/30">
+                  <AccordionItem value="atencao" className="border-b-0">
+                    <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                      <div className="flex items-center gap-2 text-left">
+                        <AlertTriangle className="h-4 w-4 text-amber-700" />
+                        <span className="text-sm font-bold text-amber-900">Pontos de atenção e dados pendentes</span>
+                        <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300 ml-1">{totalCount}</Badge>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-4">
+                      <div className="grid gap-4 md:grid-cols-2 items-start" data-testid="grid-ressalvas-faltantes">
+                        {ressalvasValid && (
+                          <div>
+                            <p className="text-xs font-bold text-amber-800 mb-2">Ressalvas</p>
+                            <ol className="list-decimal list-inside space-y-1 text-xs text-foreground leading-relaxed">
+                              {analysis.ressalvas.map((r: string, i: number) => <li key={i}>{r}</li>)}
+                            </ol>
+                          </div>
+                        )}
+                        {faltantesValid && (
+                          <div>
+                            <p className="text-xs font-bold text-blue-800 mb-2">Dados faltantes</p>
+                            <ul className="list-disc list-inside space-y-1 text-xs text-foreground leading-relaxed">
+                              {analysis.dadosFaltantes.map((d: string, i: number) => <li key={i}>{d}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              );
+            })()}
+
           </CardContent>
         </Card>
       )}
@@ -1216,17 +1232,24 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
   );
 }
 
-function AnalysisBlock({ icon: Icon, title, data, keyPoint }: {
-  icon: any; title: string; data: any; keyPoint?: string;
+function AnalysisBlock({ icon: Icon, title, data, keyPoint, defaultOpen = false }: {
+  icon: any; title: string; data: any; keyPoint?: string; defaultOpen?: boolean;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
   if (!data) return null;
   const hasAlerts = data.alertas?.length > 0;
+  const hasDetails = !!data.resumo || hasAlerts;
 
   return (
     <div className={cn('rounded-xl border bg-card p-4 space-y-2', hasAlerts && 'border-amber-200')}>
       <div className="flex items-center gap-2">
-        <Icon className="h-4 w-4 text-primary" />
+        <Icon className="h-4 w-4 text-primary shrink-0" />
         <p className="text-sm font-bold">{title}</p>
+        {hasAlerts && (
+          <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300 gap-1">
+            <AlertTriangle className="h-2.5 w-2.5" />{data.alertas.length}
+          </Badge>
+        )}
         {data.risco && (
           <Badge variant="outline" className={cn('text-[10px] ml-auto',
             data.risco === 'BAIXO' ? 'text-emerald-700 border-emerald-300' :
@@ -1237,16 +1260,32 @@ function AnalysisBlock({ icon: Icon, title, data, keyPoint }: {
         )}
       </div>
       {keyPoint && <p className="text-xs text-foreground font-semibold leading-relaxed">{keyPoint}</p>}
-      {data.resumo && <p className="text-xs text-muted-foreground leading-relaxed">{data.resumo}</p>}
-      {hasAlerts && (
-        <div className="space-y-1.5 mt-1">
-          {data.alertas.map((a: string, i: number) => (
-            <div key={i} className="flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
-              <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-              <span>{a}</span>
+      {hasDetails && (
+        <>
+          {open && (
+            <div className="space-y-2 pt-1">
+              {data.resumo && <p className="text-xs text-muted-foreground leading-relaxed">{data.resumo}</p>}
+              {hasAlerts && (
+                <div className="space-y-1.5">
+                  {data.alertas.map((a: string, i: number) => (
+                    <div key={i} className="flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                      <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                      <span>{a}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
-        </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setOpen(o => !o)}
+            className="flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            {open ? 'Ocultar detalhes' : 'Ver detalhes'}
+          </button>
+        </>
       )}
     </div>
   );
