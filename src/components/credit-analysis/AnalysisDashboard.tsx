@@ -1216,17 +1216,24 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
   );
 }
 
-function AnalysisBlock({ icon: Icon, title, data, keyPoint }: {
-  icon: any; title: string; data: any; keyPoint?: string;
+function AnalysisBlock({ icon: Icon, title, data, keyPoint, defaultOpen = false }: {
+  icon: any; title: string; data: any; keyPoint?: string; defaultOpen?: boolean;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
   if (!data) return null;
   const hasAlerts = data.alertas?.length > 0;
+  const hasDetails = !!data.resumo || hasAlerts;
 
   return (
     <div className={cn('rounded-xl border bg-card p-4 space-y-2', hasAlerts && 'border-amber-200')}>
       <div className="flex items-center gap-2">
-        <Icon className="h-4 w-4 text-primary" />
+        <Icon className="h-4 w-4 text-primary shrink-0" />
         <p className="text-sm font-bold">{title}</p>
+        {hasAlerts && (
+          <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300 gap-1">
+            <AlertTriangle className="h-2.5 w-2.5" />{data.alertas.length}
+          </Badge>
+        )}
         {data.risco && (
           <Badge variant="outline" className={cn('text-[10px] ml-auto',
             data.risco === 'BAIXO' ? 'text-emerald-700 border-emerald-300' :
@@ -1237,16 +1244,32 @@ function AnalysisBlock({ icon: Icon, title, data, keyPoint }: {
         )}
       </div>
       {keyPoint && <p className="text-xs text-foreground font-semibold leading-relaxed">{keyPoint}</p>}
-      {data.resumo && <p className="text-xs text-muted-foreground leading-relaxed">{data.resumo}</p>}
-      {hasAlerts && (
-        <div className="space-y-1.5 mt-1">
-          {data.alertas.map((a: string, i: number) => (
-            <div key={i} className="flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
-              <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-              <span>{a}</span>
+      {hasDetails && (
+        <>
+          {open && (
+            <div className="space-y-2 pt-1">
+              {data.resumo && <p className="text-xs text-muted-foreground leading-relaxed">{data.resumo}</p>}
+              {hasAlerts && (
+                <div className="space-y-1.5">
+                  {data.alertas.map((a: string, i: number) => (
+                    <div key={i} className="flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                      <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                      <span>{a}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
-        </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setOpen(o => !o)}
+            className="flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            {open ? 'Ocultar detalhes' : 'Ver detalhes'}
+          </button>
+        </>
       )}
     </div>
   );
