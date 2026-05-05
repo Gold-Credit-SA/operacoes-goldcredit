@@ -436,13 +436,26 @@ export default function CedenteConsulta() {
             risco: parseFloat(cedente.risco_atual) || 0,
             saldo: parseFloat(cedente.saldo) || 0,
           },
-          confirmacao: {
-            confirmado: { qtd: titulosAberto.filter((t: any) => t.conf === 'Confirmado' || t.conf === 'C').length, valor: titulosAberto.filter((t: any) => t.conf === 'Confirmado' || t.conf === 'C').reduce((a: number, t: any) => a + (parseFloat(t.valor) || 0), 0), percentual: 0 },
-            parcial: { qtd: titulosAberto.filter((t: any) => t.conf === 'Parcial' || t.conf === 'P').length, valor: titulosAberto.filter((t: any) => t.conf === 'Parcial' || t.conf === 'P').reduce((a: number, t: any) => a + (parseFloat(t.valor) || 0), 0), percentual: 0 },
-            pendente: { qtd: titulosAberto.filter((t: any) => t.conf === 'Pendente' || t.conf === 'N').length, valor: titulosAberto.filter((t: any) => t.conf === 'Pendente' || t.conf === 'N').reduce((a: number, t: any) => a + (parseFloat(t.valor) || 0), 0), percentual: 0 },
-            semConfirmacao: { qtd: titulosAberto.filter((t: any) => !t.conf || t.conf === '').length, valor: titulosAberto.filter((t: any) => !t.conf || t.conf === '').reduce((a: number, t: any) => a + (parseFloat(t.valor) || 0), 0), percentual: 0 },
-            total: { qtd: titulosAberto.length, valor: carteiraTotal },
-          },
+          confirmacao: (() => {
+            const norm = (c: any) => String(c ?? '').trim().toUpperCase();
+            const confirmadoArr = titulosAberto.filter((t: any) => ['C', 'CONFIRMADO'].includes(norm(t.conf)));
+            const parcialArr = titulosAberto.filter((t: any) => ['CI', 'PARCIAL'].includes(norm(t.conf)));
+            const pendenteArr = titulosAberto.filter((t: any) => ['P', 'PENDENTE', 'N'].includes(norm(t.conf)));
+            const semArr = titulosAberto.filter((t: any) => {
+              const n = norm(t.conf);
+              return n === '' || !['C', 'CONFIRMADO', 'CI', 'PARCIAL', 'P', 'PENDENTE', 'N'].includes(n);
+            });
+            const sumValor = (arr: any[]) => arr.reduce((a: number, t: any) => a + (parseFloat(t.valor) || 0), 0);
+            const totalQtd = titulosAberto.length;
+            const pct = (q: number) => totalQtd > 0 ? (q / totalQtd) * 100 : 0;
+            return {
+              confirmado: { qtd: confirmadoArr.length, valor: sumValor(confirmadoArr), percentual: pct(confirmadoArr.length) },
+              parcial: { qtd: parcialArr.length, valor: sumValor(parcialArr), percentual: pct(parcialArr.length) },
+              pendente: { qtd: pendenteArr.length, valor: sumValor(pendenteArr), percentual: pct(pendenteArr.length) },
+              semConfirmacao: { qtd: semArr.length, valor: sumValor(semArr), percentual: pct(semArr.length) },
+              total: { qtd: totalQtd, valor: carteiraTotal },
+            };
+          })(),
           carteira: {
             total: carteiraTotal,
             vencidos: carteiraVencida,
