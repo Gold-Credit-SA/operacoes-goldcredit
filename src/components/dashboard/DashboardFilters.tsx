@@ -43,7 +43,7 @@ export function DashboardFilters({ filters, onFilterChange, onClearFilters }: Da
           )}
         </div>
         
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <div className="space-y-2">
             <Label htmlFor="cedente" className="text-xs">Cedente</Label>
             <Input

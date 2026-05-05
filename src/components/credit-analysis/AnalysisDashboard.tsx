@@ -747,7 +747,7 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
             )}
 
             {/* Score + KPIs */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
               {/* Score card - larger */}
               <div className="rounded-xl border-2 bg-card p-4 text-center col-span-1 row-span-1">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Score</p>
@@ -831,7 +831,7 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
             </div>
 
             {/* Row 2: Operational metrics */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
               {smartData.concentracaoSacado != null && (
                 <KPICard label="Concentração Sacado" value={`${smartData.concentracaoSacado}%`} icon={Users}
                   sub="Nesta operação"

@@ -88,7 +88,7 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
       {statsCards.map((stat) => (
         <Card key={stat.title} className="animate-fade-in">
           <CardContent className="p-4">
