@@ -639,7 +639,7 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
         {scrData && (
           <div className="space-y-5">
             {/* KPIs */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
               <KPICard label="Carteira Ativa" value={fmt(scrData.totalCarteira)} icon={CreditCard} />
               <KPICard label="A Vencer" value={fmt(scrData.totalAVencer)} icon={TrendingUp} color="text-primary" />
               <KPICard label="Vencido" value={fmt(scrData.totalVencido)} icon={TrendingDown}
@@ -747,7 +747,7 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
             )}
 
             {/* Score + KPIs */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
               {/* Score card - larger */}
               <div className="rounded-xl border-2 bg-card p-4 text-center col-span-1 row-span-1">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Score</p>
@@ -818,7 +818,7 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
         {smartData && (
           <div className="space-y-5">
             {/* Row 1: Core KPIs */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
               <KPICard label="Limite Global" value={smartData.limiteGlobal > 0 ? fmt(smartData.limiteGlobal) : '—'} icon={CreditCard} />
               <KPICard label="Risco Atual" value={smartData.riscoAtual > 0 ? fmt(smartData.riscoAtual) : '—'} icon={AlertTriangle}
                 color={smartData.utilizacao && smartData.utilizacao > 80 ? 'text-destructive' : undefined} />
@@ -831,7 +831,7 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
             </div>
 
             {/* Row 2: Operational metrics */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
               {smartData.concentracaoSacado != null && (
                 <KPICard label="Concentração Sacado" value={`${smartData.concentracaoSacado}%`} icon={Users}
                   sub="Nesta operação"

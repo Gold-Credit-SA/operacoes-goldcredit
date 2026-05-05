@@ -243,7 +243,7 @@ function SacadoDetailView({
           ))}
         </div>
       ) : resumo ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
           <KpiCard icon={DollarSign} label="Exposição Aberta" value={formatCurrency(resumo.total_aberto)} color="text-red-500" />
           <KpiCard icon={FileText} label="Títulos Abertos" value={String(resumo.qtd_aberto)} color="text-yellow-500" />
           <KpiCard icon={TrendingUp} label="Total Quitado" value={formatCurrency(resumo.total_quitado)} color="text-green-500" />

@@ -123,7 +123,7 @@ export function ResumoExpandido({ resumoExpandido, limites }: ResumoExpandidoPro
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
           {metrics.map((metric, index) => (
             <div
               key={index}
