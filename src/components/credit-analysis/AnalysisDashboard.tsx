@@ -639,7 +639,7 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
         {scrData && (
           <div className="space-y-5">
             {/* KPIs */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
               <KPICard label="Carteira Ativa" value={fmt(scrData.totalCarteira)} icon={CreditCard} />
               <KPICard label="A Vencer" value={fmt(scrData.totalAVencer)} icon={TrendingUp} color="text-primary" />
               <KPICard label="Vencido" value={fmt(scrData.totalVencido)} icon={TrendingDown}
@@ -818,7 +818,7 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
         {smartData && (
           <div className="space-y-5">
             {/* Row 1: Core KPIs */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
               <KPICard label="Limite Global" value={smartData.limiteGlobal > 0 ? fmt(smartData.limiteGlobal) : '—'} icon={CreditCard} />
               <KPICard label="Risco Atual" value={smartData.riscoAtual > 0 ? fmt(smartData.riscoAtual) : '—'} icon={AlertTriangle}
                 color={smartData.utilizacao && smartData.utilizacao > 80 ? 'text-destructive' : undefined} />
