@@ -55,8 +55,6 @@ export function CedenteInfoPanel({ data }: CedenteInfoPanelProps) {
         </div>
       )}
 
-      <AnaliseIA data={data} />
-
       <DadosEmpresa cedente={data.cedente} resumo={data.resumo} />
 
       {data.resumoExpandido && (
@@ -84,6 +82,8 @@ export function CedenteInfoPanel({ data }: CedenteInfoPanelProps) {
       <OperacoesRecentes operacoes={data.ultimasOperacoes} />
 
       <SuspeitaFraude suspeitasFraude={data.suspeitasFraude} />
+
+      <AnaliseIA data={data} />
 
       {data.cedente?.cpf_cnpj && (
         <EntityNotes
