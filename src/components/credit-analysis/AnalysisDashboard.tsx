@@ -854,41 +854,8 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
               )}
             </div>
 
-            {/* Row 3: Info cards + Concentration + Limits */}
-            <div className={cn('grid gap-4 items-stretch', sacadoConcentracao.length > 0 ? 'md:grid-cols-2' : 'grid-cols-1')} data-testid="grid-cedente-concentracao">
-              {/* Info panel */}
-              <div className="space-y-2 flex flex-col">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Informações do Cedente</p>
-                <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2 text-sm flex-1">
-                  {smartData.setor && (
-                    <div className="flex justify-between"><span className="text-muted-foreground">Setor</span><span className="font-medium">{smartData.setor}</span></div>
-                  )}
-                  {smartData.gerente && (
-                    <div className="flex justify-between"><span className="text-muted-foreground">Gerente</span><span className="font-medium">{smartData.gerente}</span></div>
-                  )}
-                  {smartData.captador && (
-                    <div className="flex justify-between"><span className="text-muted-foreground">Captador</span><span className="font-medium">{smartData.captador}</span></div>
-                  )}
-                  {smartData.dataCadastro && (
-                    <div className="flex justify-between"><span className="text-muted-foreground">Cadastro</span><span className="font-medium">{new Date(smartData.dataCadastro).toLocaleDateString('pt-BR')}</span></div>
-                  )}
-                  {smartData.primeiraOperacao && (
-                    <div className="flex justify-between"><span className="text-muted-foreground">1ª Operação</span><span className="font-medium">{new Date(smartData.primeiraOperacao).toLocaleDateString('pt-BR')}</span></div>
-                  )}
-                  {smartData.vencimentoContrato && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Venc. Contrato</span>
-                      <span className={cn('font-medium', smartData.diasContrato != null && smartData.diasContrato < 30 ? 'text-destructive' : '')}>
-                        {new Date(smartData.vencimentoContrato).toLocaleDateString('pt-BR')}
-                        {smartData.diasContrato != null && (
-                          <span className="text-xs ml-1">({smartData.diasContrato}d)</span>
-                        )}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
+            {/* Row 3: Concentration on top, Info cards below */}
+            <div className="space-y-4" data-testid="grid-cedente-concentracao">
               {/* Concentration by sacado */}
               {sacadoConcentracao.length > 0 && (
                 <ChartCard title="Concentração por Sacado">
@@ -932,6 +899,39 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
                   </div>
                 </ChartCard>
               )}
+
+              {/* Info panel */}
+              <div className="space-y-2 flex flex-col">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Informações do Cedente</p>
+                <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2 text-sm flex-1">
+                  {smartData.setor && (
+                    <div className="flex justify-between"><span className="text-muted-foreground">Setor</span><span className="font-medium">{smartData.setor}</span></div>
+                  )}
+                  {smartData.gerente && (
+                    <div className="flex justify-between"><span className="text-muted-foreground">Gerente</span><span className="font-medium">{smartData.gerente}</span></div>
+                  )}
+                  {smartData.captador && (
+                    <div className="flex justify-between"><span className="text-muted-foreground">Captador</span><span className="font-medium">{smartData.captador}</span></div>
+                  )}
+                  {smartData.dataCadastro && (
+                    <div className="flex justify-between"><span className="text-muted-foreground">Cadastro</span><span className="font-medium">{new Date(smartData.dataCadastro).toLocaleDateString('pt-BR')}</span></div>
+                  )}
+                  {smartData.primeiraOperacao && (
+                    <div className="flex justify-between"><span className="text-muted-foreground">1ª Operação</span><span className="font-medium">{new Date(smartData.primeiraOperacao).toLocaleDateString('pt-BR')}</span></div>
+                  )}
+                  {smartData.vencimentoContrato && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Venc. Contrato</span>
+                      <span className={cn('font-medium', smartData.diasContrato != null && smartData.diasContrato < 30 ? 'text-destructive' : '')}>
+                        {new Date(smartData.vencimentoContrato).toLocaleDateString('pt-BR')}
+                        {smartData.diasContrato != null && (
+                          <span className="text-xs ml-1">({smartData.diasContrato}d)</span>
+                        )}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Limits breakdown chart */}
