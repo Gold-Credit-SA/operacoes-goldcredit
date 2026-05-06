@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { parseNfeXml, type NotaFiscalXml } from '@/lib/xml-nfe-parser';
 import { extractTextFromPdf } from '@/lib/pdf-extractor';
+import { parseDanfePdfText } from '@/lib/pdf-danfe-parser';
 import { PageLoadingSkeleton } from '@/components/ui/PageLoadingSkeleton';
 
 // ─── Types ───
@@ -493,7 +494,18 @@ export default function AnaliseCredito() {
           setDocuments(prev => [...prev, { id, fileName: file.name, type: 'xml', content, parsedNfe }]);
         } else if (ext === 'pdf') {
           const text = await extractTextFromPdf(file);
-          setDocuments(prev => [...prev, { id, fileName: file.name, type: 'pdf', content: text }]);
+          // Try to detect DANFE and extract structured fields so the AI sees the same shape as XML
+          let parsedNfe: NotaFiscalXml | undefined;
+          try {
+            const danfe = parseDanfePdfText(text);
+            if (danfe) parsedNfe = danfe;
+          } catch (e) {
+            console.warn('Falha ao parsear DANFE PDF:', e);
+          }
+          setDocuments(prev => [...prev, { id, fileName: file.name, type: 'pdf', content: text, parsedNfe }]);
+          if (parsedNfe) {
+            toast.success(`DANFE detectada: NF ${parsedNfe.numero} · ${parsedNfe.sacado.nome}`);
+          }
         } else if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
           const reader = new FileReader();
           reader.onload = () => {

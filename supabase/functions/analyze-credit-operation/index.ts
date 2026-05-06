@@ -55,6 +55,13 @@ IMPORTANTE: Adapte a análise ao TIPO de título:
 - DUPLICATAS/NOTAS: Exigem lastro documental (NF-e, pedido, canhoto). Avaliar consistência entre NF e título, se parece performado, se há contrato.
 - BOLETOS/OUTROS: Avaliar conforme documentação disponível.
 
+LEITURA DE DOCUMENTOS NF-e / DANFE (CRÍTICO):
+- Quando o documento tiver "parsedNfe", USE ESSE OBJETO COMO VERDADE para emitente, sacado, número da NF, valor (vNF) e data de emissão. NÃO infira esses dados a partir do texto bruto.
+- Documentos PDF identificados como DANFE (Documento Auxiliar da Nota Fiscal Eletrônica) seguem layout fixo: o "EMITENTE" é o CEDENTE; o "DESTINATÁRIO/REMETENTE" é o SACADO. NUNCA inverta os papéis.
+- A "CHAVE DE ACESSO" tem 44 dígitos. O número da NF aparece como "Nº X.XXX" e a série como "Série N".
+- O "VALOR TOTAL DA NOTA" é o valor da operação. Não use o "VALOR TOTAL DOS PRODUTOS" (que pode divergir por frete/IPI).
+- Se o documento for XML/DANFE e o cedente cadastrado for diferente do EMITENTE da NF, sinalizar como ALERTA crítico (possível operação com lastro de terceiros).
+
 Avalie: quantidade de títulos, valor total, ticket médio, prazo médio e máximo, concentração por sacado, compatibilidade com histórico, documentação pertinente ao tipo de título, risco de título frio/simulado, exposição total frente ao perfil do cedente e sacados.
 Perguntas-chave: Os títulos são compatíveis com o perfil da operação? O prazo está saudável? O valor está aceitável? Existe concentração excessiva em um único sacado?
 
