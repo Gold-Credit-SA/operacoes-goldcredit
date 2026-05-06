@@ -977,18 +977,7 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
               </div>
             )}
 
-            {/* Operation metrics — destaque */}
-            <div>
-              <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-2 flex items-center gap-1.5">
-                <BarChart3 className="h-3 w-3" /> Indicadores da Operação
-              </p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <KPICard icon={DollarSign} label="Valor Operação" value={analysis?.blocos?.titulosLastro?.detalhes?.valorTotal || '—'} color="text-primary" />
-                <KPICard icon={FileText} label="Qtd. Títulos" value={analysis?.blocos?.titulosLastro?.detalhes?.quantidadeTitulos || '—'} />
-                <KPICard icon={Clock} label="Prazo Médio" value={analysis?.blocos?.titulosLastro?.detalhes?.prazoMedio || '—'} />
-                <KPICard icon={Activity} label="Ticket Médio" value={analysis?.blocos?.titulosLastro?.detalhes?.ticketMedio || '—'} />
-              </div>
-            </div>
+            {/* Indicadores da operação já são exibidos no sidebar do memorando executivo acima. */}
 
             {/* Analysis blocks — Cedente + Sacados side by side */}
             <div className="grid md:grid-cols-2 gap-4 items-start" data-testid="grid-cedente-sacados">
