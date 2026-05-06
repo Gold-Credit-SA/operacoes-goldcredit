@@ -969,9 +969,9 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
 
             {/* Resumo sacados multi */}
             {analysis.resumoSacados && (
-              <div className="rounded-lg bg-blue-50/50 border border-blue-200 px-4 py-2.5">
-                <p className="text-xs font-semibold text-blue-800 flex items-center gap-1.5">
-                  <Users className="h-3.5 w-3.5" />
+              <div className="rounded-md border-l-2 px-4 py-2.5 bg-[#fdf6e3]/50" style={{ borderColor: '#e5b970' }}>
+                <p className="text-xs leading-relaxed text-foreground/85 flex items-center gap-2">
+                  <Users className="h-3.5 w-3.5 shrink-0" style={{ color: '#a07d2a' }} />
                   {analysis.resumoSacados}
                 </p>
               </div>
