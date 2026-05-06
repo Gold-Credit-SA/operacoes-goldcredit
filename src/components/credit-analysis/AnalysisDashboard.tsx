@@ -1034,20 +1034,24 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
                   }>
                     {analysis.blocos.sacados.map((sacado: any, idx: number) => (
                       <AccordionItem key={idx} value={`sacado-${idx}`} className="border-b-0">
-                        <AccordionTrigger className="py-2 hover:no-underline">
-                          <div className="flex items-center gap-2 text-left flex-1 min-w-0">
-                            <Badge variant="outline" className={cn('text-[10px] shrink-0',
+                        <AccordionTrigger className="py-2 hover:no-underline gap-2">
+                          <div className="flex items-start gap-2 text-left flex-1 min-w-0">
+                            <Badge variant="outline" className={cn('text-[10px] shrink-0 mt-0.5',
                               sacado.risco === 'BAIXO' ? 'text-emerald-700 border-emerald-300' :
                               sacado.risco === 'MEDIO' ? 'text-amber-700 border-amber-300' : 'text-red-700 border-red-300'
                             )}>
                               {sacado.risco || '—'}
                             </Badge>
-                            <span className="text-xs font-medium truncate">{sacado.nome || `Sacado ${idx + 1}`}</span>
-                            {sacado.percentualOperacao && (
-                              <span className="text-[10px] text-muted-foreground shrink-0 ml-auto mr-2">
-                                {sacado.valorExposicao} ({sacado.percentualOperacao})
-                              </span>
-                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate" title={sacado.nome || ''}>
+                                {sacado.nome || `Sacado ${idx + 1}`}
+                              </p>
+                              {sacado.percentualOperacao && (
+                                <p className="text-[10px] text-muted-foreground truncate">
+                                  {sacado.valorExposicao} ({sacado.percentualOperacao})
+                                </p>
+                              )}
+                            </div>
                           </div>
                         </AccordionTrigger>
                         <AccordionContent>
