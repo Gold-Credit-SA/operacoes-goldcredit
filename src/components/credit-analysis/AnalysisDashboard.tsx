@@ -1565,13 +1565,6 @@ function ParecerMemorando({
       <div className="h-1" style={{ background: `linear-gradient(90deg, ${GOLD_DARK}, ${GOLD}, ${GOLD_DARK})` }} />
       <div className="grid gap-0 lg:grid-cols-[1fr_320px]">
         <div className="space-y-5 p-7 sm:p-8">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em]" style={{ color: GOLD_DARK }}>
-              <FileText className="h-3 w-3" />
-              Memorando de Crédito · {today}
-            </div>
-          </div>
-
           <div>
             <div className="flex items-baseline gap-3">
               <span className={cn('inline-block h-2.5 w-2.5 rounded-full', decConfig.color.replace('text-', 'bg-').replace('-700', '-500'))} />
