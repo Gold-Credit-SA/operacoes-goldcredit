@@ -20,9 +20,22 @@ function getPlatformForConsulta(id: ConsultaTypeId): string {
 }
 
 export default function Consultas() {
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState<Step>('cnpj');
   const [cnpj, setCnpj] = useState('');
   const [selectedConsultas, setSelectedConsultas] = useState<ConsultaTypeId[]>([]);
+
+  // Auto-fill CPF/CNPJ from query string (e.g. when opened from credit analysis)
+  useEffect(() => {
+    const doc = searchParams.get('cpfCnpj') || searchParams.get('doc');
+    if (doc) {
+      const digits = doc.replace(/\D/g, '');
+      if (digits.length === 11 || digits.length === 14) {
+        setCnpj(digits);
+        setStep('selection');
+      }
+    }
+  }, [searchParams]);
 
   const handleCnpjConfirm = useCallback((value: string) => {
     setCnpj(value);
