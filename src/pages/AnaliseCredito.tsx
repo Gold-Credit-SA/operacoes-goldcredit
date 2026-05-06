@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { parseNfeXml, type NotaFiscalXml } from '@/lib/xml-nfe-parser';
 import { extractTextFromPdf } from '@/lib/pdf-extractor';
+import { parseDanfePdfText } from '@/lib/pdf-danfe-parser';
 import { PageLoadingSkeleton } from '@/components/ui/PageLoadingSkeleton';
 
 // ─── Types ───
