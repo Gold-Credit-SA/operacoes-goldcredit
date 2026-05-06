@@ -38,6 +38,7 @@ import { CedenteInfoPanel } from '@/components/consulta/CedenteInfoPanel';
 import { SacadoSmartView } from '@/components/clientes/SacadoSmartView';
 
 import { ClienteCreditoConsolidadoCard } from '@/components/clientes/ClienteCreditoConsolidadoCard';
+import { ClienteAICompilationCard } from '@/components/clientes/ClienteAICompilationCard';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 import { PageLoadingSkeleton } from '@/components/ui/PageLoadingSkeleton';
 
@@ -1177,6 +1178,13 @@ export default function ClienteDetail() {
           client={client}
           history={history as unknown as { id: string; cnpj: string; entity_name: string | null; consulta_label: string; consulta_type: string; platform: string; result_data: Record<string, unknown> | null; created_at: string; status: string; }[]}
         />
+
+        <ClienteAICompilationCard
+          client={client}
+          history={history as unknown as Parameters<typeof ClienteAICompilationCard>[0]['history']}
+          agriskOverview={null}
+        />
+
       </div>
 
       {/* Consulta Modal */}
