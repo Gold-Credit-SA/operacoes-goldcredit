@@ -1502,6 +1502,7 @@ function ParecerMemorando({
     { label: 'Valor operação', value: titulos.valorTotal || '—', icon: <DollarSign className="h-3.5 w-3.5" /> },
     { label: 'Qtd. títulos', value: titulos.quantidadeTitulos || '—', icon: <FileText className="h-3.5 w-3.5" /> },
     { label: 'Prazo médio', value: titulos.prazoMedio || '—', icon: <Clock className="h-3.5 w-3.5" /> },
+    { label: 'Ticket médio', value: titulos.ticketMedio || '—', icon: <Activity className="h-3.5 w-3.5" /> },
   ];
 
   return (
