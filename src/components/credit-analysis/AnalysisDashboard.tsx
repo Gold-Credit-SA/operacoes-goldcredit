@@ -952,43 +952,20 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
       </SectionCard>
 
       {/* ═══════════════════════════════════════════════════════ */}
-      {/* 4) PARECER TÉCNICO / ANALÍTICO                         */}
+      {/* 4) PARECER EXECUTIVO — MEMORANDO                       */}
       {/* ═══════════════════════════════════════════════════════ */}
       {analysis && (
-        <Card className="border-2 overflow-hidden">
-          {/* HERO — Decisão em destaque */}
-          <div className={cn('border-b-2 px-6 py-5', decConfig.bg)}>
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-4">
-                <div className={cn('rounded-2xl bg-white/70 p-3 shadow-sm border', decConfig.color.replace('text-', 'border-').replace('-700', '-300'))}>
-                  <DecIcon className={cn('h-8 w-8', decConfig.color)} />
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground flex items-center gap-1.5">
-                    <FileText className="h-3 w-3" /> Parecer da Análise
-                  </p>
-                  <p className={cn('text-2xl font-black leading-tight', decConfig.color)}>{decConfig.label}</p>
-                  {analysis.parecer && (
-                    <p className="text-xs text-foreground/70 mt-1 max-w-2xl leading-relaxed line-clamp-2">{analysis.parecer}</p>
-                  )}
-                </div>
-              </div>
+        <ParecerMemorando
+          analysis={analysis}
+          decConfig={decConfig}
+          DecIcon={DecIcon}
+          clientName={clientName}
+        />
+      )}
 
-              {/* Risk Gauge */}
-              {analysis.riscoGeral && (
-                <RiskGauge level={analysis.riscoGeral} />
-              )}
-            </div>
-          </div>
-
+      {analysis && (
+        <Card className="border-border overflow-hidden">
           <CardContent className="space-y-5 pt-5">
-            {/* Parecer completo (expandido) */}
-            {analysis.parecer && analysis.parecer.length > 180 && (
-              <div className="rounded-xl border bg-muted/30 p-4 border-l-4 border-l-primary">
-                <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-2">Parecer Completo</p>
-                <p className="text-sm leading-relaxed text-foreground">{analysis.parecer}</p>
-              </div>
-            )}
 
             {/* Resumo sacados multi */}
             {analysis.resumoSacados && (
