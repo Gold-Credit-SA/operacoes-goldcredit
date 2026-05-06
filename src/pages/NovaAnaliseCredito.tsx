@@ -444,13 +444,38 @@ export default function NovaAnaliseCredito() {
               </div>
             </div>
 
-            {/* List selected sacados */}
-            <div className="flex flex-wrap gap-2">
-              {selectedClientes.map(c => (
-                <Badge key={c.id} variant="outline" className="text-xs">
-                  {c.name || c.cpf_cnpj}
-                </Badge>
-              ))}
+            {/* Sacados + status de consultas + ação para consultar */}
+            <div className="space-y-2">
+              {selectedClientes.map(c => {
+                const consultasDoSacado = consultasDisponiveis.filter(co => co.clientCpfCnpj === c.cpf_cnpj);
+                return (
+                  <div key={c.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                    <Users className="h-4 w-4 text-primary shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{c.name || c.cpf_cnpj}</p>
+                      <p className="text-xs text-muted-foreground font-mono">{c.cpf_cnpj}</p>
+                    </div>
+                    {consultasDoSacado.length > 0 ? (
+                      <Badge variant="outline" className="text-[10px] shrink-0">
+                        {consultasDoSacado.length} consulta(s)
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] shrink-0 border-amber-300 text-amber-700 bg-amber-50">
+                        Sem consultas
+                      </Badge>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 shrink-0"
+                      onClick={() => window.open(`/consultas?cpfCnpj=${encodeURIComponent(c.cpf_cnpj)}`, '_blank')}
+                    >
+                      <Search className="h-3.5 w-3.5" />
+                      Consultar
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
 
             <Card>
