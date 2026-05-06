@@ -964,193 +964,241 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
         />
       )}
 
-      {analysis && (
-        <Card className="border-border overflow-hidden">
-          <CardContent className="space-y-5 pt-5">
+      {analysis && (() => {
+        const sacadosArr: any[] = Array.isArray(analysis?.blocos?.sacados) ? analysis.blocos.sacados : [];
+        const isMulti = sacadosArr.length > 0;
+        const ressalvasValid = analysis.ressalvas?.length > 0 && analysis.ressalvas[0] !== 'Sem ressalvas relevantes.';
+        const faltantesValid = analysis.dadosFaltantes?.length > 0;
+        const atencaoCount =
+          (ressalvasValid ? analysis.ressalvas.length : 0) +
+          (faltantesValid ? analysis.dadosFaltantes.length : 0) +
+          crossAlerts.length;
+        const sacadoAlertCount = isMulti
+          ? sacadosArr.reduce((acc, s) => acc + (s.alertas?.length || 0) + (s.relacaoComCedente?.alertas?.length || 0), 0)
+          : (analysis?.blocos?.sacado?.alertas?.length || 0);
+        const cedenteAlertCount = analysis?.blocos?.cedente?.alertas?.length || 0;
+        const titulosAlertCount = analysis?.blocos?.titulosLastro?.alertas?.length || 0;
 
-            {/* Resumo sacados multi */}
-            {analysis.resumoSacados && (
-              <div className="rounded-md border-l-2 px-4 py-2.5 bg-[#fdf6e3]/50" style={{ borderColor: '#e5b970' }}>
-                <p className="text-xs leading-relaxed text-foreground/85 flex items-center gap-2">
-                  <Users className="h-3.5 w-3.5 shrink-0" style={{ color: '#a07d2a' }} />
-                  {analysis.resumoSacados}
+        return (
+          <Card className="border-border overflow-hidden">
+            {/* Institutional gold header */}
+            <div
+              className="px-5 py-3 border-b border-border flex items-center gap-3"
+              style={{ background: 'linear-gradient(90deg, #fdf6e3 0%, #ffffff 100%)' }}
+            >
+              <div className="h-8 w-1 rounded-full" style={{ background: '#e5b970' }} />
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.22em]" style={{ color: '#a07d2a' }}>
+                  Parecer Estruturado
+                </p>
+                <p className="text-sm font-semibold text-foreground truncate">
+                  Cedente · Sacados · Títulos · Pontos de Atenção
                 </p>
               </div>
-            )}
-
-            {/* Indicadores da operação já são exibidos no sidebar do memorando executivo acima. */}
-
-            {/* Analysis blocks — Cedente + Sacados side by side */}
-            <div className="grid md:grid-cols-2 gap-4 items-start" data-testid="grid-cedente-sacados">
-              <AnalysisBlock icon={Building2} title="Cedente" data={analysis?.blocos?.cedente} keyPoint={analysis?.pontosChave?.cedente} />
-
-              {/* Multi-sacado: render each sacado in accordion */}
-              {Array.isArray(analysis?.blocos?.sacados) && analysis.blocos.sacados.length > 0 ? (
-                <div className="rounded-xl border border-border bg-white p-5 space-y-3 h-full">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 shrink-0" style={{ color: '#a07d2a' }} />
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-foreground">
-                      Sacados <span className="text-muted-foreground font-normal">({analysis.blocos.sacados.length})</span>
-                    </p>
-                  </div>
-                  {analysis.pontosChave?.sacados && (
-                    <p className="text-sm leading-relaxed text-foreground/90">{analysis.pontosChave.sacados}</p>
-                  )}
-                  <Accordion type="multiple" className="border-t border-border/60 pt-1" defaultValue={
-                    analysis.blocos.sacados
-                      .filter((s: any) => s.risco === 'ALTO' || s.risco === 'MEDIO')
-                      .map((_: any, i: number) => `sacado-${i}`)
-                  }>
-                    {analysis.blocos.sacados.map((sacado: any, idx: number) => {
-                      const tone =
-                        sacado.risco === 'BAIXO' ? 'text-emerald-700 border-emerald-200 bg-emerald-50' :
-                        sacado.risco === 'MEDIO' ? 'text-[#a07d2a] border-[#e5b970]/50 bg-[#fdf6e3]' :
-                        sacado.risco === 'ALTO' ? 'text-red-700 border-red-200 bg-red-50' :
-                        'text-muted-foreground border-border bg-muted/40';
-                      return (
-                      <AccordionItem key={idx} value={`sacado-${idx}`} className="border-b border-border/60 last:border-b-0">
-                        <AccordionTrigger className="py-2.5 hover:no-underline gap-2">
-                          <div className="flex items-center gap-2 text-left flex-1 min-w-0">
-                            <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider', tone)}>
-                              {sacado.risco || '—'}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-foreground truncate" title={sacado.nome || ''}>
-                                {sacado.nome || `Sacado ${idx + 1}`}
-                              </p>
-                              {sacado.percentualOperacao && (
-                                <p className="text-[11px] text-muted-foreground truncate">
-                                  {sacado.valorExposicao} · {sacado.percentualOperacao}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent>
-                          <div className="space-y-2.5 pl-1 pb-1">
-                            {sacado.cpfCnpj && (
-                              <p className="text-[10px] text-muted-foreground font-mono tracking-wider">{sacado.cpfCnpj}</p>
-                            )}
-                            {sacado.resumo && (
-                              <p className="text-xs leading-relaxed text-foreground/85">{sacado.resumo}</p>
-                            )}
-                            {sacado.alertas?.length > 0 && (
-                              <div className="space-y-1.5">
-                                {sacado.alertas.map((a: string, i: number) => (
-                                  <div key={i} className="flex items-start gap-2 text-[11px] leading-relaxed text-foreground/85 rounded-md border border-[#e5b970]/40 bg-[#fdf6e3]/60 px-2.5 py-1.5">
-                                    <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" style={{ color: '#a07d2a' }} />
-                                    <span>{a}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            {sacado.relacaoComCedente && (
-                              <div className="rounded-md border border-border/70 bg-muted/30 p-2.5 space-y-1.5 mt-1">
-                                <p className="text-[10px] font-bold uppercase tracking-[0.16em] flex items-center gap-1" style={{ color: '#a07d2a' }}>
-                                  <TrendingUp className="h-3 w-3" /> Relação Comercial
-                                </p>
-                                {sacado.relacaoComCedente.resumo && (
-                                  <p className="text-xs leading-relaxed text-foreground/85">{sacado.relacaoComCedente.resumo}</p>
-                                )}
-                                {sacado.relacaoComCedente.alertas?.length > 0 && sacado.relacaoComCedente.alertas.map((a: string, i: number) => (
-                                  <div key={i} className="flex items-start gap-2 text-[11px] leading-relaxed text-foreground/85 rounded-md border border-[#e5b970]/40 bg-[#fdf6e3]/60 px-2 py-1">
-                                    <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" style={{ color: '#a07d2a' }} />
-                                    <span>{a}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    );
-                    })}
-                  </Accordion>
-                </div>
-              ) : (
-                /* Backward compat: old single sacado format */
-                <AnalysisBlock icon={Users} title="Sacado" data={analysis?.blocos?.sacado} keyPoint={analysis?.pontosChave?.sacado} />
+              {analysis.resumoSacados && isMulti && (
+                <Badge variant="outline" className="text-[10px] border-[#e5b970]/60 bg-[#fdf6e3] text-[#a07d2a] font-semibold">
+                  {sacadosArr.length} sacados
+                </Badge>
               )}
             </div>
 
-            {/* Relação Comercial (legacy) + Títulos / Lastro — collapses to single column when only one block exists */}
-            {(() => {
-              const hasRelacao = !Array.isArray(analysis?.blocos?.sacados) && !!analysis?.blocos?.relacaoCedenteSacado;
-              return (
-                <div className={cn('grid gap-4 items-stretch', hasRelacao ? 'md:grid-cols-2' : 'grid-cols-1')} data-testid="grid-relacao-titulos">
-                  {hasRelacao && (
-                    <AnalysisBlock icon={TrendingUp} title="Relação Comercial" data={analysis?.blocos?.relacaoCedenteSacado} keyPoint={analysis?.pontosChave?.relacao} />
-                  )}
-                  <AnalysisBlock icon={CreditCard} title="Títulos / Lastro" data={analysis?.blocos?.titulosLastro} keyPoint={analysis?.pontosChave?.titulos} />
+            <CardContent className="pt-5 space-y-4">
+              {analysis.resumoSacados && (
+                <div className="rounded-md border-l-2 px-4 py-2.5 bg-[#fdf6e3]/50" style={{ borderColor: '#e5b970' }}>
+                  <p className="text-xs leading-relaxed text-foreground/85 flex items-center gap-2">
+                    <Users className="h-3.5 w-3.5 shrink-0" style={{ color: '#a07d2a' }} />
+                    {analysis.resumoSacados}
+                  </p>
                 </div>
-              );
-            })()}
+              )}
 
-            {/* Cross-referencing Alerts */}
-            {crossAlerts.length > 0 && (
-              <div className="rounded-xl border border-amber-300 bg-amber-50/50 p-4 space-y-2">
-                <p className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
-                  <AlertTriangle className="h-4 w-4" /> Alertas — Cruzamento entre Birôs
-                </p>
-                {crossAlerts.map((a, i) => (
-                  <div key={i} className={cn(
-                    'flex items-start gap-2 text-xs rounded-lg px-3 py-2 font-medium',
-                    a.severity === 'high' ? 'bg-red-100 text-red-800 border border-red-200' :
-                    a.severity === 'medium' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
-                    'bg-blue-100 text-blue-800 border border-blue-200'
-                  )}>
-                    <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                    {a.text}
-                  </div>
-                ))}
-              </div>
-            )}
+              <Tabs defaultValue="cedente" className="w-full">
+                <TabsList className="w-full justify-start gap-1 h-auto p-1 bg-muted/40 border border-border rounded-lg flex-wrap">
+                  <ParecerTab value="cedente" icon={Building2} label="Cedente" alerts={cedenteAlertCount} />
+                  <ParecerTab value="sacados" icon={Users} label={isMulti ? `Sacados (${sacadosArr.length})` : 'Sacado'} alerts={sacadoAlertCount} />
+                  <ParecerTab value="titulos" icon={CreditCard} label="Títulos / Lastro" alerts={titulosAlertCount} />
+                  <ParecerTab value="atencao" icon={AlertTriangle} label="Pontos de Atenção" alerts={atencaoCount} />
+                </TabsList>
 
-            {/* Ressalvas & Dados Faltantes — agrupados em accordion para reduzir ruído visual */}
-            {(() => {
-              const ressalvasValid = analysis.ressalvas?.length > 0 && analysis.ressalvas[0] !== 'Sem ressalvas relevantes.';
-              const faltantesValid = analysis.dadosFaltantes?.length > 0;
-              if (!ressalvasValid && !faltantesValid) return null;
-              const totalCount = (ressalvasValid ? analysis.ressalvas.length : 0) + (faltantesValid ? analysis.dadosFaltantes.length : 0);
-              return (
-                <Accordion type="single" collapsible className="rounded-xl border border-amber-200 bg-amber-50/30">
-                  <AccordionItem value="atencao" className="border-b-0">
-                    <AccordionTrigger className="px-4 py-3 hover:no-underline">
-                      <div className="flex items-center gap-2 text-left">
-                        <AlertTriangle className="h-4 w-4 text-amber-700" />
-                        <span className="text-sm font-bold text-amber-900">Pontos de atenção e dados pendentes</span>
-                        <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300 ml-1">{totalCount}</Badge>
+                {/* Cedente */}
+                <TabsContent value="cedente" className="mt-4">
+                  <AnalysisBlock icon={Building2} title="Cedente" data={analysis?.blocos?.cedente} keyPoint={analysis?.pontosChave?.cedente} defaultOpen />
+                </TabsContent>
+
+                {/* Sacados */}
+                <TabsContent value="sacados" className="mt-4 space-y-3">
+                  {isMulti ? (
+                    <div className="rounded-xl border border-border bg-white p-5 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 shrink-0" style={{ color: '#a07d2a' }} />
+                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-foreground">
+                          Sacados <span className="text-muted-foreground font-normal">({sacadosArr.length})</span>
+                        </p>
                       </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-4 pb-4">
-                      <div className="grid gap-4 md:grid-cols-2 items-start" data-testid="grid-ressalvas-faltantes">
-                        {ressalvasValid && (
-                          <div>
-                            <p className="text-xs font-bold text-amber-800 mb-2">Ressalvas</p>
-                            <ol className="list-decimal list-inside space-y-1 text-xs text-foreground leading-relaxed">
-                              {analysis.ressalvas.map((r: string, i: number) => <li key={i}>{r}</li>)}
-                            </ol>
-                          </div>
-                        )}
-                        {faltantesValid && (
-                          <div>
-                            <p className="text-xs font-bold text-blue-800 mb-2">Dados faltantes</p>
-                            <ul className="list-disc list-inside space-y-1 text-xs text-foreground leading-relaxed">
-                              {analysis.dadosFaltantes.map((d: string, i: number) => <li key={i}>{d}</li>)}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              );
-            })()}
+                      {analysis.pontosChave?.sacados && (
+                        <p className="text-sm leading-relaxed text-foreground/90">{analysis.pontosChave.sacados}</p>
+                      )}
+                      <Accordion type="multiple" className="border-t border-border/60 pt-1" defaultValue={
+                        sacadosArr
+                          .map((s: any, i: number) => (s.risco === 'ALTO' || s.risco === 'MEDIO') ? `sacado-${i}` : null)
+                          .filter(Boolean) as string[]
+                      }>
+                        {sacadosArr.map((sacado: any, idx: number) => {
+                          const tone =
+                            sacado.risco === 'BAIXO' ? 'text-emerald-700 border-emerald-200 bg-emerald-50' :
+                            sacado.risco === 'MEDIO' ? 'text-[#a07d2a] border-[#e5b970]/50 bg-[#fdf6e3]' :
+                            sacado.risco === 'ALTO' ? 'text-red-700 border-red-200 bg-red-50' :
+                            'text-muted-foreground border-border bg-muted/40';
+                          return (
+                            <AccordionItem key={idx} value={`sacado-${idx}`} className="border-b border-border/60 last:border-b-0">
+                              <AccordionTrigger className="py-2.5 hover:no-underline gap-2">
+                                <div className="flex items-center gap-2 text-left flex-1 min-w-0">
+                                  <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider', tone)}>
+                                    {sacado.risco || '—'}
+                                  </span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-foreground truncate" title={sacado.nome || ''}>
+                                      {sacado.nome || `Sacado ${idx + 1}`}
+                                    </p>
+                                    {sacado.percentualOperacao && (
+                                      <p className="text-[11px] text-muted-foreground truncate">
+                                        {sacado.valorExposicao} · {sacado.percentualOperacao}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </AccordionTrigger>
+                              <AccordionContent>
+                                <div className="space-y-2.5 pl-1 pb-1">
+                                  {sacado.cpfCnpj && (
+                                    <p className="text-[10px] text-muted-foreground font-mono tracking-wider">{sacado.cpfCnpj}</p>
+                                  )}
+                                  {sacado.resumo && (
+                                    <p className="text-xs leading-relaxed text-foreground/85">{sacado.resumo}</p>
+                                  )}
+                                  {sacado.alertas?.length > 0 && (
+                                    <div className="space-y-1.5">
+                                      {sacado.alertas.map((a: string, i: number) => (
+                                        <div key={i} className="flex items-start gap-2 text-[11px] leading-relaxed text-foreground/85 rounded-md border border-[#e5b970]/40 bg-[#fdf6e3]/60 px-2.5 py-1.5">
+                                          <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" style={{ color: '#a07d2a' }} />
+                                          <span>{a}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {sacado.relacaoComCedente && (
+                                    <div className="rounded-md border border-border/70 bg-muted/30 p-2.5 space-y-1.5 mt-1">
+                                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] flex items-center gap-1" style={{ color: '#a07d2a' }}>
+                                        <TrendingUp className="h-3 w-3" /> Relação Comercial
+                                      </p>
+                                      {sacado.relacaoComCedente.resumo && (
+                                        <p className="text-xs leading-relaxed text-foreground/85">{sacado.relacaoComCedente.resumo}</p>
+                                      )}
+                                      {sacado.relacaoComCedente.alertas?.length > 0 && sacado.relacaoComCedente.alertas.map((a: string, i: number) => (
+                                        <div key={i} className="flex items-start gap-2 text-[11px] leading-relaxed text-foreground/85 rounded-md border border-[#e5b970]/40 bg-[#fdf6e3]/60 px-2 py-1">
+                                          <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" style={{ color: '#a07d2a' }} />
+                                          <span>{a}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          );
+                        })}
+                      </Accordion>
+                    </div>
+                  ) : (
+                    <>
+                      <AnalysisBlock icon={Users} title="Sacado" data={analysis?.blocos?.sacado} keyPoint={analysis?.pontosChave?.sacado} defaultOpen />
+                      {analysis?.blocos?.relacaoCedenteSacado && (
+                        <AnalysisBlock icon={TrendingUp} title="Relação Comercial" data={analysis?.blocos?.relacaoCedenteSacado} keyPoint={analysis?.pontosChave?.relacao} defaultOpen />
+                      )}
+                    </>
+                  )}
+                </TabsContent>
 
-          </CardContent>
-        </Card>
-      )}
+                {/* Títulos / Lastro */}
+                <TabsContent value="titulos" className="mt-4">
+                  <AnalysisBlock icon={CreditCard} title="Títulos / Lastro" data={analysis?.blocos?.titulosLastro} keyPoint={analysis?.pontosChave?.titulos} defaultOpen />
+                </TabsContent>
+
+                {/* Pontos de Atenção */}
+                <TabsContent value="atencao" className="mt-4 space-y-3">
+                  {atencaoCount === 0 && (
+                    <div className="rounded-xl border border-dashed border-border bg-muted/30 px-4 py-6 text-center">
+                      <p className="text-xs text-muted-foreground">Nenhum ponto de atenção identificado.</p>
+                    </div>
+                  )}
+
+                  {crossAlerts.length > 0 && (
+                    <div className="rounded-xl border border-[#e5b970]/50 bg-[#fdf6e3]/40 p-4 space-y-2">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] flex items-center gap-1.5" style={{ color: '#a07d2a' }}>
+                        <AlertTriangle className="h-3.5 w-3.5" /> Cruzamento entre Birôs
+                      </p>
+                      {crossAlerts.map((a, i) => (
+                        <div key={i} className={cn(
+                          'flex items-start gap-2 text-xs rounded-lg px-3 py-2 font-medium',
+                          a.severity === 'high' ? 'bg-red-50 text-red-800 border border-red-200' :
+                          a.severity === 'medium' ? 'bg-[#fdf6e3] text-[#a07d2a] border border-[#e5b970]/50' :
+                          'bg-white text-foreground/80 border border-border'
+                        )}>
+                          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                          {a.text}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {(ressalvasValid || faltantesValid) && (
+                    <div className="grid gap-4 md:grid-cols-2 items-start">
+                      {ressalvasValid && (
+                        <div className="rounded-xl border border-border bg-white p-4">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.16em] mb-2" style={{ color: '#a07d2a' }}>
+                            Ressalvas
+                          </p>
+                          <ol className="list-decimal list-inside space-y-1 text-xs text-foreground leading-relaxed">
+                            {analysis.ressalvas.map((r: string, i: number) => <li key={i}>{r}</li>)}
+                          </ol>
+                        </div>
+                      )}
+                      {faltantesValid && (
+                        <div className="rounded-xl border border-border bg-white p-4">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.16em] mb-2 text-muted-foreground">
+                            Dados Faltantes
+                          </p>
+                          <ul className="list-disc list-inside space-y-1 text-xs text-foreground leading-relaxed">
+                            {analysis.dadosFaltantes.map((d: string, i: number) => <li key={i}>{d}</li>)}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        );
+      })()}
     </div>
+  );
+}
+
+function ParecerTab({ value, icon: Icon, label, alerts }: { value: string; icon: any; label: string; alerts?: number }) {
+  return (
+    <TabsTrigger
+      value={value}
+      className="gap-2 text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-[#e5b970] rounded-md px-3 py-2"
+    >
+      <Icon className="h-3.5 w-3.5" />
+      <span>{label}</span>
+      {alerts ? (
+        <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-[#fdf6e3] border border-[#e5b970]/60 text-[10px] font-bold px-1" style={{ color: '#a07d2a' }}>
+          {alerts}
+        </span>
+      ) : null}
+    </TabsTrigger>
   );
 }
 
