@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Search, ArrowRight } from 'lucide-react';
 import { CnpjInput } from '@/components/analise-operacao/CnpjInput';
 import { ConsultaSelection, type ConsultaTypeId } from '@/components/analise-operacao/ConsultaSelection';
