@@ -952,43 +952,20 @@ export function AnalysisDashboard({ analysis, clientConsultations, liveConsultat
       </SectionCard>
 
       {/* ═══════════════════════════════════════════════════════ */}
-      {/* 4) PARECER TÉCNICO / ANALÍTICO                         */}
+      {/* 4) PARECER EXECUTIVO — MEMORANDO                       */}
       {/* ═══════════════════════════════════════════════════════ */}
       {analysis && (
-        <Card className="border-2 overflow-hidden">
-          {/* HERO — Decisão em destaque */}
-          <div className={cn('border-b-2 px-6 py-5', decConfig.bg)}>
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-4">
-                <div className={cn('rounded-2xl bg-white/70 p-3 shadow-sm border', decConfig.color.replace('text-', 'border-').replace('-700', '-300'))}>
-                  <DecIcon className={cn('h-8 w-8', decConfig.color)} />
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground flex items-center gap-1.5">
-                    <FileText className="h-3 w-3" /> Parecer da Análise
-                  </p>
-                  <p className={cn('text-2xl font-black leading-tight', decConfig.color)}>{decConfig.label}</p>
-                  {analysis.parecer && (
-                    <p className="text-xs text-foreground/70 mt-1 max-w-2xl leading-relaxed line-clamp-2">{analysis.parecer}</p>
-                  )}
-                </div>
-              </div>
+        <ParecerMemorando
+          analysis={analysis}
+          decConfig={decConfig}
+          DecIcon={DecIcon}
+          clientName={clientName}
+        />
+      )}
 
-              {/* Risk Gauge */}
-              {analysis.riscoGeral && (
-                <RiskGauge level={analysis.riscoGeral} />
-              )}
-            </div>
-          </div>
-
+      {analysis && (
+        <Card className="border-border overflow-hidden">
           <CardContent className="space-y-5 pt-5">
-            {/* Parecer completo (expandido) */}
-            {analysis.parecer && analysis.parecer.length > 180 && (
-              <div className="rounded-xl border bg-muted/30 p-4 border-l-4 border-l-primary">
-                <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-2">Parecer Completo</p>
-                <p className="text-sm leading-relaxed text-foreground">{analysis.parecer}</p>
-              </div>
-            )}
 
             {/* Resumo sacados multi */}
             {analysis.resumoSacados && (
@@ -1494,6 +1471,109 @@ function SacadosOverview({ summary, activeCpf, onSelect }: {
           })}
         </div>
       </CardContent>
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────
+// PARECER MEMORANDO — Layout executivo (gold institucional, narrativa + KPIs sidebar)
+// ─────────────────────────────────────────────
+const GOLD = '#e5b970';
+const GOLD_DARK = '#a07d2a';
+
+function splitParagrafos(text?: string): [string, string, string] {
+  if (!text) return ['', '', ''];
+  const parts = text
+    .split(/\n\n+|(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ])/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 20);
+  if (parts.length >= 3) return [parts[0], parts[1], parts.slice(2).join(' ')];
+  if (parts.length === 2) return [parts[0], parts[1], ''];
+  return [text.trim(), '', ''];
+}
+
+function ParecerMemorando({
+  analysis,
+  decConfig,
+  DecIcon,
+  clientName,
+}: {
+  analysis: any;
+  decConfig: { icon: any; color: string; bg: string; label: string };
+  DecIcon: any;
+  clientName: string | null;
+}) {
+  const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const paragrafos = useMemo(() => splitParagrafos(analysis?.parecer), [analysis?.parecer]);
+
+  const titulos = analysis?.blocos?.titulosLastro?.detalhes || {};
+  const kpis = [
+    { label: 'Decisão', value: decConfig.label, icon: <DecIcon className="h-3.5 w-3.5" />, accent: true },
+    { label: 'Risco geral', value: analysis?.riscoGeral || '—', icon: <Shield className="h-3.5 w-3.5" /> },
+    { label: 'Valor operação', value: titulos.valorTotal || '—', icon: <DollarSign className="h-3.5 w-3.5" /> },
+    { label: 'Qtd. títulos', value: titulos.quantidadeTitulos || '—', icon: <FileText className="h-3.5 w-3.5" /> },
+    { label: 'Prazo médio', value: titulos.prazoMedio || '—', icon: <Clock className="h-3.5 w-3.5" /> },
+  ];
+
+  return (
+    <Card className="overflow-hidden border-border bg-white shadow-sm">
+      <div className="h-1" style={{ background: `linear-gradient(90deg, ${GOLD_DARK}, ${GOLD}, ${GOLD_DARK})` }} />
+      <div className="grid gap-0 lg:grid-cols-[1fr_320px]">
+        <div className="space-y-5 p-7 sm:p-8">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em]" style={{ color: GOLD_DARK }}>
+              <FileText className="h-3 w-3" />
+              Memorando de Crédito · {today}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-baseline gap-3">
+              <span className={cn('inline-block h-2.5 w-2.5 rounded-full', decConfig.color.replace('text-', 'bg-').replace('-700', '-500'))} />
+              <p className={cn('text-xs font-bold uppercase tracking-[0.18em]', decConfig.color)}>Parecer · {decConfig.label}</p>
+            </div>
+            <h2 className="mt-3 text-2xl font-semibold leading-tight tracking-tight text-foreground sm:text-3xl">
+              {clientName || 'Operação de crédito'}
+            </h2>
+          </div>
+
+          {paragrafos.some(Boolean) ? (
+            <div className="space-y-4 border-l-2 pl-5" style={{ borderColor: GOLD }}>
+              {paragrafos[0] && (
+                <p className="text-[15px] leading-[1.7] text-foreground/90 first-letter:text-2xl first-letter:font-semibold first-letter:mr-1">
+                  {paragrafos[0]}
+                </p>
+              )}
+              {paragrafos[1] && <p className="text-[15px] leading-[1.7] text-foreground/85">{paragrafos[1]}</p>}
+              {paragrafos[2] && <p className="text-[15px] leading-[1.7] text-foreground/85">{paragrafos[2]}</p>}
+            </div>
+          ) : (
+            <p className="text-sm italic text-muted-foreground">Sem parecer textual disponível.</p>
+          )}
+        </div>
+
+        <aside className="border-t border-border bg-[#fafafa] p-6 lg:border-l lg:border-t-0">
+          <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Indicadores-chave</p>
+          <div className="space-y-3">
+            {kpis.map((k) => (
+              <div key={k.label} className="flex items-center gap-3 rounded-lg border border-border bg-white px-3.5 py-2.5">
+                <div
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+                  style={{ backgroundColor: `${GOLD}1a`, color: GOLD_DARK }}
+                >
+                  {k.icon}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{k.label}</p>
+                  <p className={cn('truncate text-base font-semibold leading-tight', k.accent ? decConfig.color : 'text-foreground')} title={String(k.value)}>
+                    {k.value || <span className="text-muted-foreground/50">—</span>}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </aside>
+      </div>
     </Card>
   );
 }
