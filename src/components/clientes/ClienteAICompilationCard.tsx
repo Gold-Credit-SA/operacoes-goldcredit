@@ -10,16 +10,15 @@ import {
   Sparkles,
   TrendingUp,
   Lightbulb,
-  CheckCircle2,
-  ChevronDown,
-  Gauge,
   ShieldAlert,
+  CheckCircle2,
+  FileText,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -106,35 +105,45 @@ interface Props {
   agriskOverview: HistoryEntry | null;
 }
 
+const GOLD = '#e5b970';
+const GOLD_DARK = '#a07d2a';
+
 function latestByPlatform(entries: HistoryEntry[], platform: string) {
   return entries
-    .filter((entry) => entry.platform === platform)
+    .filter((e) => e.platform === platform)
     .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))[0] || null;
 }
 
-const PARECER_CONFIG: Record<string, { label: string; bg: string; ring: string; fg: string; dot: string; severity: number }> = {
-  FAVORAVEL: { label: 'Favorável', bg: 'bg-emerald-50', ring: 'ring-emerald-200', fg: 'text-emerald-700', dot: 'bg-emerald-500', severity: 1 },
-  FAVORAVEL_COM_RESTRICOES: { label: 'Favorável com Restrições', bg: 'bg-amber-50', ring: 'ring-amber-200', fg: 'text-amber-700', dot: 'bg-amber-500', severity: 2 },
-  ATENCAO: { label: 'Atenção', bg: 'bg-orange-50', ring: 'ring-orange-200', fg: 'text-orange-700', dot: 'bg-orange-500', severity: 3 },
-  DESFAVORAVEL: { label: 'Desfavorável', bg: 'bg-red-50', ring: 'ring-red-200', fg: 'text-red-700', dot: 'bg-red-500', severity: 4 },
-};
+const PARECER_CONFIG = {
+  FAVORAVEL: { label: 'Favorável', color: 'text-emerald-700', bar: 'bg-emerald-500', light: 'bg-emerald-50' },
+  FAVORAVEL_COM_RESTRICOES: { label: 'Favorável c/ restrições', color: 'text-amber-700', bar: 'bg-amber-500', light: 'bg-amber-50' },
+  ATENCAO: { label: 'Atenção', color: 'text-orange-700', bar: 'bg-orange-500', light: 'bg-orange-50' },
+  DESFAVORAVEL: { label: 'Desfavorável', color: 'text-red-700', bar: 'bg-red-500', light: 'bg-red-50' },
+} as const;
 
 function isEmpty(v?: string | null): boolean {
   if (!v) return true;
   const s = v.toLowerCase().trim();
-  return s.startsWith('sem dados') || s.startsWith('não houve consulta') || s.startsWith('dados insuficientes') || s.startsWith('não disponível') || s === '—';
+  return s.startsWith('sem dados') || s.startsWith('não houve') || s.startsWith('dados insuficientes') || s.startsWith('não disponível') || s === '—';
 }
 
-// Extrai primeira "métrica" relevante de um texto (R$/score/%)
 function extractKPI(text?: string): string | null {
   if (!text || isEmpty(text)) return null;
-  const moneyMatch = text.match(/R\$\s*[\d.,]+\s*(mil|milhões|milhão|bilhões|bilhão)?/i);
-  if (moneyMatch) return moneyMatch[0];
-  const scoreMatch = text.match(/\b(\d{2,4})\s*(?:\/\s*\d+)?\b(?=[^%])/);
-  if (scoreMatch) return scoreMatch[1];
-  const pctMatch = text.match(/[\d.,]+\s*%/);
-  if (pctMatch) return pctMatch[0];
+  const money = text.match(/R\$\s*[\d.,]+\s*(mil|milhões|milhão|bilhões|bilhão)?/i);
+  if (money) return money[0];
+  const pct = text.match(/[\d.,]+\s*%/);
+  if (pct) return pct[0];
+  const num = text.match(/\b\d{2,4}\b/);
+  if (num) return num[0];
   return null;
+}
+
+// Quebra texto em primeira frase + resto
+function splitFirstSentence(text?: string): { lead: string; rest: string } {
+  if (!text) return { lead: '', rest: '' };
+  const m = text.match(/^([^.!?\n]{10,180}[.!?])\s*(.*)$/s);
+  if (m) return { lead: m[1].trim(), rest: m[2].trim() };
+  return { lead: text.trim(), rest: '' };
 }
 
 export function ClienteAICompilationCard({ client, history }: Props) {
@@ -146,7 +155,6 @@ export function ClienteAICompilationCard({ client, history }: Props) {
     const latestSmart = latestByPlatform(history, 'smart');
     const latestSerasa = latestByPlatform(history, 'serasa');
     const latestScr = latestByPlatform(history, 'scr');
-
     return {
       clientProfile: {
         id: client.id,
@@ -170,15 +178,13 @@ export function ClienteAICompilationCard({ client, history }: Props) {
     setIsLoading(true);
     setError(null);
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('analyze-client-summary', {
-        body: compiledPayload,
-      });
+      const { data, error: fnError } = await supabase.functions.invoke('analyze-client-summary', { body: compiledPayload });
       if (fnError) throw fnError;
       if (data?.error) throw new Error(data.error);
       setAnalysis(data.analysis);
       toast.success('Análise concluída.');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro ao compilar dados com IA.';
+      const message = err instanceof Error ? err.message : 'Erro ao compilar dados.';
       setError(message);
       toast.error(message);
     } finally {
@@ -186,392 +192,453 @@ export function ClienteAICompilationCard({ client, history }: Props) {
     }
   };
 
-  // Estado vazio / inicial
   if (!analysis) {
     return (
-      <Card className="mt-8 overflow-hidden border-border bg-card">
-        <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#e5b970]/15 text-[#a07d2a]">
-              <Brain className="h-6 w-6" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold tracking-tight">Análise inteligente do cliente</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Consolida Smart, Serasa e SCR em um parecer executivo com decisão recomendada.
-              </p>
-            </div>
-          </div>
-          <Button
-            onClick={runCompilation}
-            disabled={isLoading || !hasAnySource}
-            className="gap-2 bg-foreground text-background hover:bg-foreground/90"
-            size="lg"
-          >
-            {isLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Analisando...</> : <><Sparkles className="h-4 w-4" /> Gerar análise</>}
-          </Button>
-        </div>
-        {!hasAnySource && (
-          <div className="border-t border-border bg-muted/30 px-6 py-4 text-sm text-muted-foreground">
-            Execute pelo menos uma consulta (Smart, Serasa ou SCR) antes de gerar a análise.
-          </div>
-        )}
-        {error && (
-          <div className="border-t border-destructive/20 bg-destructive/5 px-6 py-4 text-sm text-destructive">
-            {error}
-          </div>
-        )}
-      </Card>
-    );
-  }
-
-  return <AnalysisDashboard analysis={analysis} onRefresh={runCompilation} isLoading={isLoading} />;
-}
-
-/* ────────────────────────── DASHBOARD ────────────────────────── */
-
-function AnalysisDashboard({
-  analysis,
-  onRefresh,
-  isLoading,
-}: {
-  analysis: AICompilation;
-  onRefresh: () => void;
-  isLoading: boolean;
-}) {
-  const cfg = PARECER_CONFIG[analysis.parecerFinal?.parecer] || PARECER_CONFIG.ATENCAO;
-
-  // KPIs do hero
-  const scoreKpi = extractKPI(analysis.serasa?.score);
-  const scrAtivaKpi = extractKPI(analysis.scr?.resumoGeral);
-  const concentracaoKpi = extractKPI(analysis.smart?.concentracao);
-  const inadimpKpi = extractKPI(analysis.scr?.creditosVencidos);
-
-  return (
-    <div className="mt-8 space-y-4 animate-fade-in">
-      {/* HERO — Veredito */}
-      <Card className={cn('overflow-hidden border-0 shadow-sm ring-1', cfg.bg, cfg.ring)}>
-        <div className="p-6 sm:p-7">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+      <Card className="mt-8 overflow-hidden border-border bg-gradient-to-br from-white via-white to-[#fdf6e3]/30">
+        <div className="relative">
+          <div className="absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
+          <div className="flex flex-col gap-5 p-7 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-4">
-              <div className={cn('flex h-14 w-14 items-center justify-center rounded-2xl bg-white/70 shadow-sm', cfg.fg)}>
-                {cfg.severity >= 3 ? <ShieldAlert className="h-7 w-7" /> : <CheckCircle2 className="h-7 w-7" />}
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl ring-1" style={{ background: `${GOLD}20`, color: GOLD_DARK, borderColor: `${GOLD}40` }}>
+                <Brain className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Parecer de Crédito</p>
-                <h2 className={cn('mt-1 text-3xl font-bold tracking-tight sm:text-4xl', cfg.fg)}>
-                  {cfg.label}
-                </h2>
-                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-foreground/80 line-clamp-3">
-                  {analysis.parecerFinal?.justificativa}
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: GOLD_DARK }}>Parecer Executivo</p>
+                <h3 className="mt-1 text-xl font-semibold tracking-tight text-foreground">Análise inteligente do cliente</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                  Memorando de crédito consolidando Smart, Serasa e SCR em narrativa executiva.
                 </p>
               </div>
             </div>
             <Button
-              onClick={onRefresh}
-              disabled={isLoading}
-              variant="outline"
-              size="sm"
-              className="shrink-0 gap-2 bg-white/70 backdrop-blur"
+              onClick={runCompilation}
+              disabled={isLoading || !hasAnySource}
+              size="lg"
+              className="gap-2 bg-foreground text-background hover:bg-foreground/90"
             >
-              {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-              Reanalisar
+              {isLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Analisando…</> : <><Sparkles className="h-4 w-4" /> Gerar parecer</>}
             </Button>
           </div>
-
-          {/* KPIs */}
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <KpiTile label="Score Serasa" value={scoreKpi} icon={<Gauge className="h-3.5 w-3.5" />} />
-            <KpiTile label="Carteira SCR" value={scrAtivaKpi} icon={<CreditCard className="h-3.5 w-3.5" />} />
-            <KpiTile label="Concentração" value={concentracaoKpi} icon={<TrendingUp className="h-3.5 w-3.5" />} />
-            <KpiTile label="Vencidos" value={inadimpKpi} icon={<AlertTriangle className="h-3.5 w-3.5" />} alert={!!inadimpKpi} />
-          </div>
+          {!hasAnySource && (
+            <div className="border-t border-border bg-muted/30 px-7 py-3 text-sm text-muted-foreground">
+              Execute pelo menos uma consulta (Smart, Serasa ou SCR) antes de gerar o parecer.
+            </div>
+          )}
+          {error && (
+            <div className="border-t border-destructive/20 bg-destructive/5 px-7 py-3 text-sm text-destructive">{error}</div>
+          )}
         </div>
       </Card>
+    );
+  }
 
-      {/* ALERTAS CRÍTICOS */}
-      {(analysis.alertaCritico || (analysis.serasa?.liminarJudicial && analysis.serasa.alertaLiminar)) && (
-        <Card className="border-red-200 bg-red-50/50">
-          <div className="flex items-start gap-3 p-5">
-            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
-            <div className="space-y-2">
-              {analysis.alertaCritico && (
-                <div>
-                  <p className="text-sm font-bold uppercase tracking-wide text-red-700">Alerta crítico</p>
-                  <p className="mt-0.5 text-sm leading-relaxed text-red-800">{analysis.alertaCritico}</p>
-                </div>
+  return <ParecerExecutivo analysis={analysis} clientName={client.name} onRefresh={runCompilation} isLoading={isLoading} />;
+}
+
+/* ════════════════════════════ PARECER EXECUTIVO ════════════════════════════ */
+
+function ParecerExecutivo({
+  analysis,
+  clientName,
+  onRefresh,
+  isLoading,
+}: {
+  analysis: AICompilation;
+  clientName: string | null;
+  onRefresh: () => void;
+  isLoading: boolean;
+}) {
+  const cfg = PARECER_CONFIG[analysis.parecerFinal?.parecer] || PARECER_CONFIG.ATENCAO;
+  const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  // 3 parágrafos do memorando
+  const paragrafos = useMemo(() => {
+    const just = analysis.parecerFinal?.justificativa || '';
+    const parts = just.split(/\n\n+|(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ])/).filter((p) => p.trim().length > 20);
+    if (parts.length >= 3) return [parts[0], parts[1], parts.slice(2).join(' ')];
+    if (parts.length === 2) return [parts[0], parts[1], ''];
+    return [just, '', ''];
+  }, [analysis.parecerFinal?.justificativa]);
+
+  return (
+    <div className="mt-8 space-y-5 animate-fade-in">
+      {/* ═══ HERO MEMORANDO ═══ */}
+      <Card className="overflow-hidden border-border bg-white shadow-sm">
+        {/* Top stripe gold */}
+        <div className="h-1" style={{ background: `linear-gradient(90deg, ${GOLD_DARK}, ${GOLD}, ${GOLD_DARK})` }} />
+
+        <div className="grid gap-0 lg:grid-cols-[1fr_320px]">
+          {/* Coluna esquerda: narrativa */}
+          <div className="space-y-5 p-7 sm:p-8">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em]" style={{ color: GOLD_DARK }}>
+                <FileText className="h-3 w-3" />
+                Memorando de Crédito · {today}
+              </div>
+              <Button
+                onClick={onRefresh}
+                disabled={isLoading}
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+              >
+                {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                Reanalisar
+              </Button>
+            </div>
+
+            {/* Veredito */}
+            <div>
+              <div className="flex items-baseline gap-3">
+                <span className={cn('inline-block h-2.5 w-2.5 rounded-full', cfg.bar)} />
+                <p className={cn('text-xs font-bold uppercase tracking-[0.18em]', cfg.color)}>Parecer · {cfg.label}</p>
+              </div>
+              <h2 className="mt-3 text-2xl font-semibold leading-tight tracking-tight text-foreground sm:text-3xl">
+                {clientName || 'Cliente'}
+              </h2>
+            </div>
+
+            {/* 3 parágrafos narrativos */}
+            <div className="space-y-4 border-l-2 pl-5" style={{ borderColor: GOLD }}>
+              {paragrafos[0] && (
+                <p className="text-[15px] leading-[1.7] text-foreground/90 first-letter:text-2xl first-letter:font-semibold first-letter:mr-1" style={{ ['--tw-first-letter-color' as never]: GOLD_DARK }}>
+                  {paragrafos[0]}
+                </p>
               )}
-              {analysis.serasa?.liminarJudicial && analysis.serasa.alertaLiminar && !analysis.alertaCritico && (
-                <div>
-                  <p className="text-sm font-bold uppercase tracking-wide text-red-700">Liminar judicial detectada</p>
-                  <p className="mt-0.5 text-sm leading-relaxed text-red-800">{analysis.serasa.alertaLiminar}</p>
-                </div>
+              {paragrafos[1] && (
+                <p className="text-[15px] leading-[1.7] text-foreground/85">{paragrafos[1]}</p>
+              )}
+              {paragrafos[2] && (
+                <p className="text-[15px] leading-[1.7] text-foreground/85">{paragrafos[2]}</p>
               )}
             </div>
           </div>
-        </Card>
-      )}
 
-      {/* SINAIS DE ALERTA (cruzada) */}
-      {analysis.analiseCruzada?.sinaisAlerta && !isEmpty(analysis.analiseCruzada.sinaisAlerta) && (
-        <Card className="border-orange-200 bg-orange-50/40">
+          {/* Sidebar: KPIs */}
+          <aside className="border-t border-border bg-[#fafafa] p-6 lg:border-l lg:border-t-0">
+            <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Indicadores-chave</p>
+            <div className="space-y-3">
+              <KpiSidebar
+                label="Score Serasa"
+                value={extractKPI(analysis.serasa?.score)}
+                hint={firstWords(analysis.serasa?.score, 12)}
+                icon={<Shield className="h-3.5 w-3.5" />}
+              />
+              <KpiSidebar
+                label="Carteira SCR"
+                value={extractKPI(analysis.scr?.resumoGeral)}
+                hint={firstWords(analysis.scr?.resumoGeral, 12)}
+                icon={<CreditCard className="h-3.5 w-3.5" />}
+              />
+              <KpiSidebar
+                label="Volume Smart"
+                value={extractKPI(analysis.smart?.resumoFinanceiro) || extractKPI(analysis.smart?.ultimasOperacoes)}
+                hint={firstWords(analysis.smart?.resumoFinanceiro, 12)}
+                icon={<Building2 className="h-3.5 w-3.5" />}
+              />
+              <KpiSidebar
+                label="Vencidos SCR"
+                value={extractKPI(analysis.scr?.creditosVencidos)}
+                hint={firstWords(analysis.scr?.creditosVencidos, 12)}
+                icon={<AlertTriangle className="h-3.5 w-3.5" />}
+                alert
+              />
+              <KpiSidebar
+                label="Concentração"
+                value={extractKPI(analysis.smart?.concentracao)}
+                hint={firstWords(analysis.smart?.concentracao, 12)}
+                icon={<TrendingUp className="h-3.5 w-3.5" />}
+              />
+            </div>
+          </aside>
+        </div>
+      </Card>
+
+      {/* ═══ ALERTAS ═══ */}
+      {(analysis.alertaCritico || (analysis.serasa?.liminarJudicial && analysis.serasa.alertaLiminar)) && (
+        <Card className="border-red-200 bg-red-50/60">
           <div className="flex items-start gap-3 p-5">
-            <TrendingUp className="mt-0.5 h-5 w-5 shrink-0 text-orange-600" />
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-orange-700">Sinais de alerta cruzados</p>
-              <p className="mt-1 text-sm leading-relaxed text-foreground/85 whitespace-pre-line">
-                {analysis.analiseCruzada.sinaisAlerta}
+            <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+            <div className="space-y-1.5">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-red-700">
+                {analysis.alertaCritico ? 'Alerta crítico' : 'Liminar judicial detectada'}
+              </p>
+              <p className="text-sm leading-relaxed text-red-800">
+                {analysis.alertaCritico || analysis.serasa?.alertaLiminar}
               </p>
             </div>
           </div>
         </Card>
       )}
 
-      {/* GRID DE FONTES */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <SourceCard
-          title="Smart"
-          subtitle="Dados internos"
-          icon={<Building2 className="h-4 w-4" />}
-          accent="text-rose-600 bg-rose-50 ring-rose-100"
-          available={analysis.smart?.disponivel}
-          unavailableMessage="Sem consulta interna"
-          headline={extractKPI(analysis.smart?.resumoFinanceiro) || extractKPI(analysis.smart?.ultimasOperacoes)}
-          headlineLabel="Volume operado"
-          topics={[
-            { label: 'Últimas operações', value: analysis.smart?.ultimasOperacoes },
-            { label: 'Resumo financeiro', value: analysis.smart?.resumoFinanceiro },
-            { label: 'Limite', value: analysis.smart?.limite },
-            { label: 'Concentração de sacados', value: analysis.smart?.concentracao },
-            { label: 'Liquidez', value: analysis.smart?.liquidez },
-            { label: 'Taxa de confirmação', value: analysis.smart?.taxaConfirmacao },
-            { label: 'Comportamento de pagamento (90d)', value: analysis.smart?.comportamentoPagamento },
-          ]}
-        />
+      {/* ═══ TABS DE FONTES ═══ */}
+      <FontesTabs analysis={analysis} />
 
-        <SourceCard
-          title="Serasa"
-          subtitle={analysis.serasa?.tipoRelatorio || 'Bureau externo'}
-          icon={<Shield className="h-4 w-4" />}
-          accent="text-blue-600 bg-blue-50 ring-blue-100"
-          available={analysis.serasa?.disponivel}
-          unavailableMessage={analysis.serasa?.mensagem || 'Sem consulta Serasa'}
-          headline={extractKPI(analysis.serasa?.score)}
-          headlineLabel="Score"
-          topics={[
-            { label: 'Identificação cadastral', value: analysis.serasa?.identificacao },
-            { label: 'Score', value: analysis.serasa?.score },
-            { label: 'Limite sugerido', value: analysis.serasa?.limiteCreditoSugerido },
-            { label: 'Anotações negativas', value: analysis.serasa?.anotacoesNegativas || analysis.serasa?.resumoDividas },
-            { label: 'Ações judiciais / falências', value: analysis.serasa?.acoesFalencias },
-            { label: 'Cheques sustados', value: analysis.serasa?.chequesSustados },
-            { label: 'Consultas recentes', value: analysis.serasa?.ultimasConsultas },
-            { label: 'QSA', value: analysis.serasa?.qsa },
-            { label: 'Histórico de pagamento', value: analysis.serasa?.historicoPagamento },
-            { label: 'Relacionamento com mercado', value: analysis.serasa?.relacionamentoMercado },
-            { label: 'Evolução de compromissos', value: analysis.serasa?.evolucaoCompromissos },
-          ]}
-        />
-
-        <SourceCard
-          title="SCR Bacen"
-          subtitle="Sistema de crédito"
-          icon={<CreditCard className="h-4 w-4" />}
-          accent="text-emerald-600 bg-emerald-50 ring-emerald-100"
-          available={analysis.scr?.disponivel}
-          unavailableMessage={analysis.scr?.mensagem || 'Sem consulta SCR'}
-          headline={extractKPI(analysis.scr?.resumoGeral)}
-          headlineLabel="Carteira ativa"
-          topics={[
-            { label: 'Resumo geral', value: analysis.scr?.resumoGeral },
-            { label: 'Créditos a vencer', value: analysis.scr?.creditosAVencer },
-            { label: 'Créditos vencidos', value: analysis.scr?.creditosVencidos, alert: true },
-            { label: 'Modalidades', value: analysis.scr?.modalidades },
-            { label: 'Limites de crédito', value: analysis.scr?.limitesCredito },
-            { label: 'Classificação de risco', value: analysis.scr?.classificacaoRisco },
-            { label: 'Discordância / sub judice', value: analysis.scr?.discordanciaSubJudice, alert: true },
-          ]}
-        />
-      </div>
-
-      {/* ANÁLISE CRUZADA — colapsada */}
-      {analysis.analiseCruzada && (
-        <Card className="border-border">
-          <Accordion type="single" collapsible>
-            <AccordionItem value="cross" className="border-0">
-              <AccordionTrigger className="px-5 py-4 hover:no-underline">
-                <div className="flex items-center gap-2.5">
-                  <TrendingUp className="h-4 w-4 text-purple-600" />
-                  <span className="text-sm font-semibold">Análise cruzada entre fontes</span>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="px-5 pb-5">
-                <div className="space-y-3">
-                  <CrossRow label="Consistência de endividamento" value={analysis.analiseCruzada.consistenciaEndividamento} />
-                  <CrossRow label="Capacidade de pagamento" value={analysis.analiseCruzada.capacidadePagamento} />
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        </Card>
-      )}
-
-      {/* RECOMENDAÇÕES */}
-      {analysis.parecerFinal?.recomendacoes && analysis.parecerFinal.recomendacoes.length > 0 && (
-        <Card className="border-border bg-gradient-to-br from-[#fdf6e3]/40 to-white">
-          <CardContent className="p-5">
-            <div className="mb-4 flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#e5b970]/20 text-[#a07d2a]">
-                <Lightbulb className="h-3.5 w-3.5" />
+      {/* ═══ ANÁLISE CRUZADA + RECOMENDAÇÕES ═══ */}
+      <div className="grid gap-5 lg:grid-cols-2">
+        {analysis.analiseCruzada && (
+          <Card className="border-border">
+            <CardContent className="p-6">
+              <div className="mb-4 flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" style={{ color: GOLD_DARK }} />
+                <h4 className="text-sm font-semibold tracking-tight">Análise cruzada</h4>
               </div>
-              <h4 className="text-sm font-semibold tracking-tight">Recomendações da análise</h4>
-            </div>
-            <div className="grid gap-2.5 sm:grid-cols-2">
-              {analysis.parecerFinal.recomendacoes.map((rec, i) => (
-                <div
-                  key={i}
-                  className="flex items-start gap-3 rounded-lg border border-[#e5b970]/30 bg-white px-3.5 py-3"
-                >
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-foreground text-[11px] font-bold text-background">
-                    {i + 1}
-                  </span>
-                  <p className="text-sm leading-relaxed text-foreground/90">{rec}</p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
-}
+              <div className="space-y-3.5">
+                <CrossRow label="Endividamento" value={analysis.analiseCruzada.consistenciaEndividamento} />
+                <CrossRow label="Capacidade de pagamento" value={analysis.analiseCruzada.capacidadePagamento} />
+                <CrossRow label="Sinais de alerta" value={analysis.analiseCruzada.sinaisAlerta} alert />
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-/* ────────────────────────── SUB-COMPONENTS ────────────────────────── */
-
-function KpiTile({ label, value, icon, alert }: { label: string; value: string | null; icon: React.ReactNode; alert?: boolean }) {
-  return (
-    <div className={cn(
-      'rounded-xl border bg-white/70 px-3 py-2.5 backdrop-blur-sm',
-      alert && value ? 'border-red-200' : 'border-white/60'
-    )}>
-      <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-        {icon}
-        {label}
+        {analysis.parecerFinal?.recomendacoes && analysis.parecerFinal.recomendacoes.length > 0 && (
+          <Card className="overflow-hidden border-border">
+            <div className="h-0.5" style={{ background: `linear-gradient(90deg, ${GOLD_DARK}, ${GOLD})` }} />
+            <CardContent className="p-6">
+              <div className="mb-4 flex items-center gap-2">
+                <Lightbulb className="h-4 w-4" style={{ color: GOLD_DARK }} />
+                <h4 className="text-sm font-semibold tracking-tight">Recomendações</h4>
+              </div>
+              <ol className="space-y-2.5">
+                {analysis.parecerFinal.recomendacoes.map((rec, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm leading-relaxed text-foreground/90">
+                    <span
+                      className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-background"
+                      style={{ backgroundColor: GOLD_DARK }}
+                    >
+                      {i + 1}
+                    </span>
+                    {rec}
+                  </li>
+                ))}
+              </ol>
+            </CardContent>
+          </Card>
+        )}
       </div>
-      <p className={cn(
-        'mt-1 truncate text-lg font-bold tracking-tight',
-        alert && value ? 'text-red-600' : 'text-foreground'
-      )}>
-        {value || <span className="text-muted-foreground/50">—</span>}
-      </p>
     </div>
   );
 }
 
-interface Topic { label: string; value?: string; alert?: boolean }
+/* ════════════════════════════ TABS FONTES ════════════════════════════ */
 
-function SourceCard({
-  title,
-  subtitle,
-  icon,
-  accent,
-  available,
-  unavailableMessage,
-  headline,
-  headlineLabel,
-  topics,
-}: {
-  title: string;
-  subtitle: string;
-  icon: React.ReactNode;
-  accent: string;
-  available?: boolean;
-  unavailableMessage?: string;
-  headline?: string | null;
-  headlineLabel?: string;
-  topics: Topic[];
-}) {
-  const [open, setOpen] = useState(false);
-  const visibleTopics = topics.filter((t) => !isEmpty(t.value));
+function FontesTabs({ analysis }: { analysis: AICompilation }) {
+  const tabs = [
+    { key: 'smart', label: 'Smart', icon: Building2, available: analysis.smart?.disponivel },
+    { key: 'serasa', label: 'Serasa', icon: Shield, available: analysis.serasa?.disponivel },
+    { key: 'scr', label: 'SCR Bacen', icon: CreditCard, available: analysis.scr?.disponivel },
+  ];
+  const firstAvailable = tabs.find((t) => t.available)?.key || 'smart';
 
   return (
-    <Card className="flex flex-col overflow-hidden border-border">
-      <div className="flex items-start justify-between gap-2 border-b border-border/60 p-4">
-        <div className="flex items-center gap-2.5">
-          <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg ring-1', accent)}>
-            {icon}
-          </div>
-          <div>
-            <h3 className="text-sm font-bold tracking-tight">{title}</h3>
-            <p className="text-[11px] text-muted-foreground">{subtitle}</p>
-          </div>
+    <Card className="overflow-hidden border-border">
+      <Tabs defaultValue={firstAvailable}>
+        <div className="border-b border-border bg-[#fafafa] px-2">
+          <TabsList className="h-auto bg-transparent p-0">
+            {tabs.map((t) => {
+              const Icon = t.icon;
+              return (
+                <TabsTrigger
+                  key={t.key}
+                  value={t.key}
+                  className={cn(
+                    'relative gap-2 rounded-none border-b-2 border-transparent px-5 py-3 text-sm font-medium text-muted-foreground',
+                    'data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none',
+                  )}
+                  style={{
+                    ['--tw-border-color' as never]: 'transparent',
+                  }}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {t.label}
+                  {!t.available && (
+                    <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+                      —
+                    </span>
+                  )}
+                  {t.available && (
+                    <span className="ml-1 h-1.5 w-1.5 rounded-full" style={{ backgroundColor: GOLD }} />
+                  )}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
         </div>
-        {available === false && (
-          <Badge variant="outline" className="text-[10px] uppercase tracking-wider">Indisponível</Badge>
-        )}
-      </div>
 
-      <div className="flex-1 p-4">
-        {available === false ? (
-          <p className="text-sm italic text-muted-foreground">{unavailableMessage}</p>
-        ) : (
-          <>
-            {headline && (
-              <div className="mb-3 rounded-lg bg-muted/40 px-3 py-2.5">
-                <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{headlineLabel}</p>
-                <p className="mt-0.5 text-2xl font-bold tracking-tight">{headline}</p>
-              </div>
-            )}
+        <TabsContent value="smart" className="m-0 p-6">
+          {analysis.smart?.disponivel ? (
+            <FonteContent
+              metrics={[
+                { label: 'Volume', text: analysis.smart.resumoFinanceiro },
+                { label: 'Últimas operações', text: analysis.smart.ultimasOperacoes },
+                { label: 'Limite', text: analysis.smart.limite },
+                { label: 'Concentração', text: analysis.smart.concentracao },
+                { label: 'Liquidez', text: analysis.smart.liquidez },
+                { label: 'Taxa de confirmação', text: analysis.smart.taxaConfirmacao },
+                { label: 'Comportamento 90d', text: analysis.smart.comportamentoPagamento },
+              ]}
+            />
+          ) : (
+            <Empty msg="Sem consulta Smart para este cliente." />
+          )}
+        </TabsContent>
 
-            {/* primeiros 2 tópicos visíveis */}
-            <div className="space-y-2.5">
-              {visibleTopics.slice(0, 2).map((t) => (
-                <TopicCompact key={t.label} {...t} />
-              ))}
-            </div>
+        <TabsContent value="serasa" className="m-0 p-6">
+          {analysis.serasa?.disponivel ? (
+            <>
+              {analysis.serasa.tipoRelatorio && (
+                <Badge variant="outline" className="mb-4 text-[10px] uppercase tracking-wider" style={{ borderColor: GOLD, color: GOLD_DARK }}>
+                  {analysis.serasa.tipoRelatorio}
+                </Badge>
+              )}
+              <FonteContent
+                metrics={[
+                  { label: 'Score', text: analysis.serasa.score },
+                  { label: 'Limite sugerido', text: analysis.serasa.limiteCreditoSugerido },
+                  { label: 'Identificação', text: analysis.serasa.identificacao },
+                  { label: 'Anotações negativas', text: analysis.serasa.anotacoesNegativas || analysis.serasa.resumoDividas, alert: true },
+                  { label: 'Ações judiciais', text: analysis.serasa.acoesFalencias, alert: true },
+                  { label: 'Cheques sustados', text: analysis.serasa.chequesSustados, alert: true },
+                  { label: 'Consultas recentes', text: analysis.serasa.ultimasConsultas },
+                  { label: 'QSA', text: analysis.serasa.qsa },
+                  { label: 'Histórico de pagamento', text: analysis.serasa.historicoPagamento },
+                  { label: 'Relacionamento', text: analysis.serasa.relacionamentoMercado },
+                  { label: 'Evolução de compromissos', text: analysis.serasa.evolucaoCompromissos },
+                ]}
+              />
+            </>
+          ) : (
+            <Empty msg={analysis.serasa?.mensagem || 'Sem consulta Serasa.'} />
+          )}
+        </TabsContent>
 
-            {visibleTopics.length > 2 && (
-              <>
-                <button
-                  onClick={() => setOpen((v) => !v)}
-                  className="mt-3 flex items-center gap-1 text-xs font-medium text-foreground/70 hover:text-foreground"
-                >
-                  <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-180')} />
-                  {open ? 'Ocultar detalhes' : `Ver mais ${visibleTopics.length - 2} tópicos`}
-                </button>
-                {open && (
-                  <div className="mt-3 space-y-2.5 border-t border-dashed border-border pt-3 animate-fade-in">
-                    {visibleTopics.slice(2).map((t) => (
-                      <TopicCompact key={t.label} {...t} />
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-
-            {visibleTopics.length === 0 && (
-              <p className="text-sm italic text-muted-foreground">Sem dados extraídos.</p>
-            )}
-          </>
-        )}
-      </div>
+        <TabsContent value="scr" className="m-0 p-6">
+          {analysis.scr?.disponivel ? (
+            <FonteContent
+              metrics={[
+                { label: 'Carteira ativa', text: analysis.scr.resumoGeral },
+                { label: 'A vencer', text: analysis.scr.creditosAVencer },
+                { label: 'Vencidos', text: analysis.scr.creditosVencidos, alert: true },
+                { label: 'Modalidades', text: analysis.scr.modalidades },
+                { label: 'Limites', text: analysis.scr.limitesCredito },
+                { label: 'Classificação', text: analysis.scr.classificacaoRisco },
+                { label: 'Sub judice', text: analysis.scr.discordanciaSubJudice, alert: true },
+              ]}
+            />
+          ) : (
+            <Empty msg={analysis.scr?.mensagem || 'Sem consulta SCR.'} />
+          )}
+        </TabsContent>
+      </Tabs>
     </Card>
   );
 }
 
-function TopicCompact({ label, value, alert }: Topic) {
+function FonteContent({ metrics }: { metrics: { label: string; text?: string; alert?: boolean }[] }) {
+  const visible = metrics.filter((m) => !isEmpty(m.text));
+  if (visible.length === 0) return <Empty msg="Sem métricas extraídas." />;
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {visible.map((m) => (
+        <KpiBlock key={m.label} label={m.label} text={m.text!} alert={m.alert} />
+      ))}
+    </div>
+  );
+}
+
+function KpiBlock({ label, text, alert }: { label: string; text: string; alert?: boolean }) {
+  const kpi = extractKPI(text);
+  const { lead, rest } = splitFirstSentence(text);
+  // microtexto: lead se não tiver KPI, ou lead+rest se tiver
+  const micro = kpi ? lead : rest || '';
+  const display = kpi || lead;
+
+  return (
+    <div
+      className={cn(
+        'group relative rounded-lg border bg-white p-4 transition-colors',
+        alert ? 'border-red-200 hover:border-red-300' : 'border-border hover:border-foreground/20',
+      )}
+    >
+      <p className={cn(
+        'text-[10px] font-bold uppercase tracking-[0.14em]',
+        alert ? 'text-red-600' : 'text-muted-foreground',
+      )}>
+        {label}
+      </p>
+      <p
+        className={cn(
+          'mt-1.5 truncate font-semibold tracking-tight',
+          kpi ? 'text-2xl' : 'text-base leading-snug',
+          alert ? 'text-red-700' : 'text-foreground',
+        )}
+        title={display}
+      >
+        {display}
+      </p>
+      {micro && (
+        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+          {micro}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function KpiSidebar({
+  label,
+  value,
+  hint,
+  icon,
+  alert,
+}: {
+  label: string;
+  value: string | null;
+  hint?: string | null;
+  icon: React.ReactNode;
+  alert?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-border bg-white px-3.5 py-2.5">
+      <div
+        className={cn(
+          'flex h-8 w-8 shrink-0 items-center justify-center rounded-md',
+          alert && value ? 'bg-red-50 text-red-600' : 'text-foreground',
+        )}
+        style={!alert || !value ? { backgroundColor: `${GOLD}1a`, color: GOLD_DARK } : undefined}
+      >
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
+        <p className={cn(
+          'truncate text-base font-semibold leading-tight',
+          alert && value ? 'text-red-700' : 'text-foreground',
+        )}>
+          {value || <span className="text-muted-foreground/50">—</span>}
+        </p>
+        {hint && !isEmpty(hint) && value && (
+          <p className="truncate text-[11px] leading-tight text-muted-foreground">{hint}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CrossRow({ label, value, alert }: { label: string; value?: string; alert?: boolean }) {
   if (!value || isEmpty(value)) return null;
   return (
     <div>
       <p className={cn(
-        'text-[10px] font-semibold uppercase tracking-wider',
-        alert ? 'text-red-600' : 'text-muted-foreground'
+        'text-[10px] font-bold uppercase tracking-[0.14em]',
+        alert ? 'text-orange-600' : 'text-muted-foreground',
       )}>
         {label}
       </p>
       <p className={cn(
-        'mt-0.5 text-sm leading-snug whitespace-pre-line',
-        alert ? 'text-red-700' : 'text-foreground/90'
+        'mt-1 text-sm leading-relaxed whitespace-pre-line',
+        alert ? 'text-orange-800' : 'text-foreground/85',
       )}>
         {value}
       </p>
@@ -579,12 +646,18 @@ function TopicCompact({ label, value, alert }: Topic) {
   );
 }
 
-function CrossRow({ label, value }: { label: string; value?: string }) {
-  if (!value || isEmpty(value)) return null;
+function Empty({ msg }: { msg: string }) {
   return (
-    <div className="rounded-lg border border-border bg-muted/20 px-3.5 py-3">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="mt-1 text-sm leading-relaxed text-foreground/90 whitespace-pre-line">{value}</p>
+    <div className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-muted/20 px-4 py-6 text-sm italic text-muted-foreground">
+      <CheckCircle2 className="h-4 w-4 opacity-50" />
+      {msg}
     </div>
   );
+}
+
+function firstWords(text?: string, n = 12): string {
+  if (!text || isEmpty(text)) return '';
+  const words = text.replace(/\s+/g, ' ').trim().split(' ');
+  if (words.length <= n) return words.join(' ');
+  return words.slice(0, n).join(' ') + '…';
 }
