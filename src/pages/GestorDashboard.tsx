@@ -42,7 +42,7 @@ function formatMesLabel(mes: string) {
   return `${meses[parseInt(m)]}/${y?.slice(2)}`;
 }
 
-type FilterPreset = 'hoje' | 'semana' | 'mes' | '3meses' | '6meses' | '12meses' | 'custom' | '';
+type FilterPreset = 'hoje' | 'semana' | '30dias' | 'mes' | '3meses' | '6meses' | '12meses' | 'custom' | '';
 
 function getPresetDates(preset: FilterPreset): { inicio: string; fim: string } {
   const hoje = new Date();
