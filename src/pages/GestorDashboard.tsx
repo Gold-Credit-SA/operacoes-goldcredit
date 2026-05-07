@@ -254,6 +254,7 @@ export default function GestorDashboard() {
                   <SelectContent>
                     <SelectItem value="hoje">Hoje</SelectItem>
                     <SelectItem value="semana">Últimos 7 dias</SelectItem>
+                    <SelectItem value="30dias">Últimos 30 dias</SelectItem>
                     <SelectItem value="mes">Mês atual</SelectItem>
                     <SelectItem value="3meses">Últimos 3 meses</SelectItem>
                     <SelectItem value="6meses">Últimos 6 meses</SelectItem>
