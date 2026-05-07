@@ -56,6 +56,11 @@ function getPresetDates(preset: FilterPreset): { inicio: string; fim: string } {
       d.setDate(d.getDate() - 7);
       return { inicio: fmt(d), fim: fimStr };
     }
+    case '30dias': {
+      const d = new Date(hoje);
+      d.setDate(d.getDate() - 30);
+      return { inicio: fmt(d), fim: fimStr };
+    }
     case 'mes': {
       return { inicio: `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`, fim: fimStr };
     }
