@@ -42,7 +42,7 @@ function formatMesLabel(mes: string) {
   return `${meses[parseInt(m)]}/${y?.slice(2)}`;
 }
 
-type FilterPreset = 'hoje' | 'semana' | 'mes' | '3meses' | '6meses' | '12meses' | 'custom' | '';
+type FilterPreset = 'hoje' | 'semana' | '30dias' | 'mes' | '3meses' | '6meses' | '12meses' | 'custom' | '';
 
 function getPresetDates(preset: FilterPreset): { inicio: string; fim: string } {
   const hoje = new Date();
@@ -54,6 +54,11 @@ function getPresetDates(preset: FilterPreset): { inicio: string; fim: string } {
     case 'semana': {
       const d = new Date(hoje);
       d.setDate(d.getDate() - 7);
+      return { inicio: fmt(d), fim: fimStr };
+    }
+    case '30dias': {
+      const d = new Date(hoje);
+      d.setDate(d.getDate() - 30);
       return { inicio: fmt(d), fim: fimStr };
     }
     case 'mes': {
@@ -90,7 +95,7 @@ interface DashboardMetricas {
 
 export default function GestorDashboard() {
   const { profile } = useAuth();
-  const [preset, setPreset] = useState<FilterPreset>('');
+  const [preset, setPreset] = useState<FilterPreset>('30dias');
   const [customInicio, setCustomInicio] = useState('');
   const [customFim, setCustomFim] = useState('');
 
@@ -249,6 +254,7 @@ export default function GestorDashboard() {
                   <SelectContent>
                     <SelectItem value="hoje">Hoje</SelectItem>
                     <SelectItem value="semana">Últimos 7 dias</SelectItem>
+                    <SelectItem value="30dias">Últimos 30 dias</SelectItem>
                     <SelectItem value="mes">Mês atual</SelectItem>
                     <SelectItem value="3meses">Últimos 3 meses</SelectItem>
                     <SelectItem value="6meses">Últimos 6 meses</SelectItem>
