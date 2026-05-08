@@ -53,3 +53,6 @@ verify_jwt = false
 
 [functions.endpoints-registry]
 verify_jwt = false
+
+[functions.audit-consultas]
+verify_jwt = false
