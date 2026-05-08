@@ -977,7 +977,12 @@ export default function ClienteDetail() {
                   </CardHeader>
                   <CardContent>
                     {phones.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-8">Nenhum telefone disponível.</p>
+                      <div className="text-center py-8 space-y-1">
+                        <p className="text-sm text-muted-foreground">Nenhum telefone disponível.</p>
+                        <p className="text-xs text-muted-foreground/70">
+                          Estes dados são preenchidos pela <span className="font-medium text-primary">Consulta Cliente</span> (AgRisk).
+                        </p>
+                      </div>
                     ) : (
                       <div className="overflow-auto">
                         <Table>
