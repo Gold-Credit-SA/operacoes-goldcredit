@@ -54,7 +54,18 @@ const PRODUCT_HINTS: Record<ConsultaType, string[]> = {
 
 // Service keys each consulta type needs — empty = wait for all
 const RELEVANT_SERVICES: Record<ConsultaType, string[]> = {
-  consulta_cliente: [],
+  consulta_cliente: [
+    "dados-basicos",
+    "enderecos",
+    "telefones",
+    "emails",
+    "grupo-economico",
+    "grupo-familiar",
+    "processos-base",
+    "kyc",
+    "bndes",
+    "antecedentes",
+  ],
   restritivos: ["credit-restrictive", "credit-restrictives", "restritivo"],
   endividamento: ["scr", "endividamento"],
   cpr: ["cpr", "cerc-publicidade"],
