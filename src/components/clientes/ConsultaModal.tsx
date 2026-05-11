@@ -93,7 +93,7 @@ function getPlatform(id: ConsultaTypeId): string {
   return 'agrisk';
 }
 
-const CONSULTA_TIMEOUT_MS = 45000;
+const CONSULTA_TIMEOUT_MS = 90000;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
