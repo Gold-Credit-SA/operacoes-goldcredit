@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProximosAniversariantesCard } from '@/components/painel/ProximosAniversariantesCard';
 import { AlertasInadimplenciaCard } from '@/components/painel/AlertasInadimplenciaCard';
 import { DashboardSkeleton } from '@/components/painel/DashboardSkeleton';
-import { ReconciliacaoSmartCard } from '@/components/painel/ReconciliacaoSmartCard';
+
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 function formatCurrency(value: number) {
@@ -284,9 +284,6 @@ export default function GestorDashboard() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Reconciliação Smart */}
-        <ReconciliacaoSmartCard data={reconciliacao} loading={isLoading} />
 
         {/* Aniversariantes + Alertas */}
         <div className="grid gap-6 xl:grid-cols-2">
