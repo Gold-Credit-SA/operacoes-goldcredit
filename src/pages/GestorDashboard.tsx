@@ -77,6 +77,13 @@ export default function GestorDashboard() {
           diasAtraso: number;
         }>;
         metricas: DashboardMetricas;
+        reconciliacao?: {
+          totalGeralAberto: number;
+          totalDocumental: number;
+          carteiraConvencional: number;
+          inadimplenciaSmart: number;
+          breakdown: Array<{ situacao: string; etapa: string | null; qtd: number; valor: number }>;
+        };
       };
     },
   });
@@ -84,6 +91,7 @@ export default function GestorDashboard() {
   const aniversariantes = data?.proximosAniversariantes || [];
   const alertasInadimplencia = data?.alertasInadimplencia || [];
   const metricas = data?.metricas;
+  const reconciliacao = data?.reconciliacao;
 
   const hora = new Date().getHours();
   const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
