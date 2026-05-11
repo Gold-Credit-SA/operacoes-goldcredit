@@ -917,6 +917,28 @@ serve(async (req) => {
           diasAtraso: parseInt(r.dias_atraso) || 0,
         }));
 
+        // 9. Reconciliação Smart — breakdown por situação para conferência
+        const reconRes = await conn.queryObject(`
+          SELECT
+            COALESCE(situacao, '(sem situação)') as situacao,
+            COALESCE(etapa, '') as etapa,
+            COUNT(*)::int as qtd,
+            COALESCE(SUM(valor), 0)::float as soma
+          FROM smartsecurities_titulos_em_aberto
+          GROUP BY situacao, etapa
+          ORDER BY soma DESC
+        `);
+        const breakdown = (reconRes.rows as any[]).map(r => ({
+          situacao: r.situacao,
+          etapa: r.etapa || null,
+          qtd: parseInt(r.qtd) || 0,
+          valor: parseFloat(r.soma) || 0,
+        }));
+        const totalGeralAberto = breakdown.reduce((acc, b) => acc + b.valor, 0);
+        const totalDocumental = breakdown
+          .filter(b => b.etapa === 'Documental')
+          .reduce((acc, b) => acc + b.valor, 0);
+
         return new Response(JSON.stringify({
           success: true,
           proximosAniversariantes,
@@ -929,6 +951,13 @@ serve(async (req) => {
             riscoCedente,
             receitaMensal,
             volumeMensal,
+          },
+          reconciliacao: {
+            totalGeralAberto,
+            totalDocumental,
+            carteiraConvencional: carteiraTotal,
+            inadimplenciaSmart: inadimplencia,
+            breakdown,
           },
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
