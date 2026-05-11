@@ -832,19 +832,20 @@ serve(async (req) => {
         `);
         const clientesAtivos = (clientesRes.rows[0] as any)?.total || 0;
 
-        // 2. Carteira total = títulos em aberto CONVENCIONAL (tipo = 'C')
+        // 2. Carteira = títulos em aberto CONVENCIONAL (situação 'Aberto' e fora da etapa Documental/Trustee)
         const carteiraRes = await conn.queryObject(`
           SELECT COALESCE(SUM(valor), 0)::float as total
           FROM smartsecurities_titulos_em_aberto
-          WHERE tipo = 'C'
+          WHERE situacao = 'Aberto'
+            AND (etapa IS NULL OR etapa <> 'Documental')
         `);
         const carteiraTotal = parseFloat((carteiraRes.rows[0] as any)?.total) || 0;
 
-        // 3. Inadimplência = títulos em atraso GERAL (todos os tipos)
+        // 3. Inadimplência = títulos classificados como inadimplentes pelo Smart (situação contém 'Inadimpl')
         const inadRes = await conn.queryObject(`
           SELECT COALESCE(SUM(valor), 0)::float as total
           FROM smartsecurities_titulos_em_aberto
-          WHERE vencimento < CURRENT_DATE
+          WHERE situacao ILIKE '%inadimpl%'
         `);
         const inadimplencia = parseFloat((inadRes.rows[0] as any)?.total) || 0;
 
