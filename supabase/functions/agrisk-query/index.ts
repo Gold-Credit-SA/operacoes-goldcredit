@@ -54,17 +54,14 @@ const PRODUCT_HINTS: Record<ConsultaType, string[]> = {
 
 // Service keys each consulta type needs — empty = wait for all
 const RELEVANT_SERVICES: Record<ConsultaType, string[]> = {
+  // Only wait for the core identity services — slower queue items (processos-base, kyc,
+  // bndes, antecedentes) are fetched best-effort afterwards and have their own internal
+  // retries, so we don't block the entire request on them.
   consulta_cliente: [
     "dados-basicos",
     "enderecos",
     "telefones",
     "emails",
-    "grupo-economico",
-    "grupo-familiar",
-    "processos-base",
-    "kyc",
-    "bndes",
-    "antecedentes",
   ],
   restritivos: ["credit-restrictive", "credit-restrictives", "restritivo"],
   endividamento: ["scr", "endividamento"],
