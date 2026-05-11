@@ -1,13 +1,9 @@
-import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { RefreshCw, Users, DollarSign, Briefcase, AlertTriangle, Calendar, Filter, X } from 'lucide-react';
+import { RefreshCw, Users, DollarSign, Briefcase, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { ProximosAniversariantesCard } from '@/components/painel/ProximosAniversariantesCard';
 import { AlertasInadimplenciaCard } from '@/components/painel/AlertasInadimplenciaCard';
 import { DashboardSkeleton } from '@/components/painel/DashboardSkeleton';
@@ -42,52 +38,6 @@ function formatMesLabel(mes: string) {
   return `${meses[parseInt(m)]}/${y?.slice(2)}`;
 }
 
-type FilterPreset = 'hoje' | 'semana' | '30dias' | 'mes' | '3meses' | '6meses' | '12meses' | 'custom' | '';
-
-function getPresetDates(preset: FilterPreset): { inicio: string; fim: string } {
-  const hoje = new Date();
-  const fmt = (d: Date) => d.toISOString().split('T')[0];
-  const fimStr = fmt(hoje);
-
-  switch (preset) {
-    case 'hoje': return { inicio: fimStr, fim: fimStr };
-    case 'semana': {
-      const d = new Date(hoje);
-      d.setDate(d.getDate() - 7);
-      return { inicio: fmt(d), fim: fimStr };
-    }
-    case '30dias': {
-      const d = new Date(hoje);
-      d.setDate(d.getDate() - 30);
-      return { inicio: fmt(d), fim: fimStr };
-    }
-    case 'mes': {
-      const y = hoje.getFullYear();
-      const m = hoje.getMonth();
-      const inicio = `${y}-${String(m + 1).padStart(2, '0')}-01`;
-      const lastDay = new Date(y, m + 1, 0).getDate();
-      const fim = `${y}-${String(m + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-      return { inicio, fim };
-    }
-    case '3meses': {
-      const d = new Date(hoje);
-      d.setMonth(d.getMonth() - 3);
-      return { inicio: fmt(d), fim: fimStr };
-    }
-    case '6meses': {
-      const d = new Date(hoje);
-      d.setMonth(d.getMonth() - 6);
-      return { inicio: fmt(d), fim: fimStr };
-    }
-    case '12meses': {
-      const d = new Date(hoje);
-      d.setFullYear(d.getFullYear() - 1);
-      return { inicio: fmt(d), fim: fimStr };
-    }
-    default: return { inicio: '', fim: '' };
-  }
-}
-
 interface DashboardMetricas {
   clientesAtivos: number;
   carteiraTotal: number;
@@ -100,26 +50,13 @@ interface DashboardMetricas {
 
 export default function GestorDashboard() {
   const { profile } = useAuth();
-  const [preset, setPreset] = useState<FilterPreset>('mes');
-  const [customInicio, setCustomInicio] = useState('');
-  const [customFim, setCustomFim] = useState('');
-
-  const filterDates = useMemo(() => {
-    if (preset === 'custom') return { inicio: customInicio, fim: customFim };
-    if (preset) return getPresetDates(preset);
-    return { inicio: '', fim: '' };
-  }, [preset, customInicio, customFim]);
-
-  const hasFilter = preset !== '';
 
   const { data, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ['gestor-dashboard', filterDates.inicio, filterDates.fim],
+    queryKey: ['gestor-dashboard'],
     queryFn: async () => {
-      const body: Record<string, string> = { action: 'gestor-dashboard' };
-      if (filterDates.inicio) body.data_inicio = filterDates.inicio;
-      if (filterDates.fim) body.data_fim = filterDates.fim;
-
-      const { data: result, error } = await supabase.functions.invoke('portfolio-data', { body });
+      const { data: result, error } = await supabase.functions.invoke('portfolio-data', {
+        body: { action: 'gestor-dashboard' },
+      });
       if (error) throw error;
       return result as {
         proximosAniversariantes: Array<{
@@ -157,42 +94,34 @@ export default function GestorDashboard() {
     year: 'numeric',
   });
 
-  const clearFilters = () => {
-    setPreset('');
-    setCustomInicio('');
-    setCustomFim('');
-  };
-
   if (isLoading) {
     return <DashboardSkeleton />;
   }
 
-  const receitaLabel = hasFilter ? 'Receita no período' : 'Receita do mês atual';
-
   const kpis = [
     {
-      label: 'Clientes ativos',
+      label: 'Clientes ativos (30 dias)',
       value: metricas?.clientesAtivos?.toString() || '0',
       icon: Users,
       iconBg: 'bg-slate-100',
       iconColor: 'text-slate-700',
     },
     {
-      label: receitaLabel,
+      label: 'Receita do mês atual',
       value: formatCurrency(metricas?.receitaMesAtual || 0),
       icon: DollarSign,
       iconBg: 'bg-emerald-50',
       iconColor: 'text-emerald-600',
     },
     {
-      label: 'Carteira',
+      label: 'Carteira (Convencional)',
       value: formatCurrency(metricas?.carteiraTotal || 0),
       icon: Briefcase,
       iconBg: 'bg-blue-50',
       iconColor: 'text-blue-600',
     },
     {
-      label: 'Inadimplência',
+      label: 'Inadimplência (Geral)',
       value: formatCurrency(metricas?.inadimplencia || 0),
       icon: AlertTriangle,
       iconBg: 'bg-red-50',
@@ -235,77 +164,6 @@ export default function GestorDashboard() {
             </Button>
           </div>
         </section>
-
-        {/* Filters */}
-        <Card className="border-slate-200/80 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-foreground">Filtro de período</span>
-              {hasFilter && (
-                <Button variant="ghost" size="sm" onClick={clearFilters} className="ml-auto text-xs h-7">
-                  <X className="h-3 w-3 mr-1" />
-                  Limpar
-                </Button>
-              )}
-            </div>
-            <div className="flex flex-wrap items-end gap-4">
-              <div className="space-y-1.5 min-w-[180px]">
-                <Label className="text-xs">Período rápido</Label>
-                <Select value={preset} onValueChange={(v) => setPreset(v as FilterPreset)}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="hoje">Hoje</SelectItem>
-                    <SelectItem value="semana">Últimos 7 dias</SelectItem>
-                    <SelectItem value="30dias">Últimos 30 dias</SelectItem>
-                    <SelectItem value="mes">Mês atual</SelectItem>
-                    <SelectItem value="3meses">Últimos 3 meses</SelectItem>
-                    <SelectItem value="6meses">Últimos 6 meses</SelectItem>
-                    <SelectItem value="12meses">Últimos 12 meses</SelectItem>
-                    <SelectItem value="custom">Personalizado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {preset === 'custom' && (
-                <>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Data início</Label>
-                    <Input
-                      type="date"
-                      value={customInicio}
-                      onChange={(e) => setCustomInicio(e.target.value)}
-                      className="h-9 w-[160px]"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Data fim</Label>
-                    <Input
-                      type="date"
-                      value={customFim}
-                      onChange={(e) => setCustomFim(e.target.value)}
-                      className="h-9 w-[160px]"
-                    />
-                  </div>
-                </>
-              )}
-
-              {hasFilter && filterDates.inicio && (
-                <div className="flex items-center gap-1.5 rounded-lg bg-amber-50 border border-amber-200 px-3 py-1.5">
-                  <Calendar className="h-3.5 w-3.5 text-amber-600" />
-                  <span className="text-xs text-amber-800">
-                    {filterDates.inicio === filterDates.fim
-                      ? new Date(filterDates.inicio + 'T12:00:00').toLocaleDateString('pt-BR')
-                      : `${new Date(filterDates.inicio + 'T12:00:00').toLocaleDateString('pt-BR')} — ${new Date(filterDates.fim + 'T12:00:00').toLocaleDateString('pt-BR')}`
-                    }
-                  </span>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
 
         {/* KPI Cards */}
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -374,7 +232,7 @@ export default function GestorDashboard() {
           {/* Receita por mês */}
           <Card className="border-slate-200/80 shadow-sm">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Receita por mês</CardTitle>
+              <CardTitle className="text-base font-semibold">Receita por mês (últimos 6 meses)</CardTitle>
             </CardHeader>
             <CardContent>
               {receitaMensal.length > 0 ? (
@@ -397,7 +255,7 @@ export default function GestorDashboard() {
           {/* Volume operado */}
           <Card className="border-slate-200/80 shadow-sm">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Volume operado</CardTitle>
+              <CardTitle className="text-base font-semibold">Volume operado (últimos 6 meses)</CardTitle>
             </CardHeader>
             <CardContent>
               {volumeMensal.length > 0 ? (
