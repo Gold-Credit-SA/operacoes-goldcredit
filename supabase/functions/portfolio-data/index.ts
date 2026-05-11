@@ -65,6 +65,15 @@ serve(async (req) => {
       .single();
     const isAdmin = roleData?.role === 'admin' || user.email === 'renan@goldcreditsa.com.br';
 
+    if (action === 'debug-tipo') {
+      const conn = await connectExternalClient();
+      try {
+        const cols = await conn.queryObject(`SELECT column_name FROM information_schema.columns WHERE table_name='smartsecurities_titulos_em_aberto'`);
+        const tipos = await conn.queryObject(`SELECT tipo, COUNT(*)::int as qtd, COALESCE(SUM(valor),0)::float as soma FROM smartsecurities_titulos_em_aberto GROUP BY tipo`).catch((e: any) => ({ error: e.message }));
+        return new Response(JSON.stringify({ cols: cols.rows, tipos: (tipos as any).rows || tipos }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      } finally { await conn.end(); }
+    }
+
     // === ASSIGNMENT MANAGEMENT ===
 
     if (action === 'list-assignments') {
