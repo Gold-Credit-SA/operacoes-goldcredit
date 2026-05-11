@@ -823,42 +823,27 @@ serve(async (req) => {
         )
         .sort((a: any, b: any) => a.dias_faltam - b.dias_faltam);
 
-        // --- GENERAL BI METRICS (all cedentes, not just portfolio) ---
-        // 1. Clientes ativos = cedentes com títulos em aberto (carteira ativa)
-        // Quando há filtro de período, considera cedentes com operação no período
-        let clientesQuery: string;
-        if (filterDataInicio || filterDataFim) {
-          const opStart = filterDataInicio ? `AND data >= '${filterDataInicio}'` : '';
-          const opEnd = filterDataFim ? `AND data <= '${filterDataFim}'` : '';
-          clientesQuery = `
-            SELECT COUNT(DISTINCT c.cpf_cnpj)::int as total
-            FROM smartsecurities_cedentes c
-            JOIN smartsecurities_operacoes_individualizadas o ON o.cedente = c.nome
-            WHERE (c.bloqueado IS NULL OR LOWER(TRIM(c.bloqueado)) IN ('não', 'nao', 'n', 'false', ''))
-              ${opStart} ${opEnd}
-          `;
-        } else {
-          clientesQuery = `
-            SELECT COUNT(DISTINCT c.cpf_cnpj)::int as total
-            FROM smartsecurities_cedentes c
-            JOIN smartsecurities_titulos_em_aberto t ON t.cpf_cnpj_cedente = c.cpf_cnpj
-            WHERE c.bloqueado IS NULL OR LOWER(TRIM(c.bloqueado)) IN ('não', 'nao', 'n', 'false', '')
-          `;
-        }
-        const clientesRes = await conn.queryObject(clientesQuery);
+        // --- GENERAL BI METRICS (Smart-aligned, period filter is ignored) ---
+        // 1. Clientes ativos = cedentes com títulos em aberto (independente do filtro)
+        const clientesRes = await conn.queryObject(`
+          SELECT COUNT(DISTINCT c.cpf_cnpj)::int as total
+          FROM smartsecurities_cedentes c
+          JOIN smartsecurities_titulos_em_aberto t ON t.cpf_cnpj_cedente = c.cpf_cnpj
+          WHERE c.bloqueado IS NULL OR LOWER(TRIM(c.bloqueado)) IN ('não', 'nao', 'n', 'false', '')
+        `);
         const clientesAtivos = (clientesRes.rows[0] as any)?.total || 0;
 
-        // 2. Carteira total (sum of all títulos em aberto)
+        // 2. Carteira total (sum of all títulos em aberto, sem filtro)
         const carteiraRes = await conn.queryObject(`
           SELECT COALESCE(SUM(valor), 0)::float as total FROM smartsecurities_titulos_em_aberto
         `);
         const carteiraTotal = parseFloat((carteiraRes.rows[0] as any)?.total) || 0;
 
-        // 3. Inadimplência (títulos em aberto com atraso)
+        // 3. Inadimplência (títulos em aberto vencidos, sem filtro de período)
         const inadRes = await conn.queryObject(`
-          SELECT COALESCE(SUM(valor), 0)::float as total 
-          FROM smartsecurities_titulos_em_aberto 
-          ${inadDateClause}
+          SELECT COALESCE(SUM(valor), 0)::float as total
+          FROM smartsecurities_titulos_em_aberto
+          WHERE vencimento < CURRENT_DATE
         `);
         const inadimplencia = parseFloat((inadRes.rows[0] as any)?.total) || 0;
 
