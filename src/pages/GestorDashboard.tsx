@@ -62,7 +62,12 @@ function getPresetDates(preset: FilterPreset): { inicio: string; fim: string } {
       return { inicio: fmt(d), fim: fimStr };
     }
     case 'mes': {
-      return { inicio: `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`, fim: fimStr };
+      const y = hoje.getFullYear();
+      const m = hoje.getMonth();
+      const inicio = `${y}-${String(m + 1).padStart(2, '0')}-01`;
+      const lastDay = new Date(y, m + 1, 0).getDate();
+      const fim = `${y}-${String(m + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      return { inicio, fim };
     }
     case '3meses': {
       const d = new Date(hoje);
