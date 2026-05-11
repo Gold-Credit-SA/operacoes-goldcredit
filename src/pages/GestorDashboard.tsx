@@ -285,6 +285,9 @@ export default function GestorDashboard() {
           </Card>
         </div>
 
+        {/* Reconciliação Smart */}
+        <ReconciliacaoSmartCard data={reconciliacao} loading={isLoading} />
+
         {/* Aniversariantes + Alertas */}
         <div className="grid gap-6 xl:grid-cols-2">
           <ProximosAniversariantesCard
