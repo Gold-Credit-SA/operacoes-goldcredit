@@ -65,17 +65,6 @@ serve(async (req) => {
       .single();
     const isAdmin = roleData?.role === 'admin' || user.email === 'renan@goldcreditsa.com.br';
 
-    if (action === 'debug-tipo') {
-      const conn = await connectExternalClient();
-      try {
-        const inad = await conn.queryObject(`SELECT situacao, COUNT(*)::int as qtd, COALESCE(SUM(valor),0)::float as soma FROM smartsecurities_titulos_em_aberto WHERE vencimento < CURRENT_DATE GROUP BY situacao ORDER BY soma DESC`);
-        const inadSit = await conn.queryObject(`SELECT COUNT(*)::int as qtd, COALESCE(SUM(valor),0)::float as soma FROM smartsecurities_titulos_em_aberto WHERE situacao ILIKE '%inadimpl%'`);
-        const semDoc = await conn.queryObject(`SELECT COUNT(*)::int as qtd, COALESCE(SUM(valor),0)::float as soma FROM smartsecurities_titulos_em_aberto WHERE etapa <> 'Documental' OR etapa IS NULL`);
-        const abertoSemDoc = await conn.queryObject(`SELECT COUNT(*)::int as qtd, COALESCE(SUM(valor),0)::float as soma FROM smartsecurities_titulos_em_aberto WHERE (etapa <> 'Documental' OR etapa IS NULL) AND situacao = 'Aberto'`);
-        return new Response(JSON.stringify({ inadPorSit: inad.rows, inadOnlyInadimpl: inadSit.rows, carteiraSemDoc: semDoc.rows, abertoSemDoc: abertoSemDoc.rows }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      } finally { await conn.end(); }
-    }
-
     // === ASSIGNMENT MANAGEMENT ===
 
     if (action === 'list-assignments') {
