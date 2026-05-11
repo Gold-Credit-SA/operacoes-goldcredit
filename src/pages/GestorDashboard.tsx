@@ -95,7 +95,7 @@ interface DashboardMetricas {
 
 export default function GestorDashboard() {
   const { profile } = useAuth();
-  const [preset, setPreset] = useState<FilterPreset>('30dias');
+  const [preset, setPreset] = useState<FilterPreset>('mes');
   const [customInicio, setCustomInicio] = useState('');
   const [customFim, setCustomFim] = useState('');
 
