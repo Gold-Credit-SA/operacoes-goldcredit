@@ -68,12 +68,11 @@ serve(async (req) => {
     if (action === 'debug-tipo') {
       const conn = await connectExternalClient();
       try {
-        const op = await conn.queryObject(`SELECT op, COUNT(*)::int as qtd, COALESCE(SUM(valor),0)::float as soma FROM smartsecurities_titulos_em_aberto GROUP BY op ORDER BY soma DESC`);
-        const sit = await conn.queryObject(`SELECT situacao, COUNT(*)::int as qtd, COALESCE(SUM(valor),0)::float as soma FROM smartsecurities_titulos_em_aberto GROUP BY situacao ORDER BY soma DESC`);
-        const conf = await conn.queryObject(`SELECT conf, COUNT(*)::int as qtd, COALESCE(SUM(valor),0)::float as soma FROM smartsecurities_titulos_em_aberto GROUP BY conf ORDER BY soma DESC`);
-        const etapa = await conn.queryObject(`SELECT etapa, COUNT(*)::int as qtd, COALESCE(SUM(valor),0)::float as soma FROM smartsecurities_titulos_em_aberto GROUP BY etapa ORDER BY soma DESC`);
-        const total = await conn.queryObject(`SELECT COUNT(*)::int as qtd, COALESCE(SUM(valor),0)::float as soma FROM smartsecurities_titulos_em_aberto`);
-        return new Response(JSON.stringify({ total: total.rows, op: op.rows, situacao: sit.rows, conf: conf.rows, etapa: etapa.rows }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        const inad = await conn.queryObject(`SELECT situacao, COUNT(*)::int as qtd, COALESCE(SUM(valor),0)::float as soma FROM smartsecurities_titulos_em_aberto WHERE vencimento < CURRENT_DATE GROUP BY situacao ORDER BY soma DESC`);
+        const inadSit = await conn.queryObject(`SELECT COUNT(*)::int as qtd, COALESCE(SUM(valor),0)::float as soma FROM smartsecurities_titulos_em_aberto WHERE situacao ILIKE '%inadimpl%'`);
+        const semDoc = await conn.queryObject(`SELECT COUNT(*)::int as qtd, COALESCE(SUM(valor),0)::float as soma FROM smartsecurities_titulos_em_aberto WHERE etapa <> 'Documental' OR etapa IS NULL`);
+        const abertoSemDoc = await conn.queryObject(`SELECT COUNT(*)::int as qtd, COALESCE(SUM(valor),0)::float as soma FROM smartsecurities_titulos_em_aberto WHERE (etapa <> 'Documental' OR etapa IS NULL) AND situacao = 'Aberto'`);
+        return new Response(JSON.stringify({ inadPorSit: inad.rows, inadOnlyInadimpl: inadSit.rows, carteiraSemDoc: semDoc.rows, abertoSemDoc: abertoSemDoc.rows }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       } finally { await conn.end(); }
     }
 
