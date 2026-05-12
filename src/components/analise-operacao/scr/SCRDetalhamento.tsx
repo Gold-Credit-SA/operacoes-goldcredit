@@ -219,6 +219,10 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
             if (ops.length === 0) return null;
 
             const isLimiteCat = catKey === 'limite';
+            // Total de limite só aparece no PDF como divisor antes dos itens de limite.
+            const totalLimiteCat = isLimiteCat
+              ? ops.reduce((s, op) => s + calcTotalVenc(op.resVenc), 0)
+              : 0;
 
             return (
               <div key={catKey} className="mb-6 last:mb-0">
@@ -232,6 +236,16 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
+                    {isLimiteCat && (
+                      <TableRow key={`limite-total-${catKey}`} className="bg-primary/20 border-b border-primary/40">
+                        <TableCell className="text-sm font-bold uppercase text-primary tracking-wide">Limite Total</TableCell>
+                        <TableCell className="text-right font-mono text-sm font-bold text-primary whitespace-nowrap">
+                          {formatCurrency(totalLimiteCat)}
+                        </TableCell>
+                        <TableCell className="text-center text-sm font-bold text-primary">Não</TableCell>
+                        <TableCell></TableCell>
+                      </TableRow>
+                    )}
                     {ops.map((op, i) => {
                       const total = calcTotalVenc(op.resVenc);
                       const label = isLimiteCat
@@ -252,14 +266,14 @@ export function SCRDetalhamento({ latestDtb }: SCRDetalhamentoProps) {
 
                       const cambial = op.varCamb === 'S' ? 'Sim' : 'Não';
 
-                      // Category label row
-                      const catLabel = isLimiteCat
-                        ? CATEGORY_LABELS.limite
-                        : CATEGORY_LABELS[catKey];
+                      // Header de categoria só para não-limite. Para a categoria
+                      // 'limite' a linha 'Limite Total' acima já serve de divisor,
+                      // alinhado com o layout do PDF oficial do SCR.
+                      const catLabel = CATEGORY_LABELS[catKey];
 
                       return (
                         <>
-                          {i === 0 && (
+                          {i === 0 && !isLimiteCat && (
                             <TableRow key={`header-${catKey}`} className="bg-muted/30">
                               <TableCell colSpan={4} className="text-sm font-semibold text-primary">
                                 {catLabel}

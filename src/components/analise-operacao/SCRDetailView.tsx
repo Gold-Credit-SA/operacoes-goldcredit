@@ -3,7 +3,6 @@ import { AlertTriangle } from 'lucide-react';
 import { SCRResponse } from './scr/scr-types';
 import { SCRHeader } from './scr/SCRHeader';
 import { SCRCreditosCharts, SCRCarteiraAtivaTable } from './scr/SCRCarteiraAtiva';
-import { SCRLimitesCredito } from './scr/SCRLimitesCredito';
 import { SCRDetalhamento } from './scr/SCRDetalhamento';
 import { SCRHistorico } from './scr/SCRHistorico';
 import { SCRPdfExport } from './scr/SCRPdfExport';
@@ -87,7 +86,6 @@ export function SCRDetailView({ data }: SCRDetailViewProps) {
         />
         <SCRCreditosCharts latestDtb={latestDtb} />
         <SCRCarteiraAtivaTable latestDtb={latestDtb} />
-        <SCRLimitesCredito latestDtb={latestDtb} />
         <SCRDetalhamento latestDtb={latestDtb} />
         <SCRHistorico lsDtb={historicoDtb} />
       </div>
