@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Building2 } from 'lucide-react';
 import { DtbEntry } from './scr-types';
-import { formatCnpj, getRaizDocumento, formatDate, formatCurrency, calcCarteiraAtiva } from './scr-utils';
+import { formatCnpj, getRaizDocumento, formatDate, formatCurrency, calcRiscoDireto, formatPeriodoConsultado } from './scr-utils';
 
 interface SCRHeaderProps {
   cdCli: string;
@@ -37,7 +37,7 @@ export function SCRHeader({ cdCli, dtbConsult, entityName, latestDtb, totalOpera
           </div>
           <div>
             <span className="text-muted-foreground">Período consultado:</span>
-            <p className="font-medium">{dtbConsult}</p>
+            <p className="font-medium">{formatPeriodoConsultado(dtbConsult)}</p>
           </div>
           <div>
             <span className="text-muted-foreground">Início do relacionamento:</span>
@@ -53,15 +53,15 @@ export function SCRHeader({ cdCli, dtbConsult, entityName, latestDtb, totalOpera
           </div>
           <div>
             <span className="text-muted-foreground">Op. em discordância:</span>
-            <p className="font-medium">{latestDtb.coobAss}</p>
+            <p className="font-medium">{latestDtb.qtdOpsDiscordancia ?? 0}</p>
           </div>
           <div>
             <span className="text-muted-foreground">Op. sub judice:</span>
-            <p className="font-medium">{latestDtb.coobRec}</p>
+            <p className="font-medium">{latestDtb.qtdOpsSubJudice ?? 0}</p>
           </div>
           <div>
             <span className="text-muted-foreground">Risco direto:</span>
-            <p className="font-medium">{formatCurrency(calcCarteiraAtiva(latestDtb))}</p>
+            <p className="font-medium">{formatCurrency(calcRiscoDireto(latestDtb))}</p>
           </div>
           {riskClassification && (
             <div>
