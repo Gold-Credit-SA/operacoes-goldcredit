@@ -739,33 +739,24 @@ serve(async (req) => {
     if (action === 'debug-smart-variants') {
       const conn = await connectExternalClient();
       try {
-        const variants = await conn.queryObject(`
-          SELECT
-            -- Carteira variants
-            (SELECT COALESCE(SUM(valor),0)::float FROM smartsecurities_titulos_em_aberto
-              WHERE situacao='Aberto' AND (etapa IS NULL OR etapa<>'Documental')) AS c_atual,
-            (SELECT COALESCE(SUM(valor),0)::float FROM smartsecurities_titulos_em_aberto
-              WHERE situacao='Aberto' AND (etapa IS NULL OR etapa<>'Documental')
-                AND vencimento >= CURRENT_DATE) AS c_sem_vencidos,
-            (SELECT COALESCE(SUM(valor),0)::float FROM smartsecurities_titulos_em_aberto
-              WHERE situacao='Aberto' AND (etapa IS NULL OR etapa NOT IN ('Documental','Trustee'))
-                AND vencimento >= CURRENT_DATE) AS c_sem_vencidos_trustee,
-            (SELECT COALESCE(SUM(valor),0)::float FROM smartsecurities_titulos_em_aberto
-              WHERE situacao IN ('Aberto') AND (etapa IS NULL OR etapa<>'Documental')
-                AND (vencimento IS NULL OR vencimento >= CURRENT_DATE - INTERVAL '0 day')) AS c_inc_hoje,
-            -- Inadimplência variants
-            (SELECT COALESCE(SUM(valor),0)::float FROM smartsecurities_titulos_em_aberto
-              WHERE situacao ILIKE '%inadimpl%') AS i_atual,
-            (SELECT COALESCE(SUM(valor),0)::float FROM smartsecurities_titulos_em_aberto
-              WHERE situacao='Aberto' AND vencimento < CURRENT_DATE) AS i_aberto_vencido,
-            (SELECT COALESCE(SUM(valor),0)::float FROM smartsecurities_titulos_em_aberto
-              WHERE situacao ILIKE '%inadimpl%' OR (situacao='Aberto' AND vencimento < CURRENT_DATE)) AS i_combinado,
-            (SELECT COALESCE(SUM(valor),0)::float FROM smartsecurities_titulos_em_aberto
-              WHERE vencimento < CURRENT_DATE) AS i_todos_vencidos,
-            (SELECT COALESCE(SUM(valor),0)::float FROM smartsecurities_titulos_em_aberto
-              WHERE situacao='Aberto' AND (etapa IS NULL OR etapa<>'Documental') AND vencimento < CURRENT_DATE) AS i_aberto_conv_vencido
+        const breakdown = await conn.queryObject(`
+          SELECT COALESCE(situacao,'(null)') as situacao, COALESCE(etapa,'(null)') as etapa,
+                 COUNT(*)::int as qtd, COALESCE(SUM(valor),0)::float as soma,
+                 COALESCE(SUM(CASE WHEN vencimento < CURRENT_DATE THEN valor ELSE 0 END),0)::float as soma_vencido,
+                 COALESCE(SUM(CASE WHEN vencimento >= CURRENT_DATE THEN valor ELSE 0 END),0)::float as soma_avencer
+          FROM smartsecurities_titulos_em_aberto
+          GROUP BY situacao, etapa
+          ORDER BY soma DESC
         `);
-        return new Response(JSON.stringify({ row: variants.rows[0] }, (_,v)=> typeof v==='bigint'?v.toString():v), {
+        const cols = await conn.queryObject(`
+          SELECT column_name, data_type FROM information_schema.columns
+          WHERE table_name='smartsecurities_titulos_em_aberto'
+          ORDER BY ordinal_position
+        `);
+        return new Response(JSON.stringify({
+          breakdown: breakdown.rows,
+          colunas: cols.rows,
+        }, (_,v)=> typeof v==='bigint'?v.toString():v), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       } finally { await conn.end(); }
