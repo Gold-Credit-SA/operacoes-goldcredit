@@ -39,9 +39,9 @@ const DEDUP_WINDOW_SECONDS = 30;            // 30s — proteger contra cliques r
 interface RequestBody {
   cnpj?: string;
   document?: string;
+  // Mantido por compatibilidade — atualmente normalizado para AVULSA.
   consultaType?: ScrConsultaType;
   baseDate?: string;
-  baseDateFinal?: string;
   forceRefresh?: boolean;
 }
 
@@ -71,7 +71,16 @@ async function handle(req: Request): Promise<Response> {
   }
 
   const docInput = body.document || body.cnpj || '';
-  const consultaType = (body.consultaType || 'AVULSA') as ScrConsultaType;
+
+  // AVULSA é o ÚNICO tipo habilitado. DETALHADA (5 meses) e COMPARATIVO
+  // (12 meses) custam mais por consulta e geram duplicidade de dados na
+  // tela porque produzem histórico adicional fora do layout do PDF
+  // oficial. Para habilitar, basta mudar o default — mas hoje qualquer
+  // pedido para outro tipo é normalizado pra AVULSA explicitamente.
+  const consultaType: ScrConsultaType = 'AVULSA';
+  if (body.consultaType && body.consultaType !== 'AVULSA') {
+    console.warn(`[hbi-scr] consultaType=${body.consultaType} ignorado; usando AVULSA.`);
+  }
 
   // 1) Validação de documento — falha aqui é grátis.
   const doc = classifyDoc(docInput);
@@ -88,15 +97,9 @@ async function handle(req: Request): Promise<Response> {
   if (body.baseDate && !isValidBaseDate(body.baseDate)) {
     return jsonResponse({ error: 'baseDate inválida. Formato esperado YYYY-MM e não pode ser futura.' }, 400);
   }
-  if (body.baseDateFinal && !isValidBaseDate(body.baseDateFinal)) {
-    return jsonResponse({ error: 'baseDateFinal inválida. Formato esperado YYYY-MM e não pode ser futura.' }, 400);
-  }
-  if (consultaType === 'COMPARATIVO' && !body.baseDateFinal) {
-    return jsonResponse({ error: 'COMPARATIVO requer baseDateFinal.' }, 400);
-  }
 
   // 3) Idempotência + cache.
-  const reqHash = await hashRequest([PROVIDER, 'query', doc.clean, consultaType, body.baseDate ?? '', body.baseDateFinal ?? '']);
+  const reqHash = await hashRequest([PROVIDER, 'query', doc.clean, consultaType, body.baseDate ?? '']);
   const supabase = getAdminClient();
 
   if (!body.forceRefresh) {
@@ -196,7 +199,7 @@ async function handle(req: Request): Promise<Response> {
       doc_id: doc.clean,
       consulta_type: consultaType,
       base_date_initial: baseDateInitial,
-      base_date_final: body.baseDateFinal ?? null,
+      base_date_final: null,
       uuid_type_scr: uuidTypeScr,
       status: 'pending',
       trace_id: traceId,
@@ -208,13 +211,12 @@ async function handle(req: Request): Promise<Response> {
   }
   const jobId = jobRow?.id;
 
-  // 9) Dispara consulta (chamada paga).
+  // 9) Dispara consulta (chamada paga). AVULSA requer só baseDateInitial.
   const newQuery = await hbiNewScrQuery({
     jwt,
     documentId: doc.clean,
     uuidTypeScr,
     baseDateInitial,
-    baseDateFinal: body.baseDateFinal,
   });
   await writeIntegrationLog({
     traceId, provider: PROVIDER, action: 'new_query', docId: doc.clean, userId,
