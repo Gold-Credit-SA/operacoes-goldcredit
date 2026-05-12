@@ -739,24 +739,18 @@ serve(async (req) => {
     if (action === 'debug-smart-variants') {
       const conn = await connectExternalClient();
       try {
-        const breakdown = await conn.queryObject(`
-          SELECT COALESCE(situacao,'(null)') as situacao, COALESCE(etapa,'(null)') as etapa,
-                 COUNT(*)::int as qtd, COALESCE(SUM(valor),0)::float as soma,
-                 COALESCE(SUM(CASE WHEN vencimento < CURRENT_DATE THEN valor ELSE 0 END),0)::float as soma_vencido,
-                 COALESCE(SUM(CASE WHEN vencimento >= CURRENT_DATE THEN valor ELSE 0 END),0)::float as soma_avencer
+        const r = await conn.queryObject(`
+          SELECT COALESCE(situacao,'(null)') as situacao,
+                 COUNT(*)::int as qtd,
+                 COALESCE(SUM(valor),0)::float as v_valor,
+                 COALESCE(SUM(valor_total),0)::float as v_total,
+                 COALESCE(SUM(valor + COALESCE(valor_juros,0) + COALESCE(valor_multa,0)),0)::float as v_juros_multa
           FROM smartsecurities_titulos_em_aberto
-          GROUP BY situacao, etapa
-          ORDER BY soma DESC
+          WHERE etapa IS NULL OR etapa=''
+          GROUP BY situacao
+          ORDER BY v_valor DESC
         `);
-        const cols = await conn.queryObject(`
-          SELECT column_name, data_type FROM information_schema.columns
-          WHERE table_name='smartsecurities_titulos_em_aberto'
-          ORDER BY ordinal_position
-        `);
-        return new Response(JSON.stringify({
-          breakdown: breakdown.rows,
-          colunas: cols.rows,
-        }, (_,v)=> typeof v==='bigint'?v.toString():v), {
+        return new Response(JSON.stringify({ rows: r.rows }, (_,v)=> typeof v==='bigint'?v.toString():v), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       } finally { await conn.end(); }
