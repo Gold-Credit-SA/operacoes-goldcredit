@@ -736,6 +736,41 @@ serve(async (req) => {
     }
 
     // === GESTOR DASHBOARD ===
+    if (action === 'debug-smart-variants') {
+      const conn = await connectExternalClient();
+      try {
+        const variants = await conn.queryObject(`
+          SELECT
+            -- Carteira variants
+            (SELECT COALESCE(SUM(valor),0)::float FROM smartsecurities_titulos_em_aberto
+              WHERE situacao='Aberto' AND (etapa IS NULL OR etapa<>'Documental')) AS c_atual,
+            (SELECT COALESCE(SUM(valor),0)::float FROM smartsecurities_titulos_em_aberto
+              WHERE situacao='Aberto' AND (etapa IS NULL OR etapa<>'Documental')
+                AND vencimento >= CURRENT_DATE) AS c_sem_vencidos,
+            (SELECT COALESCE(SUM(valor),0)::float FROM smartsecurities_titulos_em_aberto
+              WHERE situacao='Aberto' AND (etapa IS NULL OR etapa NOT IN ('Documental','Trustee'))
+                AND vencimento >= CURRENT_DATE) AS c_sem_vencidos_trustee,
+            (SELECT COALESCE(SUM(valor),0)::float FROM smartsecurities_titulos_em_aberto
+              WHERE situacao IN ('Aberto') AND (etapa IS NULL OR etapa<>'Documental')
+                AND (vencimento IS NULL OR vencimento >= CURRENT_DATE - INTERVAL '0 day')) AS c_inc_hoje,
+            -- Inadimplência variants
+            (SELECT COALESCE(SUM(valor),0)::float FROM smartsecurities_titulos_em_aberto
+              WHERE situacao ILIKE '%inadimpl%') AS i_atual,
+            (SELECT COALESCE(SUM(valor),0)::float FROM smartsecurities_titulos_em_aberto
+              WHERE situacao='Aberto' AND vencimento < CURRENT_DATE) AS i_aberto_vencido,
+            (SELECT COALESCE(SUM(valor),0)::float FROM smartsecurities_titulos_em_aberto
+              WHERE situacao ILIKE '%inadimpl%' OR (situacao='Aberto' AND vencimento < CURRENT_DATE)) AS i_combinado,
+            (SELECT COALESCE(SUM(valor),0)::float FROM smartsecurities_titulos_em_aberto
+              WHERE vencimento < CURRENT_DATE) AS i_todos_vencidos,
+            (SELECT COALESCE(SUM(valor),0)::float FROM smartsecurities_titulos_em_aberto
+              WHERE situacao='Aberto' AND (etapa IS NULL OR etapa<>'Documental') AND vencimento < CURRENT_DATE) AS i_aberto_conv_vencido
+        `);
+        return new Response(JSON.stringify({ row: variants.rows[0] }, (_,v)=> typeof v==='bigint'?v.toString():v), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } finally { await conn.end(); }
+    }
+
     if (action === 'gestor-dashboard') {
       // Use date filters from body (already parsed above)
       const filterDataInicio = data_inicio || null;
