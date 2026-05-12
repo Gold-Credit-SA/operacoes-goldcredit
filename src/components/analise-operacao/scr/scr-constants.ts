@@ -39,17 +39,15 @@ export const MODALIDADE_MAP: Record<string, string> = {
   '0306': 'Desconto de outros títulos',
   '0399': 'Outros títulos descontados',
 
-  // Financiamentos (04xx)
-  '0401': 'Financiamento imobiliário',
-  '0402': 'Financiamento de veículos',
-  '0403': 'Financiamento rural',
-  '0404': 'Financiamento de máquinas e equipamentos',
-  '0405': 'Financiamento de infraestrutura',
-  '0406': 'Financiamento à exportação',
-  '0407': 'Financiamento à importação',
-  '0408': 'Financiamento agroindustrial',
-  '0409': 'Financiamento BNDES',
-  '0410': 'Financiamento estudantil',
+  // Financiamentos (04xx) - BACEN Doc 3040
+  '0401': 'Aquisição de bens - veículos automotores',
+  '0402': 'Aquisição de bens - outros bens',
+  '0403': 'Microcrédito',
+  '0404': 'Rural e agroindustrial',
+  '0405': 'Imobiliário',
+  '0406': 'Infraestrutura e desenvolvimento',
+  '0407': 'Importação',
+  '0408': 'Exportação',
   '0499': 'Outros financiamentos',
 
   // Financiamentos rurais e agroindustriais (05xx)
