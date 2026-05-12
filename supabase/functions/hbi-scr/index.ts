@@ -115,13 +115,18 @@ async function handle(req: Request): Promise<Response> {
     }
 
     // 3b) Job em vôo? Evita 2º clique disparar 2ª chamada paga.
+    //
+    // Importante: NÃO filtramos por base_date_initial aqui. Quando o cliente
+    // não envia baseDate, o valor real só é resolvido depois (via API HBI),
+    // e cliques quase simultâneos teriam base_date_initial='' no momento da
+    // checagem mas '2026-03' no insert — causando dedup miss e cobrança 2x.
+    // Como AVULSA é sempre "consultar hoje", basta doc + tipo + status em vôo.
     const dedupCutoff = new Date(Date.now() - DEDUP_WINDOW_SECONDS * 1000).toISOString();
     const { data: inflight } = await supabase
       .from('scr_query_jobs')
-      .select('id, status, hbi_uuid_query, parsed_response')
+      .select('id, status, hbi_uuid_query, parsed_response, base_date_initial')
       .eq('doc_id', doc.clean)
       .eq('consulta_type', consultaType)
-      .eq('base_date_initial', body.baseDate || '')
       .gte('created_at', dedupCutoff)
       .in('status', ['pending', 'dispatched', 'polling', 'completed'])
       .order('created_at', { ascending: false })
@@ -145,6 +150,31 @@ async function handle(req: Request): Promise<Response> {
       });
     }
   }
+
+  // 4) Reserva o job AGORA, antes de qualquer chamada à HBI.
+  //
+  // Importante: insere o job no topo do fluxo (após dedupe) com base_date
+  // ainda vazio, para minimizar a janela em que outra request simultânea
+  // poderia passar pelo dedupe acima e disparar uma 2ª chamada paga.
+  // baseDateInitial e uuid_type_scr são atualizados quando resolvidos.
+  const { data: jobRow, error: jobErr } = await supabase
+    .from('scr_query_jobs')
+    .insert({
+      user_id: userId,
+      doc_id: doc.clean,
+      consulta_type: consultaType,
+      base_date_initial: '',
+      base_date_final: null,
+      uuid_type_scr: null,
+      status: 'pending',
+      trace_id: traceId,
+    })
+    .select('id')
+    .single();
+  if (jobErr || !jobRow) {
+    console.error('[hbi-scr] failed to reserve scr_query_jobs:', jobErr);
+  }
+  const jobId = jobRow?.id;
 
   // 5) Autentica
   const auth = await hbiAuthenticate();
@@ -190,26 +220,13 @@ async function handle(req: Request): Promise<Response> {
     baseDateInitial = suggested.ok && suggested.data ? suggested.data : monthOffsetISO(1);
   }
 
-  // 8) Persiste o job ANTES da chamada paga — assim, se algo der errado no caminho,
-  // sabemos exatamente em que estado parou e podemos retomar/auditar.
-  const { data: jobRow, error: jobErr } = await supabase
-    .from('scr_query_jobs')
-    .insert({
-      user_id: userId,
-      doc_id: doc.clean,
-      consulta_type: consultaType,
-      base_date_initial: baseDateInitial,
-      base_date_final: null,
-      uuid_type_scr: uuidTypeScr,
-      status: 'pending',
-      trace_id: traceId,
-    })
-    .select('id')
-    .single();
-  if (jobErr || !jobRow) {
-    console.error('[hbi-scr] failed to persist scr_query_jobs:', jobErr);
+  // 8) Atualiza o job reservado no passo 4 com os parâmetros resolvidos.
+  if (jobId) {
+    await supabase
+      .from('scr_query_jobs')
+      .update({ base_date_initial: baseDateInitial, uuid_type_scr: uuidTypeScr })
+      .eq('id', jobId);
   }
-  const jobId = jobRow?.id;
 
   // 9) Dispara consulta (chamada paga). AVULSA requer só baseDateInitial.
   const newQuery = await hbiNewScrQuery({
@@ -305,7 +322,7 @@ async function handle(req: Request): Promise<Response> {
   }
 
   // 12) Converte BACEN → lsDtb.
-  const converted = convertBacenToLsDtb(bacen.data);
+  const converted = convertBacenToLsDtb(bacen.data, doc.clean);
   // Mescla nome retornado pela listagem (raramente vem no BACEN).
   if (converted && !converted.name && finished.data.name) {
     converted.name = finished.data.name;

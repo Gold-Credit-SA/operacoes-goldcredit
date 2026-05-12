@@ -85,7 +85,7 @@ async function handle(req: Request): Promise<Response> {
     return jsonResponse({ error: 'Nenhuma resposta BACEN encontrada para reprocessar.' }, 404);
   }
 
-  const converted = convertBacenToLsDtb(rawResponse);
+  const converted = convertBacenToLsDtb(rawResponse, docId ?? undefined);
 
   await writeIntegrationLog({
     traceId, provider: PROVIDER, action: 'reprocess', docId, userId,

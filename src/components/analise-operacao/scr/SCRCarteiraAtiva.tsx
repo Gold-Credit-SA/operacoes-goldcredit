@@ -4,7 +4,7 @@ import { TrendingUp, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { DtbEntry } from './scr-types';
 import { VENCIMENTO_AVENCER_MAP, VENCIMENTO_VENCIDO_MAP } from './scr-constants';
-import { formatCurrency, separateVencBuckets, isLimiteOp } from './scr-utils';
+import { formatCurrency, separateVencBuckets, isLimiteOp, formatPercentBR } from './scr-utils';
 
 interface SCRCarteiraAtivaProps {
   latestDtb: DtbEntry;
@@ -45,9 +45,11 @@ const SHORT_VENCIDO_LABELS: Record<string, string> = {
 };
 
 function formatCompact(value: number): string {
-  if (value >= 1_000_000) return `R$ ${(value / 1_000_000).toFixed(1)} M`;
-  if (value >= 1_000) return `R$ ${(value / 1_000).toFixed(1)} K`;
-  return `R$ ${value.toFixed(0)}`;
+  const fmt = (n: number, frac: number) =>
+    n.toLocaleString('pt-BR', { minimumFractionDigits: frac, maximumFractionDigits: frac });
+  if (value >= 1_000_000) return `R$ ${fmt(value / 1_000_000, 1)} M`;
+  if (value >= 1_000) return `R$ ${fmt(value / 1_000, 1)} K`;
+  return `R$ ${fmt(value, 0)}`;
 }
 
 function CustomTooltip({ active, payload, label }: any) {
@@ -195,7 +197,7 @@ export function SCRCarteiraAtivaTable({ latestDtb }: SCRCarteiraAtivaProps) {
                   </TableCell>
                   <TableCell className="text-right font-mono text-sm font-semibold">{formatCurrency(totalAVencer)}</TableCell>
                   <TableCell className="text-right text-sm font-semibold">
-                    {((totalAVencer / totalCarteira) * 100).toFixed(2)}%
+                    {formatPercentBR((totalAVencer / totalCarteira) * 100)}
                   </TableCell>
                 </TableRow>
                 {sortBuckets(Object.entries(aVencerBuckets)).map(([key, val]) => (
@@ -203,7 +205,7 @@ export function SCRCarteiraAtivaTable({ latestDtb }: SCRCarteiraAtivaProps) {
                     <TableCell className="text-sm pl-8">{VENCIMENTO_AVENCER_MAP[key] || key}</TableCell>
                     <TableCell className="text-right font-mono text-sm">{formatCurrency(val)}</TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">
-                      {((val / totalCarteira) * 100).toFixed(2)}%
+                      {formatPercentBR((val / totalCarteira) * 100)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -220,7 +222,7 @@ export function SCRCarteiraAtivaTable({ latestDtb }: SCRCarteiraAtivaProps) {
                   </TableCell>
                   <TableCell className="text-right font-mono text-sm font-semibold text-destructive">{formatCurrency(totalVencido)}</TableCell>
                   <TableCell className="text-right text-sm font-semibold text-destructive">
-                    {((totalVencido / totalCarteira) * 100).toFixed(2)}%
+                    {formatPercentBR((totalVencido / totalCarteira) * 100)}
                   </TableCell>
                 </TableRow>
                 {sortBuckets(Object.entries(vencidoBuckets)).map(([key, val]) => (
@@ -231,7 +233,7 @@ export function SCRCarteiraAtivaTable({ latestDtb }: SCRCarteiraAtivaProps) {
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">{formatCurrency(val)}</TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">
-                      {((val / totalCarteira) * 100).toFixed(2)}%
+                      {formatPercentBR((val / totalCarteira) * 100)}
                     </TableCell>
                   </TableRow>
                 ))}

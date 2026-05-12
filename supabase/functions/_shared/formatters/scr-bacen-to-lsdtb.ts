@@ -98,18 +98,30 @@ interface BacenDados {
   listaDeResumoDasOperacoes?: BacenResumoOperacao[];
 }
 
-// Aceita o envelope completo da HBI (`{data: {dados: {...}}}`)
-// ou apenas o nó `dados`.
-export function convertBacenToLsDtb(raw: unknown): ScrLsDtbResult | null {
+/**
+ * Aceita o envelope completo da HBI (`{data: {dados: {...}}}`) ou apenas
+ * o nó `dados`.
+ *
+ * `originalDocumentId` é o documento que disparou a consulta (sempre 11 ou
+ * 14 dígitos). É usado como fonte de verdade quando o BACEN retorna apenas
+ * a raiz (8 dígitos) em `codigoDoCliente`, evitando que o CNPJ apareça
+ * sem formatação na tela.
+ */
+export function convertBacenToLsDtb(raw: unknown, originalDocumentId?: string): ScrLsDtbResult | null {
   const root = (raw ?? {}) as Record<string, unknown>;
   const data = (root.data ?? root) as Record<string, unknown>;
   const dados = (data.dados ?? data) as BacenDados;
 
-  if (!dados || (!dados.codigoDoCliente && !dados.documentId)) {
+  if (!dados || (!dados.codigoDoCliente && !dados.documentId && !originalDocumentId)) {
     return null;
   }
 
-  const cdCli = String(dados.codigoDoCliente || dados.documentId || '').replace(/\D/g, '');
+  const fromPayload = String(dados.codigoDoCliente || dados.documentId || '').replace(/\D/g, '');
+  const fromCaller = (originalDocumentId || '').replace(/\D/g, '');
+  // Preferimos o documento da chamada se for CPF (11) ou CNPJ (14) completo
+  // — o BACEN às vezes devolve só a raiz (8 dígitos) em codigoDoCliente.
+  const cdCli =
+    (fromCaller.length === 11 || fromCaller.length === 14) ? fromCaller : fromPayload;
   const baseDate = dados.dataBaseConsultada || '';
   const dtbNum = baseDateToDtbNumber(baseDate);
 

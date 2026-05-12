@@ -1,8 +1,13 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Building2 } from 'lucide-react';
 import { DtbEntry } from './scr-types';
-import { formatCnpj, getRaizDocumento, formatDate, formatCurrency, calcRiscoDireto, formatPeriodoConsultado } from './scr-utils';
+import {
+  formatCnpj,
+  getRaizDocumento,
+  formatDate,
+  formatCurrency,
+  calcRiscoDireto,
+  formatPeriodoConsultado,
+  formatPercentBR,
+} from './scr-utils';
 
 interface SCRHeaderProps {
   cdCli: string;
@@ -13,74 +18,47 @@ interface SCRHeaderProps {
   riskClassification?: string;
 }
 
-export function SCRHeader({ cdCli, dtbConsult, entityName, latestDtb, totalOperacoes, riskClassification }: SCRHeaderProps) {
+// Cada campo vira um "card" individual com label em destaque e valor abaixo,
+// replicando o cabeçalho do PDF oficial da HBI. Ordem e labels seguem o PDF.
+function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <Building2 className="h-5 w-5 text-primary" />
-          SCR - Sistema de Informações de Crédito
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {entityName && (
-          <p className="text-lg font-bold text-foreground">{entityName}</p>
-        )}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div>
-            <span className="text-muted-foreground">CPF/CNPJ:</span>
-            <p className="font-mono font-medium">{formatCnpj(cdCli)}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Raiz do documento:</span>
-            <p className="font-mono font-medium">{getRaizDocumento(cdCli)}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Período consultado:</span>
-            <p className="font-medium">{formatPeriodoConsultado(dtbConsult)}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Início do relacionamento:</span>
-            <p className="font-medium">{formatDate(latestDtb.dtbIniRel)}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Total de operações:</span>
-            <p className="font-medium">{totalOperacoes}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Total de instituições:</span>
-            <p className="font-medium">{latestDtb.qtdIfs}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Op. em discordância:</span>
-            <p className="font-medium">{latestDtb.qtdOpsDiscordancia ?? 0}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Op. sub judice:</span>
-            <p className="font-medium">{latestDtb.qtdOpsSubJudice ?? 0}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Risco direto:</span>
-            <p className="font-medium">{formatCurrency(calcRiscoDireto(latestDtb))}</p>
-          </div>
-          {riskClassification && (
-            <div>
-              <span className="text-muted-foreground">Classificação de risco:</span>
-              <p className="font-medium">
-                <Badge variant="outline" className="text-xs">{riskClassification}</Badge>
-              </p>
-            </div>
-          )}
-          <div>
-            <span className="text-muted-foreground">Doc. processados:</span>
-            <p className="font-medium">{latestDtb.docProc}%</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Vol. processado:</span>
-            <p className="font-medium">{latestDtb.volProc}%</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="rounded-md border border-border bg-card/40 px-4 py-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-primary">{label}</p>
+      <p className="mt-1 text-sm font-medium text-foreground">{value}</p>
+    </div>
+  );
+}
+
+export function SCRHeader({
+  cdCli,
+  dtbConsult,
+  entityName,
+  latestDtb,
+  totalOperacoes,
+  riskClassification,
+}: SCRHeaderProps) {
+  return (
+    <section className="space-y-4">
+      <h2 className="text-xl font-semibold uppercase tracking-wide text-primary">SCR</h2>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <Field label="CNPJ" value={formatCnpj(cdCli)} />
+        <Field label="Razão social" value={entityName || '—'} />
+        <Field label="Data base consultada" value={formatPeriodoConsultado(dtbConsult)} />
+
+        <Field label="Raiz do documento" value={getRaizDocumento(cdCli)} />
+        <Field label="Início do relacionamento" value={formatDate(latestDtb.dtbIniRel)} />
+        <Field label="Doc. processados" value={formatPercentBR(latestDtb.docProc)} />
+
+        <Field label="Vol. processado" value={formatPercentBR(latestDtb.volProc)} />
+        <Field label="Total de instituições" value={latestDtb.qtdIfs} />
+        <Field label="Total de operações" value={totalOperacoes} />
+
+        <Field label="Op. em discordância" value={latestDtb.qtdOpsDiscordancia ?? 0} />
+        <Field label="Op. sub judice" value={latestDtb.qtdOpsSubJudice ?? 0} />
+        <Field label="Risco direto" value={formatCurrency(calcRiscoDireto(latestDtb))} />
+
+        {riskClassification && <Field label="Classificação de risco" value={riskClassification} />}
+      </div>
+    </section>
   );
 }
