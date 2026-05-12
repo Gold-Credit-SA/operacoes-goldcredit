@@ -187,11 +187,12 @@ export const LIMITE_SUB_LABELS: Record<string, string> = {
   '0208': 'Cheque especial',
   '0214': 'Cheque especial',
   '0207': 'Cartão de Crédito',
-  '1909': 'Descontos',
-  '1905': 'Capital de giro rotativo',
   '1901': 'Outros créditos',
-  '1902': 'Outros empréstimos',
-  '1904': 'Outros financiamentos',
+  '1902': 'Cheque especial',
+  '1903': 'Outros títulos descontados',
+  '1904': 'Cartão de Crédito',
+  '1905': 'Capital de giro rotativo',
+  '1909': 'Descontos',
 };
 
 // Sort priority within each category (lower = first). Unlisted mods go to 9999.
