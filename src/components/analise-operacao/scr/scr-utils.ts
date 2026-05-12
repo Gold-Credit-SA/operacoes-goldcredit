@@ -4,6 +4,19 @@ export function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 }
 
+/**
+ * Aceita "92.48", "92,48", 92.48 ou null e devolve "92,48%" (vírgula br).
+ * Idempotente: já formatado vira o mesmo valor.
+ */
+export function formatPercentBR(input: string | number | null | undefined): string {
+  if (input == null || input === '') return '—';
+  const numeric = typeof input === 'number'
+    ? input
+    : parseFloat(String(input).replace(',', '.').replace('%', '').trim());
+  if (!Number.isFinite(numeric)) return String(input);
+  return `${numeric.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+}
+
 export function formatDtb(dtb: number): string {
   const str = String(dtb);
   const year = str.slice(0, 4);
