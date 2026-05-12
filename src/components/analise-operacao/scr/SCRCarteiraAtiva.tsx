@@ -66,8 +66,9 @@ function useBuckets(latestDtb: DtbEntry) {
 
   (latestDtb.lsOp || []).filter(op => !isLimiteOp(op)).forEach(op => {
     const { aVencer, vencidos } = separateVencBuckets(op.resVenc);
-    // Note: indeterminado buckets are intentionally excluded from both charts
-    // They represent credits with no defined maturity, NOT overdue credits
+    // Indeterminado buckets ficam de fora dos dois charts:
+    // representam créditos sem vencimento definido, não inadimplência.
+    Object.entries(aVencer).forEach(([k, v]) => { aVencerBuckets[k] = (aVencerBuckets[k] || 0) + v; });
     Object.entries(vencidos).forEach(([k, v]) => { vencidoBuckets[k] = (vencidoBuckets[k] || 0) + v; });
   });
 

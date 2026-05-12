@@ -65,8 +65,11 @@ export function SCRDetailView({ data }: SCRDetailViewProps) {
   const historicoDtb = validDtbEntries;
 
   const entityName = (data as any)?.data?.name || (data as any)?.name || response.name || '';
-  const totalOperacoes = Array.isArray(latestDtb?.lsOp) ? latestDtb.lsOp.length : 0;
-  const riskClassification = (data as any)?.data?.riskClassification || (data as any)?.riskClassification;
+  const totalOperacoes = latestDtb?.qtdOps ?? (Array.isArray(latestDtb?.lsOp) ? latestDtb.lsOp.length : 0);
+  const riskClassification =
+    response.classificacao ||
+    (data as any)?.data?.riskClassification ||
+    (data as any)?.riskClassification;
 
   return (
     <div className="space-y-6">

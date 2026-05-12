@@ -15,6 +15,7 @@ export interface ScrLsDtbResult {
   tpCli?: number;
   dtbConsult: string;
   name?: string;
+  classificacao?: string;
   lsDtb: Array<{
     dtb: number;
     docProc: string;
@@ -24,6 +25,10 @@ export interface ScrLsDtbResult {
     dtbIniRel: string;
     coobAss: number;
     coobRec: number;
+    qtdOps?: number;
+    qtdOpsDiscordancia?: number;
+    qtdOpsSubJudice?: number;
+    riscoDireto?: number;
     lsOp: Array<{
       mod: string;
       oriRec: string;
@@ -73,6 +78,8 @@ interface BacenDados {
   tipoDoCliente?: string | number;
   nome?: string;
   nomeCliente?: string;
+  classificacaoRisco?: string;
+  classificacaoDeRisco?: string;
   dataBaseConsultada?: string;
   dataInicioRelacionamento?: string;
   coobrigacaoAssumida?: string | number;
@@ -80,8 +87,14 @@ interface BacenDados {
   percentualDocumentosProcessados?: string;
   percentualVolumeProcessado?: string;
   quantidadeDeInstituicoes?: string | number;
+  quantidadeDeOperacoes?: string | number;
   quantidadeOperacoesDiscordancia?: string | number;
   quantidadeOperacoesSubJudice?: string | number;
+  responsabilidadeTotal?: string | number;
+  responsabilidadeTotalDiscordancia?: string | number;
+  responsabilidadeTotalSubJudice?: string | number;
+  riscoDireto?: string | number;
+  riscoIndiretoVendor?: string | number;
   listaDeResumoDasOperacoes?: BacenResumoOperacao[];
 }
 
@@ -126,6 +139,7 @@ export function convertBacenToLsDtb(raw: unknown): ScrLsDtbResult | null {
     tpCli: dados.tipoDoCliente != null ? Number(dados.tipoDoCliente) : undefined,
     dtbConsult: baseDate,
     name: (dados.nomeCliente || dados.nome || undefined) as string | undefined,
+    classificacao: (dados.classificacaoRisco || dados.classificacaoDeRisco) as string | undefined,
     lsDtb: [
       {
         dtb: dtbNum,
@@ -135,6 +149,10 @@ export function convertBacenToLsDtb(raw: unknown): ScrLsDtbResult | null {
         dtbIniRel: String(dados.dataInicioRelacionamento ?? ''),
         coobAss: toNumber(dados.coobrigacaoAssumida),
         coobRec: toNumber(dados.coobrigacaoRecebida),
+        qtdOps: dados.quantidadeDeOperacoes != null ? Number(dados.quantidadeDeOperacoes) : undefined,
+        qtdOpsDiscordancia: dados.quantidadeOperacoesDiscordancia != null ? Number(dados.quantidadeOperacoesDiscordancia) : undefined,
+        qtdOpsSubJudice: dados.quantidadeOperacoesSubJudice != null ? Number(dados.quantidadeOperacoesSubJudice) : undefined,
+        riscoDireto: dados.riscoDireto != null ? toNumber(dados.riscoDireto) : undefined,
         lsOp,
       },
     ],
@@ -155,6 +173,7 @@ export function mergeBacenResults(results: ScrLsDtbResult[]): ScrLsDtbResult | n
     cdCli: first.cdCli,
     tpCli: first.tpCli,
     name: first.name,
+    classificacao: first.classificacao,
     dtbConsult: valid.map(r => r.dtbConsult).filter(Boolean).join(','),
     lsDtb: valid
       .flatMap(r => r.lsDtb)
