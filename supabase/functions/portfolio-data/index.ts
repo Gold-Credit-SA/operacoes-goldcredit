@@ -736,26 +736,6 @@ serve(async (req) => {
     }
 
     // === GESTOR DASHBOARD ===
-    if (action === 'debug-smart-variants') {
-      const conn = await connectExternalClient();
-      try {
-        const r = await conn.queryObject(`
-          SELECT COALESCE(situacao,'(null)') as situacao,
-                 COUNT(*)::int as qtd,
-                 COALESCE(SUM(valor),0)::float as v_valor,
-                 COALESCE(SUM(valor_total),0)::float as v_total,
-                 COALESCE(SUM(valor + COALESCE(valor_juros,0) + COALESCE(valor_multa,0)),0)::float as v_juros_multa
-          FROM smartsecurities_titulos_em_aberto
-          WHERE etapa IS NULL OR etapa=''
-          GROUP BY situacao
-          ORDER BY v_valor DESC
-        `);
-        return new Response(JSON.stringify({ rows: r.rows }, (_,v)=> typeof v==='bigint'?v.toString():v), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      } finally { await conn.end(); }
-    }
-
     if (action === 'gestor-dashboard') {
       // Use date filters from body (already parsed above)
       const filterDataInicio = data_inicio || null;
