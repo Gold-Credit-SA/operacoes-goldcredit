@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.audit-consultas]
 verify_jwt = false
+
+[functions.scr-reprocess]
+verify_jwt = false
