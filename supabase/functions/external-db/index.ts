@@ -173,6 +173,13 @@ Deno.serve(async (req) => {
           LIMIT 50
         `;
 
+        // Buscar títulos prorrogados
+        const prorrogados = await sql`
+          SELECT * FROM smartsecurities_titulos_prorrogados 
+          WHERE REPLACE(REPLACE(REPLACE(cpf_cnpj_cedente, '.', ''), '-', ''), '/', '') = ${cpfCnpj}
+          LIMIT 500
+        `;
+
         return new Response(JSON.stringify({ 
           success: true, 
           data: {
@@ -183,6 +190,7 @@ Deno.serve(async (req) => {
             receitas,
             recomprados,
             suspeitaFraude,
+            prorrogados,
           }
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
