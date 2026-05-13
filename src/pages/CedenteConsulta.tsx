@@ -222,6 +222,7 @@ export default function CedenteConsulta() {
         const receitas = externalData.receitas || [];
         const recomprados = externalData.recomprados || [];
         const suspeitaFraude = externalData.suspeitaFraude || [];
+        const prorrogados = externalData.prorrogados || [];
 
         // Calcular totais de operações
         const totalOperacoes = operacoes.length;
@@ -419,18 +420,63 @@ export default function CedenteConsulta() {
             receitaTotal,
             taxaMedia: taxaMediaCalc,
           },
-          resumoExpandido: {
-            volumeOperado: valorBrutoTotal,
-            prazoMedioOperacoes: totalOperacoes > 0 ? prazoMedioTotal / totalOperacoes : 0,
-            prazoMedioTitulos90Dias: 0,
-            mediaPagoEmAtraso: comp90Total.qtd > 0 ? (comp90Atraso5.qtd + comp90Atraso15.qtd + comp90Atraso30.qtd + comp90AtrasoMais30.qtd) / comp90Total.qtd * 100 : 0,
-            valorMedioBorderos: totalOperacoes > 0 ? valorBrutoTotal / totalOperacoes : 0,
-            valorMedioTitulos: titulosAberto.length > 0 ? carteiraTotal / titulosAberto.length : 0,
-            receitaGerada: receitaTotal,
-            percentualProrrogacao: 0,
-            chqDevolvidosAberto: titulosAberto.filter((t: any) => t.tipo === 'CHQ' && t.situacao === 'Devolvido').length,
-            chqDevolvidosQuitado: titulosQuitados.filter((t: any) => t.tipo === 'CHQ' && t.motivo_devolucao).length,
-          },
+          resumoExpandido: (() => {
+            // Prazo médio de títulos com vencimento nos últimos 90 dias (vencimento - emissao)
+            const data90Frente = new Date();
+            data90Frente.setDate(data90Frente.getDate() - 90);
+            const titulos90 = [...titulosAberto, ...titulosQuitados].filter((t: any) => {
+              if (!t.vencimento || !t.data_emissao) return false;
+              const venc = new Date(t.vencimento);
+              return venc >= data90Frente && venc <= new Date();
+            });
+            const prazos90 = titulos90.map((t: any) => {
+              const e = new Date(t.data_emissao);
+              const v = new Date(t.vencimento);
+              return Math.ceil((v.getTime() - e.getTime()) / 86400000);
+            });
+            const prazoMedio90 = prazos90.length > 0 ? prazos90.reduce((a, b) => a + b, 0) / prazos90.length : 0;
+
+            // Média de dias em atraso (apenas quitados pagos após vencimento)
+            const diasAtrasoList = titulosQuitados
+              .filter((t: any) => t.quitacao && t.vencimento && new Date(t.quitacao) > new Date(t.vencimento))
+              .map((t: any) => {
+                const q = new Date(t.quitacao);
+                const v = new Date(t.vencimento);
+                return Math.ceil((q.getTime() - v.getTime()) / 86400000);
+              });
+            const mediaPagoEmAtraso = diasAtrasoList.length > 0
+              ? diasAtrasoList.reduce((a: number, b: number) => a + b, 0) / diasAtrasoList.length
+              : 0;
+
+            // % prorrogação = prorrogados / (quitados + recomprados + prorrogados)
+            const totalHist = titulosQuitados.length + recomprados.length + prorrogados.length;
+            const percentualProrrogacao = totalHist > 0 ? (prorrogados.length / totalHist) * 100 : 0;
+
+            // CHQ devolvidos: tipo CHQ/CHEQUE com motivo de devolução
+            const chqDevolvidosAberto = titulosAberto.filter((t: any) => {
+              const tipo = String(t.tipo || '').toUpperCase();
+              const motivo = String(t.motivo || '').toUpperCase();
+              return (tipo.includes('CHQ') || tipo.includes('CHEQUE')) && motivo.includes('DEV');
+            }).length;
+            const chqDevolvidosQuitado = titulosQuitados.filter((t: any) => {
+              const tipo = String(t.tipo || '').toUpperCase();
+              const motivoDev = String(t.motivo_devolucao || '').toUpperCase();
+              return (tipo.includes('CHQ') || tipo.includes('CHEQUE')) && motivoDev.length > 0;
+            }).length;
+
+            return {
+              volumeOperado: valorBrutoTotal,
+              prazoMedioOperacoes: totalOperacoes > 0 ? prazoMedioTotal / totalOperacoes : 0,
+              prazoMedioTitulos90Dias: prazoMedio90,
+              mediaPagoEmAtraso,
+              valorMedioBorderos: totalOperacoes > 0 ? valorBrutoTotal / totalOperacoes : 0,
+              valorMedioTitulos: titulosAberto.length > 0 ? carteiraTotal / titulosAberto.length : 0,
+              receitaGerada: receitaTotal,
+              percentualProrrogacao,
+              chqDevolvidosAberto,
+              chqDevolvidosQuitado,
+            };
+          })(),
           limites: {
             global: parseFloat(cedente.limite_global) || 0,
             disponivel: parseFloat(cedente.saldo) || 0,
