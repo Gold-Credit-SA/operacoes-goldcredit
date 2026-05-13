@@ -6,6 +6,7 @@ export function transformSmartCedenteData(externalData: any) {
   const receitas = externalData?.receitas || [];
   const recomprados = externalData?.recomprados || [];
   const suspeitaFraude = externalData?.suspeitaFraude || [];
+  const prorrogados = externalData?.prorrogados || [];
 
   const totalOperacoes = operacoes.length;
   const valorBrutoTotal = operacoes.reduce((acc: number, op: any) => acc + (parseFloat(op.valor_bruto) || 0), 0);
