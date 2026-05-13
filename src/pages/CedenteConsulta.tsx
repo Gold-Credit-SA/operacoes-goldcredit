@@ -227,7 +227,8 @@ export default function CedenteConsulta() {
         const totalOperacoes = operacoes.length;
         const valorBrutoTotal = operacoes.reduce((acc: number, op: any) => acc + (parseFloat(op.valor_bruto) || 0), 0);
         const valorLiquidoTotal = operacoes.reduce((acc: number, op: any) => acc + (parseFloat(op.valor_liquido) || 0), 0);
-        const receitaTotal = operacoes.reduce((acc: number, op: any) => acc + (parseFloat(op.valor_receita) || 0), 0);
+        // Receita gerada vem de smartsecurities_receita_por_cedente (campo total)
+        const receitaTotal = receitas.reduce((acc: number, r: any) => acc + (parseFloat(r.total) || 0), 0);
         const prazoMedioTotal = operacoes.reduce((acc: number, op: any) => acc + (parseFloat(op.prazo_medio) || 0), 0);
 
         // Calcular taxa média: (desagio / valor_bruto / prazo_medio) * 30 * 100
