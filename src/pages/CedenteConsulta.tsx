@@ -222,6 +222,7 @@ export default function CedenteConsulta() {
         const receitas = externalData.receitas || [];
         const recomprados = externalData.recomprados || [];
         const suspeitaFraude = externalData.suspeitaFraude || [];
+        const prorrogados = externalData.prorrogados || [];
 
         // Calcular totais de operações
         const totalOperacoes = operacoes.length;
