@@ -39,6 +39,7 @@ const AnaliseCredito = lazy(() => import("./pages/AnaliseCredito"));
 const NovaAnaliseCredito = lazy(() => import("./pages/NovaAnaliseCredito"));
 const HistoricoAnaliseCredito = lazy(() => import("./pages/HistoricoAnaliseCredito"));
 const SacadosExternos = lazy(() => import("./pages/SacadosExternos"));
+const MonitoramentoNFe = lazy(() => import("./pages/MonitoramentoNFe"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -129,6 +130,7 @@ function App() {
               <Route path="/analise-credito/historico" element={<ProtectedRoute><AppLayout><HistoricoAnaliseCredito /></AppLayout></ProtectedRoute>} />
               <Route path="/analise-credito/:sessionId" element={<ProtectedRoute><AppLayout><AnaliseCredito /></AppLayout></ProtectedRoute>} />
               <Route path="/sacados" element={<ProtectedRoute><AppLayout><SacadosExternos /></AppLayout></ProtectedRoute>} />
+              <Route path="/nfe" element={<ProtectedRoute><AppLayout><MonitoramentoNFe /></AppLayout></ProtectedRoute>} />
 
               <Route path="/admin" element={<ProtectedRoute requireAdmin><AppLayout><AdminSettings /></AppLayout></ProtectedRoute>} />
               {/* Legacy redirects */}
