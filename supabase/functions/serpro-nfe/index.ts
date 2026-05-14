@@ -84,14 +84,61 @@ Deno.serve(async (req) => {
     if (action === "webhook") {
       const chave = body.chaveNFe;
       if (!chave) return jsonResponse({ error: "chaveNFe ausente" }, 400);
-      await supabase.from("nfe_eventos").insert({
-        chave_acesso: chave,
-        tipo_evento: body.tpEvento ?? null,
+
+      // Persiste o evento
+      const { data: eventoInsert } = await supabase
+        .from("nfe_eventos")
+        .insert({
+          chave_acesso: chave,
+          tipo_evento: body.tpEvento ?? null,
+          descricao: body.descEvento ?? "Notificação Serpro",
+          data_evento: body.dataHoraEnvio ?? new Date().toISOString(),
+          payload: body,
+        })
+        .select()
+        .single();
+
+      // Busca descrição cadastrada para a chave (se houver)
+      const { data: monit } = await supabase
+        .from("nfe_monitoramento")
+        .select("descricao")
+        .eq("chave_acesso", chave)
+        .limit(1)
+        .maybeSingle();
+
+      // Notifica todos os usuários cadastrados (profiles)
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("email");
+
+      const emails = (profiles ?? [])
+        .map((p: { email: string }) => p.email)
+        .filter((e: string) => !!e);
+
+      const eventoId = eventoInsert?.id ?? crypto.randomUUID();
+      const templateData = {
+        chave,
+        tipoEvento: body.tpEvento ?? null,
         descricao: body.descEvento ?? "Notificação Serpro",
-        data_evento: body.dataHoraEnvio ?? new Date().toISOString(),
-        payload: body,
-      });
-      return jsonResponse({ ok: true });
+        dataEvento: body.dataHoraEnvio ?? new Date().toISOString(),
+        descricaoChave: monit?.descricao ?? null,
+      };
+
+      // Dispara um e-mail por destinatário (não bloqueante)
+      await Promise.all(
+        emails.map((email: string) =>
+          supabase.functions.invoke("send-transactional-email", {
+            body: {
+              templateName: "nfe-evento",
+              recipientEmail: email,
+              idempotencyKey: `nfe-evento-${eventoId}-${email}`,
+              templateData,
+            },
+          }).catch((e) => console.error("Falha ao enfileirar e-mail:", email, e)),
+        ),
+      );
+
+      return jsonResponse({ ok: true, notificados: emails.length });
     }
 
     // Demais ações exigem usuário autenticado

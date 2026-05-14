@@ -40,6 +40,7 @@ const NovaAnaliseCredito = lazy(() => import("./pages/NovaAnaliseCredito"));
 const HistoricoAnaliseCredito = lazy(() => import("./pages/HistoricoAnaliseCredito"));
 const SacadosExternos = lazy(() => import("./pages/SacadosExternos"));
 const MonitoramentoNFe = lazy(() => import("./pages/MonitoramentoNFe"));
+const Unsubscribe = lazy(() => import("./pages/Unsubscribe"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -103,6 +104,7 @@ function App() {
           <AuthProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/unsubscribe" element={<Suspense fallback={<PageFallback />}><Unsubscribe /></Suspense>} />
               {/* Public signing route – no auth required */}
               <Route path="/assinar/:token" element={<Suspense fallback={<PageFallback />}><AssinaturaToken /></Suspense>} />
               <Route path="/assinar-operacao/:token" element={<Suspense fallback={<PageFallback />}><AssinaturaOperacao /></Suspense>} />
