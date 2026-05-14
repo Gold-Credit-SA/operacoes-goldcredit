@@ -124,17 +124,29 @@ Deno.serve(async (req) => {
         descricaoChave: monit?.descricao ?? null,
       };
 
-      // Dispara um e-mail por destinatário (não bloqueante)
+      // Dispara um e-mail por destinatário via fetch direto (service role)
+      const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+      // Anon JWT (válido) usado apenas para invocar send-transactional-email
+      const SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN3anJreWdsaW9ranNlcHJlbGF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0NjQ5OTAsImV4cCI6MjA4NDA0MDk5MH0.h7e-ODlGYGwSI_Nzun8HThdRp4R6t8g9Ervo-xuTHPA";
       await Promise.all(
         emails.map((email: string) =>
-          supabase.functions.invoke("send-transactional-email", {
-            body: {
+          fetch(`${SUPABASE_URL}/functions/v1/send-transactional-email`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${SERVICE_KEY}`,
+            },
+            body: JSON.stringify({
               templateName: "nfe-evento",
               recipientEmail: email,
               idempotencyKey: `nfe-evento-${eventoId}-${email}`,
               templateData,
-            },
-          }).catch((e) => console.error("Falha ao enfileirar e-mail:", email, e)),
+            }),
+          })
+            .then(async (r) => {
+              if (!r.ok) console.error("send-email failed", email, r.status, await r.text());
+            })
+            .catch((e) => console.error("Falha ao enfileirar e-mail:", email, e)),
         ),
       );
 
