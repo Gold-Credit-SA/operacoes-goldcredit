@@ -430,6 +430,75 @@ export type Database = {
         }
         Relationships: []
       }
+      nfe_eventos: {
+        Row: {
+          chave_acesso: string
+          created_at: string
+          data_evento: string | null
+          descricao: string | null
+          id: string
+          payload: Json | null
+          tipo_evento: string | null
+        }
+        Insert: {
+          chave_acesso: string
+          created_at?: string
+          data_evento?: string | null
+          descricao?: string | null
+          id?: string
+          payload?: Json | null
+          tipo_evento?: string | null
+        }
+        Update: {
+          chave_acesso?: string
+          created_at?: string
+          data_evento?: string | null
+          descricao?: string | null
+          id?: string
+          payload?: Json | null
+          tipo_evento?: string | null
+        }
+        Relationships: []
+      }
+      nfe_monitoramento: {
+        Row: {
+          chave_acesso: string
+          created_at: string
+          descricao: string | null
+          id: string
+          solicitacao_id: string | null
+          status: string
+          ultima_consulta_em: string | null
+          ultimo_resultado: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          chave_acesso: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          solicitacao_id?: string | null
+          status?: string
+          ultima_consulta_em?: string | null
+          ultimo_resultado?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          chave_acesso?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          solicitacao_id?: string | null
+          status?: string
+          ultima_consulta_em?: string | null
+          ultimo_resultado?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       operacao_notas: {
         Row: {
           cedente_cpf_cnpj: string
