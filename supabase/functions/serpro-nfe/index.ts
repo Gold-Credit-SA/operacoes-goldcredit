@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
 
       // Dispara um e-mail por destinatário via fetch direto (service role)
       const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-      const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const SERVICE_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
       await Promise.all(
         emails.map((email: string) =>
           fetch(`${SUPABASE_URL}/functions/v1/send-transactional-email`, {
