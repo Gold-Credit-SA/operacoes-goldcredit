@@ -59,3 +59,6 @@ verify_jwt = false
 
 [functions.scr-reprocess]
 verify_jwt = false
+
+[functions.serpro-nfe]
+verify_jwt = false
