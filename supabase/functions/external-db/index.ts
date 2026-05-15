@@ -45,6 +45,18 @@ Deno.serve(async (req) => {
         });
       }
 
+      case 'count-cheques-devolvidos': {
+        const r = await sql`
+          SELECT COUNT(*)::int as total,
+                 COUNT(*) FILTER (WHERE quitacao IS NULL)::int as abertos,
+                 COALESCE(SUM(valor) FILTER (WHERE quitacao IS NULL),0)::float as valor_aberto
+          FROM smartsecurities_titulos_devolvidos
+        `;
+        return new Response(JSON.stringify({ success: true, data: r }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
       case 'list-tables': {
         const result = await sql`
           SELECT table_name 
