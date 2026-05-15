@@ -290,8 +290,8 @@ export default function GestorDashboard() {
             aniversariantes={aniversariantes}
             loading={isLoading}
           />
-          <AlertasInadimplenciaCard
-            alertas={alertasInadimplencia}
+          <ChequesDevolvidosCard
+            chequesDevolvidos={chequesDevolvidos}
             loading={isLoading}
           />
         </div>
