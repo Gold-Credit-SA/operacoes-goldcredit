@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProximosAniversariantesCard } from '@/components/painel/ProximosAniversariantesCard';
-import { AlertasInadimplenciaCard } from '@/components/painel/AlertasInadimplenciaCard';
+import { ChequesDevolvidosCard } from '@/components/painel/ChequesDevolvidosCard';
 import { DashboardSkeleton } from '@/components/painel/DashboardSkeleton';
 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
