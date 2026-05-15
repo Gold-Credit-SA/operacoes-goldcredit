@@ -88,7 +88,7 @@ export default function GestorDashboard() {
   });
 
   const aniversariantes = data?.proximosAniversariantes || [];
-  const alertasInadimplencia = data?.alertasInadimplencia || [];
+  const chequesDevolvidos = data?.chequesDevolvidos || [];
   const metricas = data?.metricas;
   const reconciliacao = data?.reconciliacao;
 
