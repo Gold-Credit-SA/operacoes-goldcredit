@@ -69,12 +69,11 @@ export default function GestorDashboard() {
           mes: number;
           na_carteira: boolean;
         }>;
-        alertasInadimplencia: Array<{
-          cedente: string;
-          sacado: string;
-          valor: number;
-          vencimento: string;
-          diasAtraso: number;
+        chequesDevolvidos: Array<{
+          cpf_cnpj: string;
+          nome: string;
+          qtd_cheques: number;
+          valor_total: number;
         }>;
         metricas: DashboardMetricas;
         reconciliacao?: {
