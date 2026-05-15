@@ -898,23 +898,29 @@ serve(async (req) => {
           volume: parseFloat(r.volume) || 0,
         }));
 
-        // 8. Alertas de inadimplência (títulos vencidos, top 15 por valor)
-        const alertasInadRes = await conn.queryObject(`
-          SELECT t.cpf_cnpj_cedente, c.nome as cedente_nome, t.sacado, 
-                 t.valor::float, t.vencimento,
-                 (CURRENT_DATE - t.vencimento::date)::int as dias_atraso
-          FROM smartsecurities_titulos_em_aberto t
-          LEFT JOIN smartsecurities_cedentes c ON c.cpf_cnpj = t.cpf_cnpj_cedente
-          WHERE t.vencimento < CURRENT_DATE
-          ORDER BY t.valor DESC
+        // 8. Cheques devolvidos (não quitados, agrupados por cedente, top 15 por valor)
+        const chequesDevRes = await conn.queryObject(`
+          SELECT
+            UPPER(TRIM(d.cedente)) as cedente_key,
+            MAX(d.cedente) as cedente_nome,
+            COALESCE(MAX(c.cpf_cnpj), '') as cpf_cnpj,
+            COUNT(*)::int as qtd_cheques,
+            COALESCE(SUM(d.valor), 0)::float as valor_total
+          FROM smartsecurities_titulos_devolvidos d
+          LEFT JOIN smartsecurities_cedentes c
+            ON UPPER(TRIM(c.nome)) = UPPER(TRIM(d.cedente))
+          WHERE d.quitacao IS NULL
+            AND d.cedente IS NOT NULL AND TRIM(d.cedente) <> ''
+          GROUP BY UPPER(TRIM(d.cedente))
+          HAVING COALESCE(SUM(d.valor), 0) > 0
+          ORDER BY valor_total DESC
           LIMIT 15
         `);
-        const alertasInadimplencia = (alertasInadRes.rows as any[]).map(r => ({
-          cedente: r.cedente_nome || r.cpf_cnpj_cedente,
-          sacado: r.sacado || 'N/I',
-          valor: parseFloat(r.valor) || 0,
-          vencimento: r.vencimento,
-          diasAtraso: parseInt(r.dias_atraso) || 0,
+        const chequesDevolvidos = (chequesDevRes.rows as any[]).map(r => ({
+          cpf_cnpj: r.cpf_cnpj || r.cedente_key,
+          nome: r.cedente_nome || r.cedente_key,
+          qtd_cheques: parseInt(r.qtd_cheques) || 0,
+          valor_total: parseFloat(r.valor_total) || 0,
         }));
 
         // 9. Reconciliação Smart — breakdown por situação para conferência
@@ -942,7 +948,7 @@ serve(async (req) => {
         return new Response(JSON.stringify({
           success: true,
           proximosAniversariantes,
-          alertasInadimplencia,
+          chequesDevolvidos,
           metricas: {
             clientesAtivos,
             carteiraTotal,

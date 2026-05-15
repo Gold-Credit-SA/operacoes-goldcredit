@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProximosAniversariantesCard } from '@/components/painel/ProximosAniversariantesCard';
-import { AlertasInadimplenciaCard } from '@/components/painel/AlertasInadimplenciaCard';
+import { ChequesDevolvidosCard } from '@/components/painel/ChequesDevolvidosCard';
 import { DashboardSkeleton } from '@/components/painel/DashboardSkeleton';
 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
@@ -69,12 +69,11 @@ export default function GestorDashboard() {
           mes: number;
           na_carteira: boolean;
         }>;
-        alertasInadimplencia: Array<{
-          cedente: string;
-          sacado: string;
-          valor: number;
-          vencimento: string;
-          diasAtraso: number;
+        chequesDevolvidos: Array<{
+          cpf_cnpj: string;
+          nome: string;
+          qtd_cheques: number;
+          valor_total: number;
         }>;
         metricas: DashboardMetricas;
         reconciliacao?: {
@@ -89,7 +88,7 @@ export default function GestorDashboard() {
   });
 
   const aniversariantes = data?.proximosAniversariantes || [];
-  const alertasInadimplencia = data?.alertasInadimplencia || [];
+  const chequesDevolvidos = data?.chequesDevolvidos || [];
   const metricas = data?.metricas;
   const reconciliacao = data?.reconciliacao;
 
@@ -291,8 +290,8 @@ export default function GestorDashboard() {
             aniversariantes={aniversariantes}
             loading={isLoading}
           />
-          <AlertasInadimplenciaCard
-            alertas={alertasInadimplencia}
+          <ChequesDevolvidosCard
+            chequesDevolvidos={chequesDevolvidos}
             loading={isLoading}
           />
         </div>
