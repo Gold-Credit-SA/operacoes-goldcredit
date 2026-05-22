@@ -5,10 +5,14 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 interface ChequeDevolvido {
+  id?: number;
   cpf_cnpj: string;
-  nome: string;
-  qtd_cheques: number;
-  valor_total: number;
+  cedente: string;
+  sacado: string;
+  valor: number;
+  vencimento?: string | null;
+  devolucao?: string | null;
+  documento?: string;
 }
 
 interface Props {
@@ -23,9 +27,9 @@ function formatCurrency(value: number) {
 
 export function ChequesDevolvidosCard({ chequesDevolvidos, loading, className }: Props) {
   const navigate = useNavigate();
-  const totalValor = chequesDevolvidos.reduce((sum, item) => sum + item.valor_total, 0);
-  const totalQtd = chequesDevolvidos.reduce((sum, item) => sum + item.qtd_cheques, 0);
-  const hasCheques = chequesDevolvidos.length > 0;
+  const totalValor = chequesDevolvidos.reduce((sum, item) => sum + item.valor, 0);
+  const totalQtd = chequesDevolvidos.length;
+  const hasCheques = totalQtd > 0;
 
   return (
     <Card className={cn('border-slate-200/80 shadow-sm', hasCheques ? 'border-destructive/25' : '', className)}>
@@ -68,31 +72,26 @@ export function ChequesDevolvidosCard({ chequesDevolvidos, loading, className }:
               </div>
               <p className="font-mono text-xl font-bold text-destructive">{formatCurrency(totalValor)}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {totalQtd} cheque(s) em {chequesDevolvidos.length} cedente(s)
+                {totalQtd} cheque(s) devolvido(s)
               </p>
             </div>
 
-            <div className="max-h-[280px] space-y-1.5 overflow-y-auto pr-1">
-              {chequesDevolvidos.map((item) => (
+            <div className="max-h-[320px] space-y-1.5 overflow-y-auto pr-1">
+              {chequesDevolvidos.map((item, idx) => (
                 <button
-                  key={item.cpf_cnpj}
-                  onClick={() => navigate(`/consulta?q=${encodeURIComponent(item.cpf_cnpj)}`)}
+                  key={item.id ?? `${item.cedente}-${idx}`}
+                  onClick={() => item.cpf_cnpj && navigate(`/consulta?q=${encodeURIComponent(item.cpf_cnpj)}`)}
                   className="group flex w-full items-center justify-between rounded-2xl border border-transparent bg-slate-50/70 p-3 text-left transition-colors hover:border-slate-200 hover:bg-white"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{item.nome}</p>
-                    <p className="text-xs text-muted-foreground">{item.cpf_cnpj}</p>
+                    <p className="truncate text-sm font-semibold">{item.cedente || '—'}</p>
+                    <p className="truncate text-xs text-muted-foreground">{item.sacado || '—'}</p>
                   </div>
 
                   <div className="ml-3 flex shrink-0 items-center gap-2">
-                    <div className="text-right">
-                      <Badge variant={item.qtd_cheques >= 3 ? 'destructive' : 'secondary'} className="mb-0.5 text-[10px]">
-                        {item.qtd_cheques}x
-                      </Badge>
-                      <p className="font-mono text-xs font-medium text-destructive">
-                        {formatCurrency(item.valor_total)}
-                      </p>
-                    </div>
+                    <p className="font-mono text-xs font-medium text-destructive">
+                      {formatCurrency(item.valor)}
+                    </p>
                     <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                   </div>
                 </button>
