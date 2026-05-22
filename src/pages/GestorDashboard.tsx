@@ -70,11 +70,16 @@ export default function GestorDashboard() {
           na_carteira: boolean;
         }>;
         chequesDevolvidos: Array<{
+          id?: number;
           cpf_cnpj: string;
-          nome: string;
-          qtd_cheques: number;
-          valor_total: number;
+          cedente: string;
+          sacado: string;
+          valor: number;
+          vencimento?: string | null;
+          devolucao?: string | null;
+          documento?: string;
         }>;
+
         metricas: DashboardMetricas;
         reconciliacao?: {
           totalGeralAberto: number;
