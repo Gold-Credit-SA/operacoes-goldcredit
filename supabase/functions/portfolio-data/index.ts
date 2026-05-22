@@ -898,30 +898,37 @@ serve(async (req) => {
           volume: parseFloat(r.volume) || 0,
         }));
 
-        // 8. Cheques devolvidos (tipo = 'CHQ', agrupados por cedente, top 15 por valor)
+        // 8. Cheques devolvidos (tipo = 'CHQ'), uma linha por título
         const chequesDevRes = await conn.queryObject(`
           SELECT
-            UPPER(TRIM(d.cedente)) as cedente_key,
-            MAX(d.cedente) as cedente_nome,
-            COALESCE(MAX(c.cpf_cnpj), '') as cpf_cnpj,
-            COUNT(*)::int as qtd_cheques,
-            COALESCE(SUM(d.valor), 0)::float as valor_total
+            d.id,
+            d.cedente,
+            d.sacado,
+            COALESCE(d.valor, 0)::float as valor,
+            d.vencimento,
+            d.devolucao,
+            d.documento,
+            COALESCE(MAX(c.cpf_cnpj), '') as cpf_cnpj
           FROM smartsecurities_titulos_devolvidos d
           LEFT JOIN smartsecurities_cedentes c
             ON UPPER(TRIM(c.nome)) = UPPER(TRIM(d.cedente))
           WHERE UPPER(TRIM(d.tipo)) = 'CHQ'
-            AND d.cedente IS NOT NULL AND TRIM(d.cedente) <> ''
-          GROUP BY UPPER(TRIM(d.cedente))
-          ORDER BY valor_total DESC
-          LIMIT 15
+          GROUP BY d.id, d.cedente, d.sacado, d.valor, d.vencimento, d.devolucao, d.documento
+          ORDER BY d.devolucao DESC NULLS LAST, d.valor DESC
+          LIMIT 50
         `);
 
         const chequesDevolvidos = (chequesDevRes.rows as any[]).map(r => ({
-          cpf_cnpj: r.cpf_cnpj || r.cedente_key,
-          nome: r.cedente_nome || r.cedente_key,
-          qtd_cheques: parseInt(r.qtd_cheques) || 0,
-          valor_total: parseFloat(r.valor_total) || 0,
+          id: r.id,
+          cpf_cnpj: r.cpf_cnpj || '',
+          cedente: r.cedente || '',
+          sacado: r.sacado || '',
+          valor: parseFloat(r.valor) || 0,
+          vencimento: r.vencimento || null,
+          devolucao: r.devolucao || null,
+          documento: r.documento || '',
         }));
+
 
         // 9. Reconciliação Smart — breakdown por situação para conferência
         const reconRes = await conn.queryObject(`
