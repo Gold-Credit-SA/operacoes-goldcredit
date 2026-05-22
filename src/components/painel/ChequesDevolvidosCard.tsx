@@ -21,13 +21,23 @@ interface Props {
   className?: string;
 }
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+function toNumber(value: number | string | null | undefined) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (typeof value === 'string') {
+    const normalized = value.replace(/\./g, '').replace(',', '.');
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+function formatCurrency(value: number | string | null | undefined) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(toNumber(value));
 }
 
 export function ChequesDevolvidosCard({ chequesDevolvidos, loading, className }: Props) {
   const navigate = useNavigate();
-  const totalValor = chequesDevolvidos.reduce((sum, item) => sum + item.valor, 0);
+  const totalValor = chequesDevolvidos.reduce((sum, item) => sum + toNumber(item.valor), 0);
   const totalQtd = chequesDevolvidos.length;
   const hasCheques = totalQtd > 0;
 
@@ -81,6 +91,7 @@ export function ChequesDevolvidosCard({ chequesDevolvidos, loading, className }:
                 <button
                   key={item.id ?? `${item.cedente}-${idx}`}
                   onClick={() => item.cpf_cnpj && navigate(`/consulta?q=${encodeURIComponent(item.cpf_cnpj)}`)}
+                  disabled={!item.cpf_cnpj}
                   className="group flex w-full items-center justify-between rounded-2xl border border-transparent bg-slate-50/70 p-3 text-left transition-colors hover:border-slate-200 hover:bg-white"
                 >
                   <div className="min-w-0 flex-1">
