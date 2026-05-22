@@ -898,7 +898,7 @@ serve(async (req) => {
           volume: parseFloat(r.volume) || 0,
         }));
 
-        // 8. Cheques devolvidos (não quitados, agrupados por cedente, top 15 por valor)
+        // 8. Cheques devolvidos (tipo = 'CHQ', agrupados por cedente, top 15 por valor)
         const chequesDevRes = await conn.queryObject(`
           SELECT
             UPPER(TRIM(d.cedente)) as cedente_key,
@@ -909,13 +909,13 @@ serve(async (req) => {
           FROM smartsecurities_titulos_devolvidos d
           LEFT JOIN smartsecurities_cedentes c
             ON UPPER(TRIM(c.nome)) = UPPER(TRIM(d.cedente))
-          WHERE d.quitacao IS NULL
+          WHERE UPPER(TRIM(d.tipo)) = 'CHQ'
             AND d.cedente IS NOT NULL AND TRIM(d.cedente) <> ''
           GROUP BY UPPER(TRIM(d.cedente))
-          HAVING COALESCE(SUM(d.valor), 0) > 0
           ORDER BY valor_total DESC
           LIMIT 15
         `);
+
         const chequesDevolvidos = (chequesDevRes.rows as any[]).map(r => ({
           cpf_cnpj: r.cpf_cnpj || r.cedente_key,
           nome: r.cedente_nome || r.cedente_key,
