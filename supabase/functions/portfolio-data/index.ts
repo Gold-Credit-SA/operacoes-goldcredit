@@ -898,7 +898,7 @@ serve(async (req) => {
           volume: parseFloat(r.volume) || 0,
         }));
 
-        // 8. Cheques devolvidos (tipo = 'CHQ'), uma linha por título
+        // 8. Cheques devolvidos (tipo = 'CHQ'), exclusivamente da tabela de títulos devolvidos
         const chequesDevRes = await conn.queryObject(`
           SELECT
             d.id,
@@ -907,20 +907,16 @@ serve(async (req) => {
             COALESCE(d.valor, 0)::float as valor,
             d.vencimento,
             d.devolucao,
-            d.documento,
-            COALESCE(MAX(c.cpf_cnpj), '') as cpf_cnpj
+            d.documento
           FROM smartsecurities_titulos_devolvidos d
-          LEFT JOIN smartsecurities_cedentes c
-            ON UPPER(TRIM(c.nome)) = UPPER(TRIM(d.cedente))
-          WHERE UPPER(TRIM(d.tipo)) = 'CHQ'
-          GROUP BY d.id, d.cedente, d.sacado, d.valor, d.vencimento, d.devolucao, d.documento
-          ORDER BY d.devolucao DESC NULLS LAST, d.valor DESC
+          WHERE UPPER(TRIM(COALESCE(d.tipo, ''))) = 'CHQ'
+          ORDER BY d.devolucao DESC NULLS LAST, d.vencimento DESC NULLS LAST, d.valor DESC
           LIMIT 50
         `);
 
         const chequesDevolvidos = (chequesDevRes.rows as any[]).map(r => ({
           id: r.id,
-          cpf_cnpj: r.cpf_cnpj || '',
+          cpf_cnpj: '',
           cedente: r.cedente || '',
           sacado: r.sacado || '',
           valor: parseFloat(r.valor) || 0,
