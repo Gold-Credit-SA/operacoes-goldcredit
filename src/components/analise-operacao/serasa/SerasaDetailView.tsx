@@ -388,11 +388,14 @@ export function SerasaDetailView({ data, document: docNumber, consultaId, hideEx
             const totalAnnotations = partnersWithAnnotations + directorsWithAnnotations;
             return (
             <div className="border border-border rounded-lg p-3">
-              <p className="text-[11px] font-medium text-muted-foreground">Sem ocorrências</p>
-              <p className="text-sm font-bold text-foreground mt-1">
+              <p className="text-[11px] font-medium text-muted-foreground">Anotações negativas em Sócios/Administradores</p>
+              <p className={`text-sm font-bold mt-1 ${totalAnnotations > 0 ? 'text-destructive' : 'text-foreground'}`}>
                 {allPartners.length} | {allDirectors.length}
               </p>
               <p className="text-[11px] text-muted-foreground mt-0.5">Sócios | Administradores</p>
+              {totalAnnotations > 0 && (
+                <p className="text-[11px] text-destructive mt-0.5">{totalAnnotations} com anotações negativas</p>
+              )}
             </div>
             );
           })() : (
