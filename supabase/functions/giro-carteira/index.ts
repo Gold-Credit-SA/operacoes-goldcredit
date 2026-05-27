@@ -477,77 +477,92 @@ serve(async (req) => {
           const excedente = riscoAtual - limiteGlobal; // >0 quando passou do limite
           const pctDisponivel = limiteGlobal > 0 ? (limiteDisponivel / limiteGlobal) * 100 : 0;
 
-          let score = 30;
+          let score = 20;
           const sinais: string[] = [];
 
           if (bloqueado) {
             score = 0;
           } else {
-            // PRIORIDADE 1: Limite disponível (peso máximo 50 pts)
+            // FATOR 1: Limite disponível (até 35 pts) — relevante, mas não decisivo isolado
             if (limiteGlobal <= 0) {
-              score -= 20;
+              score -= 10;
               sinais.push('Sem limite global cadastrado');
             } else if (limiteDisponivel <= 0) {
-              score -= 30;
+              score -= 25;
               sinais.push(`Limite excedido em R$ ${excedente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} — sem espaço para giro`);
             } else if (pctDisponivel >= 70) {
-              score += 50;
+              score += 35;
               sinais.push(`Amplo limite disponível: R$ ${limiteDisponivel.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${pctDisponivel.toFixed(0)}% livre)`);
             } else if (pctDisponivel >= 40) {
-              score += 35;
+              score += 25;
               sinais.push(`Bom limite disponível: R$ ${limiteDisponivel.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${pctDisponivel.toFixed(0)}% livre)`);
             } else if (pctDisponivel >= 15) {
-              score += 18;
+              score += 15;
               sinais.push(`Limite disponível moderado: R$ ${limiteDisponivel.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${pctDisponivel.toFixed(0)}% livre)`);
             } else {
               score += 5;
               sinais.push(`Pouco limite disponível: R$ ${limiteDisponivel.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${pctDisponivel.toFixed(0)}% livre)`);
             }
 
-            // PRIORIDADE 2: Liquidações recentes (até 20 pts)
-            if (q30.qtd > 0) {
-              score += 20;
-              sinais.push(`${q30.qtd} título(s) liquidado(s) nos últimos 30 dias (R$ ${q30.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`);
+            // FATOR 2: Liquidações recentes (até 30 pts) — sinal forte de fluxo ativo
+            if (q30.qtd >= 3) {
+              score += 30;
+              sinais.push(`${q30.qtd} título(s) liquidado(s) em 30d (R$ ${q30.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}) — fluxo intenso`);
+            } else if (q30.qtd > 0) {
+              score += 22;
+              sinais.push(`${q30.qtd} título(s) liquidado(s) em 30d (R$ ${q30.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`);
             } else if (q60.qtd > 0) {
-              score += 10;
-              sinais.push(`${q60.qtd} título(s) liquidado(s) nos últimos 60 dias`);
+              score += 12;
+              sinais.push(`${q60.qtd} título(s) liquidado(s) em 60d`);
             }
 
-            // PRIORIDADE 3: Padrão de inatividade (até 15 pts)
+            // FATOR 3: Inatividade vs ritmo habitual (até 20 pts)
             if (intervaloMedio > 0 && diasInativo !== null) {
               if (diasInativo > intervaloMedio * 1.5) {
-                score += 15;
+                score += 20;
                 sinais.push(`Inativo há ${diasInativo}d, acima do ritmo habitual (${intervaloMedio}d entre operações)`);
               } else if (diasInativo > intervaloMedio) {
-                score += 8;
+                score += 12;
                 sinais.push(`Inativo há ${diasInativo}d, levemente acima do ritmo (${intervaloMedio}d)`);
               } else if (diasInativo < intervaloMedio * 0.5) {
-                score -= 10;
+                score -= 8;
                 sinais.push(`Operou recentemente (${diasInativo}d), abaixo do intervalo médio`);
               }
             } else if (diasInativo === null) {
-              score -= 20;
+              score -= 15;
               sinais.push('Sem operações nos últimos 180 dias');
             }
 
-            // PRIORIDADE 4: Janela típica (até 10 pts)
+            // FATOR 4: Janela típica do mês (até 15 pts)
             if (ops.length >= 6) {
               const semanaNome = ['1ª', '2ª', '3ª', '4ª'][semanaTop - 1];
               sinais.push(`Padrão: opera mais na ${semanaNome} semana do mês (dia médio ${diaMedioMes})`);
               const semanaAtual = Math.min(3, Math.floor((hoje.getDate() - 1) / 7)) + 1;
-              if (semanaAtual === semanaTop || semanaAtual === semanaTop - 1) {
-                score += 10;
-                sinais.push('Entrando na janela típica de operação');
+              if (semanaAtual === semanaTop) {
+                score += 15;
+                sinais.push('Está dentro da janela típica de operação');
+              } else if (semanaAtual === semanaTop - 1 || semanaAtual === semanaTop + 1) {
+                score += 8;
+                sinais.push('Próximo da janela típica de operação');
               }
+            }
+
+            // FATOR 5: Histórico sólido (até 10 pts)
+            if (ops.length >= 20) {
+              score += 10;
+              sinais.push(`Histórico sólido: ${ops.length} operações em 180d`);
+            } else if (ops.length >= 10) {
+              score += 5;
             }
           }
 
           score = Math.max(0, Math.min(100, score));
+          // Recomendação composta: combina todos os fatores. Só descarta NAO se realmente não há nada.
           let recomendacao: 'ALTA' | 'MEDIA' | 'BAIXA' | 'NAO' = 'BAIXA';
           if (bloqueado) recomendacao = 'NAO';
-          else if (limiteDisponivel <= 0 && limiteGlobal > 0) recomendacao = 'NAO'; // sem espaço = não recomendado
-          else if (score >= 75) recomendacao = 'ALTA';
-          else if (score >= 55) recomendacao = 'MEDIA';
+          else if (limiteDisponivel <= 0 && limiteGlobal > 0 && q30.qtd === 0 && q60.qtd === 0) recomendacao = 'NAO';
+          else if (score >= 70) recomendacao = 'ALTA';
+          else if (score >= 45) recomendacao = 'MEDIA';
 
           let motivo: string;
           if (bloqueado) motivo = 'Cedente bloqueado — não recomendado.';
