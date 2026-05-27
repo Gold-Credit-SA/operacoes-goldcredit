@@ -21,6 +21,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { GiroGeralIA } from '@/components/giro/GiroGeralIA';
 import { formatDateBR } from '@/lib/utils';
 
 interface CedenteCarteira {
@@ -155,7 +157,17 @@ export default function CarteiraGiro() {
 
   return (
     <MainLayout title="Giro de Carteira" subtitle="Acompanhamento de movimentações e operações da sua carteira">
-      <div className="space-y-6">
+      <Tabs defaultValue="minha" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="minha">Minha Carteira</TabsTrigger>
+          <TabsTrigger value="geral">Visão Geral (IA)</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="geral">
+          <GiroGeralIA />
+        </TabsContent>
+
+        <TabsContent value="minha" className="space-y-6">
         {/* Search & refresh */}
         <div className="flex items-center gap-3">
           <div className="relative flex-1 max-w-md">
@@ -322,7 +334,8 @@ export default function CarteiraGiro() {
             )}
           </CardContent>
         </Card>
-      </div>
+        </TabsContent>
+      </Tabs>
     </MainLayout>
   );
 }

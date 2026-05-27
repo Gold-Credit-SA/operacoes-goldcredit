@@ -366,6 +366,218 @@ serve(async (req) => {
         });
       }
 
+      if (action === 'behavior-all') {
+        console.log("Analisando comportamento de giro de todos os cedentes...");
+
+        const hoje = new Date();
+        const d180 = new Date(); d180.setDate(d180.getDate() - 180);
+        const d60 = new Date(); d60.setDate(d60.getDate() - 60);
+        const d30 = new Date(); d30.setDate(d30.getDate() - 30);
+        const fmt = (d: Date) => d.toISOString().split('T')[0];
+
+        const cedentesResult = await connection.queryObject<{
+          cpf_cnpj: string; nome: string; setor: string; uf: string; cidade: string;
+          bloqueado: string; limite_global: number;
+        }>(`
+          SELECT cpf_cnpj, nome, setor, uf, cidade, bloqueado, limite_global
+          FROM smartsecurities_cedentes
+        `);
+
+        const opsResult = await connection.queryObject<{
+          cpf_cnpj_cedente: string; data: Date;
+        }>(`
+          SELECT cpf_cnpj_cedente, data
+          FROM smartsecurities_operacoes_individualizadas
+          WHERE data >= $1
+        `, [fmt(d180)]);
+
+        const ultimaOpResult = await connection.queryObject<{
+          cpf_cnpj_cedente: string; ultima: Date;
+        }>(`
+          SELECT cpf_cnpj_cedente, MAX(data) as ultima
+          FROM smartsecurities_operacoes_individualizadas
+          GROUP BY cpf_cnpj_cedente
+        `);
+
+        const quit60Result = await connection.queryObject<{
+          cpf_cnpj_cedente: string; quitacao: Date; valor_face: number;
+        }>(`
+          SELECT cpf_cnpj_cedente, quitacao, valor_face
+          FROM smartsecurities_titulos_quitados
+          WHERE quitacao >= $1
+        `, [fmt(d60)]);
+
+        const opsByCed: Record<string, Date[]> = {};
+        for (const r of opsResult.rows) {
+          (opsByCed[r.cpf_cnpj_cedente] ||= []).push(new Date(r.data));
+        }
+        const ultimaMap: Record<string, Date> = {};
+        for (const r of ultimaOpResult.rows) ultimaMap[r.cpf_cnpj_cedente] = new Date(r.ultima);
+
+        const quit30: Record<string, { qtd: number; valor: number }> = {};
+        const quit60: Record<string, { qtd: number; valor: number }> = {};
+        for (const r of quit60Result.rows) {
+          const v = parseFloat(String(r.valor_face)) || 0;
+          const q = new Date(r.quitacao);
+          quit60[r.cpf_cnpj_cedente] ||= { qtd: 0, valor: 0 };
+          quit60[r.cpf_cnpj_cedente].qtd++;
+          quit60[r.cpf_cnpj_cedente].valor += v;
+          if (q >= d30) {
+            quit30[r.cpf_cnpj_cedente] ||= { qtd: 0, valor: 0 };
+            quit30[r.cpf_cnpj_cedente].qtd++;
+            quit30[r.cpf_cnpj_cedente].valor += v;
+          }
+        }
+
+        const resultado = cedentesResult.rows.map(ced => {
+          const ops = (opsByCed[ced.cpf_cnpj] || []).sort((a, b) => a.getTime() - b.getTime());
+          const ultima = ultimaMap[ced.cpf_cnpj];
+          const diasInativo = ultima ? Math.floor((hoje.getTime() - ultima.getTime()) / 86400000) : null;
+
+          let diaMedioMes = 0;
+          const semanaCount = [0, 0, 0, 0];
+          for (const d of ops) {
+            const dia = d.getDate();
+            diaMedioMes += dia;
+            const sem = Math.min(3, Math.floor((dia - 1) / 7));
+            semanaCount[sem]++;
+          }
+          diaMedioMes = ops.length > 0 ? Math.round(diaMedioMes / ops.length) : 0;
+          const semanaTop = semanaCount.indexOf(Math.max(...semanaCount)) + 1;
+
+          let intervaloMedio = 0;
+          if (ops.length >= 2) {
+            let soma = 0;
+            for (let i = 1; i < ops.length; i++) {
+              soma += (ops[i].getTime() - ops[i - 1].getTime()) / 86400000;
+            }
+            intervaloMedio = Math.round(soma / (ops.length - 1));
+          }
+
+          const q30 = quit30[ced.cpf_cnpj] || { qtd: 0, valor: 0 };
+          const q60 = quit60[ced.cpf_cnpj] || { qtd: 0, valor: 0 };
+          const bloqueado = ced.bloqueado === 'S';
+
+          let score = 40;
+          const sinais: string[] = [];
+
+          if (bloqueado) {
+            score = 0;
+          } else {
+            if (q30.qtd > 0) {
+              score += 30;
+              sinais.push(`${q30.qtd} título(s) liquidado(s) nos últimos 30 dias (R$ ${q30.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`);
+            } else if (q60.qtd > 0) {
+              score += 15;
+              sinais.push(`${q60.qtd} título(s) liquidado(s) nos últimos 60 dias`);
+            }
+
+            if (intervaloMedio > 0 && diasInativo !== null) {
+              if (diasInativo > intervaloMedio * 1.5) {
+                score += 25;
+                sinais.push(`Inativo há ${diasInativo}d, acima do ritmo habitual (${intervaloMedio}d entre operações)`);
+              } else if (diasInativo > intervaloMedio) {
+                score += 12;
+                sinais.push(`Inativo há ${diasInativo}d, levemente acima do ritmo (${intervaloMedio}d)`);
+              } else if (diasInativo < intervaloMedio * 0.5) {
+                score -= 15;
+                sinais.push(`Operou recentemente (${diasInativo}d), abaixo do intervalo médio`);
+              }
+            } else if (diasInativo === null) {
+              score -= 30;
+              sinais.push('Sem operações nos últimos 180 dias');
+            }
+
+            if (ops.length >= 6) {
+              const semanaNome = ['1ª', '2ª', '3ª', '4ª'][semanaTop - 1];
+              sinais.push(`Padrão: opera mais na ${semanaNome} semana do mês (dia médio ${diaMedioMes})`);
+              const semanaAtual = Math.min(3, Math.floor((hoje.getDate() - 1) / 7)) + 1;
+              if (semanaAtual === semanaTop || semanaAtual === semanaTop - 1) {
+                score += 10;
+                sinais.push('Entrando na janela típica de operação');
+              }
+            }
+          }
+
+          score = Math.max(0, Math.min(100, score));
+          let recomendacao: 'ALTA' | 'MEDIA' | 'BAIXA' | 'NAO' = 'BAIXA';
+          if (bloqueado) recomendacao = 'NAO';
+          else if (score >= 75) recomendacao = 'ALTA';
+          else if (score >= 55) recomendacao = 'MEDIA';
+
+          let motivo: string;
+          if (bloqueado) motivo = 'Cedente bloqueado — não recomendado.';
+          else if (recomendacao === 'ALTA') motivo = `Forte oportunidade de giro. ${sinais.slice(0, 3).join('. ')}.`;
+          else if (recomendacao === 'MEDIA') motivo = `Oportunidade moderada. ${sinais.slice(0, 2).join('. ')}.`;
+          else motivo = sinais.length > 0 ? `Pouco potencial de giro agora. ${sinais.slice(0, 2).join('. ')}.` : 'Pouco potencial de giro agora.';
+
+          return {
+            cpf_cnpj: ced.cpf_cnpj,
+            nome: ced.nome,
+            setor: ced.setor,
+            cidade: ced.cidade,
+            uf: ced.uf,
+            bloqueado: ced.bloqueado,
+            limite_global: parseFloat(String(ced.limite_global)) || 0,
+            ultima_operacao: ultima ? fmt(ultima) : null,
+            dias_inativo: diasInativo,
+            total_ops_180d: ops.length,
+            intervalo_medio_dias: intervaloMedio,
+            dia_medio_mes: diaMedioMes,
+            semana_mes_top: semanaTop,
+            quitados_30d_qtd: q30.qtd,
+            quitados_30d_valor: q30.valor,
+            quitados_60d_qtd: q60.qtd,
+            quitados_60d_valor: q60.valor,
+            score_giro: score,
+            recomendacao,
+            motivo,
+            sinais,
+          };
+        });
+
+        resultado.sort((a, b) => b.score_giro - a.score_giro);
+        console.log(`Análise comportamental concluída: ${resultado.length} cedentes`);
+        return new Response(JSON.stringify({ success: true, cedentes: resultado }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (action === 'ai-narrative') {
+        const ctx = cedentes && cedentes[0];
+        if (!ctx) {
+          return new Response(JSON.stringify({ error: 'cedente required' }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+        if (!LOVABLE_API_KEY) {
+          return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY missing' }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const prompt = `Você é um analista de crédito de FIDC/factoring. Com base nos dados comportamentais abaixo, escreva uma análise curta (máx 4 frases) em português recomendando ou não fazer giro de carteira com este cedente AGORA. Seja direto, mencione liquidações recentes e padrão de operação.\n\nDados:\n${JSON.stringify(ctx, null, 2)}`;
+        const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [{ role: "user", content: prompt }],
+          }),
+        });
+        if (!aiResp.ok) {
+          const t = await aiResp.text();
+          return new Response(JSON.stringify({ error: `AI ${aiResp.status}: ${t}` }), {
+            status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const aiJson = await aiResp.json();
+        const narrativa = aiJson.choices?.[0]?.message?.content || '';
+        return new Response(JSON.stringify({ success: true, narrativa }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       return new Response(JSON.stringify({ error: "Invalid action" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
