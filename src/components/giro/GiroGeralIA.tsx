@@ -224,6 +224,10 @@ export function GiroGeralIA() {
                       <TableCell className="text-center">
                         <Badge variant={recBadgeVariant(c.recomendacao) as any}>{c.recomendacao}</Badge>
                       </TableCell>
+                      <TableCell className={`text-right font-medium text-sm ${(c.limite_disponivel || 0) <= 0 ? 'text-destructive' : 'text-emerald-600'}`}>
+                        {formatCurrency(c.limite_disponivel)}
+                        <div className="text-[10px] text-muted-foreground font-normal">de {formatCurrency(c.limite_global)}</div>
+                      </TableCell>
                       <TableCell className="text-center text-sm">
                         {c.ultima_operacao ? (
                           <>
