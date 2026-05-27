@@ -7,7 +7,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Loader2, Plus, Search, Trash2, Bell, RefreshCw } from "lucide-react";
+import { Loader2, Plus, Search, Trash2, Bell, RefreshCw, Upload } from "lucide-react";
+import { parseMultipleXmls } from "@/lib/xml-nfe-parser";
 
 interface Monitoramento {
   id: string;
@@ -86,6 +87,41 @@ export default function MonitoramentoNFe() {
     load();
   }
 
+  async function importarXmls(files: File[]) {
+    const xmlFiles = files.filter(f => f.name.toLowerCase().endsWith(".xml"));
+    if (!xmlFiles.length) { toast.error("Selecione arquivos .xml"); return; }
+    setAdding(true);
+    const contents = await Promise.all(xmlFiles.map(async f => ({ name: f.name, content: await f.text() })));
+    const { notas, erros } = parseMultipleXmls(contents);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setAdding(false); return; }
+
+    let inseridas = 0, duplicadas = 0, falhas = erros.length;
+    let primeira: Monitoramento | null = null;
+
+    for (const n of notas) {
+      const chave = n.chaveAcesso.replace(/\D/g, "");
+      if (chave.length !== 44) { falhas++; continue; }
+      const descricao = `NF ${n.numero}${n.serie ? "/" + n.serie : ""} · ${n.emitente.nome}`.slice(0, 200);
+      const { data, error } = await (supabase as any)
+        .from("nfe_monitoramento")
+        .insert({ user_id: user.id, chave_acesso: chave, descricao })
+        .select()
+        .maybeSingle();
+      if (error) {
+        if (error.message?.includes("unique") || error.code === "23505") duplicadas++;
+        else falhas++;
+      } else {
+        inseridas++;
+        if (!primeira && data) primeira = data as Monitoramento;
+      }
+    }
+    setAdding(false);
+    toast.success(`${inseridas} importada(s)${duplicadas ? `, ${duplicadas} já cadastrada(s)` : ""}${falhas ? `, ${falhas} falha(s)` : ""}`);
+    await load();
+    if (primeira) consultar(primeira);
+  }
+
   async function consultar(item: Monitoramento) {
     setConsultando(item.id);
     const { data, error } = await supabase.functions.invoke("serpro-nfe", {
@@ -158,24 +194,47 @@ export default function MonitoramentoNFe() {
         <TabsContent value="chaves" className="space-y-4">
           <Card>
             <CardHeader><CardTitle className="text-base">Adicionar chave</CardTitle></CardHeader>
-            <CardContent className="flex gap-2 flex-wrap">
-              <Input
-                placeholder="Chave de acesso (44 dígitos)"
-                value={chaveInput}
-                onChange={(e) => setChaveInput(e.target.value)}
-                className="flex-1 min-w-[300px] font-mono"
-                maxLength={60}
-              />
-              <Input
-                placeholder="Descrição (opcional)"
-                value={descInput}
-                onChange={(e) => setDescInput(e.target.value)}
-                className="w-64"
-              />
-              <Button onClick={adicionar} disabled={adding}>
-                {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                Adicionar
-              </Button>
+            <CardContent className="space-y-3">
+              <div className="flex gap-2 flex-wrap">
+                <Input
+                  placeholder="Chave de acesso (44 dígitos)"
+                  value={chaveInput}
+                  onChange={(e) => setChaveInput(e.target.value)}
+                  className="flex-1 min-w-[300px] font-mono"
+                  maxLength={60}
+                />
+                <Input
+                  placeholder="Descrição (opcional)"
+                  value={descInput}
+                  onChange={(e) => setDescInput(e.target.value)}
+                  className="w-64"
+                />
+                <Button onClick={adicionar} disabled={adding}>
+                  {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  Adicionar
+                </Button>
+              </div>
+
+              <div className="relative border-2 border-dashed rounded-lg p-4 hover:border-primary/50 hover:bg-muted/30 transition-colors">
+                <input
+                  type="file"
+                  accept=".xml"
+                  multiple
+                  disabled={adding}
+                  onChange={(e) => {
+                    const files = e.target.files ? Array.from(e.target.files) : [];
+                    if (files.length) importarXmls(files);
+                    e.target.value = "";
+                  }}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                />
+                <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
+                  <Upload className="h-5 w-5" />
+                  <span>
+                    {adding ? "Processando..." : "Importar XMLs de NF-e (chave extraída automaticamente)"}
+                  </span>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
