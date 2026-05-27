@@ -30,6 +30,8 @@ interface CedenteBehavior {
   uf?: string;
   bloqueado?: string;
   limite_global: number;
+  limite_disponivel: number;
+  risco_atual: number;
   ultima_operacao: string | null;
   dias_inativo: number | null;
   total_ops_180d: number;
