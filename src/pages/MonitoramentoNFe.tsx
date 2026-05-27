@@ -124,7 +124,7 @@ export default function MonitoramentoNFe() {
     setAdding(false);
     toast.success(`${inseridas} importada(s)${duplicadas ? `, ${duplicadas} já cadastrada(s)` : ""}${falhas ? `, ${falhas} falha(s)` : ""}`);
     await load();
-    if (primeira) consultar(primeira);
+    if (primeira) abrirDetalhes(primeira);
   }
 
   async function abrirDetalhes(item: Monitoramento) {
