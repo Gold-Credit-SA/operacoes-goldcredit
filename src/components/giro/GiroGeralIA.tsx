@@ -203,19 +203,18 @@ export function GiroGeralIA() {
                   <TableRow>
                     <TableHead>Cedente</TableHead>
                     <TableHead className="text-right">Limite disponível</TableHead>
-                    <TableHead className="text-center">Score</TableHead>
                     <TableHead className="text-center">Recomendação</TableHead>
                     <TableHead className="text-center">Última op.</TableHead>
                     <TableHead className="text-center">Padrão</TableHead>
                     <TableHead className="text-center">Liquidados 30d</TableHead>
-                    <TableHead>Motivo</TableHead>
+                    <TableHead>Parecer do gestor (IA)</TableHead>
                     <TableHead className="w-24"></TableHead>
                   </TableRow>
 
                 </TableHeader>
                 <TableBody>
                   {paginated.length === 0 ? (
-                    <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum cedente</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum cedente</TableCell></TableRow>
                   ) : paginated.map(c => (
                     <TableRow key={c.cpf_cnpj}>
                       <TableCell>
