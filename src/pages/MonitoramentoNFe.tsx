@@ -7,7 +7,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Loader2, Plus, Search, Trash2, Bell, RefreshCw } from "lucide-react";
+import { Loader2, Plus, Search, Trash2, Bell, RefreshCw, Upload } from "lucide-react";
+import { parseMultipleXmls } from "@/lib/xml-nfe-parser";
 
 interface Monitoramento {
   id: string;
