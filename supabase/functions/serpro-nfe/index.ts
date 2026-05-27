@@ -12,8 +12,8 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const SERPRO_BASE = "https://gateway.apiserpro.serpro.gov.br";
-// Trial endpoint (sem custo) por padrão; troque para "/consulta-nfe-df/api/v1" em produção.
-const NFE_BASE = `${SERPRO_BASE}/consulta-nfe-df-trial/api/v1`;
+// Produção
+const NFE_BASE = `${SERPRO_BASE}/consulta-nfe-df/api/v1`;
 
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
