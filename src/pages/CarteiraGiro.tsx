@@ -334,7 +334,8 @@ export default function CarteiraGiro() {
             )}
           </CardContent>
         </Card>
-      </div>
+        </TabsContent>
+      </Tabs>
     </MainLayout>
   );
 }
