@@ -43,9 +43,8 @@ interface CedenteBehavior {
   quitados_30d_valor: number;
   quitados_60d_qtd: number;
   quitados_60d_valor: number;
-  score_giro: number;
   recomendacao: 'ALTA' | 'MEDIA' | 'BAIXA' | 'NAO';
-  motivo: string;
+  parecer: string;
   sinais: string[];
 }
 
@@ -204,19 +203,18 @@ export function GiroGeralIA() {
                   <TableRow>
                     <TableHead>Cedente</TableHead>
                     <TableHead className="text-right">Limite disponível</TableHead>
-                    <TableHead className="text-center">Score</TableHead>
                     <TableHead className="text-center">Recomendação</TableHead>
                     <TableHead className="text-center">Última op.</TableHead>
                     <TableHead className="text-center">Padrão</TableHead>
                     <TableHead className="text-center">Liquidados 30d</TableHead>
-                    <TableHead>Motivo</TableHead>
+                    <TableHead>Parecer do gestor (IA)</TableHead>
                     <TableHead className="w-24"></TableHead>
                   </TableRow>
 
                 </TableHeader>
                 <TableBody>
                   {paginated.length === 0 ? (
-                    <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum cedente</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum cedente</TableCell></TableRow>
                   ) : paginated.map(c => (
                     <TableRow key={c.cpf_cnpj}>
                       <TableCell>
@@ -238,9 +236,8 @@ export function GiroGeralIA() {
                           <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-center font-bold">{c.score_giro}</TableCell>
-
                       <TableCell className="text-center">
+
                         <Badge variant={recBadgeVariant(c.recomendacao) as any}>{c.recomendacao}</Badge>
                       </TableCell>
                       <TableCell className="text-center text-sm">
@@ -271,7 +268,7 @@ export function GiroGeralIA() {
                           <span className="text-xs text-muted-foreground">{c.quitados_60d_qtd} em 60d</span>
                         ) : <span className="text-muted-foreground">—</span>}
                       </TableCell>
-                      <TableCell className="max-w-[300px] text-xs text-muted-foreground">{c.motivo}</TableCell>
+                      <TableCell className="max-w-[340px] text-xs text-foreground/80 leading-snug">{c.parecer || <span className="text-muted-foreground italic">analisando…</span>}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
                           <Button size="icon" variant="ghost" title="Análise IA" onClick={() => openAi(c)}>
@@ -323,14 +320,11 @@ export function GiroGeralIA() {
 
           {aiTarget && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 gap-3 text-sm">
                 <div className="border rounded p-3">
-                  <p className="text-xs text-muted-foreground">Score</p>
-                  <p className="font-bold text-lg">{aiTarget.score_giro}</p>
-                </div>
-                <div className="border rounded p-3">
-                  <p className="text-xs text-muted-foreground">Recomendação</p>
+                  <p className="text-xs text-muted-foreground mb-1">Recomendação do gestor IA</p>
                   <Badge variant={recBadgeVariant(aiTarget.recomendacao) as any}>{aiTarget.recomendacao}</Badge>
+                  {aiTarget.parecer && <p className="text-sm mt-2 leading-snug">{aiTarget.parecer}</p>}
                 </div>
               </div>
 
