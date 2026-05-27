@@ -473,35 +473,13 @@ function DetalheDialog({
         ) : !item?.ultimo_resultado ? (
           <p className="text-sm text-muted-foreground py-8 text-center">Sem dados ainda.</p>
         ) : (
-          <Tabs defaultValue="resumo" className="mt-2">
-            <TabsList>
-              <TabsTrigger value="resumo">Resumo</TabsTrigger>
-              <TabsTrigger value="danfe">DANFE (PDF)</TabsTrigger>
-              <TabsTrigger value="eventos">Movimentações ({eventos.length})</TabsTrigger>
-              <TabsTrigger value="json">JSON</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="resumo" className="space-y-3 pt-2">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                <Info label="Número" value={nfe?.ide?.nNF} />
-                <Info label="Série" value={nfe?.ide?.serie} />
-                <Info label="Emissão" value={nfe?.ide?.dhEmi?.substring(0, 10)} />
-                <Info label="Natureza" value={nfe?.ide?.natOp} />
-                <Info label="Emitente" value={nfe?.emit?.xNome} />
-                <Info label="CNPJ Emit." value={nfe?.emit?.CNPJ} />
-                <Info label="Destinatário" value={nfe?.dest?.xNome} />
-                <Info label="Doc. Dest." value={nfe?.dest?.CNPJ ?? nfe?.dest?.CPF} />
-                <Info label="Valor Total" value={fmtMoeda(total?.vNF)} />
-                <Info label="ICMS" value={fmtMoeda(total?.vICMS)} />
-                <Info label="Tributos" value={fmtMoeda(total?.vTotTrib)} />
-                <Info label="Frete" value={fmtMoeda(total?.vFrete)} />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="danfe" className="pt-2">
+          <div className="space-y-6 mt-2">
+            {/* Section 1: PDF da nota */}
+            <section>
+              <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">DANFE</h3>
               {danfeLoading ? (
-                <div className="flex items-center justify-center py-16 gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-5 w-5 animate-spin" /> Gerando DANFE...
+                <div className="flex items-center justify-center py-16 gap-2 text-sm text-muted-foreground border rounded">
+                  <Loader2 className="h-5 w-5 animate-spin" /> Gerando PDF...
                 </div>
               ) : pdfUrl ? (
                 <iframe src={pdfUrl} className="w-full h-[70vh] border rounded" title="DANFE" />
@@ -509,15 +487,19 @@ function DetalheDialog({
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription className="text-xs">
-                    DANFE em PDF não disponível para esta nota (o produto SERPRO assinado pode não incluir geração de DANFE).
+                    PDF da DANFE indisponível para esta nota.
                   </AlertDescription>
                 </Alert>
               )}
-            </TabsContent>
+            </section>
 
-            <TabsContent value="eventos" className="pt-2">
+            {/* Section 2: Movimentações */}
+            <section>
+              <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">
+                Movimentações ({eventos.length})
+              </h3>
               {eventos.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-8 text-center">
+                <p className="text-sm text-muted-foreground py-6 text-center border rounded">
                   Nenhuma movimentação recebida para esta chave ainda.
                 </p>
               ) : (
@@ -532,7 +514,7 @@ function DetalheDialog({
                   <TableBody>
                     {eventos.map(e => (
                       <TableRow key={e.id}>
-                        <TableCell className="text-xs">{e.data_evento ? new Date(e.data_evento).toLocaleString("pt-BR") : "—"}</TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">{e.data_evento ? new Date(e.data_evento).toLocaleString("pt-BR") : "—"}</TableCell>
                         <TableCell>{e.tipo_evento || "—"}</TableCell>
                         <TableCell>{e.descricao || "—"}</TableCell>
                       </TableRow>
@@ -540,14 +522,8 @@ function DetalheDialog({
                   </TableBody>
                 </Table>
               )}
-            </TabsContent>
-
-            <TabsContent value="json" className="pt-2">
-              <pre className="p-3 bg-muted rounded text-xs overflow-auto max-h-[60vh]">
-                {JSON.stringify(item.ultimo_resultado, null, 2)}
-              </pre>
-            </TabsContent>
-          </Tabs>
+            </section>
+          </div>
         )}
       </DialogContent>
     </Dialog>
