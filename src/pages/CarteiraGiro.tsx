@@ -21,6 +21,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { GiroGeralIA } from '@/components/giro/GiroGeralIA';
 import { formatDateBR } from '@/lib/utils';
 
 interface CedenteCarteira {
