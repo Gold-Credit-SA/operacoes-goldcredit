@@ -157,7 +157,17 @@ export default function CarteiraGiro() {
 
   return (
     <MainLayout title="Giro de Carteira" subtitle="Acompanhamento de movimentações e operações da sua carteira">
-      <div className="space-y-6">
+      <Tabs defaultValue="minha" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="minha">Minha Carteira</TabsTrigger>
+          <TabsTrigger value="geral">Visão Geral (IA)</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="geral">
+          <GiroGeralIA />
+        </TabsContent>
+
+        <TabsContent value="minha" className="space-y-6">
         {/* Search & refresh */}
         <div className="flex items-center gap-3">
           <div className="relative flex-1 max-w-md">
