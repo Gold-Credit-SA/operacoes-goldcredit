@@ -230,6 +230,13 @@ Deno.serve(async (req) => {
         return jsonResponse({ status: r.status, ok: r.ok, data: r.json ?? r.text });
       }
 
+      case "danfe": {
+        const chave = String(body.chave ?? "").replace(/\D/g, "");
+        if (chave.length !== 44) return jsonResponse({ error: "Chave deve ter 44 dígitos" }, 400);
+        const r = await serproFetch(`/nfe/${chave}/danfe`, { method: "GET" });
+        return jsonResponse({ status: r.status, ok: r.ok, data: r.json ?? r.text });
+      }
+
       case "push_excluir": {
         const sid = body.solicitacaoId;
         if (!sid) return jsonResponse({ error: "solicitacaoId obrigatório" }, 400);
