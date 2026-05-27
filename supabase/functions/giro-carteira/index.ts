@@ -377,9 +377,9 @@ serve(async (req) => {
 
         const cedentesResult = await connection.queryObject<{
           cpf_cnpj: string; nome: string; setor: string; uf: string; cidade: string;
-          bloqueado: string; limite_global: number;
+          bloqueado: string; limite_global: number; risco_atual: number;
         }>(`
-          SELECT cpf_cnpj, nome, setor, uf, cidade, bloqueado, limite_global
+          SELECT cpf_cnpj, nome, setor, uf, cidade, bloqueado, limite_global, risco_atual
           FROM smartsecurities_cedentes
         `);
 
@@ -519,6 +519,8 @@ serve(async (req) => {
             uf: ced.uf,
             bloqueado: ced.bloqueado,
             limite_global: parseFloat(String(ced.limite_global)) || 0,
+            risco_atual: parseFloat(String(ced.risco_atual)) || 0,
+            limite_disponivel: (parseFloat(String(ced.limite_global)) || 0) - (parseFloat(String(ced.risco_atual)) || 0),
             ultima_operacao: ultima ? fmt(ultima) : null,
             dias_inativo: diasInativo,
             total_ops_180d: ops.length,

@@ -30,6 +30,8 @@ interface CedenteBehavior {
   uf?: string;
   bloqueado?: string;
   limite_global: number;
+  limite_disponivel: number;
+  risco_atual: number;
   ultima_operacao: string | null;
   dias_inativo: number | null;
   total_ops_180d: number;
@@ -201,6 +203,7 @@ export function GiroGeralIA() {
                     <TableHead>Cedente</TableHead>
                     <TableHead className="text-center">Score</TableHead>
                     <TableHead className="text-center">Recomendação</TableHead>
+                    <TableHead className="text-right">Disponível</TableHead>
                     <TableHead className="text-center">Última op.</TableHead>
                     <TableHead className="text-center">Padrão</TableHead>
                     <TableHead className="text-center">Liquidados 30d</TableHead>
@@ -210,7 +213,7 @@ export function GiroGeralIA() {
                 </TableHeader>
                 <TableBody>
                   {paginated.length === 0 ? (
-                    <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum cedente</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum cedente</TableCell></TableRow>
                   ) : paginated.map(c => (
                     <TableRow key={c.cpf_cnpj}>
                       <TableCell>
@@ -220,6 +223,10 @@ export function GiroGeralIA() {
                       <TableCell className="text-center font-bold">{c.score_giro}</TableCell>
                       <TableCell className="text-center">
                         <Badge variant={recBadgeVariant(c.recomendacao) as any}>{c.recomendacao}</Badge>
+                      </TableCell>
+                      <TableCell className={`text-right font-medium text-sm ${(c.limite_disponivel || 0) <= 0 ? 'text-destructive' : 'text-emerald-600'}`}>
+                        {formatCurrency(c.limite_disponivel)}
+                        <div className="text-[10px] text-muted-foreground font-normal">de {formatCurrency(c.limite_global)}</div>
                       </TableCell>
                       <TableCell className="text-center text-sm">
                         {c.ultima_operacao ? (
