@@ -179,8 +179,13 @@ export default function MonitoramentoNFe() {
     const chaves = items.filter(i => !i.solicitacao_id).map(i => i.chave_acesso);
     if (!chaves.length) { toast.error("Nenhuma chave nova para monitorar"); return; }
 
-    // 1) Garante que a URL de callback está cadastrada na SERPRO (webhook desta plataforma)
-    const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/serpro-nfe`;
+    // 1) Garante que a URL de callback está cadastrada na SERPRO.
+    //    Usa a URL salva pelo usuário (deve ser .com/.br, sem porta).
+    const webhookUrl = pushUrlConfigurada || urlNotif;
+    if (!webhookUrl) {
+      toast.error("Configure primeiro a URL de notificação na aba 'Configurar PUSH'.");
+      return;
+    }
     const setRes = await supabase.functions.invoke("serpro-nfe", {
       body: { action: "push_set_cliente", urlNotificacao: webhookUrl },
     });
