@@ -407,19 +407,6 @@ serve(async (req) => {
           WHERE quitacao >= $1
         `, [fmt(d60)]);
 
-        // Risco atual = soma de títulos em aberto por cedente
-        const riscoResult = await connection.queryObject<{
-          cpf_cnpj_cedente: string; risco: number;
-        }>(`
-          SELECT cpf_cnpj_cedente, COALESCE(SUM(valor), 0) as risco
-          FROM smartsecurities_titulos_em_aberto
-          GROUP BY cpf_cnpj_cedente
-        `);
-        const riscoMap: Record<string, number> = {};
-        for (const r of riscoResult.rows) {
-          riscoMap[r.cpf_cnpj_cedente] = parseFloat(String(r.risco)) || 0;
-        }
-
         const opsByCed: Record<string, Date[]> = {};
         for (const r of opsResult.rows) {
           (opsByCed[r.cpf_cnpj_cedente] ||= []).push(new Date(r.data));
@@ -441,7 +428,6 @@ serve(async (req) => {
             quit30[r.cpf_cnpj_cedente].valor += v;
           }
         }
-
 
         const resultado = cedentesResult.rows.map(ced => {
           const ops = (opsByCed[ced.cpf_cnpj] || []).sort((a, b) => a.getTime() - b.getTime());
@@ -471,29 +457,59 @@ serve(async (req) => {
           const q30 = quit30[ced.cpf_cnpj] || { qtd: 0, valor: 0 };
           const q60 = quit60[ced.cpf_cnpj] || { qtd: 0, valor: 0 };
           const bloqueado = ced.bloqueado === 'S';
-          const limiteGlobal = parseFloat(String(ced.limite_global)) || 0;
-          const riscoAtual = riscoMap[ced.cpf_cnpj] || 0;
-          const limiteDisponivel = limiteGlobal - riscoAtual;
-          const excedente = riscoAtual - limiteGlobal; // >0 quando passou do limite
-          const pctDisponivel = limiteGlobal > 0 ? (limiteDisponivel / limiteGlobal) * 100 : 0;
 
+          let score = 40;
           const sinais: string[] = [];
-          if (bloqueado) sinais.push('Cedente bloqueado');
-          if (limiteGlobal <= 0) sinais.push('Sem limite global cadastrado');
-          else if (limiteDisponivel <= 0) sinais.push(`Limite excedido em R$ ${excedente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
-          else sinais.push(`Limite disponível R$ ${limiteDisponivel.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${pctDisponivel.toFixed(0)}% livre)`);
-          if (q30.qtd > 0) sinais.push(`${q30.qtd} título(s) liquidado(s) em 30d (R$ ${q30.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`);
-          else if (q60.qtd > 0) sinais.push(`${q60.qtd} título(s) liquidado(s) em 60d`);
-          if (diasInativo === null) sinais.push('Sem operações nos últimos 180 dias');
-          else if (intervaloMedio > 0) {
-            if (diasInativo > intervaloMedio * 1.5) sinais.push(`Inativo há ${diasInativo}d, acima do ritmo habitual (${intervaloMedio}d)`);
-            else if (diasInativo > intervaloMedio) sinais.push(`Inativo há ${diasInativo}d, levemente acima do ritmo (${intervaloMedio}d)`);
-            else sinais.push(`Última operação há ${diasInativo}d (ritmo médio ${intervaloMedio}d)`);
+
+          if (bloqueado) {
+            score = 0;
+          } else {
+            if (q30.qtd > 0) {
+              score += 30;
+              sinais.push(`${q30.qtd} título(s) liquidado(s) nos últimos 30 dias (R$ ${q30.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`);
+            } else if (q60.qtd > 0) {
+              score += 15;
+              sinais.push(`${q60.qtd} título(s) liquidado(s) nos últimos 60 dias`);
+            }
+
+            if (intervaloMedio > 0 && diasInativo !== null) {
+              if (diasInativo > intervaloMedio * 1.5) {
+                score += 25;
+                sinais.push(`Inativo há ${diasInativo}d, acima do ritmo habitual (${intervaloMedio}d entre operações)`);
+              } else if (diasInativo > intervaloMedio) {
+                score += 12;
+                sinais.push(`Inativo há ${diasInativo}d, levemente acima do ritmo (${intervaloMedio}d)`);
+              } else if (diasInativo < intervaloMedio * 0.5) {
+                score -= 15;
+                sinais.push(`Operou recentemente (${diasInativo}d), abaixo do intervalo médio`);
+              }
+            } else if (diasInativo === null) {
+              score -= 30;
+              sinais.push('Sem operações nos últimos 180 dias');
+            }
+
+            if (ops.length >= 6) {
+              const semanaNome = ['1ª', '2ª', '3ª', '4ª'][semanaTop - 1];
+              sinais.push(`Padrão: opera mais na ${semanaNome} semana do mês (dia médio ${diaMedioMes})`);
+              const semanaAtual = Math.min(3, Math.floor((hoje.getDate() - 1) / 7)) + 1;
+              if (semanaAtual === semanaTop || semanaAtual === semanaTop - 1) {
+                score += 10;
+                sinais.push('Entrando na janela típica de operação');
+              }
+            }
           }
-          if (ops.length >= 6) {
-            const semanaNome = ['1ª', '2ª', '3ª', '4ª'][semanaTop - 1];
-            sinais.push(`Padrão: opera mais na ${semanaNome} semana do mês (dia médio ${diaMedioMes})`);
-          }
+
+          score = Math.max(0, Math.min(100, score));
+          let recomendacao: 'ALTA' | 'MEDIA' | 'BAIXA' | 'NAO' = 'BAIXA';
+          if (bloqueado) recomendacao = 'NAO';
+          else if (score >= 75) recomendacao = 'ALTA';
+          else if (score >= 55) recomendacao = 'MEDIA';
+
+          let motivo: string;
+          if (bloqueado) motivo = 'Cedente bloqueado — não recomendado.';
+          else if (recomendacao === 'ALTA') motivo = `Forte oportunidade de giro. ${sinais.slice(0, 3).join('. ')}.`;
+          else if (recomendacao === 'MEDIA') motivo = `Oportunidade moderada. ${sinais.slice(0, 2).join('. ')}.`;
+          else motivo = sinais.length > 0 ? `Pouco potencial de giro agora. ${sinais.slice(0, 2).join('. ')}.` : 'Pouco potencial de giro agora.';
 
           return {
             cpf_cnpj: ced.cpf_cnpj,
@@ -502,10 +518,7 @@ serve(async (req) => {
             cidade: ced.cidade,
             uf: ced.uf,
             bloqueado: ced.bloqueado,
-            limite_global: limiteGlobal,
-            limite_disponivel: limiteDisponivel,
-            risco_atual: riscoAtual,
-            excedente: excedente > 0 ? excedente : 0,
+            limite_global: parseFloat(String(ced.limite_global)) || 0,
             ultima_operacao: ultima ? fmt(ultima) : null,
             dias_inativo: diasInativo,
             total_ops_180d: ops.length,
@@ -516,130 +529,19 @@ serve(async (req) => {
             quitados_30d_valor: q30.valor,
             quitados_60d_qtd: q60.qtd,
             quitados_60d_valor: q60.valor,
+            score_giro: score,
+            recomendacao,
+            motivo,
             sinais,
-            // Os campos abaixo serão preenchidos pela IA
-            recomendacao: 'PENDENTE' as 'ALTA' | 'MEDIA' | 'BAIXA' | 'NAO' | 'PENDENTE',
-            parecer: '',
           };
         });
 
-        // ============= ANÁLISE CRÍTICA POR IA =============
-        // Pré-filtra candidatos relevantes; resto cai em fallback determinístico.
-        // Bloqueados ou sem qualquer atividade/limite → fallback direto (não gasta IA).
-        const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-        const candidatos = resultado.filter(c =>
-          c.bloqueado !== 'S' &&
-          (c.limite_disponivel > 0 || c.quitados_30d_qtd > 0 || c.quitados_60d_qtd > 0 || c.total_ops_180d > 0)
-        );
-
-        if (LOVABLE_API_KEY && candidatos.length > 0) {
-          const hoje_str = hoje.toISOString().slice(0, 10);
-          const BATCH = 40;
-          const CONCURRENCY = 6;
-
-          const lotes: typeof candidatos[] = [];
-          for (let i = 0; i < candidatos.length; i += BATCH) {
-            lotes.push(candidatos.slice(i, i + BATCH));
-          }
-
-          const system = `Você é um gestor sênior de carteira de FIDC/factoring com 20 anos de experiência. Hoje é ${hoje_str}. Analise CRITICAMENTE cada cedente como se fosse decidir AGORA se vale a pena tentar fazer um giro com ele. Não use pontuação. Pondere o conjunto: espaço de limite, fluxo de liquidações, ritmo histórico, janela típica do mês, inatividade. Seja direto, sem clichês.
-
-Para cada cedente, retorne:
-- recomendacao: "ALTA", "MEDIA", "BAIXA" ou "NAO".
-- parecer: 1 frase curta em português com a análise crítica concreta. Sem markdown.
-
-Responda APENAS JSON válido: {"analises":[{"i":0,"recomendacao":"ALTA","parecer":"..."}]}`;
-
-          const processarLote = async (lote: typeof candidatos, loteIdx: number) => {
-            const compact = lote.map((c, idx) => ({
-              i: idx,
-              nome: c.nome,
-              limite_disponivel: c.limite_disponivel,
-              risco_atual: c.risco_atual,
-              excedente: c.excedente,
-              dias_inativo: c.dias_inativo,
-              ops_180d: c.total_ops_180d,
-              intervalo_medio_dias: c.intervalo_medio_dias,
-              quitados_30d_qtd: c.quitados_30d_qtd,
-              quitados_30d_valor: c.quitados_30d_valor,
-              quitados_60d_qtd: c.quitados_60d_qtd,
-            }));
-
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 25000);
-            try {
-              const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-                method: "POST",
-                headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-                signal: controller.signal,
-                body: JSON.stringify({
-                  model: "google/gemini-2.5-flash-lite",
-                  messages: [
-                    { role: "system", content: system },
-                    { role: "user", content: JSON.stringify(compact) },
-                  ],
-                }),
-              });
-              clearTimeout(timeout);
-              if (!aiResp.ok) {
-                console.error(`IA lote ${loteIdx} falhou: ${aiResp.status}`);
-                return;
-              }
-              const aiJson = await aiResp.json();
-              let raw = aiJson.choices?.[0]?.message?.content || '{}';
-              // Extrai JSON mesmo se vier com markdown
-              const m = raw.match(/\{[\s\S]*\}/);
-              if (m) raw = m[0];
-              const parsed = JSON.parse(raw);
-              const analises = parsed.analises || parsed.cedentes || [];
-              for (const a of analises) {
-                const idx = a.i;
-                if (typeof idx === 'number' && lote[idx]) {
-                  const rec = String(a.recomendacao || '').toUpperCase();
-                  if (['ALTA', 'MEDIA', 'BAIXA', 'NAO'].includes(rec)) {
-                    lote[idx].recomendacao = rec as any;
-                  }
-                  lote[idx].parecer = String(a.parecer || '').trim();
-                }
-              }
-            } catch (e) {
-              clearTimeout(timeout);
-              console.error(`Erro IA lote ${loteIdx}:`, (e as Error).message);
-            }
-          };
-
-          // Roda lotes em paralelo (CONCURRENCY por vez)
-          console.log(`IA: ${lotes.length} lote(s) de até ${BATCH}, ${CONCURRENCY} em paralelo`);
-          for (let i = 0; i < lotes.length; i += CONCURRENCY) {
-            const grupo = lotes.slice(i, i + CONCURRENCY);
-            await Promise.all(grupo.map((l, j) => processarLote(l, i + j)));
-          }
-        }
-
-        // Fallback determinístico para qualquer cedente sem parecer da IA
-        for (const c of resultado) {
-          if (c.recomendacao === 'PENDENTE') {
-            if (c.bloqueado === 'S') c.recomendacao = 'NAO';
-            else if (c.limite_disponivel <= 0 && c.quitados_30d_qtd === 0 && c.quitados_60d_qtd === 0) c.recomendacao = 'NAO';
-            else c.recomendacao = 'BAIXA';
-            if (!c.parecer) c.parecer = c.sinais.slice(0, 2).join('. ') + '.';
-          }
-        }
-
-
-        const recOrder: Record<string, number> = { ALTA: 0, MEDIA: 1, BAIXA: 2, NAO: 3 };
-        resultado.sort((a, b) => {
-          const r = recOrder[a.recomendacao] - recOrder[b.recomendacao];
-          if (r !== 0) return r;
-          return b.limite_disponivel - a.limite_disponivel;
-        });
-
-        console.log(`Análise crítica IA concluída: ${resultado.length} cedentes`);
+        resultado.sort((a, b) => b.score_giro - a.score_giro);
+        console.log(`Análise comportamental concluída: ${resultado.length} cedentes`);
         return new Response(JSON.stringify({ success: true, cedentes: resultado }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-
 
       if (action === 'ai-narrative') {
         const ctx = cedentes && cedentes[0];
