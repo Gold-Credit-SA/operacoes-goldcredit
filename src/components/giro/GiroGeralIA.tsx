@@ -216,14 +216,30 @@ export function GiroGeralIA() {
                 </TableHeader>
                 <TableBody>
                   {paginated.length === 0 ? (
-                    <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum cedente</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum cedente</TableCell></TableRow>
                   ) : paginated.map(c => (
                     <TableRow key={c.cpf_cnpj}>
                       <TableCell>
                         <p className="font-medium truncate max-w-[200px]">{c.nome || '-'}</p>
                         <p className="text-xs text-muted-foreground font-mono">{formatCpfCnpj(c.cpf_cnpj)}</p>
                       </TableCell>
+                      <TableCell className="text-right text-sm">
+                        {c.limite_disponivel > 0 ? (
+                          <>
+                            <div className="font-semibold text-emerald-600">{formatCurrency(c.limite_disponivel)}</div>
+                            <div className="text-[10px] text-muted-foreground">de {formatCurrency(c.limite_global)}</div>
+                          </>
+                        ) : c.excedente > 0 ? (
+                          <>
+                            <div className="font-semibold text-red-600">−{formatCurrency(c.excedente)}</div>
+                            <div className="text-[10px] text-muted-foreground">excedido</div>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-center font-bold">{c.score_giro}</TableCell>
+
                       <TableCell className="text-center">
                         <Badge variant={recBadgeVariant(c.recomendacao) as any}>{c.recomendacao}</Badge>
                       </TableCell>
