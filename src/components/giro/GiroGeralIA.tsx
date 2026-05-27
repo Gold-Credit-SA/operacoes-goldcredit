@@ -236,9 +236,8 @@ export function GiroGeralIA() {
                           <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-center font-bold">{c.score_giro}</TableCell>
-
                       <TableCell className="text-center">
+
                         <Badge variant={recBadgeVariant(c.recomendacao) as any}>{c.recomendacao}</Badge>
                       </TableCell>
                       <TableCell className="text-center text-sm">
