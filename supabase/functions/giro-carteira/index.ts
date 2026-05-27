@@ -407,6 +407,19 @@ serve(async (req) => {
           WHERE quitacao >= $1
         `, [fmt(d60)]);
 
+        // Risco atual = soma de títulos em aberto por cedente
+        const riscoResult = await connection.queryObject<{
+          cpf_cnpj_cedente: string; risco: number;
+        }>(`
+          SELECT cpf_cnpj_cedente, COALESCE(SUM(valor), 0) as risco
+          FROM smartsecurities_titulos_em_aberto
+          GROUP BY cpf_cnpj_cedente
+        `);
+        const riscoMap: Record<string, number> = {};
+        for (const r of riscoResult.rows) {
+          riscoMap[r.cpf_cnpj_cedente] = parseFloat(String(r.risco)) || 0;
+        }
+
         const opsByCed: Record<string, Date[]> = {};
         for (const r of opsResult.rows) {
           (opsByCed[r.cpf_cnpj_cedente] ||= []).push(new Date(r.data));
@@ -428,6 +441,7 @@ serve(async (req) => {
             quit30[r.cpf_cnpj_cedente].valor += v;
           }
         }
+
 
         const resultado = cedentesResult.rows.map(ced => {
           const ops = (opsByCed[ced.cpf_cnpj] || []).sort((a, b) => a.getTime() - b.getTime());
