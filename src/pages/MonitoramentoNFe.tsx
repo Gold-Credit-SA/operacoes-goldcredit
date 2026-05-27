@@ -87,6 +87,41 @@ export default function MonitoramentoNFe() {
     load();
   }
 
+  async function importarXmls(files: File[]) {
+    const xmlFiles = files.filter(f => f.name.toLowerCase().endsWith(".xml"));
+    if (!xmlFiles.length) { toast.error("Selecione arquivos .xml"); return; }
+    setAdding(true);
+    const contents = await Promise.all(xmlFiles.map(async f => ({ name: f.name, content: await f.text() })));
+    const { notas, erros } = parseMultipleXmls(contents);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setAdding(false); return; }
+
+    let inseridas = 0, duplicadas = 0, falhas = erros.length;
+    let primeira: Monitoramento | null = null;
+
+    for (const n of notas) {
+      const chave = n.chaveAcesso.replace(/\D/g, "");
+      if (chave.length !== 44) { falhas++; continue; }
+      const descricao = `NF ${n.numero}${n.serie ? "/" + n.serie : ""} · ${n.emitente.nome}`.slice(0, 200);
+      const { data, error } = await (supabase as any)
+        .from("nfe_monitoramento")
+        .insert({ user_id: user.id, chave_acesso: chave, descricao })
+        .select()
+        .maybeSingle();
+      if (error) {
+        if (error.message?.includes("unique") || error.code === "23505") duplicadas++;
+        else falhas++;
+      } else {
+        inseridas++;
+        if (!primeira && data) primeira = data as Monitoramento;
+      }
+    }
+    setAdding(false);
+    toast.success(`${inseridas} importada(s)${duplicadas ? `, ${duplicadas} já cadastrada(s)` : ""}${falhas ? `, ${falhas} falha(s)` : ""}`);
+    await load();
+    if (primeira) consultar(primeira);
+  }
+
   async function consultar(item: Monitoramento) {
     setConsultando(item.id);
     const { data, error } = await supabase.functions.invoke("serpro-nfe", {
