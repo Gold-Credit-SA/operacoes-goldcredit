@@ -524,60 +524,72 @@ serve(async (req) => {
         });
 
         // ============= ANÁLISE CRÍTICA POR IA =============
-        // Em vez de pontuação, a IA atua como gestor experiente e julga cada cedente.
+        // Pré-filtra candidatos relevantes; resto cai em fallback determinístico.
+        // Bloqueados ou sem qualquer atividade/limite → fallback direto (não gasta IA).
         const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-        if (LOVABLE_API_KEY && resultado.length > 0) {
+        const candidatos = resultado.filter(c =>
+          c.bloqueado !== 'S' &&
+          (c.limite_disponivel > 0 || c.quitados_30d_qtd > 0 || c.quitados_60d_qtd > 0 || c.total_ops_180d > 0)
+        );
+
+        if (LOVABLE_API_KEY && candidatos.length > 0) {
           const hoje_str = hoje.toISOString().slice(0, 10);
-          const BATCH = 20;
-          for (let i = 0; i < resultado.length; i += BATCH) {
-            const lote = resultado.slice(i, i + BATCH);
+          const BATCH = 40;
+          const CONCURRENCY = 6;
+
+          const lotes: typeof candidatos[] = [];
+          for (let i = 0; i < candidatos.length; i += BATCH) {
+            lotes.push(candidatos.slice(i, i + BATCH));
+          }
+
+          const system = `Você é um gestor sênior de carteira de FIDC/factoring com 20 anos de experiência. Hoje é ${hoje_str}. Analise CRITICAMENTE cada cedente como se fosse decidir AGORA se vale a pena tentar fazer um giro com ele. Não use pontuação. Pondere o conjunto: espaço de limite, fluxo de liquidações, ritmo histórico, janela típica do mês, inatividade. Seja direto, sem clichês.
+
+Para cada cedente, retorne:
+- recomendacao: "ALTA", "MEDIA", "BAIXA" ou "NAO".
+- parecer: 1 frase curta em português com a análise crítica concreta. Sem markdown.
+
+Responda APENAS JSON válido: {"analises":[{"i":0,"recomendacao":"ALTA","parecer":"..."}]}`;
+
+          const processarLote = async (lote: typeof candidatos, loteIdx: number) => {
             const compact = lote.map((c, idx) => ({
               i: idx,
               nome: c.nome,
-              cpf_cnpj: c.cpf_cnpj,
-              setor: c.setor,
-              bloqueado: c.bloqueado === 'S',
-              limite_global: c.limite_global,
               limite_disponivel: c.limite_disponivel,
               risco_atual: c.risco_atual,
               excedente: c.excedente,
               dias_inativo: c.dias_inativo,
               ops_180d: c.total_ops_180d,
               intervalo_medio_dias: c.intervalo_medio_dias,
-              janela_pref_semana: c.semana_mes_top,
               quitados_30d_qtd: c.quitados_30d_qtd,
               quitados_30d_valor: c.quitados_30d_valor,
               quitados_60d_qtd: c.quitados_60d_qtd,
-              quitados_60d_valor: c.quitados_60d_valor,
             }));
 
-            const system = `Você é um gestor sênior de carteira de FIDC/factoring com 20 anos de experiência. Hoje é ${hoje_str}. Analise CRITICAMENTE cada cedente como se fosse decidir AGORA se vale a pena tentar fazer um giro com ele. Não use pontuação. Pondere o conjunto: espaço de limite, fluxo de liquidações, ritmo histórico, janela típica do mês, sinais de risco ou inatividade. Seja direto, sem clichês.
-
-Para cada cedente, retorne:
-- recomendacao: "ALTA" (vale a pena buscar agora), "MEDIA" (faz sentido em algumas condições), "BAIXA" (pouco potencial agora) ou "NAO" (bloqueado, sem espaço sem fluxo, ou irrelevante).
-- parecer: 1 a 2 frases curtas, em português, com a análise crítica e a razão concreta. Sem listas, sem markdown.
-
-Responda APENAS um JSON válido no formato: {"analises":[{"i":0,"recomendacao":"ALTA","parecer":"..."}]}`;
-
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 25000);
             try {
               const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
                 method: "POST",
                 headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+                signal: controller.signal,
                 body: JSON.stringify({
                   model: "google/gemini-2.5-flash-lite",
                   messages: [
                     { role: "system", content: system },
-                    { role: "user", content: `Cedentes:\n${JSON.stringify(compact)}` },
+                    { role: "user", content: JSON.stringify(compact) },
                   ],
-                  response_format: { type: "json_object" },
                 }),
               });
+              clearTimeout(timeout);
               if (!aiResp.ok) {
-                console.error(`IA batch ${i} falhou: ${aiResp.status}`);
-                continue;
+                console.error(`IA lote ${loteIdx} falhou: ${aiResp.status}`);
+                return;
               }
               const aiJson = await aiResp.json();
-              const raw = aiJson.choices?.[0]?.message?.content || '{}';
+              let raw = aiJson.choices?.[0]?.message?.content || '{}';
+              // Extrai JSON mesmo se vier com markdown
+              const m = raw.match(/\{[\s\S]*\}/);
+              if (m) raw = m[0];
               const parsed = JSON.parse(raw);
               const analises = parsed.analises || parsed.cedentes || [];
               for (const a of analises) {
@@ -591,12 +603,20 @@ Responda APENAS um JSON válido no formato: {"analises":[{"i":0,"recomendacao":"
                 }
               }
             } catch (e) {
-              console.error(`Erro IA lote ${i}:`, e);
+              clearTimeout(timeout);
+              console.error(`Erro IA lote ${loteIdx}:`, (e as Error).message);
             }
+          };
+
+          // Roda lotes em paralelo (CONCURRENCY por vez)
+          console.log(`IA: ${lotes.length} lote(s) de até ${BATCH}, ${CONCURRENCY} em paralelo`);
+          for (let i = 0; i < lotes.length; i += CONCURRENCY) {
+            const grupo = lotes.slice(i, i + CONCURRENCY);
+            await Promise.all(grupo.map((l, j) => processarLote(l, i + j)));
           }
         }
 
-        // Fallback determinístico para qualquer cedente que a IA não conseguiu analisar
+        // Fallback determinístico para qualquer cedente sem parecer da IA
         for (const c of resultado) {
           if (c.recomendacao === 'PENDENTE') {
             if (c.bloqueado === 'S') c.recomendacao = 'NAO';
@@ -605,6 +625,7 @@ Responda APENAS um JSON válido no formato: {"analises":[{"i":0,"recomendacao":"
             if (!c.parecer) c.parecer = c.sinais.slice(0, 2).join('. ') + '.';
           }
         }
+
 
         const recOrder: Record<string, number> = { ALTA: 0, MEDIA: 1, BAIXA: 2, NAO: 3 };
         resultado.sort((a, b) => {
