@@ -127,8 +127,12 @@ export default function MonitoramentoNFe() {
     if (primeira) consultar(primeira);
   }
 
-  async function consultar(item: Monitoramento) {
+  async function abrirDetalhes(item: Monitoramento) {
     setConsultando(item.id);
+    setDetalhe(item);
+    setDanfePdf(null);
+
+    // Consulta JSON
     const { data, error } = await supabase.functions.invoke("serpro-nfe", {
       body: { action: "consultar", chave: item.chave_acesso },
     });
@@ -138,9 +142,17 @@ export default function MonitoramentoNFe() {
       toast.error(`Serpro retornou ${data?.status}: ${typeof data?.data === "string" ? data.data : JSON.stringify(data?.data ?? {}).slice(0, 200)}`);
       return;
     }
-    toast.success("Consulta realizada");
-    load();
     setDetalhe({ ...item, ultimo_resultado: data.data });
+    load();
+
+    // DANFE em paralelo (best effort)
+    setDanfeLoading(true);
+    const { data: pdfData } = await supabase.functions.invoke("serpro-nfe", {
+      body: { action: "danfe", chave: item.chave_acesso },
+    });
+    setDanfeLoading(false);
+    const b64 = pdfData?.data?.pdf_base64 ?? pdfData?.data?.pdfBase64 ?? pdfData?.data?.danfe ?? null;
+    if (pdfData?.ok && b64) setDanfePdf(b64);
   }
 
   async function excluir(id: string) {
