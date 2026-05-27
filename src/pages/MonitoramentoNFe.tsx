@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,8 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { Loader2, Plus, Search, Trash2, Bell, RefreshCw, Upload } from "lucide-react";
+import { Loader2, Plus, Eye, Trash2, Bell, RefreshCw, Upload, AlertCircle, CheckCircle2, FileText } from "lucide-react";
 import { parseMultipleXmls } from "@/lib/xml-nfe-parser";
 
 interface Monitoramento {
@@ -48,7 +50,10 @@ export default function MonitoramentoNFe() {
   const [adding, setAdding] = useState(false);
   const [consultando, setConsultando] = useState<string | null>(null);
   const [detalhe, setDetalhe] = useState<Monitoramento | null>(null);
+  const [danfePdf, setDanfePdf] = useState<string | null>(null);
+  const [danfeLoading, setDanfeLoading] = useState(false);
   const [urlNotif, setUrlNotif] = useState("");
+  const [pushUrlConfigurada, setPushUrlConfigurada] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -119,11 +124,15 @@ export default function MonitoramentoNFe() {
     setAdding(false);
     toast.success(`${inseridas} importada(s)${duplicadas ? `, ${duplicadas} já cadastrada(s)` : ""}${falhas ? `, ${falhas} falha(s)` : ""}`);
     await load();
-    if (primeira) consultar(primeira);
+    if (primeira) abrirDetalhes(primeira);
   }
 
-  async function consultar(item: Monitoramento) {
+  async function abrirDetalhes(item: Monitoramento) {
     setConsultando(item.id);
+    setDetalhe(item);
+    setDanfePdf(null);
+
+    // Consulta JSON
     const { data, error } = await supabase.functions.invoke("serpro-nfe", {
       body: { action: "consultar", chave: item.chave_acesso },
     });
@@ -133,9 +142,17 @@ export default function MonitoramentoNFe() {
       toast.error(`Serpro retornou ${data?.status}: ${typeof data?.data === "string" ? data.data : JSON.stringify(data?.data ?? {}).slice(0, 200)}`);
       return;
     }
-    toast.success("Consulta realizada");
-    load();
     setDetalhe({ ...item, ultimo_resultado: data.data });
+    load();
+
+    // DANFE em paralelo (best effort)
+    setDanfeLoading(true);
+    const { data: pdfData } = await supabase.functions.invoke("serpro-nfe", {
+      body: { action: "danfe", chave: item.chave_acesso },
+    });
+    setDanfeLoading(false);
+    const b64 = pdfData?.data?.pdf_base64 ?? pdfData?.data?.pdfBase64 ?? pdfData?.data?.danfe ?? null;
+    if (pdfData?.ok && b64) setDanfePdf(b64);
   }
 
   async function excluir(id: string) {
@@ -245,7 +262,31 @@ export default function MonitoramentoNFe() {
                 <Bell className="h-4 w-4 mr-1" /> Inscrever no PUSH
               </Button>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
+              {(() => {
+                const semInscricao = items.some(i => !i.solicitacao_id);
+                const tudoOk = items.length > 0 && !semInscricao;
+                if (items.length === 0) return null;
+                if (tudoOk) {
+                  return (
+                    <Alert className="border-emerald-500/40 bg-emerald-500/5">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      <AlertDescription className="text-xs">
+                        Todas as chaves estão <strong>inscritas no PUSH</strong>. Você receberá notificação por e-mail a cada evento (autorização, cancelamento, CC-e, manifestação).
+                      </AlertDescription>
+                    </Alert>
+                  );
+                }
+                return (
+                  <Alert variant="destructive" className="bg-amber-500/5 border-amber-500/40 text-amber-900 dark:text-amber-200">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      Algumas chaves ainda <strong>não estão inscritas no PUSH</strong> — sem isso, a Receita não envia notificações. Clique em <strong>"Inscrever no PUSH"</strong> acima.
+                    </AlertDescription>
+                  </Alert>
+                );
+              })()}
+
               {loading ? (
                 <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>
               ) : items.length === 0 ? (
@@ -256,7 +297,7 @@ export default function MonitoramentoNFe() {
                     <TableRow>
                       <TableHead>Chave</TableHead>
                       <TableHead>Descrição</TableHead>
-                      <TableHead>PUSH</TableHead>
+                      <TableHead>Notificações</TableHead>
                       <TableHead>Última consulta</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
@@ -265,21 +306,32 @@ export default function MonitoramentoNFe() {
                     {items.map((it) => (
                       <TableRow key={it.id}>
                         <TableCell className="font-mono text-xs">{fmtChave(it.chave_acesso)}</TableCell>
-                        <TableCell>{it.descricao || "—"}</TableCell>
+                        <TableCell className="max-w-[280px] truncate">{it.descricao || "—"}</TableCell>
                         <TableCell>
-                          {it.solicitacao_id ? <Badge variant="default">Inscrita</Badge> : <Badge variant="secondary">Não</Badge>}
+                          {it.solicitacao_id ? (
+                            <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white gap-1">
+                              <CheckCircle2 className="h-3 w-3" /> Ativa
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="gap-1 text-amber-700 border-amber-500/50">
+                              <AlertCircle className="h-3 w-3" /> Inativa
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell className="text-xs">
                           {it.ultima_consulta_em ? new Date(it.ultima_consulta_em).toLocaleString("pt-BR") : "—"}
                         </TableCell>
-                        <TableCell className="text-right space-x-2">
-                          <Button size="sm" variant="outline" onClick={() => consultar(it)} disabled={consultando === it.id}>
-                            {consultando === it.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                        <TableCell className="text-right space-x-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => abrirDetalhes(it)}
+                            disabled={consultando === it.id}
+                            title="Abrir nota"
+                          >
+                            {consultando === it.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
                           </Button>
-                          {it.ultimo_resultado && (
-                            <Button size="sm" variant="ghost" onClick={() => setDetalhe(it)}>Ver</Button>
-                          )}
-                          <Button size="sm" variant="ghost" onClick={() => excluir(it.id)}>
+                          <Button size="sm" variant="ghost" onClick={() => excluir(it.id)} title="Remover">
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </TableCell>
@@ -291,36 +343,16 @@ export default function MonitoramentoNFe() {
             </CardContent>
           </Card>
 
-          {detalhe?.ultimo_resultado && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-base">Detalhes da NF-e</CardTitle>
-                <Button size="sm" variant="ghost" onClick={() => setDetalhe(null)}>Fechar</Button>
-              </CardHeader>
-              <CardContent className="text-sm space-y-3">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <Info label="Número" value={nfe?.ide?.nNF} />
-                  <Info label="Série" value={nfe?.ide?.serie} />
-                  <Info label="Emissão" value={nfe?.ide?.dhEmi?.substring(0, 10)} />
-                  <Info label="Natureza" value={nfe?.ide?.natOp} />
-                  <Info label="Emitente" value={nfe?.emit?.xNome} />
-                  <Info label="CNPJ Emit." value={nfe?.emit?.CNPJ} />
-                  <Info label="Destinatário" value={nfe?.dest?.xNome} />
-                  <Info label="Doc. Dest." value={nfe?.dest?.CNPJ ?? nfe?.dest?.CPF} />
-                  <Info label="Valor Total" value={fmtMoeda(total?.vNF)} />
-                  <Info label="ICMS" value={fmtMoeda(total?.vICMS)} />
-                  <Info label="Tributos" value={fmtMoeda(total?.vTotTrib)} />
-                  <Info label="Frete" value={fmtMoeda(total?.vFrete)} />
-                </div>
-                <details className="mt-4">
-                  <summary className="cursor-pointer text-xs text-muted-foreground">JSON completo</summary>
-                  <pre className="mt-2 p-3 bg-muted rounded text-xs overflow-auto max-h-96">
-                    {JSON.stringify(detalhe.ultimo_resultado, null, 2)}
-                  </pre>
-                </details>
-              </CardContent>
-            </Card>
-          )}
+          <DetalheDialog
+            item={detalhe}
+            onClose={() => { setDetalhe(null); setDanfePdf(null); }}
+            nfe={nfe}
+            total={total}
+            danfePdf={danfePdf}
+            danfeLoading={danfeLoading}
+            consultando={consultando === detalhe?.id}
+            eventos={eventos.filter(e => detalhe && e.chave_acesso === detalhe.chave_acesso)}
+          />
         </TabsContent>
 
         <TabsContent value="eventos">
@@ -394,5 +426,130 @@ function Info({ label, value }: { label: string; value: any }) {
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="font-medium">{value ?? "—"}</p>
     </div>
+  );
+}
+
+function DetalheDialog({
+  item, onClose, nfe, total, danfePdf, danfeLoading, consultando, eventos,
+}: {
+  item: Monitoramento | null;
+  onClose: () => void;
+  nfe: any;
+  total: any;
+  danfePdf: string | null;
+  danfeLoading: boolean;
+  consultando: boolean;
+  eventos: NfeEvento[];
+}) {
+  const pdfUrl = useMemo(() => {
+    if (!danfePdf) return null;
+    const bin = atob(danfePdf);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return URL.createObjectURL(new Blob([arr], { type: "application/pdf" }));
+  }, [danfePdf]);
+
+  useEffect(() => () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); }, [pdfUrl]);
+
+  return (
+    <Dialog open={!!item} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            NF-e {nfe?.ide?.nNF ?? "—"}{nfe?.ide?.serie ? `/${nfe.ide.serie}` : ""}
+            {item?.solicitacao_id ? (
+              <Badge className="ml-2 bg-emerald-600 hover:bg-emerald-600 text-white">Notificações ativas</Badge>
+            ) : (
+              <Badge variant="outline" className="ml-2 text-amber-700 border-amber-500/50">Sem notificação</Badge>
+            )}
+          </DialogTitle>
+        </DialogHeader>
+
+        {consultando ? (
+          <div className="flex items-center justify-center py-12 gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" /> Consultando SERPRO...
+          </div>
+        ) : !item?.ultimo_resultado ? (
+          <p className="text-sm text-muted-foreground py-8 text-center">Sem dados ainda.</p>
+        ) : (
+          <Tabs defaultValue="resumo" className="mt-2">
+            <TabsList>
+              <TabsTrigger value="resumo">Resumo</TabsTrigger>
+              <TabsTrigger value="danfe">DANFE (PDF)</TabsTrigger>
+              <TabsTrigger value="eventos">Movimentações ({eventos.length})</TabsTrigger>
+              <TabsTrigger value="json">JSON</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="resumo" className="space-y-3 pt-2">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <Info label="Número" value={nfe?.ide?.nNF} />
+                <Info label="Série" value={nfe?.ide?.serie} />
+                <Info label="Emissão" value={nfe?.ide?.dhEmi?.substring(0, 10)} />
+                <Info label="Natureza" value={nfe?.ide?.natOp} />
+                <Info label="Emitente" value={nfe?.emit?.xNome} />
+                <Info label="CNPJ Emit." value={nfe?.emit?.CNPJ} />
+                <Info label="Destinatário" value={nfe?.dest?.xNome} />
+                <Info label="Doc. Dest." value={nfe?.dest?.CNPJ ?? nfe?.dest?.CPF} />
+                <Info label="Valor Total" value={fmtMoeda(total?.vNF)} />
+                <Info label="ICMS" value={fmtMoeda(total?.vICMS)} />
+                <Info label="Tributos" value={fmtMoeda(total?.vTotTrib)} />
+                <Info label="Frete" value={fmtMoeda(total?.vFrete)} />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="danfe" className="pt-2">
+              {danfeLoading ? (
+                <div className="flex items-center justify-center py-16 gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" /> Gerando DANFE...
+                </div>
+              ) : pdfUrl ? (
+                <iframe src={pdfUrl} className="w-full h-[70vh] border rounded" title="DANFE" />
+              ) : (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    DANFE em PDF não disponível para esta nota (o produto SERPRO assinado pode não incluir geração de DANFE).
+                  </AlertDescription>
+                </Alert>
+              )}
+            </TabsContent>
+
+            <TabsContent value="eventos" className="pt-2">
+              {eventos.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">
+                  Nenhuma movimentação recebida para esta chave ainda.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Descrição</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {eventos.map(e => (
+                      <TableRow key={e.id}>
+                        <TableCell className="text-xs">{e.data_evento ? new Date(e.data_evento).toLocaleString("pt-BR") : "—"}</TableCell>
+                        <TableCell>{e.tipo_evento || "—"}</TableCell>
+                        <TableCell>{e.descricao || "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </TabsContent>
+
+            <TabsContent value="json" className="pt-2">
+              <pre className="p-3 bg-muted rounded text-xs overflow-auto max-h-[60vh]">
+                {JSON.stringify(item.ultimo_resultado, null, 2)}
+              </pre>
+            </TabsContent>
+          </Tabs>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
