@@ -471,37 +471,66 @@ serve(async (req) => {
           const q30 = quit30[ced.cpf_cnpj] || { qtd: 0, valor: 0 };
           const q60 = quit60[ced.cpf_cnpj] || { qtd: 0, valor: 0 };
           const bloqueado = ced.bloqueado === 'S';
+          const limiteGlobal = parseFloat(String(ced.limite_global)) || 0;
+          const riscoAtual = riscoMap[ced.cpf_cnpj] || 0;
+          const limiteDisponivel = limiteGlobal - riscoAtual;
+          const excedente = riscoAtual - limiteGlobal; // >0 quando passou do limite
+          const pctDisponivel = limiteGlobal > 0 ? (limiteDisponivel / limiteGlobal) * 100 : 0;
 
-          let score = 40;
+          let score = 30;
           const sinais: string[] = [];
 
           if (bloqueado) {
             score = 0;
           } else {
+            // PRIORIDADE 1: Limite disponível (peso máximo 50 pts)
+            if (limiteGlobal <= 0) {
+              score -= 20;
+              sinais.push('Sem limite global cadastrado');
+            } else if (limiteDisponivel <= 0) {
+              score -= 30;
+              sinais.push(`Limite excedido em R$ ${excedente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} — sem espaço para giro`);
+            } else if (pctDisponivel >= 70) {
+              score += 50;
+              sinais.push(`Amplo limite disponível: R$ ${limiteDisponivel.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${pctDisponivel.toFixed(0)}% livre)`);
+            } else if (pctDisponivel >= 40) {
+              score += 35;
+              sinais.push(`Bom limite disponível: R$ ${limiteDisponivel.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${pctDisponivel.toFixed(0)}% livre)`);
+            } else if (pctDisponivel >= 15) {
+              score += 18;
+              sinais.push(`Limite disponível moderado: R$ ${limiteDisponivel.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${pctDisponivel.toFixed(0)}% livre)`);
+            } else {
+              score += 5;
+              sinais.push(`Pouco limite disponível: R$ ${limiteDisponivel.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${pctDisponivel.toFixed(0)}% livre)`);
+            }
+
+            // PRIORIDADE 2: Liquidações recentes (até 20 pts)
             if (q30.qtd > 0) {
-              score += 30;
+              score += 20;
               sinais.push(`${q30.qtd} título(s) liquidado(s) nos últimos 30 dias (R$ ${q30.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`);
             } else if (q60.qtd > 0) {
-              score += 15;
+              score += 10;
               sinais.push(`${q60.qtd} título(s) liquidado(s) nos últimos 60 dias`);
             }
 
+            // PRIORIDADE 3: Padrão de inatividade (até 15 pts)
             if (intervaloMedio > 0 && diasInativo !== null) {
               if (diasInativo > intervaloMedio * 1.5) {
-                score += 25;
+                score += 15;
                 sinais.push(`Inativo há ${diasInativo}d, acima do ritmo habitual (${intervaloMedio}d entre operações)`);
               } else if (diasInativo > intervaloMedio) {
-                score += 12;
+                score += 8;
                 sinais.push(`Inativo há ${diasInativo}d, levemente acima do ritmo (${intervaloMedio}d)`);
               } else if (diasInativo < intervaloMedio * 0.5) {
-                score -= 15;
+                score -= 10;
                 sinais.push(`Operou recentemente (${diasInativo}d), abaixo do intervalo médio`);
               }
             } else if (diasInativo === null) {
-              score -= 30;
+              score -= 20;
               sinais.push('Sem operações nos últimos 180 dias');
             }
 
+            // PRIORIDADE 4: Janela típica (até 10 pts)
             if (ops.length >= 6) {
               const semanaNome = ['1ª', '2ª', '3ª', '4ª'][semanaTop - 1];
               sinais.push(`Padrão: opera mais na ${semanaNome} semana do mês (dia médio ${diaMedioMes})`);
@@ -516,11 +545,13 @@ serve(async (req) => {
           score = Math.max(0, Math.min(100, score));
           let recomendacao: 'ALTA' | 'MEDIA' | 'BAIXA' | 'NAO' = 'BAIXA';
           if (bloqueado) recomendacao = 'NAO';
+          else if (limiteDisponivel <= 0 && limiteGlobal > 0) recomendacao = 'NAO'; // sem espaço = não recomendado
           else if (score >= 75) recomendacao = 'ALTA';
           else if (score >= 55) recomendacao = 'MEDIA';
 
           let motivo: string;
           if (bloqueado) motivo = 'Cedente bloqueado — não recomendado.';
+          else if (recomendacao === 'NAO') motivo = `Limite excedido em R$ ${excedente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} — não há espaço para novas operações.`;
           else if (recomendacao === 'ALTA') motivo = `Forte oportunidade de giro. ${sinais.slice(0, 3).join('. ')}.`;
           else if (recomendacao === 'MEDIA') motivo = `Oportunidade moderada. ${sinais.slice(0, 2).join('. ')}.`;
           else motivo = sinais.length > 0 ? `Pouco potencial de giro agora. ${sinais.slice(0, 2).join('. ')}.` : 'Pouco potencial de giro agora.';
@@ -532,7 +563,10 @@ serve(async (req) => {
             cidade: ced.cidade,
             uf: ced.uf,
             bloqueado: ced.bloqueado,
-            limite_global: parseFloat(String(ced.limite_global)) || 0,
+            limite_global: limiteGlobal,
+            limite_disponivel: limiteDisponivel,
+            risco_atual: riscoAtual,
+            excedente: excedente > 0 ? excedente : 0,
             ultima_operacao: ultima ? fmt(ultima) : null,
             dias_inativo: diasInativo,
             total_ops_180d: ops.length,
@@ -550,7 +584,15 @@ serve(async (req) => {
           };
         });
 
-        resultado.sort((a, b) => b.score_giro - a.score_giro);
+        // Ordenar: primeiro por recomendação (ALTA > MEDIA > BAIXA > NAO), depois por limite disponível desc, depois por score
+        const recOrder = { ALTA: 0, MEDIA: 1, BAIXA: 2, NAO: 3 };
+        resultado.sort((a, b) => {
+          const r = recOrder[a.recomendacao] - recOrder[b.recomendacao];
+          if (r !== 0) return r;
+          if (b.limite_disponivel !== a.limite_disponivel) return b.limite_disponivel - a.limite_disponivel;
+          return b.score_giro - a.score_giro;
+        });
+
         console.log(`Análise comportamental concluída: ${resultado.length} cedentes`);
         return new Response(JSON.stringify({ success: true, cedentes: resultado }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
