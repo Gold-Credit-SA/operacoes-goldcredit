@@ -30,6 +30,9 @@ interface CedenteBehavior {
   uf?: string;
   bloqueado?: string;
   limite_global: number;
+  limite_disponivel: number;
+  risco_atual: number;
+  excedente: number;
   ultima_operacao: string | null;
   dias_inativo: number | null;
   total_ops_180d: number;
@@ -45,6 +48,7 @@ interface CedenteBehavior {
   motivo: string;
   sinais: string[];
 }
+
 
 const recBadgeVariant = (r: string) =>
   r === 'ALTA' ? 'default' : r === 'MEDIA' ? 'secondary' : r === 'NAO' ? 'destructive' : 'outline';
