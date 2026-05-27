@@ -203,6 +203,7 @@ export function GiroGeralIA() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Cedente</TableHead>
+                    <TableHead className="text-right">Limite disponível</TableHead>
                     <TableHead className="text-center">Score</TableHead>
                     <TableHead className="text-center">Recomendação</TableHead>
                     <TableHead className="text-center">Última op.</TableHead>
@@ -211,6 +212,7 @@ export function GiroGeralIA() {
                     <TableHead>Motivo</TableHead>
                     <TableHead className="w-24"></TableHead>
                   </TableRow>
+
                 </TableHeader>
                 <TableBody>
                   {paginated.length === 0 ? (
