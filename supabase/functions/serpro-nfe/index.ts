@@ -73,7 +73,8 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const action = body.action as string;
+    // SERPRO envia o payload do webhook sem "action" — detecta pela chave
+    const action = (body.action as string) || (body.chaveNFe ? "webhook" : "");
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
