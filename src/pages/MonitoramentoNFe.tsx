@@ -262,7 +262,31 @@ export default function MonitoramentoNFe() {
                 <Bell className="h-4 w-4 mr-1" /> Inscrever no PUSH
               </Button>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
+              {(() => {
+                const semInscricao = items.some(i => !i.solicitacao_id);
+                const tudoOk = items.length > 0 && !semInscricao;
+                if (items.length === 0) return null;
+                if (tudoOk) {
+                  return (
+                    <Alert className="border-emerald-500/40 bg-emerald-500/5">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      <AlertDescription className="text-xs">
+                        Todas as chaves estão <strong>inscritas no PUSH</strong>. Você receberá notificação por e-mail a cada evento (autorização, cancelamento, CC-e, manifestação).
+                      </AlertDescription>
+                    </Alert>
+                  );
+                }
+                return (
+                  <Alert variant="destructive" className="bg-amber-500/5 border-amber-500/40 text-amber-900 dark:text-amber-200">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      Algumas chaves ainda <strong>não estão inscritas no PUSH</strong> — sem isso, a Receita não envia notificações. Clique em <strong>"Inscrever no PUSH"</strong> acima.
+                    </AlertDescription>
+                  </Alert>
+                );
+              })()}
+
               {loading ? (
                 <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>
               ) : items.length === 0 ? (
@@ -273,7 +297,7 @@ export default function MonitoramentoNFe() {
                     <TableRow>
                       <TableHead>Chave</TableHead>
                       <TableHead>Descrição</TableHead>
-                      <TableHead>PUSH</TableHead>
+                      <TableHead>Notificações</TableHead>
                       <TableHead>Última consulta</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
@@ -282,21 +306,32 @@ export default function MonitoramentoNFe() {
                     {items.map((it) => (
                       <TableRow key={it.id}>
                         <TableCell className="font-mono text-xs">{fmtChave(it.chave_acesso)}</TableCell>
-                        <TableCell>{it.descricao || "—"}</TableCell>
+                        <TableCell className="max-w-[280px] truncate">{it.descricao || "—"}</TableCell>
                         <TableCell>
-                          {it.solicitacao_id ? <Badge variant="default">Inscrita</Badge> : <Badge variant="secondary">Não</Badge>}
+                          {it.solicitacao_id ? (
+                            <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white gap-1">
+                              <CheckCircle2 className="h-3 w-3" /> Ativa
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="gap-1 text-amber-700 border-amber-500/50">
+                              <AlertCircle className="h-3 w-3" /> Inativa
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell className="text-xs">
                           {it.ultima_consulta_em ? new Date(it.ultima_consulta_em).toLocaleString("pt-BR") : "—"}
                         </TableCell>
-                        <TableCell className="text-right space-x-2">
-                          <Button size="sm" variant="outline" onClick={() => consultar(it)} disabled={consultando === it.id}>
-                            {consultando === it.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                        <TableCell className="text-right space-x-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => abrirDetalhes(it)}
+                            disabled={consultando === it.id}
+                            title="Abrir nota"
+                          >
+                            {consultando === it.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
                           </Button>
-                          {it.ultimo_resultado && (
-                            <Button size="sm" variant="ghost" onClick={() => setDetalhe(it)}>Ver</Button>
-                          )}
-                          <Button size="sm" variant="ghost" onClick={() => excluir(it.id)}>
+                          <Button size="sm" variant="ghost" onClick={() => excluir(it.id)} title="Remover">
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </TableCell>
@@ -308,36 +343,16 @@ export default function MonitoramentoNFe() {
             </CardContent>
           </Card>
 
-          {detalhe?.ultimo_resultado && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-base">Detalhes da NF-e</CardTitle>
-                <Button size="sm" variant="ghost" onClick={() => setDetalhe(null)}>Fechar</Button>
-              </CardHeader>
-              <CardContent className="text-sm space-y-3">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <Info label="Número" value={nfe?.ide?.nNF} />
-                  <Info label="Série" value={nfe?.ide?.serie} />
-                  <Info label="Emissão" value={nfe?.ide?.dhEmi?.substring(0, 10)} />
-                  <Info label="Natureza" value={nfe?.ide?.natOp} />
-                  <Info label="Emitente" value={nfe?.emit?.xNome} />
-                  <Info label="CNPJ Emit." value={nfe?.emit?.CNPJ} />
-                  <Info label="Destinatário" value={nfe?.dest?.xNome} />
-                  <Info label="Doc. Dest." value={nfe?.dest?.CNPJ ?? nfe?.dest?.CPF} />
-                  <Info label="Valor Total" value={fmtMoeda(total?.vNF)} />
-                  <Info label="ICMS" value={fmtMoeda(total?.vICMS)} />
-                  <Info label="Tributos" value={fmtMoeda(total?.vTotTrib)} />
-                  <Info label="Frete" value={fmtMoeda(total?.vFrete)} />
-                </div>
-                <details className="mt-4">
-                  <summary className="cursor-pointer text-xs text-muted-foreground">JSON completo</summary>
-                  <pre className="mt-2 p-3 bg-muted rounded text-xs overflow-auto max-h-96">
-                    {JSON.stringify(detalhe.ultimo_resultado, null, 2)}
-                  </pre>
-                </details>
-              </CardContent>
-            </Card>
-          )}
+          <DetalheDialog
+            item={detalhe}
+            onClose={() => { setDetalhe(null); setDanfePdf(null); }}
+            nfe={nfe}
+            total={total}
+            danfePdf={danfePdf}
+            danfeLoading={danfeLoading}
+            consultando={consultando === detalhe?.id}
+            eventos={eventos.filter(e => detalhe && e.chave_acesso === detalhe.chave_acesso)}
+          />
         </TabsContent>
 
         <TabsContent value="eventos">
