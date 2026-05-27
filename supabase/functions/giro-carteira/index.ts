@@ -377,9 +377,9 @@ serve(async (req) => {
 
         const cedentesResult = await connection.queryObject<{
           cpf_cnpj: string; nome: string; setor: string; uf: string; cidade: string;
-          bloqueado: string; limite_global: number;
+          bloqueado: string; limite_global: number; risco_atual: number;
         }>(`
-          SELECT cpf_cnpj, nome, setor, uf, cidade, bloqueado, limite_global
+          SELECT cpf_cnpj, nome, setor, uf, cidade, bloqueado, limite_global, risco_atual
           FROM smartsecurities_cedentes
         `);
 
