@@ -320,14 +320,11 @@ export function GiroGeralIA() {
 
           {aiTarget && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 gap-3 text-sm">
                 <div className="border rounded p-3">
-                  <p className="text-xs text-muted-foreground">Score</p>
-                  <p className="font-bold text-lg">{aiTarget.score_giro}</p>
-                </div>
-                <div className="border rounded p-3">
-                  <p className="text-xs text-muted-foreground">Recomendação</p>
+                  <p className="text-xs text-muted-foreground mb-1">Recomendação do gestor IA</p>
                   <Badge variant={recBadgeVariant(aiTarget.recomendacao) as any}>{aiTarget.recomendacao}</Badge>
+                  {aiTarget.parecer && <p className="text-sm mt-2 leading-snug">{aiTarget.parecer}</p>}
                 </div>
               </div>
 
