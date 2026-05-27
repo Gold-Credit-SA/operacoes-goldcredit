@@ -50,7 +50,10 @@ export default function MonitoramentoNFe() {
   const [adding, setAdding] = useState(false);
   const [consultando, setConsultando] = useState<string | null>(null);
   const [detalhe, setDetalhe] = useState<Monitoramento | null>(null);
+  const [danfePdf, setDanfePdf] = useState<string | null>(null);
+  const [danfeLoading, setDanfeLoading] = useState(false);
   const [urlNotif, setUrlNotif] = useState("");
+  const [pushUrlConfigurada, setPushUrlConfigurada] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
