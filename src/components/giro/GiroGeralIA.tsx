@@ -43,9 +43,8 @@ interface CedenteBehavior {
   quitados_30d_valor: number;
   quitados_60d_qtd: number;
   quitados_60d_valor: number;
-  score_giro: number;
   recomendacao: 'ALTA' | 'MEDIA' | 'BAIXA' | 'NAO';
-  motivo: string;
+  parecer: string;
   sinais: string[];
 }
 
