@@ -268,7 +268,7 @@ export function GiroGeralIA() {
                           <span className="text-xs text-muted-foreground">{c.quitados_60d_qtd} em 60d</span>
                         ) : <span className="text-muted-foreground">—</span>}
                       </TableCell>
-                      <TableCell className="max-w-[300px] text-xs text-muted-foreground">{c.motivo}</TableCell>
+                      <TableCell className="max-w-[340px] text-xs text-foreground/80 leading-snug">{c.parecer || <span className="text-muted-foreground italic">analisando…</span>}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
                           <Button size="icon" variant="ghost" title="Análise IA" onClick={() => openAi(c)}>
