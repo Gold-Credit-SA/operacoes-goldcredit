@@ -194,24 +194,47 @@ export default function MonitoramentoNFe() {
         <TabsContent value="chaves" className="space-y-4">
           <Card>
             <CardHeader><CardTitle className="text-base">Adicionar chave</CardTitle></CardHeader>
-            <CardContent className="flex gap-2 flex-wrap">
-              <Input
-                placeholder="Chave de acesso (44 dígitos)"
-                value={chaveInput}
-                onChange={(e) => setChaveInput(e.target.value)}
-                className="flex-1 min-w-[300px] font-mono"
-                maxLength={60}
-              />
-              <Input
-                placeholder="Descrição (opcional)"
-                value={descInput}
-                onChange={(e) => setDescInput(e.target.value)}
-                className="w-64"
-              />
-              <Button onClick={adicionar} disabled={adding}>
-                {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                Adicionar
-              </Button>
+            <CardContent className="space-y-3">
+              <div className="flex gap-2 flex-wrap">
+                <Input
+                  placeholder="Chave de acesso (44 dígitos)"
+                  value={chaveInput}
+                  onChange={(e) => setChaveInput(e.target.value)}
+                  className="flex-1 min-w-[300px] font-mono"
+                  maxLength={60}
+                />
+                <Input
+                  placeholder="Descrição (opcional)"
+                  value={descInput}
+                  onChange={(e) => setDescInput(e.target.value)}
+                  className="w-64"
+                />
+                <Button onClick={adicionar} disabled={adding}>
+                  {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  Adicionar
+                </Button>
+              </div>
+
+              <div className="relative border-2 border-dashed rounded-lg p-4 hover:border-primary/50 hover:bg-muted/30 transition-colors">
+                <input
+                  type="file"
+                  accept=".xml"
+                  multiple
+                  disabled={adding}
+                  onChange={(e) => {
+                    const files = e.target.files ? Array.from(e.target.files) : [];
+                    if (files.length) importarXmls(files);
+                    e.target.value = "";
+                  }}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                />
+                <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
+                  <Upload className="h-5 w-5" />
+                  <span>
+                    {adding ? "Processando..." : "Importar XMLs de NF-e (chave extraída automaticamente)"}
+                  </span>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
