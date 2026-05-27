@@ -428,3 +428,128 @@ function Info({ label, value }: { label: string; value: any }) {
     </div>
   );
 }
+
+function DetalheDialog({
+  item, onClose, nfe, total, danfePdf, danfeLoading, consultando, eventos,
+}: {
+  item: Monitoramento | null;
+  onClose: () => void;
+  nfe: any;
+  total: any;
+  danfePdf: string | null;
+  danfeLoading: boolean;
+  consultando: boolean;
+  eventos: NfeEvento[];
+}) {
+  const pdfUrl = useMemo(() => {
+    if (!danfePdf) return null;
+    const bin = atob(danfePdf);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return URL.createObjectURL(new Blob([arr], { type: "application/pdf" }));
+  }, [danfePdf]);
+
+  useEffect(() => () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); }, [pdfUrl]);
+
+  return (
+    <Dialog open={!!item} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            NF-e {nfe?.ide?.nNF ?? "—"}{nfe?.ide?.serie ? `/${nfe.ide.serie}` : ""}
+            {item?.solicitacao_id ? (
+              <Badge className="ml-2 bg-emerald-600 hover:bg-emerald-600 text-white">Notificações ativas</Badge>
+            ) : (
+              <Badge variant="outline" className="ml-2 text-amber-700 border-amber-500/50">Sem notificação</Badge>
+            )}
+          </DialogTitle>
+        </DialogHeader>
+
+        {consultando ? (
+          <div className="flex items-center justify-center py-12 gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" /> Consultando SERPRO...
+          </div>
+        ) : !item?.ultimo_resultado ? (
+          <p className="text-sm text-muted-foreground py-8 text-center">Sem dados ainda.</p>
+        ) : (
+          <Tabs defaultValue="resumo" className="mt-2">
+            <TabsList>
+              <TabsTrigger value="resumo">Resumo</TabsTrigger>
+              <TabsTrigger value="danfe">DANFE (PDF)</TabsTrigger>
+              <TabsTrigger value="eventos">Movimentações ({eventos.length})</TabsTrigger>
+              <TabsTrigger value="json">JSON</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="resumo" className="space-y-3 pt-2">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <Info label="Número" value={nfe?.ide?.nNF} />
+                <Info label="Série" value={nfe?.ide?.serie} />
+                <Info label="Emissão" value={nfe?.ide?.dhEmi?.substring(0, 10)} />
+                <Info label="Natureza" value={nfe?.ide?.natOp} />
+                <Info label="Emitente" value={nfe?.emit?.xNome} />
+                <Info label="CNPJ Emit." value={nfe?.emit?.CNPJ} />
+                <Info label="Destinatário" value={nfe?.dest?.xNome} />
+                <Info label="Doc. Dest." value={nfe?.dest?.CNPJ ?? nfe?.dest?.CPF} />
+                <Info label="Valor Total" value={fmtMoeda(total?.vNF)} />
+                <Info label="ICMS" value={fmtMoeda(total?.vICMS)} />
+                <Info label="Tributos" value={fmtMoeda(total?.vTotTrib)} />
+                <Info label="Frete" value={fmtMoeda(total?.vFrete)} />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="danfe" className="pt-2">
+              {danfeLoading ? (
+                <div className="flex items-center justify-center py-16 gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" /> Gerando DANFE...
+                </div>
+              ) : pdfUrl ? (
+                <iframe src={pdfUrl} className="w-full h-[70vh] border rounded" title="DANFE" />
+              ) : (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    DANFE em PDF não disponível para esta nota (o produto SERPRO assinado pode não incluir geração de DANFE).
+                  </AlertDescription>
+                </Alert>
+              )}
+            </TabsContent>
+
+            <TabsContent value="eventos" className="pt-2">
+              {eventos.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">
+                  Nenhuma movimentação recebida para esta chave ainda.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Descrição</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {eventos.map(e => (
+                      <TableRow key={e.id}>
+                        <TableCell className="text-xs">{e.data_evento ? new Date(e.data_evento).toLocaleString("pt-BR") : "—"}</TableCell>
+                        <TableCell>{e.tipo_evento || "—"}</TableCell>
+                        <TableCell>{e.descricao || "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </TabsContent>
+
+            <TabsContent value="json" className="pt-2">
+              <pre className="p-3 bg-muted rounded text-xs overflow-auto max-h-[60vh]">
+                {JSON.stringify(item.ultimo_resultado, null, 2)}
+              </pre>
+            </TabsContent>
+          </Tabs>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
