@@ -41,6 +41,8 @@ function fmtMoeda(v?: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+const DEFAULT_PUSH_URL = "https://nfe-webhook.goldcreditcapital.com.br/";
+
 export default function MonitoramentoNFe() {
   const [items, setItems] = useState<Monitoramento[]>([]);
   const [eventos, setEventos] = useState<NfeEvento[]>([]);
@@ -52,8 +54,28 @@ export default function MonitoramentoNFe() {
   const [detalhe, setDetalhe] = useState<Monitoramento | null>(null);
   const [danfePdf, setDanfePdf] = useState<string | null>(null);
   const [danfeLoading, setDanfeLoading] = useState(false);
-  const [urlNotif, setUrlNotif] = useState("");
-  const [pushUrlConfigurada, setPushUrlConfigurada] = useState<string | null>(null);
+  const [urlNotif, setUrlNotif] = useState(DEFAULT_PUSH_URL);
+  const [pushUrlConfigurada, setPushUrlConfigurada] = useState<string | null>(DEFAULT_PUSH_URL);
+
+  // Garante (uma vez por sessão) que a URL padrão de callback está cadastrada na SERPRO.
+  async function ensurePushUrl() {
+    try {
+      await supabase.functions.invoke("serpro-nfe", {
+        body: { action: "push_set_cliente", urlNotificacao: DEFAULT_PUSH_URL },
+      });
+    } catch { /* silencioso — usuário pode reconfigurar manualmente */ }
+  }
+
+  // Inscreve chaves no PUSH automaticamente após cadastro.
+  async function inscreverChavesPush(chaves: string[]) {
+    if (!chaves.length) return;
+    try {
+      await ensurePushUrl();
+      await supabase.functions.invoke("serpro-nfe", {
+        body: { action: "push_criar", chaves },
+      });
+    } catch { /* silencioso */ }
+  }
 
   async function load() {
     setLoading(true);
