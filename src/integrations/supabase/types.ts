@@ -675,6 +675,66 @@ export type Database = {
         }
         Relationships: []
       }
+      scr_query_jobs: {
+        Row: {
+          base_date_final: string | null
+          base_date_initial: string | null
+          consulta_type: string
+          created_at: string
+          doc_id: string
+          error_code: string | null
+          error_message: string | null
+          hbi_uuid_query: string | null
+          id: string
+          last_polled_at: string | null
+          parsed_response: Json | null
+          raw_response: Json | null
+          status: string
+          trace_id: string | null
+          updated_at: string
+          user_id: string | null
+          uuid_type_scr: string | null
+        }
+        Insert: {
+          base_date_final?: string | null
+          base_date_initial?: string | null
+          consulta_type: string
+          created_at?: string
+          doc_id: string
+          error_code?: string | null
+          error_message?: string | null
+          hbi_uuid_query?: string | null
+          id?: string
+          last_polled_at?: string | null
+          parsed_response?: Json | null
+          raw_response?: Json | null
+          status?: string
+          trace_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+          uuid_type_scr?: string | null
+        }
+        Update: {
+          base_date_final?: string | null
+          base_date_initial?: string | null
+          consulta_type?: string
+          created_at?: string
+          doc_id?: string
+          error_code?: string | null
+          error_message?: string | null
+          hbi_uuid_query?: string | null
+          id?: string
+          last_polled_at?: string | null
+          parsed_response?: Json | null
+          raw_response?: Json | null
+          status?: string
+          trace_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+          uuid_type_scr?: string | null
+        }
+        Relationships: []
+      }
       suppressed_emails: {
         Row: {
           created_at: string
