@@ -111,8 +111,10 @@ export default function MonitoramentoNFe() {
     }
     setChaveInput(""); setDescInput("");
     toast.success("Chave adicionada");
+    inscreverChavesPush([chave]);
     load();
   }
+
 
   async function importarXmls(files: File[]) {
     const xmlFiles = files.filter(f => f.name.toLowerCase().endsWith(".xml"));
