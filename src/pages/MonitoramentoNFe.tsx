@@ -127,6 +127,7 @@ export default function MonitoramentoNFe() {
 
     let inseridas = 0, duplicadas = 0, falhas = erros.length;
     let primeira: Monitoramento | null = null;
+    const novasChaves: string[] = [];
 
     for (const n of notas) {
       const chave = n.chaveAcesso.replace(/\D/g, "");
@@ -142,11 +143,13 @@ export default function MonitoramentoNFe() {
         else falhas++;
       } else {
         inseridas++;
+        novasChaves.push(chave);
         if (!primeira && data) primeira = data as Monitoramento;
       }
     }
     setAdding(false);
     toast.success(`${inseridas} importada(s)${duplicadas ? `, ${duplicadas} já cadastrada(s)` : ""}${falhas ? `, ${falhas} falha(s)` : ""}`);
+    inscreverChavesPush(novasChaves);
     await load();
     if (primeira) abrirDetalhes(primeira);
   }
