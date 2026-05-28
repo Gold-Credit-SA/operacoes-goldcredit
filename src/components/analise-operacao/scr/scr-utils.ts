@@ -142,9 +142,15 @@ export function separateVencBuckets(resVenc: ResVenc): { vencidos: Record<string
 export function isLimiteOp(op: Operacao): boolean {
   const ALWAYS_LIMITE = ['1909', '1905'];
   if (ALWAYS_LIMITE.includes(op.mod)) return true;
-  
-  // Mod codes that can be either limit or active credit
-  const CONDITIONAL_LIMITE = ['0208', '0214', '0207', '1901', '1902', '1903', '1904'];
+
+  // Mod codes that can be either limit or active credit.
+  // Inclui toda a família 19xx (Outros créditos) + cheque especial/cartão.
+  // Quando só existem buckets "curtos" (v10–v40) e nenhum a-vencer (v110+),
+  // o registro representa LIMITE disponível, não inadimplência.
+  const CONDITIONAL_LIMITE = [
+    '0208', '0214', '0207',
+    '1901', '1902', '1903', '1904', '1906', '1907', '1908', '1999',
+  ];
   if (CONDITIONAL_LIMITE.includes(op.mod)) {
     const hasAVencer = Object.entries(op.resVenc).some(([k, v]) => {
       const num = parseInt(k.replace('v', ''));
@@ -153,6 +159,6 @@ export function isLimiteOp(op: Operacao): boolean {
     // If no a-vencer buckets with value > 0, it's a limit
     return !hasAVencer;
   }
-  
+
   return false;
 }
