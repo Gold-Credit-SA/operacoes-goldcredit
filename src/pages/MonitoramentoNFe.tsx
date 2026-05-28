@@ -41,6 +41,8 @@ function fmtMoeda(v?: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+const DEFAULT_PUSH_URL = "https://nfe-webhook.goldcreditcapital.com.br/";
+
 export default function MonitoramentoNFe() {
   const [items, setItems] = useState<Monitoramento[]>([]);
   const [eventos, setEventos] = useState<NfeEvento[]>([]);
@@ -52,8 +54,28 @@ export default function MonitoramentoNFe() {
   const [detalhe, setDetalhe] = useState<Monitoramento | null>(null);
   const [danfePdf, setDanfePdf] = useState<string | null>(null);
   const [danfeLoading, setDanfeLoading] = useState(false);
-  const [urlNotif, setUrlNotif] = useState("");
-  const [pushUrlConfigurada, setPushUrlConfigurada] = useState<string | null>(null);
+  const [urlNotif, setUrlNotif] = useState(DEFAULT_PUSH_URL);
+  const [pushUrlConfigurada, setPushUrlConfigurada] = useState<string | null>(DEFAULT_PUSH_URL);
+
+  // Garante (uma vez por sessão) que a URL padrão de callback está cadastrada na SERPRO.
+  async function ensurePushUrl() {
+    try {
+      await supabase.functions.invoke("serpro-nfe", {
+        body: { action: "push_set_cliente", urlNotificacao: DEFAULT_PUSH_URL },
+      });
+    } catch { /* silencioso — usuário pode reconfigurar manualmente */ }
+  }
+
+  // Inscreve chaves no PUSH automaticamente após cadastro.
+  async function inscreverChavesPush(chaves: string[]) {
+    if (!chaves.length) return;
+    try {
+      await ensurePushUrl();
+      await supabase.functions.invoke("serpro-nfe", {
+        body: { action: "push_criar", chaves },
+      });
+    } catch { /* silencioso */ }
+  }
 
   async function load() {
     setLoading(true);
@@ -89,8 +111,10 @@ export default function MonitoramentoNFe() {
     }
     setChaveInput(""); setDescInput("");
     toast.success("Chave adicionada");
+    inscreverChavesPush([chave]);
     load();
   }
+
 
   async function importarXmls(files: File[]) {
     const xmlFiles = files.filter(f => f.name.toLowerCase().endsWith(".xml"));
@@ -103,6 +127,7 @@ export default function MonitoramentoNFe() {
 
     let inseridas = 0, duplicadas = 0, falhas = erros.length;
     let primeira: Monitoramento | null = null;
+    const novasChaves: string[] = [];
 
     for (const n of notas) {
       const chave = n.chaveAcesso.replace(/\D/g, "");
@@ -118,11 +143,13 @@ export default function MonitoramentoNFe() {
         else falhas++;
       } else {
         inseridas++;
+        novasChaves.push(chave);
         if (!primeira && data) primeira = data as Monitoramento;
       }
     }
     setAdding(false);
     toast.success(`${inseridas} importada(s)${duplicadas ? `, ${duplicadas} já cadastrada(s)` : ""}${falhas ? `, ${falhas} falha(s)` : ""}`);
+    inscreverChavesPush(novasChaves);
     await load();
     if (primeira) abrirDetalhes(primeira);
   }
