@@ -40,6 +40,7 @@ const NovaAnaliseCredito = lazy(() => import("./pages/NovaAnaliseCredito"));
 const HistoricoAnaliseCredito = lazy(() => import("./pages/HistoricoAnaliseCredito"));
 const SacadosExternos = lazy(() => import("./pages/SacadosExternos"));
 const MonitoramentoNFe = lazy(() => import("./pages/MonitoramentoNFe"));
+const Cobranca = lazy(() => import("./pages/Cobranca"));
 const Unsubscribe = lazy(() => import("./pages/Unsubscribe"));
 
 const queryClient = new QueryClient({
