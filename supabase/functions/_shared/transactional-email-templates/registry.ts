@@ -10,7 +10,9 @@ export interface TemplateEntry {
 }
 
 import { template as nfeEvento } from './nfe-evento.tsx'
+import { template as cobrancaAviso } from './cobranca-aviso.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'nfe-evento': nfeEvento,
+  'cobranca-aviso': cobrancaAviso,
 }

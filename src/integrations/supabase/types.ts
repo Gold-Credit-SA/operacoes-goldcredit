@@ -41,12 +41,78 @@ export type Database = {
         }
         Relationships: []
       }
-      cobranca_envios: {
+      cobranca_acordos: {
         Row: {
           cedente_cpf_cnpj: string | null
           cedente_nome: string | null
           created_at: string
+          created_by: string
+          created_by_name: string | null
+          desconto: number
+          id: string
+          observacao: string | null
+          parcelas: Json
+          primeiro_vencimento: string
+          qtd_parcelas: number
+          sacado_cpf_cnpj: string
+          sacado_nome: string | null
+          status: string
+          titulos_originais: Json
+          updated_at: string
+          valor_acordo: number
+          valor_original: number
+        }
+        Insert: {
+          cedente_cpf_cnpj?: string | null
+          cedente_nome?: string | null
+          created_at?: string
+          created_by: string
+          created_by_name?: string | null
+          desconto?: number
+          id?: string
+          observacao?: string | null
+          parcelas?: Json
+          primeiro_vencimento: string
+          qtd_parcelas?: number
+          sacado_cpf_cnpj: string
+          sacado_nome?: string | null
+          status?: string
+          titulos_originais?: Json
+          updated_at?: string
+          valor_acordo: number
+          valor_original: number
+        }
+        Update: {
+          cedente_cpf_cnpj?: string | null
+          cedente_nome?: string | null
+          created_at?: string
+          created_by?: string
+          created_by_name?: string | null
+          desconto?: number
+          id?: string
+          observacao?: string | null
+          parcelas?: Json
+          primeiro_vencimento?: string
+          qtd_parcelas?: number
+          sacado_cpf_cnpj?: string
+          sacado_nome?: string | null
+          status?: string
+          titulos_originais?: Json
+          updated_at?: string
+          valor_acordo?: number
+          valor_original?: number
+        }
+        Relationships: []
+      }
+      cobranca_envios: {
+        Row: {
+          assunto: string | null
+          canal: string
+          cedente_cpf_cnpj: string | null
+          cedente_nome: string | null
+          created_at: string
           dias_atraso: number | null
+          email_destinatario: string | null
           error_message: string | null
           evolution_response: Json | null
           id: string
@@ -62,10 +128,13 @@ export type Database = {
           vencimento: string | null
         }
         Insert: {
+          assunto?: string | null
+          canal?: string
           cedente_cpf_cnpj?: string | null
           cedente_nome?: string | null
           created_at?: string
           dias_atraso?: number | null
+          email_destinatario?: string | null
           error_message?: string | null
           evolution_response?: Json | null
           id?: string
@@ -81,10 +150,13 @@ export type Database = {
           vencimento?: string | null
         }
         Update: {
+          assunto?: string | null
+          canal?: string
           cedente_cpf_cnpj?: string | null
           cedente_nome?: string | null
           created_at?: string
           dias_atraso?: number | null
+          email_destinatario?: string | null
           error_message?: string | null
           evolution_response?: Json | null
           id?: string
@@ -101,8 +173,138 @@ export type Database = {
         }
         Relationships: []
       }
+      cobranca_notas: {
+        Row: {
+          cedente_cpf_cnpj: string | null
+          conteudo: string
+          created_at: string
+          created_by: string
+          created_by_name: string | null
+          id: string
+          numero_titulo: string | null
+          sacado_cpf_cnpj: string
+        }
+        Insert: {
+          cedente_cpf_cnpj?: string | null
+          conteudo: string
+          created_at?: string
+          created_by: string
+          created_by_name?: string | null
+          id?: string
+          numero_titulo?: string | null
+          sacado_cpf_cnpj: string
+        }
+        Update: {
+          cedente_cpf_cnpj?: string | null
+          conteudo?: string
+          created_at?: string
+          created_by?: string
+          created_by_name?: string | null
+          id?: string
+          numero_titulo?: string | null
+          sacado_cpf_cnpj?: string
+        }
+        Relationships: []
+      }
+      cobranca_promessas: {
+        Row: {
+          cedente_cpf_cnpj: string | null
+          created_at: string
+          created_by: string
+          created_by_name: string | null
+          cumprida: boolean
+          data_prometida: string
+          id: string
+          numero_titulo: string | null
+          observacao: string | null
+          sacado_cpf_cnpj: string
+          updated_at: string
+          valor_prometido: number | null
+        }
+        Insert: {
+          cedente_cpf_cnpj?: string | null
+          created_at?: string
+          created_by: string
+          created_by_name?: string | null
+          cumprida?: boolean
+          data_prometida: string
+          id?: string
+          numero_titulo?: string | null
+          observacao?: string | null
+          sacado_cpf_cnpj: string
+          updated_at?: string
+          valor_prometido?: number | null
+        }
+        Update: {
+          cedente_cpf_cnpj?: string | null
+          created_at?: string
+          created_by?: string
+          created_by_name?: string | null
+          cumprida?: boolean
+          data_prometida?: string
+          id?: string
+          numero_titulo?: string | null
+          observacao?: string | null
+          sacado_cpf_cnpj?: string
+          updated_at?: string
+          valor_prometido?: number | null
+        }
+        Relationships: []
+      }
+      cobranca_regua: {
+        Row: {
+          ativo: boolean
+          canal: string
+          created_at: string
+          created_by: string
+          dias_max: number | null
+          dias_min: number
+          id: string
+          nome: string
+          ordem: number
+          template_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          canal?: string
+          created_at?: string
+          created_by: string
+          dias_max?: number | null
+          dias_min: number
+          id?: string
+          nome: string
+          ordem?: number
+          template_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          canal?: string
+          created_at?: string
+          created_by?: string
+          dias_max?: number | null
+          dias_min?: number
+          id?: string
+          nome?: string
+          ordem?: number
+          template_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cobranca_regua_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "cobranca_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cobranca_templates: {
         Row: {
+          assunto: string | null
+          canal: string
           created_at: string
           created_by: string
           id: string
@@ -111,6 +313,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assunto?: string | null
+          canal?: string
           created_at?: string
           created_by: string
           id?: string
@@ -119,12 +323,56 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assunto?: string | null
+          canal?: string
           created_at?: string
           created_by?: string
           id?: string
           mensagem?: string
           nome?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      cobranca_titulo_status: {
+        Row: {
+          cedente_cpf_cnpj: string
+          created_at: string
+          id: string
+          numero_titulo: string
+          proximo_contato_at: string | null
+          sacado_cpf_cnpj: string | null
+          sacado_nome: string | null
+          status: Database["public"]["Enums"]["cobranca_status"]
+          ultimo_contato_at: string | null
+          updated_at: string
+          updated_by: string
+        }
+        Insert: {
+          cedente_cpf_cnpj: string
+          created_at?: string
+          id?: string
+          numero_titulo: string
+          proximo_contato_at?: string | null
+          sacado_cpf_cnpj?: string | null
+          sacado_nome?: string | null
+          status?: Database["public"]["Enums"]["cobranca_status"]
+          ultimo_contato_at?: string | null
+          updated_at?: string
+          updated_by: string
+        }
+        Update: {
+          cedente_cpf_cnpj?: string
+          created_at?: string
+          id?: string
+          numero_titulo?: string
+          proximo_contato_at?: string | null
+          sacado_cpf_cnpj?: string | null
+          sacado_nome?: string | null
+          status?: Database["public"]["Enums"]["cobranca_status"]
+          ultimo_contato_at?: string | null
+          updated_at?: string
+          updated_by?: string
         }
         Relationships: []
       }
@@ -909,6 +1157,14 @@ export type Database = {
     Enums: {
       app_role: "admin" | "user"
       assignment_status: "pending" | "approved" | "rejected"
+      cobranca_status:
+        | "em_dia"
+        | "notificado"
+        | "em_negociacao"
+        | "acordo"
+        | "protestado"
+        | "quitado"
+        | "incobravel"
       entity_note_type: "cliente" | "cedente" | "sacado"
     }
     CompositeTypes: {
@@ -1039,6 +1295,15 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "user"],
       assignment_status: ["pending", "approved", "rejected"],
+      cobranca_status: [
+        "em_dia",
+        "notificado",
+        "em_negociacao",
+        "acordo",
+        "protestado",
+        "quitado",
+        "incobravel",
+      ],
       entity_note_type: ["cliente", "cedente", "sacado"],
     },
   },
