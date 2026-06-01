@@ -84,6 +84,8 @@ export default function SugestoesTab() {
         cedente_cpf_cnpj: t.cedente_cpf_cnpj,
         cedente_nome: t.cedente_nome,
         numero_titulo: t.numero_titulo,
+        id_titulo: t.id_titulo ?? null,
+        nosso_numero: t.nosso_numero ?? null,
         valor: t.valor,
         vencimento: t.vencimento,
         dias_atraso: t.dias_atraso,
