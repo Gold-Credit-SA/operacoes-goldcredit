@@ -88,7 +88,7 @@ async function listOpenTitles(opts: {
   try {
     const today = new Date().toISOString().slice(0, 10);
     const rows = await sql`
-      SELECT documento, cpf_cnpj_sacado, sacado, cpf_cnpj_cedente, cedente,
+      SELECT documento, id_titulo, nosso_numero, cpf_cnpj_sacado, sacado, cpf_cnpj_cedente, cedente,
              valor, vencimento
       FROM smartsecurities_titulos_em_aberto
       WHERE 1=1
@@ -104,6 +104,8 @@ async function listOpenTitles(opts: {
       const dias = venc ? Math.floor((now.getTime() - venc.getTime()) / 86400000) : 0;
       return {
         numero_titulo: r.documento,
+        id_titulo: r.id_titulo ?? null,
+        nosso_numero: r.nosso_numero ?? null,
         sacado_cpf_cnpj: onlyDigits(r.cpf_cnpj_sacado ?? ""),
         sacado_nome: r.sacado,
         cedente_cpf_cnpj: onlyDigits(r.cpf_cnpj_cedente ?? ""),
