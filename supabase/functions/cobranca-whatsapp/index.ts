@@ -52,6 +52,8 @@ function getExternalSql() {
 
 type Titulo = {
   numero_titulo: string;
+  id_titulo?: string | null;
+  nosso_numero?: string | null;
   sacado_cpf_cnpj: string;
   sacado_nome: string;
   cedente_cpf_cnpj: string;
@@ -62,6 +64,17 @@ type Titulo = {
   telefone?: string;
   email?: string;
 };
+
+function buildSmartUrl(tpl: string | null | undefined, t: { id_titulo?: string | null; nosso_numero?: string | null; numero_titulo?: string; cedente_cpf_cnpj?: string; sacado_cpf_cnpj?: string }): string {
+  if (!tpl?.trim()) return "";
+  return tpl
+    .replace(/\{id_titulo\}/g, encodeURIComponent(t.id_titulo ?? ""))
+    .replace(/\{nosso_numero\}/g, encodeURIComponent(t.nosso_numero ?? ""))
+    .replace(/\{documento\}/g, encodeURIComponent(t.numero_titulo ?? ""))
+    .replace(/\{numero_titulo\}/g, encodeURIComponent(t.numero_titulo ?? ""))
+    .replace(/\{cedente_cpf_cnpj\}/g, encodeURIComponent(t.cedente_cpf_cnpj ?? ""))
+    .replace(/\{sacado_cpf_cnpj\}/g, encodeURIComponent(t.sacado_cpf_cnpj ?? ""));
+}
 
 async function listOpenTitles(opts: {
   cedenteCpfCnpj?: string;
@@ -75,7 +88,7 @@ async function listOpenTitles(opts: {
   try {
     const today = new Date().toISOString().slice(0, 10);
     const rows = await sql`
-      SELECT documento, cpf_cnpj_sacado, sacado, cpf_cnpj_cedente, cedente,
+      SELECT documento, id_titulo, nosso_numero, cpf_cnpj_sacado, sacado, cpf_cnpj_cedente, cedente,
              valor, vencimento
       FROM smartsecurities_titulos_em_aberto
       WHERE 1=1
@@ -91,6 +104,8 @@ async function listOpenTitles(opts: {
       const dias = venc ? Math.floor((now.getTime() - venc.getTime()) / 86400000) : 0;
       return {
         numero_titulo: r.documento,
+        id_titulo: r.id_titulo ?? null,
+        nosso_numero: r.nosso_numero ?? null,
         sacado_cpf_cnpj: onlyDigits(r.cpf_cnpj_sacado ?? ""),
         sacado_nome: r.sacado,
         cedente_cpf_cnpj: onlyDigits(r.cpf_cnpj_cedente ?? ""),
@@ -307,9 +322,15 @@ Deno.serve(async (req) => {
       const { data: profile } = await supabase.from("profiles").select("name").eq("user_id", user.id).maybeSingle();
       const userName = profile?.name ?? user.email ?? "";
 
+      const { data: settings } = await supabase.from("cobranca_settings").select("boleto_url_template, nf_url_template").eq("id", 1).maybeSingle();
+      const boletoTpl = settings?.boleto_url_template ?? "";
+      const nfTpl = settings?.nf_url_template ?? "";
+
       const results: any[] = [];
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
+        const linkBoleto = buildSmartUrl(boletoTpl, it);
+        const linkNf = buildSmartUrl(nfTpl, it);
         const vars = {
           sacado_nome: it.sacado_nome ?? "",
           sacado_cpf_cnpj: it.sacado_cpf_cnpj ?? "",
@@ -318,6 +339,8 @@ Deno.serve(async (req) => {
           valor: formatBRL(it.valor),
           vencimento: formatDate(it.vencimento),
           dias_atraso: String(it.dias_atraso ?? ""),
+          link_boleto: linkBoleto,
+          link_nf: linkNf,
         };
         const msg = renderTemplate(template, vars);
         const assuntoR = renderTemplate(assunto ?? "Aviso de cobrança", vars);

@@ -84,6 +84,8 @@ export default function SugestoesTab() {
         cedente_cpf_cnpj: t.cedente_cpf_cnpj,
         cedente_nome: t.cedente_nome,
         numero_titulo: t.numero_titulo,
+        id_titulo: t.id_titulo ?? null,
+        nosso_numero: t.nosso_numero ?? null,
         valor: t.valor,
         vencimento: t.vencimento,
         dias_atraso: t.dias_atraso,
@@ -195,8 +197,8 @@ export default function SugestoesTab() {
 
           <div>
             <Label className="text-xs">Mensagem</Label>
-            <Textarea value={mensagem} onChange={(e) => setMensagem(e.target.value)} rows={8} placeholder="Use {{sacado_nome}}, {{valor}}, {{vencimento}}, {{dias_atraso}}, {{numero_titulo}}, {{cedente_nome}}" />
-            <p className="text-[10px] text-muted-foreground mt-1">Variáveis: {`{{sacado_nome}} {{valor}} {{vencimento}} {{dias_atraso}} {{numero_titulo}} {{cedente_nome}}`}</p>
+            <Textarea value={mensagem} onChange={(e) => setMensagem(e.target.value)} rows={8} placeholder="Use {{sacado_nome}}, {{valor}}, {{vencimento}}, {{dias_atraso}}, {{numero_titulo}}, {{cedente_nome}}, {{link_boleto}}, {{link_nf}}" />
+            <p className="text-[10px] text-muted-foreground mt-1">Variáveis: {`{{sacado_nome}} {{valor}} {{vencimento}} {{dias_atraso}} {{numero_titulo}} {{cedente_nome}} {{link_boleto}} {{link_nf}}`}</p>
           </div>
 
           <div className="rounded bg-muted/50 p-2 text-xs flex items-start gap-2">

@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Plus, Trash2, Pencil, Phone, Mail } from "lucide-react";
 import { toast } from "sonner";
 import type { Regua, Template } from "./utils";
+import SmartUrlsSettings from "./SmartUrlsSettings";
 
 export default function ReguaTab() {
   const [regua, setRegua] = useState<Regua[]>([]);
@@ -79,6 +80,8 @@ export default function ReguaTab() {
   };
 
   return (
+    <div className="space-y-6">
+      <SmartUrlsSettings />
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Régua */}
       <Card>
@@ -215,6 +218,7 @@ export default function ReguaTab() {
           <DialogFooter><Button onClick={saveTpl}>Salvar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
     </div>
   );
 }
