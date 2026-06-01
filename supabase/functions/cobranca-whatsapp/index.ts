@@ -142,8 +142,12 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const action = body.action as string;
 
-    if (action === "list-overdue") {
-      const data = await listOverdue(body.cedenteCpfCnpj, Number(body.minDays ?? 1));
+    if (action === "list-overdue" || action === "list-open") {
+      const data = await listOpenTitles({
+        cedenteCpfCnpj: body.cedenteCpfCnpj,
+        minDays: Number(body.minDays ?? 0),
+        onlyOverdue: action === "list-overdue" ? (body.onlyOverdue ?? false) : false,
+      });
       return new Response(JSON.stringify({ success: true, data }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
