@@ -41,6 +41,93 @@ export type Database = {
         }
         Relationships: []
       }
+      cobranca_envios: {
+        Row: {
+          cedente_cpf_cnpj: string | null
+          cedente_nome: string | null
+          created_at: string
+          dias_atraso: number | null
+          error_message: string | null
+          evolution_response: Json | null
+          id: string
+          mensagem: string
+          numero_titulo: string | null
+          sacado_cpf_cnpj: string
+          sacado_nome: string | null
+          status: string
+          telefone: string
+          user_id: string
+          user_name: string | null
+          valor: number | null
+          vencimento: string | null
+        }
+        Insert: {
+          cedente_cpf_cnpj?: string | null
+          cedente_nome?: string | null
+          created_at?: string
+          dias_atraso?: number | null
+          error_message?: string | null
+          evolution_response?: Json | null
+          id?: string
+          mensagem: string
+          numero_titulo?: string | null
+          sacado_cpf_cnpj: string
+          sacado_nome?: string | null
+          status?: string
+          telefone: string
+          user_id: string
+          user_name?: string | null
+          valor?: number | null
+          vencimento?: string | null
+        }
+        Update: {
+          cedente_cpf_cnpj?: string | null
+          cedente_nome?: string | null
+          created_at?: string
+          dias_atraso?: number | null
+          error_message?: string | null
+          evolution_response?: Json | null
+          id?: string
+          mensagem?: string
+          numero_titulo?: string | null
+          sacado_cpf_cnpj?: string
+          sacado_nome?: string | null
+          status?: string
+          telefone?: string
+          user_id?: string
+          user_name?: string | null
+          valor?: number | null
+          vencimento?: string | null
+        }
+        Relationships: []
+      }
+      cobranca_templates: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          mensagem: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          mensagem: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          mensagem?: string
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       consulta_clients: {
         Row: {
           agrisk_client_id: string | null
