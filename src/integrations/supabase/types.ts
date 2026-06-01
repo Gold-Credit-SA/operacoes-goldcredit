@@ -301,6 +301,30 @@ export type Database = {
           },
         ]
       }
+      cobranca_settings: {
+        Row: {
+          boleto_url_template: string | null
+          id: number
+          nf_url_template: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          boleto_url_template?: string | null
+          id?: number
+          nf_url_template?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          boleto_url_template?: string | null
+          id?: number
+          nf_url_template?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       cobranca_templates: {
         Row: {
           assunto: string | null
