@@ -300,8 +300,8 @@ export default function Cobranca() {
                           <td className="px-2 py-2 text-right">{fmtBRL(t.valor)}</td>
                           <td className="px-2 py-2 text-center text-xs">{fmtDate(t.vencimento)}</td>
                           <td className="px-2 py-2 text-center">
-                            <Badge variant={t.dias_atraso > 30 ? "destructive" : "secondary"}>
-                              {t.dias_atraso}d
+                            <Badge variant={t.dias_atraso > 30 ? "destructive" : t.dias_atraso > 0 ? "secondary" : "outline"}>
+                              {t.dias_atraso > 0 ? `${t.dias_atraso}d` : "em dia"}
                             </Badge>
                           </td>
                           <td className="px-2 py-2">
