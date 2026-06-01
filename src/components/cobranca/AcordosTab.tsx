@@ -47,7 +47,7 @@ export default function AcordosTab() {
     let q = supabase.from("cobranca_acordos").select("*").order("created_at", { ascending: false });
     if (filter !== "todos") q = q.eq("status", filter);
     const { data } = await q;
-    setAcordos((data ?? []) as Acordo[]);
+    setAcordos((data ?? []) as unknown as Acordo[]);
   };
   useEffect(() => { load(); }, [filter]);
 
