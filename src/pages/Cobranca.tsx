@@ -51,7 +51,8 @@ export default function Cobranca() {
   const [titulos, setTitulos] = useState<Titulo[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [minDays, setMinDays] = useState(1);
+  const [minDays, setMinDays] = useState(0);
+  const [onlyOverdue, setOnlyOverdue] = useState(false);
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
   const [sending, setSending] = useState(false);
   const [envios, setEnvios] = useState<Envio[]>([]);
@@ -60,7 +61,7 @@ export default function Cobranca() {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("cobranca-whatsapp", {
-        body: { action: "list-overdue", minDays },
+        body: { action: "list-open", minDays, onlyOverdue },
       });
       if (error) throw error;
       const items: Titulo[] = (data?.data ?? []).map((t: Titulo) => ({ ...t, selected: false }));
@@ -77,7 +78,7 @@ export default function Cobranca() {
       }
       setTitulos(items);
     } catch (e) {
-      toast.error("Erro ao carregar títulos em atraso", { description: (e as Error).message });
+      toast.error("Erro ao carregar títulos", { description: (e as Error).message });
     } finally {
       setLoading(false);
     }
