@@ -267,7 +267,7 @@ export default function Cobranca() {
               {loading ? (
                 <p className="text-sm text-muted-foreground py-8 text-center">Carregando títulos…</p>
               ) : filtered.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-8 text-center">Nenhum título em atraso.</p>
+                <p className="text-sm text-muted-foreground py-8 text-center">Nenhum título em aberto.</p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
