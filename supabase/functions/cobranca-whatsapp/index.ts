@@ -322,9 +322,15 @@ Deno.serve(async (req) => {
       const { data: profile } = await supabase.from("profiles").select("name").eq("user_id", user.id).maybeSingle();
       const userName = profile?.name ?? user.email ?? "";
 
+      const { data: settings } = await supabase.from("cobranca_settings").select("boleto_url_template, nf_url_template").eq("id", 1).maybeSingle();
+      const boletoTpl = settings?.boleto_url_template ?? "";
+      const nfTpl = settings?.nf_url_template ?? "";
+
       const results: any[] = [];
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
+        const linkBoleto = buildSmartUrl(boletoTpl, it);
+        const linkNf = buildSmartUrl(nfTpl, it);
         const vars = {
           sacado_nome: it.sacado_nome ?? "",
           sacado_cpf_cnpj: it.sacado_cpf_cnpj ?? "",
@@ -333,6 +339,8 @@ Deno.serve(async (req) => {
           valor: formatBRL(it.valor),
           vencimento: formatDate(it.vencimento),
           dias_atraso: String(it.dias_atraso ?? ""),
+          link_boleto: linkBoleto,
+          link_nf: linkNf,
         };
         const msg = renderTemplate(template, vars);
         const assuntoR = renderTemplate(assunto ?? "Aviso de cobrança", vars);
