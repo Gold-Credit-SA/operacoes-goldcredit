@@ -51,7 +51,8 @@ export default function Cobranca() {
   const [titulos, setTitulos] = useState<Titulo[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [minDays, setMinDays] = useState(1);
+  const [minDays, setMinDays] = useState(0);
+  const [onlyOverdue, setOnlyOverdue] = useState(false);
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
   const [sending, setSending] = useState(false);
   const [envios, setEnvios] = useState<Envio[]>([]);
@@ -60,7 +61,7 @@ export default function Cobranca() {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("cobranca-whatsapp", {
-        body: { action: "list-overdue", minDays },
+        body: { action: "list-open", minDays, onlyOverdue },
       });
       if (error) throw error;
       const items: Titulo[] = (data?.data ?? []).map((t: Titulo) => ({ ...t, selected: false }));
@@ -77,7 +78,7 @@ export default function Cobranca() {
       }
       setTitulos(items);
     } catch (e) {
-      toast.error("Erro ao carregar títulos em atraso", { description: (e as Error).message });
+      toast.error("Erro ao carregar títulos", { description: (e as Error).message });
     } finally {
       setLoading(false);
     }
@@ -190,7 +191,7 @@ export default function Cobranca() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Cobrança</h1>
-          <p className="text-sm text-muted-foreground">Envio de cobrança via WhatsApp para títulos em atraso</p>
+          <p className="text-sm text-muted-foreground">Títulos em aberto — envio de cobrança via WhatsApp</p>
         </div>
         <Badge variant="outline" className="gap-1">
           <Phone className="h-3 w-3" /> Evolution API
@@ -235,6 +236,14 @@ export default function Cobranca() {
                   className="w-72"
                 />
                 <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="only-overdue"
+                    checked={onlyOverdue}
+                    onCheckedChange={(v) => setOnlyOverdue(!!v)}
+                  />
+                  <Label htmlFor="only-overdue" className="text-xs cursor-pointer">Só em atraso</Label>
+                </div>
+                <div className="flex items-center gap-2">
                   <Label className="text-xs">Atraso mín.</Label>
                   <Input
                     type="number"
@@ -258,7 +267,7 @@ export default function Cobranca() {
               {loading ? (
                 <p className="text-sm text-muted-foreground py-8 text-center">Carregando títulos…</p>
               ) : filtered.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-8 text-center">Nenhum título em atraso.</p>
+                <p className="text-sm text-muted-foreground py-8 text-center">Nenhum título em aberto.</p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -291,8 +300,8 @@ export default function Cobranca() {
                           <td className="px-2 py-2 text-right">{fmtBRL(t.valor)}</td>
                           <td className="px-2 py-2 text-center text-xs">{fmtDate(t.vencimento)}</td>
                           <td className="px-2 py-2 text-center">
-                            <Badge variant={t.dias_atraso > 30 ? "destructive" : "secondary"}>
-                              {t.dias_atraso}d
+                            <Badge variant={t.dias_atraso > 30 ? "destructive" : t.dias_atraso > 0 ? "secondary" : "outline"}>
+                              {t.dias_atraso > 0 ? `${t.dias_atraso}d` : "em dia"}
                             </Badge>
                           </td>
                           <td className="px-2 py-2">

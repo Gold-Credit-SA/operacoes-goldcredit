@@ -50,27 +50,28 @@ function getExternalSql() {
   return postgres({ host, port, user, password: pass, database: db, ssl: "prefer", max: 3 });
 }
 
-async function listOverdue(cedenteCpfCnpj?: string, minDays = 1) {
+async function listOpenTitles(opts: { cedenteCpfCnpj?: string; minDays?: number; onlyOverdue?: boolean } = {}) {
+  const { cedenteCpfCnpj, minDays = 0, onlyOverdue = false } = opts;
   const sql = getExternalSql();
   try {
     const today = new Date().toISOString().slice(0, 10);
     const rows = cedenteCpfCnpj
       ? await sql`
-          SELECT numero_titulo, cpf_cnpj_sacado, sacado, cpf_cnpj_cedente, cedente,
+          SELECT documento, cpf_cnpj_sacado, sacado, cpf_cnpj_cedente, cedente,
                  valor, vencimento
           FROM smartsecurities_titulos_em_aberto
-          WHERE vencimento < ${today}
-            AND REPLACE(REPLACE(REPLACE(cpf_cnpj_cedente,'.',''),'-',''),'/','') = ${onlyDigits(cedenteCpfCnpj)}
-          ORDER BY vencimento ASC
-          LIMIT 500
+          WHERE REPLACE(REPLACE(REPLACE(cpf_cnpj_cedente,'.',''),'-',''),'/','') = ${onlyDigits(cedenteCpfCnpj)}
+            ${onlyOverdue ? sql`AND vencimento < ${today}` : sql``}
+          ORDER BY vencimento DESC NULLS LAST
+          LIMIT 1000
         `
       : await sql`
-          SELECT numero_titulo, cpf_cnpj_sacado, sacado, cpf_cnpj_cedente, cedente,
+          SELECT documento, cpf_cnpj_sacado, sacado, cpf_cnpj_cedente, cedente,
                  valor, vencimento
           FROM smartsecurities_titulos_em_aberto
-          WHERE vencimento < ${today}
-          ORDER BY vencimento ASC
-          LIMIT 1000
+          ${onlyOverdue ? sql`WHERE vencimento < ${today}` : sql``}
+          ORDER BY vencimento DESC NULLS LAST
+          LIMIT 2000
         `;
 
     const now = new Date();
@@ -78,7 +79,7 @@ async function listOverdue(cedenteCpfCnpj?: string, minDays = 1) {
       const venc = r.vencimento ? new Date(r.vencimento) : null;
       const dias = venc ? Math.floor((now.getTime() - venc.getTime()) / 86400000) : 0;
       return {
-        numero_titulo: r.numero_titulo,
+        numero_titulo: r.documento,
         sacado_cpf_cnpj: onlyDigits(r.cpf_cnpj_sacado ?? ""),
         sacado_nome: r.sacado,
         cedente_cpf_cnpj: onlyDigits(r.cpf_cnpj_cedente ?? ""),
@@ -87,7 +88,7 @@ async function listOverdue(cedenteCpfCnpj?: string, minDays = 1) {
         vencimento: r.vencimento,
         dias_atraso: dias,
       };
-    }).filter((t: any) => t.dias_atraso >= minDays);
+    }).filter((t: any) => (minDays > 0 ? t.dias_atraso >= minDays : true));
 
     return result;
   } finally {
@@ -141,8 +142,12 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const action = body.action as string;
 
-    if (action === "list-overdue") {
-      const data = await listOverdue(body.cedenteCpfCnpj, Number(body.minDays ?? 1));
+    if (action === "list-overdue" || action === "list-open") {
+      const data = await listOpenTitles({
+        cedenteCpfCnpj: body.cedenteCpfCnpj,
+        minDays: Number(body.minDays ?? 0),
+        onlyOverdue: action === "list-overdue" ? (body.onlyOverdue ?? false) : false,
+      });
       return new Response(JSON.stringify({ success: true, data }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
