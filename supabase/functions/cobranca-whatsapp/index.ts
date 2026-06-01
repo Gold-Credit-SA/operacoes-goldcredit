@@ -52,6 +52,8 @@ function getExternalSql() {
 
 type Titulo = {
   numero_titulo: string;
+  id_titulo?: string | null;
+  nosso_numero?: string | null;
   sacado_cpf_cnpj: string;
   sacado_nome: string;
   cedente_cpf_cnpj: string;
@@ -62,6 +64,17 @@ type Titulo = {
   telefone?: string;
   email?: string;
 };
+
+function buildSmartUrl(tpl: string | null | undefined, t: { id_titulo?: string | null; nosso_numero?: string | null; numero_titulo?: string; cedente_cpf_cnpj?: string; sacado_cpf_cnpj?: string }): string {
+  if (!tpl?.trim()) return "";
+  return tpl
+    .replace(/\{id_titulo\}/g, encodeURIComponent(t.id_titulo ?? ""))
+    .replace(/\{nosso_numero\}/g, encodeURIComponent(t.nosso_numero ?? ""))
+    .replace(/\{documento\}/g, encodeURIComponent(t.numero_titulo ?? ""))
+    .replace(/\{numero_titulo\}/g, encodeURIComponent(t.numero_titulo ?? ""))
+    .replace(/\{cedente_cpf_cnpj\}/g, encodeURIComponent(t.cedente_cpf_cnpj ?? ""))
+    .replace(/\{sacado_cpf_cnpj\}/g, encodeURIComponent(t.sacado_cpf_cnpj ?? ""));
+}
 
 async function listOpenTitles(opts: {
   cedenteCpfCnpj?: string;
