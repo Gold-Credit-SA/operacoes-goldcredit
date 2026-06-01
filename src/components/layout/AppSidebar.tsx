@@ -48,6 +48,7 @@ export function AppSidebar() {
     { path: '/sacados', label: 'Sacados', icon: UserCheck },
     { path: '/consulta', label: 'Cedentes', icon: Search },
     { path: '/nfe', label: 'NF-e', icon: Receipt },
+    { path: '/cobranca', label: 'Cobrança', icon: MessageCircle },
     ...(isMaster ? [{ path: '/admin', label: 'Configurações', icon: Settings }] : []),
   ];
 
