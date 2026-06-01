@@ -219,5 +219,6 @@ export default function ReguaTab() {
         </DialogContent>
       </Dialog>
     </div>
+    </div>
   );
 }
