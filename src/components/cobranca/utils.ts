@@ -23,6 +23,8 @@ export const formatCpfCnpj = (s: string) => {
 
 export type Titulo = {
   numero_titulo: string;
+  id_titulo?: string | null;
+  nosso_numero?: string | null;
   sacado_cpf_cnpj: string;
   sacado_nome: string;
   cedente_cpf_cnpj: string;
