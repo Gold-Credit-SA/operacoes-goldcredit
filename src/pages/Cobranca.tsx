@@ -236,6 +236,14 @@ export default function Cobranca() {
                   className="w-72"
                 />
                 <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="only-overdue"
+                    checked={onlyOverdue}
+                    onCheckedChange={(v) => setOnlyOverdue(!!v)}
+                  />
+                  <Label htmlFor="only-overdue" className="text-xs cursor-pointer">Só em atraso</Label>
+                </div>
+                <div className="flex items-center gap-2">
                   <Label className="text-xs">Atraso mín.</Label>
                   <Input
                     type="number"
