@@ -13,6 +13,7 @@ import { Plus, Trash2, Pencil, Phone, Mail } from "lucide-react";
 import { toast } from "sonner";
 import type { Regua, Template } from "./utils";
 import SmartUrlsSettings from "./SmartUrlsSettings";
+import SmartApiPanel from "./SmartApiPanel";
 
 export default function ReguaTab() {
   const [regua, setRegua] = useState<Regua[]>([]);
@@ -82,6 +83,7 @@ export default function ReguaTab() {
   return (
     <div className="space-y-6">
       <SmartUrlsSettings />
+      <SmartApiPanel />
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Régua */}
       <Card>
