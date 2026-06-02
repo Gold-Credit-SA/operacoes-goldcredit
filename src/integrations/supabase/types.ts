@@ -306,6 +306,7 @@ export type Database = {
           boleto_url_template: string | null
           id: number
           nf_url_template: string | null
+          smart_pdf_source: string
           updated_at: string
           updated_by: string | null
         }
@@ -313,6 +314,7 @@ export type Database = {
           boleto_url_template?: string | null
           id?: number
           nf_url_template?: string | null
+          smart_pdf_source?: string
           updated_at?: string
           updated_by?: string | null
         }
@@ -320,6 +322,7 @@ export type Database = {
           boleto_url_template?: string | null
           id?: number
           nf_url_template?: string | null
+          smart_pdf_source?: string
           updated_at?: string
           updated_by?: string | null
         }
@@ -1094,6 +1097,93 @@ export type Database = {
         }
         Relationships: []
       }
+      smart_anexos_cache: {
+        Row: {
+          bytes: number
+          expires_at: string
+          extra_key: string | null
+          fetched_at: string
+          hit_count: number
+          last_requested_by: string | null
+          source_status: string | null
+          source_updated_at: string | null
+          storage_path: string
+          tipo: string
+          titulo_id: string
+        }
+        Insert: {
+          bytes: number
+          expires_at: string
+          extra_key?: string | null
+          fetched_at?: string
+          hit_count?: number
+          last_requested_by?: string | null
+          source_status?: string | null
+          source_updated_at?: string | null
+          storage_path: string
+          tipo: string
+          titulo_id: string
+        }
+        Update: {
+          bytes?: number
+          expires_at?: string
+          extra_key?: string | null
+          fetched_at?: string
+          hit_count?: number
+          last_requested_by?: string | null
+          source_status?: string | null
+          source_updated_at?: string | null
+          storage_path?: string
+          tipo?: string
+          titulo_id?: string
+        }
+        Relationships: []
+      }
+      smart_scraper_prefetch_jobs: {
+        Row: {
+          attempts: number
+          completed_at: string | null
+          created_at: string
+          duration_ms: number | null
+          error_code: string | null
+          error_message: string | null
+          id: string
+          scheduled_for: string
+          started_at: string | null
+          status: string
+          tipo: string
+          titulo_id: string
+        }
+        Insert: {
+          attempts?: number
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          scheduled_for: string
+          started_at?: string | null
+          status?: string
+          tipo: string
+          titulo_id: string
+        }
+        Update: {
+          attempts?: number
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          scheduled_for?: string
+          started_at?: string | null
+          status?: string
+          tipo?: string
+          titulo_id?: string
+        }
+        Relationships: []
+      }
       suppressed_emails: {
         Row: {
           created_at: string
@@ -1141,7 +1231,19 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      smart_anexos_stats: {
+        Row: {
+          ativos: number | null
+          bytes_total: number | null
+          expirados: number | null
+          hits_total: number | null
+          mais_antigo: string | null
+          mais_recente: string | null
+          tipo: string | null
+          total: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       delete_email: {
@@ -1176,6 +1278,10 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      smart_anexos_invalidate: {
+        Args: { p_tipo?: string; p_titulo_id: string }
+        Returns: number
       }
     }
     Enums: {
