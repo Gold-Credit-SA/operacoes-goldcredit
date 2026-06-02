@@ -1,16 +1,35 @@
-# Patch sugerido — descoberta on-demand do `Checks` no worker
+# ⚠️ NÃO MAIS NECESSÁRIO — referência histórica
 
-## Contexto
+## Atualização (validado em 02/06/2026)
 
-Hoje o worker exige `extra.checks` no payload pra baixar boleto. O frontend não
-sabe esse valor porque ele NÃO está no banco externo (`smartsecurities_titulos_em_aberto`)
-nem na API v2 oficial do Smart.
+Descoberta importante feita após teste manual no portal Smart:
 
-Solução: o worker descobre o `Checks` na hora, navegando no portal Smart e
-extraindo da URL do botão "Boleto" da linha do título correspondente.
+> **`Checks` na URL do boleto é literalmente o `id_titulo` + vírgula.**
 
-Esse documento é um **rascunho pronto pra plugar**. Ajustar os seletores do
-DOM real conforme o HTML do portal Smart (use `playwright codegen` se precisar).
+Validação concreta:
+- Título com `id_titulo=24960`, `documento=63-2`, sacado ODILA ALVES
+- URL real do botão Boleto no portal: `?Checks=24960,&BoletoEmNome=r&...`
+
+Por isso, **a edge function já calcula o `checks` sozinha** (`${id_titulo},`)
+quando o cliente não passa explicitamente. Não há mais necessidade de o worker
+navegar no portal pra descobrir.
+
+A função `discoverChecks` descrita neste documento permanece como **referência
+futura** caso descubramos casos onde `Checks != id_titulo` (ex: re-emissão de
+boleto com novo ID interno, parcelas extras, etc).
+
+---
+
+## Conteúdo original (mantido pra referência)
+
+## Contexto (histórico)
+
+Pensávamos que o worker precisava descobrir `Checks` navegando no portal porque
+não tínhamos ele no banco/API. Mas afinal, é só o próprio `id_titulo`.
+
+Esse documento é um **rascunho pronto pra plugar SE for necessário no futuro**.
+Ajustar os seletores do DOM real conforme o HTML do portal Smart (use
+`playwright codegen` se precisar).
 
 ---
 

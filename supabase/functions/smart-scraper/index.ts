@@ -495,15 +495,23 @@ Deno.serve(async (req) => {
     if (!tituloId) return badRequest("titulo_id é obrigatório");
     if (tipo !== "boleto" && tipo !== "nf") return badRequest("tipo deve ser 'boleto' ou 'nf'");
 
-    // Pra boleto, `extra.checks` é opcional aqui:
-    //  - Se vier: edge passa pro worker, ele baixa direto (rota rápida)
-    //  - Se NÃO vier: edge manda só titulo_id; worker deve descobrir o
-    //    checks navegando no portal (ver PATCH-DISCOVER-CHECKS.md).
-    //    Se o worker ainda não suporta descoberta, ele devolve
-    //    error_code='EXTRA_CHECKS_REQUIRED' e a UI cai num fallback de
-    //    digitação manual.
+    // Pra boleto: `extra.checks` é OPCIONAL.
+    // DESCOBERTA importante: o `Checks` da URL do boleto no Smart é
+    // literalmente o próprio `id_titulo` (validado em teste real:
+    // título com id_titulo=24960 gera URL ?Checks=24960,).
+    // Por isso, se o cliente não mandou extra.checks, calculamos
+    // automaticamente como `${titulo_id},`. Cliente pode sobrescrever
+    // passando extra.checks explícito (útil pra re-emissões com Checks
+    // diferente, se isso existir).
 
-    const extraKey = await computeExtraKey(extra);
+    // Auto-derivação do `checks` quando boleto e cliente não passou.
+    // Checks no Smart = `${id_titulo},` (validado em teste real).
+    let effectiveExtra = extra;
+    if (tipo === "boleto" && !extra?.checks) {
+      effectiveExtra = { ...(extra ?? {}), checks: `${tituloId},` };
+    }
+
+    const extraKey = await computeExtraKey(effectiveExtra);
 
     // Feature flag.
     const source = await getPdfSource();
@@ -558,6 +566,7 @@ Deno.serve(async (req) => {
     // Cache check (a menos que force_refresh).
     if (!forceRefresh) {
       const cached = await getCachedSignedUrl(titulo.titulo_id, tipo, titulo.updated_at, extraKey);
+      // (`extraKey` agora reflete `effectiveExtra` — derivado se necessário)
       if (cached) {
         return jsonResponse({
           success: true,
@@ -570,8 +579,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Cache miss → worker.
-    const result = await callWorker(titulo, tipo, extra);
+    // Cache miss → worker. Usa effectiveExtra (com checks auto-derivado se for o caso).
+    const result = await callWorker(titulo, tipo, effectiveExtra);
     if ("error" in result) {
       return jsonResponse({
         success: false,
