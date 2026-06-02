@@ -317,8 +317,11 @@ async function callWorker(
   }
 
   const ctrl = new AbortController();
-  // Edge timeout: worker tem 30s próprio + 1 retry; damos 90s de orçamento.
-  const timeoutId = setTimeout(() => ctrl.abort(), 90_000);
+  // Edge timeout: 45s. Bem abaixo do limite de 100s da Cloudflare em frente
+  // da Supabase pra não cair em 504 genérico. Worker normalmente baixa em
+  // 10-20s — se chegar perto de 45s é sinal de sessão morta ou portal lento.
+  const EDGE_TIMEOUT_MS = 45_000;
+  const timeoutId = setTimeout(() => ctrl.abort(), EDGE_TIMEOUT_MS);
 
   try {
     const res = await fetch(`${url.replace(/\/$/, "")}/scrape`, {
@@ -385,7 +388,9 @@ async function callWorker(
     return {
       error: {
         code: isAbort ? "TIMEOUT" : "WORKER_UNREACHABLE",
-        message: msg,
+        message: isAbort
+          ? `Worker não respondeu em ${EDGE_TIMEOUT_MS / 1000}s. Provavelmente sessão Smart morreu — renove via noVNC. (PM2: pm2 logs smart-scraper-worker --lines 30)`
+          : msg,
         http_status: isAbort ? 504 : 502,
       },
     };
