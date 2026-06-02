@@ -39,6 +39,9 @@ interface ScrapeRequest {
   titulo_id: string;
   tipo: Tipo;
   force_refresh?: boolean;
+  // extra: campos específicos do portal Smart.
+  // Pra tipo='boleto', exige `extra.checks` (ex: '21467,').
+  extra?: Record<string, unknown> | null;
 }
 
 interface TituloLookup {
@@ -68,7 +71,22 @@ function ttlForTipo(tipo: Tipo): number {
 
 function storagePath(tipo: Tipo, tituloId: string): string {
   // Overwrite simples: 1 título + 1 tipo = 1 arquivo. Re-scrape sobrescreve.
+  // Pra boleto, dois `checks` diferentes do mesmo título compartilham o mesmo
+  // arquivo (o cache sabe diferenciar por extra_key e invalida quando muda).
   return `${tipo}/${tituloId}.pdf`;
+}
+
+// Hash determinístico curto do `extra` pra diferenciar cache entre variações
+// do mesmo título (ex: dois `checks` diferentes pro mesmo titulo_id).
+async function computeExtraKey(extra: Record<string, unknown> | null | undefined): Promise<string | null> {
+  if (!extra || Object.keys(extra).length === 0) return null;
+  // Ordena chaves pra hash ser determinístico.
+  const sorted: Record<string, unknown> = {};
+  for (const k of Object.keys(extra).sort()) sorted[k] = extra[k];
+  const text = JSON.stringify(sorted);
+  const bytes = new TextEncoder().encode(text);
+  const buf = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(buf)).slice(0, 8).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
 function base64ToBytes(b64: string): Uint8Array {
@@ -178,17 +196,24 @@ async function getCachedSignedUrl(
   tituloId: string,
   tipo: Tipo,
   sourceUpdatedAt: string | null,
+  extraKey: string | null,
 ): Promise<{ signed_url: string; expires_at: string; from_cache: true } | null> {
   const supabase = getAdminClient();
   const { data, error } = await supabase
     .from("smart_anexos_cache")
-    .select("storage_path, expires_at, source_updated_at, hit_count")
+    .select("storage_path, expires_at, source_updated_at, hit_count, extra_key")
     .eq("titulo_id", tituloId)
     .eq("tipo", tipo)
     .maybeSingle();
 
   if (error || !data) return null;
   if (new Date(data.expires_at).getTime() <= Date.now()) return null;
+
+  // Invalidação por mudança em `extra` (ex: `checks` do boleto trocou).
+  // Se o cliente mandou extra_key diferente do cacheado, invalidar.
+  if (extraKey !== ((data as any).extra_key ?? null)) {
+    return null;
+  }
 
   // Invalidação por evento: se o título no Smart foi atualizado depois do
   // último scrape, invalidar (boleto vencido somou juros, NF foi reemitida).
@@ -226,6 +251,7 @@ async function getCachedSignedUrl(
 async function callWorker(
   titulo: TituloLookup,
   tipo: Tipo,
+  extra: Record<string, unknown> | null,
 ): Promise<{ pdf_bytes: Uint8Array; fetched_at: string } | { error: { code: string; message: string; http_status: number } }> {
   const url = Deno.env.get("SMART_SCRAPER_URL");
   const token = Deno.env.get("SMART_SCRAPER_TOKEN");
@@ -252,6 +278,7 @@ async function callWorker(
         documento: titulo.documento,
         cedente_id: titulo.cedente_id,
         cedente_documento: titulo.cedente_documento,
+        extra: extra ?? undefined,
       }),
       signal: ctrl.signal,
     });
@@ -304,6 +331,7 @@ async function persistAndSign(
   pdfBytes: Uint8Array,
   fetchedAt: string,
   userId: string | null,
+  extraKey: string | null,
 ): Promise<{ signed_url: string; expires_at: string }> {
   const supabase = getAdminClient();
   const path = storagePath(tipo, titulo.titulo_id);
@@ -337,6 +365,7 @@ async function persistAndSign(
       source_status: titulo.status,
       last_requested_by: userId,
       hit_count: 0,
+      extra_key: extraKey,
     }, { onConflict: "titulo_id,tipo" });
 
   if (cacheErr) {
@@ -386,9 +415,26 @@ Deno.serve(async (req) => {
     const tituloId = body.titulo_id != null ? String(body.titulo_id).trim() : "";
     const tipo = body.tipo as Tipo;
     const forceRefresh = Boolean(body.force_refresh);
+    const extra: Record<string, unknown> | null =
+      body.extra && typeof body.extra === "object" && !Array.isArray(body.extra)
+        ? (body.extra as Record<string, unknown>)
+        : null;
 
     if (!tituloId) return badRequest("titulo_id é obrigatório");
     if (tipo !== "boleto" && tipo !== "nf") return badRequest("tipo deve ser 'boleto' ou 'nf'");
+
+    // Validação específica do portal Smart: boleto precisa do `checks`.
+    if (tipo === "boleto") {
+      const checks = extra?.checks;
+      if (typeof checks !== "string" || checks.trim().length === 0) {
+        return badRequest(
+          "Para tipo='boleto', o campo extra.checks é obrigatório (string com o código Checks do Smart, ex: '21467,')",
+          { hint: "envie body: { titulo_id, tipo: 'boleto', extra: { checks: '<valor>' } }" },
+        );
+      }
+    }
+
+    const extraKey = await computeExtraKey(extra);
 
     // Feature flag.
     const source = await getPdfSource();
@@ -419,7 +465,7 @@ Deno.serve(async (req) => {
 
     // Cache check (a menos que force_refresh).
     if (!forceRefresh) {
-      const cached = await getCachedSignedUrl(titulo.titulo_id, tipo, titulo.updated_at);
+      const cached = await getCachedSignedUrl(titulo.titulo_id, tipo, titulo.updated_at, extraKey);
       if (cached) {
         return jsonResponse({
           success: true,
@@ -433,7 +479,7 @@ Deno.serve(async (req) => {
     }
 
     // Cache miss → worker.
-    const result = await callWorker(titulo, tipo);
+    const result = await callWorker(titulo, tipo, extra);
     if ("error" in result) {
       return jsonResponse({
         success: false,
@@ -445,7 +491,7 @@ Deno.serve(async (req) => {
     }
 
     // Persist + sign.
-    const signed = await persistAndSign(titulo, tipo, result.pdf_bytes, result.fetched_at, userId);
+    const signed = await persistAndSign(titulo, tipo, result.pdf_bytes, result.fetched_at, userId, extraKey);
 
     return jsonResponse({
       success: true,
