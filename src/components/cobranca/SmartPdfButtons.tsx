@@ -57,20 +57,19 @@ export function SmartPdfButtons({
   const [askChecksOpen, setAskChecksOpen] = useState(false);
   const [checksInput, setChecksInput] = useState("");
 
-  async function fetchPdf(tipo: "boleto" | "nf", checksValue?: string): Promise<void> {
+  async function fetchPdf(tipo: "boleto" | "nf", checksOverride?: string): Promise<void> {
     setLoading(tipo);
     try {
       const body: Record<string, unknown> = {
         titulo_id: String(tituloId),
         tipo,
       };
+      // Pra boleto: se temos checks (prop ou digitado), passa. Se não, deixa
+      // o worker descobrir. Se o worker ainda não souber descobrir, ele
+      // devolve EXTRA_CHECKS_REQUIRED e a gente abre o fallback manual.
       if (tipo === "boleto") {
-        const c = checksValue ?? checks;
-        if (!c) {
-          toast.error("Falta o `checks` do Smart pra gerar o boleto.");
-          return;
-        }
-        body.extra = { checks: c };
+        const c = checksOverride ?? checks;
+        if (c) body.extra = { checks: c };
       }
 
       const { data, error } = await supabase.functions.invoke<ScraperResponse>(
@@ -78,30 +77,44 @@ export function SmartPdfButtons({
         { body },
       );
 
+      let resp: ScraperResponse | null = data ?? null;
+
       if (error) {
         // supabase-js descarta o body em erro HTTP. Lemos do error.context
-        // pra mostrar mensagem útil (ex: LOGIN_FAILED) em vez de "non-2xx".
-        let serverMsg: string | null = null;
+        // pra pegar o JSON real (ex: LOGIN_FAILED, EXTRA_CHECKS_REQUIRED).
         try {
           const ctx = (error as { context?: unknown }).context;
           if (ctx instanceof Response) {
-            const j = (await ctx.clone().json()) as ScraperResponse;
-            serverMsg = j.message ?? j.error_code ?? null;
+            resp = (await ctx.clone().json()) as ScraperResponse;
           }
         } catch {
-          // ignora — usa error.message
+          /* ignora */
         }
-        toast.error(serverMsg ?? error.message ?? "Falha ao chamar smart-scraper");
-        return;
       }
-      if (!data?.success || !data.signed_url) {
-        toast.error(data?.message ?? `Erro ${data?.error_code ?? ""}`.trim());
+
+      // Fallback automático: worker pediu o checks → abre diálogo se ainda
+      // não estávamos no fluxo manual.
+      if (
+        tipo === "boleto" &&
+        resp?.success === false &&
+        resp?.error_code === "EXTRA_CHECKS_REQUIRED" &&
+        !checksOverride
+      ) {
+        setChecksInput("");
+        setAskChecksOpen(true);
+        toast.info("Worker ainda não descobre o checks sozinho — informe abaixo");
         return;
       }
 
-      window.open(data.signed_url, "_blank", "noopener,noreferrer");
+      if (!resp?.success || !resp.signed_url) {
+        const msg = resp?.message ?? error?.message ?? "Falha ao chamar smart-scraper";
+        toast.error(msg);
+        return;
+      }
+
+      window.open(resp.signed_url, "_blank", "noopener,noreferrer");
       toast.success(
-        data.from_cache ? "PDF recuperado do cache" : "PDF gerado pelo Smart",
+        resp.from_cache ? "PDF recuperado do cache" : "PDF gerado pelo Smart",
         { duration: 2000 },
       );
     } catch (e) {
@@ -112,13 +125,9 @@ export function SmartPdfButtons({
   }
 
   function handleBoletoClick() {
-    if (checks) {
-      void fetchPdf("boleto");
-    } else {
-      // Sem checks pré-preenchido — pede o valor.
-      setChecksInput("");
-      setAskChecksOpen(true);
-    }
+    // Sempre tenta — edge decide se precisa do checks ou não.
+    // Se worker pedir, fetchPdf abre o diálogo automaticamente.
+    void fetchPdf("boleto");
   }
 
   function handleAskChecksSubmit() {
@@ -139,7 +148,7 @@ export function SmartPdfButtons({
           variant={variant}
           onClick={handleBoletoClick}
           disabled={loading !== null}
-          title="Baixa o PDF do boleto via portal Smart"
+          title="Baixa o PDF do boleto via portal Smart (worker descobre o checks; se não souber, abre diálogo manual)"
         >
           {loading === "boleto" ? (
             <Loader2 className="size-4 mr-2 animate-spin" />

@@ -495,16 +495,13 @@ Deno.serve(async (req) => {
     if (!tituloId) return badRequest("titulo_id é obrigatório");
     if (tipo !== "boleto" && tipo !== "nf") return badRequest("tipo deve ser 'boleto' ou 'nf'");
 
-    // Validação específica do portal Smart: boleto precisa do `checks`.
-    if (tipo === "boleto") {
-      const checks = extra?.checks;
-      if (typeof checks !== "string" || checks.trim().length === 0) {
-        return badRequest(
-          "Para tipo='boleto', o campo extra.checks é obrigatório (string com o código Checks do Smart, ex: '21467,')",
-          { hint: "envie body: { titulo_id, tipo: 'boleto', extra: { checks: '<valor>' } }" },
-        );
-      }
-    }
+    // Pra boleto, `extra.checks` é opcional aqui:
+    //  - Se vier: edge passa pro worker, ele baixa direto (rota rápida)
+    //  - Se NÃO vier: edge manda só titulo_id; worker deve descobrir o
+    //    checks navegando no portal (ver PATCH-DISCOVER-CHECKS.md).
+    //    Se o worker ainda não suporta descoberta, ele devolve
+    //    error_code='EXTRA_CHECKS_REQUIRED' e a UI cai num fallback de
+    //    digitação manual.
 
     const extraKey = await computeExtraKey(extra);
 
