@@ -79,7 +79,19 @@ export function SmartPdfButtons({
       );
 
       if (error) {
-        toast.error(error.message ?? "Falha ao chamar smart-scraper");
+        // supabase-js descarta o body em erro HTTP. Lemos do error.context
+        // pra mostrar mensagem útil (ex: LOGIN_FAILED) em vez de "non-2xx".
+        let serverMsg: string | null = null;
+        try {
+          const ctx = (error as { context?: unknown }).context;
+          if (ctx instanceof Response) {
+            const j = (await ctx.clone().json()) as ScraperResponse;
+            serverMsg = j.message ?? j.error_code ?? null;
+          }
+        } catch {
+          // ignora — usa error.message
+        }
+        toast.error(serverMsg ?? error.message ?? "Falha ao chamar smart-scraper");
         return;
       }
       if (!data?.success || !data.signed_url) {

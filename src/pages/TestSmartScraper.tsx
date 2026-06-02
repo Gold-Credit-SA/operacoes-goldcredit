@@ -50,11 +50,30 @@ export default function TestSmartScraper() {
         "smart-scraper",
         { body },
       );
+
+      // supabase-js trata HTTP 4xx/5xx como erro e descarta o body. Pra
+      // ver o JSON real ({success:false, error_code: ...}) precisamos ler
+      // do error.context (que é o Response original).
       if (error) {
-        setRawResponse({ success: false, error_code: "INVOKE_ERROR", message: error.message });
-        toast.error(`Erro: ${error.message}`);
+        let parsed: ScraperResponse | null = null;
+        try {
+          const ctx = (error as { context?: unknown }).context;
+          if (ctx instanceof Response) {
+            parsed = (await ctx.clone().json()) as ScraperResponse;
+          }
+        } catch {
+          // fallback abaixo
+        }
+        if (parsed) {
+          setRawResponse(parsed);
+          toast.error(parsed.message ?? parsed.error_code ?? "Falha");
+        } else {
+          setRawResponse({ success: false, error_code: "INVOKE_ERROR", message: error.message });
+          toast.error(`Erro: ${error.message}`);
+        }
         return;
       }
+
       setRawResponse(data ?? null);
       if (data?.success) {
         toast.success(
