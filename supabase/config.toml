@@ -81,6 +81,9 @@ verify_jwt = false
 [functions.smart-scraper]
 verify_jwt = false
 
+[functions.smart-titulo-info]
+verify_jwt = false
+
 [functions.smart-scraper-health]
 verify_jwt = false
 
