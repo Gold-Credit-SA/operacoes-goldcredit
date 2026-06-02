@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { SmartPdfButtons } from "@/components/cobranca/SmartPdfButtons";
+import { TituloCard } from "@/components/cobranca/TituloCard";
 import { Loader2, ExternalLink, Copy, AlertCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -168,6 +169,25 @@ export default function TestSmartScraper() {
         </CardHeader>
         <CardContent>
           <SmartPdfButtons tituloId={tituloId} checks={checks} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>1b. TituloCard completo</CardTitle>
+          <CardDescription>
+            Componente <code>TituloCard</code> — carrega título + sacado (com
+            contatos) + cedente via <code>smart-titulo-info</code> e expõe
+            ações de cobrança (WhatsApp, email, PDF). Reusável em qualquer
+            página. Recarrega quando você muda o titulo_id acima.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {tituloId.trim() ? (
+            <TituloCard key={tituloId} tituloId={tituloId} />
+          ) : (
+            <p className="text-sm text-muted-foreground">Digite um titulo_id acima.</p>
+          )}
         </CardContent>
       </Card>
 
