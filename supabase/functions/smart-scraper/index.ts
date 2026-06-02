@@ -103,6 +103,63 @@ function isValidPdfBytes(bytes: Uint8Array): boolean {
 }
 
 // ----------------------------------------------------------------------------
+// Detecta "PDFs de erro" — situação em que o worker fez page.pdf() numa
+// página HTML de "sessão expirada"/"login" do portal Smart em vez de baixar
+// o PDF real. Tecnicamente o resultado É um PDF válido (Chromium gerou) mas
+// o conteúdo é a tela de erro renderizada.
+//
+// Estratégias:
+//   1. Lê /Title do PDF (pode estar em hex UTF-16 BE ou ASCII literal)
+//      e checa keywords típicas de página de erro
+//   2. Se Creator/Producer é Chromium/Skia E tamanho < 100KB → suspeito
+//      (PDFs reais do Smart vêm gerados por TCPDF/server-side, não Chromium)
+// ----------------------------------------------------------------------------
+const ERROR_KEYWORDS = /(expir|sess[aã]o|fa[çc]a\s*login|entrar|acessar\s*o\s*sistema|sign[\s-]?in)/i;
+
+function looksLikeErrorPdf(bytes: Uint8Array): { ok: false; reason: string } | { ok: true } {
+  // Inspeciona só os primeiros 8KB — metadata fica no início do PDF.
+  const head = new TextDecoder("latin1").decode(
+    bytes.subarray(0, Math.min(bytes.length, 8192)),
+  );
+
+  // /Title <FEFF....> — hex UTF-16 BE com BOM
+  const hexTitle = head.match(/\/Title\s*<([0-9A-Fa-f\s]+)>/);
+  if (hexTitle) {
+    const hex = hexTitle[1].replace(/\s/g, "");
+    let title = "";
+    // Pula BOM (FEFF) se presente
+    const start = hex.toUpperCase().startsWith("FEFF") ? 4 : 0;
+    for (let i = start; i + 3 < hex.length; i += 4) {
+      title += String.fromCodePoint(parseInt(hex.substring(i, i + 4), 16));
+    }
+    if (ERROR_KEYWORDS.test(title)) {
+      return { ok: false, reason: `PDF título="${title}" parece página de erro` };
+    }
+  }
+
+  // /Title (...) — ASCII literal entre parênteses
+  const litTitle = head.match(/\/Title\s*\(([^)]+)\)/);
+  if (litTitle && ERROR_KEYWORDS.test(litTitle[1])) {
+    return { ok: false, reason: `PDF título="${litTitle[1]}" parece página de erro` };
+  }
+
+  // Heurística: Chromium/Skia gerando PDF pequeno é suspeito.
+  // Smart gera boleto via TCPDF (sem "Chromium" no metadata) e NF DANFE
+  // também vem de gerador server-side. Se vier Chromium + <100KB, alerta.
+  const isChromiumGenerated =
+    /\/Creator\s*\(Chromium\)/i.test(head) || /\/Producer\s*\(Skia\/PDF/i.test(head);
+
+  if (isChromiumGenerated && bytes.length < 100_000) {
+    return {
+      ok: false,
+      reason: `PDF gerado por Chromium com ${bytes.length} bytes — provavelmente print da página de erro do Smart`,
+    };
+  }
+
+  return { ok: true };
+}
+
+// ----------------------------------------------------------------------------
 // Feature flag — lê cobranca_settings.smart_pdf_source.
 // Retorna 'scraper' se a tabela/coluna não existir (fail-safe).
 // ----------------------------------------------------------------------------
@@ -304,6 +361,21 @@ async function callWorker(
     const bytes = base64ToBytes(json.pdf_base64);
     if (!isValidPdfBytes(bytes)) {
       return { error: { code: "PDF_INVALID", message: "Bytes recebidos não são PDF", http_status: 502 } };
+    }
+
+    // Defesa contra "PDFs de erro" — worker pode ter feito page.pdf() numa
+    // página HTML de sessão expirada. Tecnicamente é PDF válido mas o
+    // conteúdo é a tela de erro renderizada. Tratamos como LOGIN_FAILED
+    // pra disparar renovação manual da sessão Smart.
+    const errCheck = looksLikeErrorPdf(bytes);
+    if (!errCheck.ok) {
+      return {
+        error: {
+          code: "LOGIN_FAILED",
+          message: `Sessão Smart expirada (${errCheck.reason}). Renove via noVNC na VPS.`,
+          http_status: 502,
+        },
+      };
     }
 
     return { pdf_bytes: bytes, fetched_at: json.fetched_at ?? new Date().toISOString() };
