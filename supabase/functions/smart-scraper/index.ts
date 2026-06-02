@@ -450,17 +450,40 @@ Deno.serve(async (req) => {
       }, 503);
     }
 
-    // Lookup título.
-    const titulo = await lookupTitulo(tituloId).catch((err) => {
-      console.error(`[smart-scraper][${traceId}] lookupTitulo error:`, err);
-      return null;
-    });
-    if (!titulo) {
-      return jsonResponse({
-        success: false,
-        error_code: "TITULO_NAO_ENCONTRADO",
-        message: `Título ${tituloId} não localizado no banco externo`,
-      }, 404);
+    // Lookup título (opcional — se falhar, segue com synthetic).
+    // O lookup serve só pra enriquecer payload do worker e habilitar
+    // invalidação fina de cache via source_updated_at. O worker não depende
+    // dele — pra boleto usa extra.checks, pra NF usa o titulo_id direto.
+    // Schema do banco externo pode variar; sem lookup, cache invalida só
+    // por TTL (que ainda funciona corretamente).
+    let titulo: TituloLookup;
+    try {
+      const found = await lookupTitulo(tituloId);
+      if (found) {
+        titulo = found;
+      } else {
+        console.warn(`[smart-scraper][${traceId}] titulo ${tituloId} não achado no banco externo — usando synthetic, cache só por TTL`);
+        titulo = {
+          titulo_id: tituloId,
+          nosso_numero: null,
+          documento: null,
+          cedente_id: null,
+          cedente_documento: null,
+          status: null,
+          updated_at: null,
+        };
+      }
+    } catch (err) {
+      console.warn(`[smart-scraper][${traceId}] lookupTitulo error (seguindo com synthetic):`, err);
+      titulo = {
+        titulo_id: tituloId,
+        nosso_numero: null,
+        documento: null,
+        cedente_id: null,
+        cedente_documento: null,
+        status: null,
+        updated_at: null,
+      };
     }
 
     // Cache check (a menos que force_refresh).
