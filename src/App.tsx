@@ -43,6 +43,7 @@ const MonitoramentoNFe = lazy(() => import("./pages/MonitoramentoNFe"));
 const Cobranca = lazy(() => import("./pages/Cobranca"));
 const Unsubscribe = lazy(() => import("./pages/Unsubscribe"));
 const TestSmartScraper = lazy(() => import("./pages/TestSmartScraper"));
+const SmartScraperStatus = lazy(() => import("./pages/SmartScraperStatus"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -137,6 +138,7 @@ function App() {
               <Route path="/nfe" element={<ProtectedRoute><AppLayout><MonitoramentoNFe /></AppLayout></ProtectedRoute>} />
               <Route path="/cobranca" element={<ProtectedRoute><AppLayout><Cobranca /></AppLayout></ProtectedRoute>} />
               <Route path="/test-smart-scraper" element={<ProtectedRoute><AppLayout><TestSmartScraper /></AppLayout></ProtectedRoute>} />
+              <Route path="/smart-scraper-status" element={<ProtectedRoute><AppLayout><SmartScraperStatus /></AppLayout></ProtectedRoute>} />
 
               <Route path="/admin" element={<ProtectedRoute requireAdmin><AppLayout><AdminSettings /></AppLayout></ProtectedRoute>} />
               {/* Legacy redirects */}
