@@ -77,3 +77,12 @@ verify_jwt = false
 
 [functions.cobranca-whatsapp]
 verify_jwt = false
+
+[functions.smart-scraper]
+verify_jwt = false
+
+[functions.smart-scraper-health]
+verify_jwt = false
+
+[functions.smart-scraper-prefetch]
+verify_jwt = false
