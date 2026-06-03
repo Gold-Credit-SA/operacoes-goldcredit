@@ -671,6 +671,65 @@ export default function AdminSettings() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* ===== CRM TAB ===== */}
+          <TabsContent value="crm" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-primary" /> Integração com CRM
+                </CardTitle>
+                <CardDescription>
+                  Configure o endpoint do CRM e o token de autenticação para envio de prospects gerados a partir de consultas SCR.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {crmLoading ? (
+                  <div className="space-y-3">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="crm-url">URL do CRM</Label>
+                      <Input
+                        id="crm-url"
+                        type="url"
+                        placeholder="https://crm.exemplo.com.br"
+                        value={crmUrl}
+                        onChange={(e) => setCrmUrl(e.target.value)}
+                        maxLength={500}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        O envio usa <code>{`{URL}/api/public/prospects-internos`}</code>.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="crm-token">API Token</Label>
+                      <Input
+                        id="crm-token"
+                        type="password"
+                        placeholder="••••••••"
+                        value={crmToken}
+                        onChange={(e) => setCrmToken(e.target.value)}
+                        maxLength={1000}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Enviado como <code>Authorization: Bearer {`{token}`}</code>. Se o secret <code>CRM_API_TOKEN</code> estiver configurado no projeto, ele tem precedência.
+                      </p>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button onClick={handleSaveCrmSettings} disabled={crmSaving}>
+                        {crmSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                        Salvar
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
 
