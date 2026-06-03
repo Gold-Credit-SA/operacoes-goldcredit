@@ -627,6 +627,33 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_settings: {
+        Row: {
+          api_token: string | null
+          created_at: string
+          id: number
+          updated_at: string
+          updated_by: string | null
+          url: string | null
+        }
+        Insert: {
+          api_token?: string | null
+          created_at?: string
+          id?: number
+          updated_at?: string
+          updated_by?: string | null
+          url?: string | null
+        }
+        Update: {
+          api_token?: string | null
+          created_at?: string
+          id?: number
+          updated_at?: string
+          updated_by?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
       email_send_log: {
         Row: {
           created_at: string

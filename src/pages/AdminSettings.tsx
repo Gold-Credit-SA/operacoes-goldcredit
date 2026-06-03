@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -26,7 +27,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { 
-  Plus, Users, Shield, UserCheck, Info, Briefcase, Check, X, Clock, RefreshCw, FileSignature, Link2, Trash2, Loader2,
+  Plus, Users, Shield, UserCheck, Info, Briefcase, Check, X, Clock, RefreshCw, FileSignature, Link2, Trash2, Loader2, Zap, Save,
 } from 'lucide-react';
 
 interface UserData {
@@ -87,6 +88,52 @@ export default function AdminSettings() {
 
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
+
+  // CRM integration
+  const [crmUrl, setCrmUrl] = useState('');
+  const [crmToken, setCrmToken] = useState('');
+  const [crmLoading, setCrmLoading] = useState(true);
+  const [crmSaving, setCrmSaving] = useState(false);
+
+  const fetchCrmSettings = async () => {
+    setCrmLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('crm_settings')
+        .select('url, api_token')
+        .eq('id', 1)
+        .maybeSingle();
+      if (error) throw error;
+      setCrmUrl(data?.url ?? '');
+      setCrmToken(data?.api_token ?? '');
+    } catch (err: any) {
+      toast({ title: 'Erro ao carregar CRM', description: err.message, variant: 'destructive' });
+    } finally {
+      setCrmLoading(false);
+    }
+  };
+
+  const handleSaveCrmSettings = async () => {
+    setCrmSaving(true);
+    try {
+      const { error } = await supabase
+        .from('crm_settings')
+        .upsert({
+          id: 1,
+          url: crmUrl.trim() || null,
+          api_token: crmToken.trim() || null,
+          updated_by: currentUser?.id ?? null,
+          updated_at: new Date().toISOString(),
+        });
+      if (error) throw error;
+      toast({ title: 'Configuração do CRM salva' });
+    } catch (err: any) {
+      toast({ title: 'Erro ao salvar', description: err.message, variant: 'destructive' });
+    } finally {
+      setCrmSaving(false);
+    }
+  };
+
 
   const fetchUsers = async () => {
     try {
@@ -163,6 +210,7 @@ export default function AdminSettings() {
   useEffect(() => {
     fetchUsers();
     fetchPortfolioData();
+    fetchCrmSettings();
   }, []);
 
   useEffect(() => {
@@ -353,6 +401,9 @@ export default function AdminSettings() {
                   {pendingAssignments.length}
                 </Badge>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="crm" className="gap-2">
+              <Zap className="h-4 w-4" /> CRM
             </TabsTrigger>
           </TabsList>
 
@@ -616,6 +667,65 @@ export default function AdminSettings() {
                       );
                     })}
                   </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ===== CRM TAB ===== */}
+          <TabsContent value="crm" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-primary" /> Integração com CRM
+                </CardTitle>
+                <CardDescription>
+                  Configure o endpoint do CRM e o token de autenticação para envio de prospects gerados a partir de consultas SCR.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {crmLoading ? (
+                  <div className="space-y-3">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="crm-url">URL do CRM</Label>
+                      <Input
+                        id="crm-url"
+                        type="url"
+                        placeholder="https://crm.exemplo.com.br"
+                        value={crmUrl}
+                        onChange={(e) => setCrmUrl(e.target.value)}
+                        maxLength={500}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        O envio usa <code>{`{URL}/api/public/prospects-internos`}</code>.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="crm-token">API Token</Label>
+                      <Input
+                        id="crm-token"
+                        type="password"
+                        placeholder="••••••••"
+                        value={crmToken}
+                        onChange={(e) => setCrmToken(e.target.value)}
+                        maxLength={1000}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Enviado como <code>Authorization: Bearer {`{token}`}</code>. Se o secret <code>CRM_API_TOKEN</code> estiver configurado no projeto, ele tem precedência.
+                      </p>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button onClick={handleSaveCrmSettings} disabled={crmSaving}>
+                        {crmSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                        Salvar
+                      </Button>
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>
