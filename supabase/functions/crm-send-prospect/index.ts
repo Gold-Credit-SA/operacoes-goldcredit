@@ -93,9 +93,8 @@ Deno.serve(async (req: Request) => {
       cnpj: body.cnpj,
       dados_empresa: body.dadosEmpresa ?? null,
       consulta_scr: body.consultaScr ?? null,
+      consulta_serasa: body.consultaSerasa ?? null,
       status: 'novo',
-      // Campos auxiliares (não obrigatórios pelo contrato, mas úteis para o CRM)
-      consultas: body.consultas ?? null,
       palavras_chave_detectadas: body.palavrasChaveDetectadas ?? null,
       origem,
       enviado_em: new Date().toISOString(),
