@@ -627,6 +627,45 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_prospect_sends: {
+        Row: {
+          cnpj: string
+          empresa: string | null
+          id: string
+          origem: string
+          request_payload: Json | null
+          response_payload: Json | null
+          scr_history_id: string | null
+          sent_at: string
+          sent_by: string | null
+          sent_by_name: string | null
+        }
+        Insert: {
+          cnpj: string
+          empresa?: string | null
+          id?: string
+          origem?: string
+          request_payload?: Json | null
+          response_payload?: Json | null
+          scr_history_id?: string | null
+          sent_at?: string
+          sent_by?: string | null
+          sent_by_name?: string | null
+        }
+        Update: {
+          cnpj?: string
+          empresa?: string | null
+          id?: string
+          origem?: string
+          request_payload?: Json | null
+          response_payload?: Json | null
+          scr_history_id?: string | null
+          sent_at?: string
+          sent_by?: string | null
+          sent_by_name?: string | null
+        }
+        Relationships: []
+      }
       crm_settings: {
         Row: {
           api_token: string | null
