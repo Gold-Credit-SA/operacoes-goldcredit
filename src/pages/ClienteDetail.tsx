@@ -39,6 +39,7 @@ import { SacadoSmartView } from '@/components/clientes/SacadoSmartView';
 
 import { ClienteCreditoConsolidadoCard } from '@/components/clientes/ClienteCreditoConsolidadoCard';
 import { ClienteAICompilationCard } from '@/components/clientes/ClienteAICompilationCard';
+import { ClienteProspectCRMCard } from '@/components/clientes/ClienteProspectCRMCard';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 import { PageLoadingSkeleton } from '@/components/ui/PageLoadingSkeleton';
 
@@ -783,6 +784,17 @@ export default function ClienteDetail() {
                 Última Atualização {safeFormat(lastUpdate, 'dd/MM/yyyy')}
               </Badge>
             </div>
+
+            <ClienteProspectCRMCard
+              client={{
+                id: client.id,
+                cpf_cnpj: client.cpf_cnpj,
+                name: client.name,
+                basic_data: client.basic_data,
+              }}
+              history={history}
+            />
+
 
             {/* Informações Cadastrais */}
             <Card>

@@ -24,6 +24,8 @@ interface RequestBody {
   cnpj?: string;
   dadosEmpresa?: unknown;
   consultaScr?: unknown;
+  origem?: string;
+  scrHistoryId?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -62,18 +64,34 @@ Deno.serve(async (req: Request) => {
 
     if (settingsErr) return json({ error: 'Falha ao ler configuração do CRM.' }, 500);
 
-    const url = settings?.url?.trim();
+    const url = settings?.url?.trim() || 'https://crm.goldcreditcapital.com.br';
     const token = Deno.env.get('CRM_API_TOKEN') || settings?.api_token?.trim() || '';
 
-    if (!url) return json({ error: 'URL do CRM não configurada nas Configurações.' }, 400);
     if (!token) return json({ error: 'Token do CRM não configurado.' }, 400);
 
+    // Bloqueia reenvio: já existe registro para este CNPJ
+    const { data: existing } = await supabase
+      .from('crm_prospect_sends')
+      .select('id, sent_at, sent_by_name')
+      .eq('cnpj', body.cnpj)
+      .maybeSingle();
+    if (existing) {
+      return json({
+        error: 'Este prospect já foi enviado ao CRM anteriormente.',
+        alreadySent: true,
+        sentAt: (existing as any).sent_at,
+        sentBy: (existing as any).sent_by_name,
+      }, 200);
+    }
+
+    const origem = body.origem ?? 'operacional';
     const endpoint = url.replace(/\/$/, '') + '/api/public/prospects-internos';
     const payload = {
       empresa: body.empresa,
       cnpj: body.cnpj,
       dadosEmpresa: body.dadosEmpresa ?? null,
       consultaScr: body.consultaScr ?? null,
+      origem,
       enviadoEm: new Date().toISOString(),
     };
 
@@ -94,8 +112,28 @@ Deno.serve(async (req: Request) => {
       return json({
         error: `CRM retornou ${resp.status}`,
         details: parsed,
-      }, 200); // HTTP 200 para o front conseguir ler o erro de negócio
+      }, 200);
     }
+
+    // Registra envio bem-sucedido (service role bypassa RLS).
+    // Usa sent_by = user autenticado para satisfazer auditoria.
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('name, email')
+      .eq('user_id', userData.user.id)
+      .maybeSingle();
+    const sentByName = (profile as any)?.name || (profile as any)?.email || userData.user.email || null;
+
+    await supabase.from('crm_prospect_sends').insert({
+      cnpj: body.cnpj,
+      empresa: body.empresa,
+      sent_by: userData.user.id,
+      sent_by_name: sentByName,
+      origem,
+      scr_history_id: body.scrHistoryId ?? null,
+      request_payload: payload,
+      response_payload: parsed as any,
+    });
 
     return json({ success: true, response: parsed });
   } catch (err) {
