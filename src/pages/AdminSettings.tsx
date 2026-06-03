@@ -402,6 +402,9 @@ export default function AdminSettings() {
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="crm" className="gap-2">
+              <Zap className="h-4 w-4" /> CRM
+            </TabsTrigger>
           </TabsList>
 
           {/* ===== USUARIOS TAB ===== */}
