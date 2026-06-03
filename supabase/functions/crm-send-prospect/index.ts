@@ -87,16 +87,18 @@ Deno.serve(async (req: Request) => {
     }
 
     const origem = body.origem ?? 'operacional';
-    const endpoint = url.replace(/\/$/, '') + '/api/public/prospects-internos';
+    const endpoint = 'https://vmwpnnafceyswzfdbuie.supabase.co/functions/v1/prospects-internos-ingest';
     const payload = {
       empresa: body.empresa,
       cnpj: body.cnpj,
-      dadosEmpresa: body.dadosEmpresa ?? null,
-      consultaScr: body.consultaScr ?? null,
+      dados_empresa: body.dadosEmpresa ?? null,
+      consulta_scr: body.consultaScr ?? null,
+      status: 'novo',
+      // Campos auxiliares (não obrigatórios pelo contrato, mas úteis para o CRM)
       consultas: body.consultas ?? null,
-      palavrasChaveDetectadas: body.palavrasChaveDetectadas ?? null,
+      palavras_chave_detectadas: body.palavrasChaveDetectadas ?? null,
       origem,
-      enviadoEm: new Date().toISOString(),
+      enviado_em: new Date().toISOString(),
     };
 
     const resp = await fetch(endpoint, {
@@ -109,18 +111,33 @@ Deno.serve(async (req: Request) => {
     });
 
     const text = await resp.text();
-    let parsed: unknown = text;
+    let parsed: any = text;
     try { parsed = JSON.parse(text); } catch { /* keep raw */ }
 
-    if (!resp.ok) {
+    console.log('[crm-send-prospect] CRM status:', resp.status, 'body:', parsed);
+
+    const httpStatus = resp.status;
+    const okFlag = parsed && typeof parsed === 'object' && parsed.ok === true;
+    const success = httpStatus === 201 && okFlag;
+
+    if (!success) {
+      let message = `CRM retornou ${httpStatus}`;
+      if (httpStatus === 401) {
+        message = 'Token inválido ou diferente do configurado no CRM';
+      } else if (httpStatus === 400) {
+        message = 'Payload inválido — confira empresa, cnpj, dados_empresa e consulta_scr';
+      } else if (parsed && typeof parsed === 'object' && (parsed.error || parsed.message)) {
+        message = String(parsed.error || parsed.message);
+      }
       return json({
-        error: `CRM retornou ${resp.status}`,
+        success: false,
+        error: message,
+        httpStatus,
         details: parsed,
       }, 200);
     }
 
     // Registra envio bem-sucedido (service role bypassa RLS).
-    // Usa sent_by = user autenticado para satisfazer auditoria.
     const { data: profile } = await supabase
       .from('profiles')
       .select('name, email')
@@ -136,10 +153,10 @@ Deno.serve(async (req: Request) => {
       origem,
       scr_history_id: body.scrHistoryId ?? null,
       request_payload: payload,
-      response_payload: parsed as any,
+      response_payload: parsed,
     });
 
-    return json({ success: true, response: parsed });
+    return json({ success: true, httpStatus, response: parsed });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro interno';
     console.error('[crm-send-prospect] uncaught:', err);
