@@ -785,6 +785,17 @@ export default function ClienteDetail() {
               </Badge>
             </div>
 
+            <ClienteProspectCRMCard
+              client={{
+                id: client.id,
+                cpf_cnpj: client.cpf_cnpj,
+                name: client.name,
+                basic_data: client.basic_data,
+              }}
+              history={history}
+            />
+
+
             {/* Informações Cadastrais */}
             <Card>
               <CardHeader className="pb-3">
