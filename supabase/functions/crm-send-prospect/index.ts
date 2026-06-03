@@ -93,6 +93,8 @@ Deno.serve(async (req: Request) => {
       cnpj: body.cnpj,
       dadosEmpresa: body.dadosEmpresa ?? null,
       consultaScr: body.consultaScr ?? null,
+      consultas: body.consultas ?? null,
+      palavrasChaveDetectadas: body.palavrasChaveDetectadas ?? null,
       origem,
       enviadoEm: new Date().toISOString(),
     };
