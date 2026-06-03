@@ -80,10 +80,6 @@ export function ClienteProspectCRMButton({ client, history }: Props) {
   const isProspect = matchedKeywords.length > 0;
 
   useEffect(() => {
-    if (!isProspect) {
-      setChecked(true);
-      return;
-    }
     supabase
       .from('crm_prospect_sends')
       .select('sent_at, sent_by_name')
@@ -93,9 +89,9 @@ export function ClienteProspectCRMButton({ client, history }: Props) {
         if (data) setSentRecord(data as SendRecord);
         setChecked(true);
       });
-  }, [client.cpf_cnpj, isProspect]);
+  }, [client.cpf_cnpj]);
 
-  if (!isProspect || !checked) return null;
+  if (!checked) return null;
 
   const handleSend = async () => {
     setSending(true);
@@ -164,7 +160,13 @@ export function ClienteProspectCRMButton({ client, history }: Props) {
   }
 
   return (
-    <Button onClick={handleSend} disabled={sending} variant="default" className="gap-2">
+    <Button
+      onClick={handleSend}
+      disabled={sending}
+      variant={isProspect ? 'default' : 'outline'}
+      className="gap-2"
+      title={isProspect ? `Detectado: ${matchedKeywords.join(', ')}` : 'Enviar este cliente como prospect ao CRM'}
+    >
       {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
       {sending ? 'Enviando...' : 'Enviar como Prospect'}
     </Button>
