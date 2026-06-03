@@ -160,7 +160,13 @@ export function ClienteProspectCRMButton({ client, history }: Props) {
   }
 
   return (
-    <Button onClick={handleSend} disabled={sending} variant="default" className="gap-2">
+    <Button
+      onClick={handleSend}
+      disabled={sending}
+      variant={isProspect ? 'default' : 'outline'}
+      className="gap-2"
+      title={isProspect ? `Detectado: ${matchedKeywords.join(', ')}` : 'Enviar este cliente como prospect ao CRM'}
+    >
       {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
       {sending ? 'Enviando...' : 'Enviar como Prospect'}
     </Button>
