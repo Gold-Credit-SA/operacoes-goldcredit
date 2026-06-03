@@ -24,6 +24,8 @@ interface RequestBody {
   cnpj?: string;
   dadosEmpresa?: unknown;
   consultaScr?: unknown;
+  origem?: string;
+  scrHistoryId?: string;
 }
 
 Deno.serve(async (req: Request) => {
