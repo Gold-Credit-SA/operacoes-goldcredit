@@ -88,6 +88,52 @@ export default function AdminSettings() {
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
 
+  // CRM integration
+  const [crmUrl, setCrmUrl] = useState('');
+  const [crmToken, setCrmToken] = useState('');
+  const [crmLoading, setCrmLoading] = useState(true);
+  const [crmSaving, setCrmSaving] = useState(false);
+
+  const fetchCrmSettings = async () => {
+    setCrmLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('crm_settings')
+        .select('url, api_token')
+        .eq('id', 1)
+        .maybeSingle();
+      if (error) throw error;
+      setCrmUrl(data?.url ?? '');
+      setCrmToken(data?.api_token ?? '');
+    } catch (err: any) {
+      toast({ title: 'Erro ao carregar CRM', description: err.message, variant: 'destructive' });
+    } finally {
+      setCrmLoading(false);
+    }
+  };
+
+  const handleSaveCrmSettings = async () => {
+    setCrmSaving(true);
+    try {
+      const { error } = await supabase
+        .from('crm_settings')
+        .upsert({
+          id: 1,
+          url: crmUrl.trim() || null,
+          api_token: crmToken.trim() || null,
+          updated_by: currentUser?.id ?? null,
+          updated_at: new Date().toISOString(),
+        });
+      if (error) throw error;
+      toast({ title: 'Configuração do CRM salva' });
+    } catch (err: any) {
+      toast({ title: 'Erro ao salvar', description: err.message, variant: 'destructive' });
+    } finally {
+      setCrmSaving(false);
+    }
+  };
+
+
   const fetchUsers = async () => {
     try {
       const { data, error } = await supabase.functions.invoke('admin-users', {
