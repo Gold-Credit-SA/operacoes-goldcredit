@@ -67,6 +67,13 @@ export function ClienteProspectCRMButton({ client, history }: Props) {
     return scrEntries[0] || null;
   }, [history]);
 
+  const latestSerasa = useMemo(() => {
+    const entries = history
+      .filter((h) => h.platform === 'serasa')
+      .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+    return entries[0] || null;
+  }, [history]);
+
   const matchedKeywords = useMemo(() => {
     if (!latestScr?.result_data) return [];
     try {
@@ -96,23 +103,36 @@ export function ClienteProspectCRMButton({ client, history }: Props) {
   const handleSend = async () => {
     setSending(true);
     try {
-      // Inclui as consultas mais recentes de cada plataforma/tipo disponível
-      const latestPerType = pickLatestPerType(history);
-      const consultas = latestPerType.map((h) => ({
-        platform: h.platform,
-        consulta_type: h.consulta_type,
-        consulta_label: h.consulta_label,
-        created_at: h.created_at,
-        data: h.result_data,
-      }));
+      // Envia o relatório COMPLETO (SCR e/ou Serasa), sem resumir.
+      const scrFull = latestScr
+        ? {
+            id: latestScr.id,
+            platform: latestScr.platform,
+            consulta_type: latestScr.consulta_type,
+            consulta_label: latestScr.consulta_label,
+            created_at: latestScr.created_at,
+            data: latestScr.result_data,
+          }
+        : null;
+
+      const serasaFull = latestSerasa
+        ? {
+            id: latestSerasa.id,
+            platform: latestSerasa.platform,
+            consulta_type: latestSerasa.consulta_type,
+            consulta_label: latestSerasa.consulta_label,
+            created_at: latestSerasa.created_at,
+            data: latestSerasa.result_data,
+          }
+        : null;
 
       const { data: result, error } = await supabase.functions.invoke('crm-send-prospect', {
         body: {
           empresa: client.name || client.cpf_cnpj,
           cnpj: client.cpf_cnpj,
           dadosEmpresa: client.basic_data ?? null,
-          consultaScr: latestScr?.result_data ?? null,
-          consultas,
+          consultaScr: scrFull,
+          consultaSerasa: serasaFull,
           palavrasChaveDetectadas: matchedKeywords,
           origem: 'operacional',
           scrHistoryId: latestScr?.id,
