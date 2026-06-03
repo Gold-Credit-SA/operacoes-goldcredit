@@ -39,6 +39,7 @@ import { SacadoSmartView } from '@/components/clientes/SacadoSmartView';
 
 import { ClienteCreditoConsolidadoCard } from '@/components/clientes/ClienteCreditoConsolidadoCard';
 import { ClienteAICompilationCard } from '@/components/clientes/ClienteAICompilationCard';
+import { ClienteProspectCRMCard } from '@/components/clientes/ClienteProspectCRMCard';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 import { PageLoadingSkeleton } from '@/components/ui/PageLoadingSkeleton';
 
