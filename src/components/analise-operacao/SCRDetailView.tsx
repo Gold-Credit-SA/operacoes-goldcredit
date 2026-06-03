@@ -20,6 +20,20 @@ const PROSPECT_KEYWORDS = [
   'Desconto de duplicatas',
 ];
 
+// Códigos Bacen de modalidades de desconto de títulos / recebíveis
+const PROSPECT_MOD_CODES = new Set([
+  '0203', // Títulos descontados
+  '0205', // Aquisição de recebíveis
+  '0301', '0302', // Desconto de duplicatas
+  '0303', // Desconto de cheques
+  '0304', // Antecipação de recebíveis de cartão
+  '0305', // Desconto de notas promissórias
+  '0306', // Desconto de outros títulos
+  '0399', // Outros títulos descontados
+  '1301', // Aquisição de recebíveis
+  '1303', // Antecipação de recebíveis comerciais
+]);
+
 export function SCRDetailView({ data }: SCRDetailViewProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [sending, setSending] = useState(false);
@@ -32,13 +46,23 @@ export function SCRDetailView({ data }: SCRDetailViewProps) {
   }, [data]);
 
   const isProspect = useMemo(() => {
+    // 1) busca textual (caso o relatório já venha com rótulos)
     try {
       const haystack = JSON.stringify(data ?? '');
-      return PROSPECT_KEYWORDS.some((kw) => haystack.includes(kw));
-    } catch {
-      return false;
+      if (PROSPECT_KEYWORDS.some((kw) => haystack.includes(kw))) return true;
+    } catch {}
+    // 2) varre códigos de modalidade nas operações do SCR
+    if (response?.lsDtb?.length) {
+      for (const dtb of response.lsDtb) {
+        const ops = Array.isArray((dtb as any)?.lsOp) ? (dtb as any).lsOp : [];
+        for (const op of ops) {
+          const mod = String((op as any)?.mod ?? '').trim();
+          if (PROSPECT_MOD_CODES.has(mod)) return true;
+        }
+      }
     }
-  }, [data]);
+    return false;
+  }, [data, response]);
 
   if (!response || !response.lsDtb?.length) {
     const message = (data as any)?.message || (data as any)?.data?.message || '';
