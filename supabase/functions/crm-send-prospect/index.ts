@@ -24,6 +24,8 @@ interface RequestBody {
   cnpj?: string;
   dadosEmpresa?: unknown;
   consultaScr?: unknown;
+  consultas?: unknown;
+  palavrasChaveDetectadas?: unknown;
   origem?: string;
   scrHistoryId?: string;
 }
