@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Send, Loader2, CheckCircle2, Sparkles } from 'lucide-react';
+import { Send, Loader2, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -17,6 +21,8 @@ const PROSPECT_KEYWORDS = [
 interface HistoryEntry {
   id: string;
   platform: string;
+  consulta_type?: string;
+  consulta_label?: string;
   result_data: Record<string, unknown> | null;
   created_at: string;
 }
@@ -36,12 +42,24 @@ interface SendRecord {
   sent_by_name: string | null;
 }
 
-export function ClienteProspectCRMCard({ client, history }: Props) {
+// Para cada plataforma, mantém apenas a consulta mais recente por consulta_type.
+function pickLatestPerType(entries: HistoryEntry[]): HistoryEntry[] {
+  const map = new Map<string, HistoryEntry>();
+  for (const e of entries) {
+    const key = `${e.platform}::${e.consulta_type ?? ''}`;
+    const cur = map.get(key);
+    if (!cur || +new Date(e.created_at) > +new Date(cur.created_at)) {
+      map.set(key, e);
+    }
+  }
+  return Array.from(map.values());
+}
+
+export function ClienteProspectCRMButton({ client, history }: Props) {
   const [sending, setSending] = useState(false);
   const [sentRecord, setSentRecord] = useState<SendRecord | null>(null);
   const [checked, setChecked] = useState(false);
 
-  // Última consulta SCR do cliente
   const latestScr = useMemo(() => {
     const scrEntries = history
       .filter((h) => h.platform === 'scr' || h.platform === 'hbi')
@@ -49,7 +67,6 @@ export function ClienteProspectCRMCard({ client, history }: Props) {
     return scrEntries[0] || null;
   }, [history]);
 
-  // Detecta palavras-chave de prospect na consulta SCR mais recente
   const matchedKeywords = useMemo(() => {
     if (!latestScr?.result_data) return [];
     try {
@@ -83,12 +100,24 @@ export function ClienteProspectCRMCard({ client, history }: Props) {
   const handleSend = async () => {
     setSending(true);
     try {
+      // Inclui as consultas mais recentes de cada plataforma/tipo disponível
+      const latestPerType = pickLatestPerType(history);
+      const consultas = latestPerType.map((h) => ({
+        platform: h.platform,
+        consulta_type: h.consulta_type,
+        consulta_label: h.consulta_label,
+        created_at: h.created_at,
+        data: h.result_data,
+      }));
+
       const { data: result, error } = await supabase.functions.invoke('crm-send-prospect', {
         body: {
           empresa: client.name || client.cpf_cnpj,
           cnpj: client.cpf_cnpj,
           dadosEmpresa: client.basic_data ?? null,
           consultaScr: latestScr?.result_data ?? null,
+          consultas,
+          palavrasChaveDetectadas: matchedKeywords,
           origem: 'operacional',
           scrHistoryId: latestScr?.id,
         },
@@ -112,52 +141,32 @@ export function ClienteProspectCRMCard({ client, history }: Props) {
     }
   };
 
+  if (sentRecord) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="outline" size="default" disabled className="gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              Prospect já enviado
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="text-xs">
+              Enviado em{' '}
+              {format(new Date(sentRecord.sent_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              {sentRecord.sent_by_name ? ` por ${sentRecord.sent_by_name}` : ''}
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
   return (
-    <Card className="border-primary/40 bg-[linear-gradient(135deg,hsl(var(--primary)/0.08),hsl(var(--primary)/0.02))]">
-      <CardContent className="p-4 space-y-3">
-        <div className="flex items-start gap-2">
-          <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-foreground">
-              Possível Cedente Detectado
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              SCR indica antecipação de recebíveis com bancos.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-1">
-          {matchedKeywords.map((kw) => (
-            <Badge key={kw} variant="outline" className="text-[10px] border-primary/30 text-primary">
-              {kw}
-            </Badge>
-          ))}
-        </div>
-
-        {sentRecord ? (
-          <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            <div className="min-w-0">
-              <p className="font-medium">Já enviado ao CRM</p>
-              <p className="text-[11px] opacity-80">
-                {format(new Date(sentRecord.sent_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                {sentRecord.sent_by_name ? ` · ${sentRecord.sent_by_name}` : ''}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <Button
-            onClick={handleSend}
-            disabled={sending}
-            className="w-full gap-2"
-            size="sm"
-          >
-            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            {sending ? 'Enviando...' : 'Enviar como Prospect para CRM'}
-          </Button>
-        )}
-      </CardContent>
-    </Card>
+    <Button onClick={handleSend} disabled={sending} variant="default" className="gap-2">
+      {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+      {sending ? 'Enviando...' : 'Enviar como Prospect'}
+    </Button>
   );
 }

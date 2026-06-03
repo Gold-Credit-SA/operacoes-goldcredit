@@ -39,7 +39,7 @@ import { SacadoSmartView } from '@/components/clientes/SacadoSmartView';
 
 import { ClienteCreditoConsolidadoCard } from '@/components/clientes/ClienteCreditoConsolidadoCard';
 import { ClienteAICompilationCard } from '@/components/clientes/ClienteAICompilationCard';
-import { ClienteProspectCRMCard } from '@/components/clientes/ClienteProspectCRMCard';
+import { ClienteProspectCRMButton } from '@/components/clientes/ClienteProspectCRMButton';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 import { PageLoadingSkeleton } from '@/components/ui/PageLoadingSkeleton';
 
@@ -767,10 +767,21 @@ export default function ClienteDetail() {
             <ArrowLeft className="h-4 w-4 mr-1.5" />
             Voltar
           </Button>
-           <Button variant="default" onClick={() => setConsultaOpen(true)}>
-              <SearchIcon className="h-4 w-4 mr-2" />
-              Consultar
-            </Button>
+           <div className="flex items-center gap-2">
+             <ClienteProspectCRMButton
+               client={{
+                 id: client.id,
+                 cpf_cnpj: client.cpf_cnpj,
+                 name: client.name,
+                 basic_data: client.basic_data,
+               }}
+               history={history}
+             />
+             <Button variant="default" onClick={() => setConsultaOpen(true)}>
+                <SearchIcon className="h-4 w-4 mr-2" />
+                Consultar
+              </Button>
+           </div>
         </div>
       </div>
 
@@ -785,15 +796,6 @@ export default function ClienteDetail() {
               </Badge>
             </div>
 
-            <ClienteProspectCRMCard
-              client={{
-                id: client.id,
-                cpf_cnpj: client.cpf_cnpj,
-                name: client.name,
-                basic_data: client.basic_data,
-              }}
-              history={history}
-            />
 
 
             {/* Informações Cadastrais */}
