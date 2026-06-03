@@ -26,7 +26,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { 
-  Plus, Users, Shield, UserCheck, Info, Briefcase, Check, X, Clock, RefreshCw, FileSignature, Link2, Trash2, Loader2,
+  Plus, Users, Shield, UserCheck, Info, Briefcase, Check, X, Clock, RefreshCw, FileSignature, Link2, Trash2, Loader2, Zap, Save,
 } from 'lucide-react';
 
 interface UserData {
