@@ -120,15 +120,19 @@ export function ClienteProspectCRMButton({ client, history }: Props) {
       });
       if (error) throw error;
       const r = result as any;
+      console.log('[ProspectCRM] resposta da edge:', r);
       if (r?.alreadySent) {
         setSentRecord({ sent_at: r.sentAt, sent_by_name: r.sentBy });
         toast.info('Este prospect já foi enviado anteriormente.');
         return;
       }
-      if (r?.error) throw new Error(r.error);
+      if (!r?.success) {
+        throw new Error(r?.error || `Falha no envio (HTTP ${r?.httpStatus ?? '??'})`);
+      }
       setSentRecord({ sent_at: new Date().toISOString(), sent_by_name: null });
-      toast.success('Prospect enviado ao CRM com sucesso');
+      toast.success('Prospect enviado com sucesso');
     } catch (err: any) {
+      console.error('[ProspectCRM] erro:', err);
       toast.error('Falha ao enviar prospect ao CRM', {
         description: err?.message ?? 'Erro desconhecido',
       });
