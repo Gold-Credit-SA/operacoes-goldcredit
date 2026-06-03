@@ -111,13 +111,24 @@ export function SCRDetailView({ data }: SCRDetailViewProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end gap-2 flex-wrap">
-        {isProspect && (
-          <Button onClick={handleSendProspect} disabled={sending} variant="default">
+      {isProspect && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-4">
+          <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="font-medium text-amber-900 dark:text-amber-200">
+              Possível prospect identificado
+            </p>
+            <p className="text-sm text-amber-800 dark:text-amber-300 mt-1">
+              Detectamos operações de <strong>desconto de títulos / direitos creditórios / duplicatas</strong> neste SCR. Considere enviar este cliente como prospect ao CRM.
+            </p>
+          </div>
+          <Button onClick={handleSendProspect} disabled={sending} variant="default" size="sm">
             {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-            Enviar como prospect para o CRM
+            Enviar ao CRM
           </Button>
-        )}
+        </div>
+      )}
+      <div className="flex justify-end gap-2 flex-wrap">
         <SCRPdfExport contentRef={contentRef} cdCli={response.cdCli} />
       </div>
       <div ref={contentRef} className="space-y-6">
