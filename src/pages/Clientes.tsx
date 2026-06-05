@@ -89,13 +89,17 @@ export default function Clientes() {
     if (filterType === 'pf') result = result.filter(c => c.cpf_cnpj.length === 11);
     if (filterType === 'pj') result = result.filter(c => c.cpf_cnpj.length === 14);
 
-    // Search
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(c =>
-        c.name?.toLowerCase().includes(term) ||
-        c.cpf_cnpj.includes(searchTerm.replace(/\D/g, ''))
-      );
+    // Search (tokenized — todas as palavras precisam aparecer, em qualquer ordem)
+    if (searchTerm.trim()) {
+      const raw = searchTerm.trim().toLowerCase();
+      const digits = searchTerm.replace(/\D/g, '');
+      const tokens = raw.split(/\s+/).filter(Boolean);
+      result = result.filter(c => {
+        const name = (c.name || '').toLowerCase();
+        const matchesName = tokens.every(t => name.includes(t));
+        const matchesDoc = digits.length > 0 && c.cpf_cnpj.includes(digits);
+        return matchesName || matchesDoc;
+      });
     }
 
     // Sort
