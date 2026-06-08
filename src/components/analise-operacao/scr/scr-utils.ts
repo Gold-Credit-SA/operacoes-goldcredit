@@ -82,12 +82,11 @@ export function calcCarteiraAtiva(dtbEntry: DtbEntry): number {
 }
 
 /**
- * Risco Direto conforme PDF oficial do SCR/Bacen:
+ * Risco Direto conforme PDF oficial do SCR/Bacen (Doc 3040):
  * - Quando o payload Bacen traz `riscoDireto`, é a fonte da verdade.
- * - Fallback (cálculo): apenas buckets de PREJUÍZO (v205-v240) e vencidos
- *   pesados (v90-v100). NÃO inclui "a vencer" nem indeterminado.
- *
- * Para o caso GEOSUL (cliente sem inadimplência), o resultado deve ser R$ 0,00.
+ * - Fallback (cálculo): apenas buckets de PREJUÍZO (v310-v330) e
+ *   VENCIDOS pesados (v270-v290, acima de 180 dias).
+ *   NÃO inclui "a vencer", "a liberar" (v60/v80) nem limites (v20/v40).
  */
 export function calcRiscoDireto(dtbEntry: DtbEntry): number {
   if (typeof dtbEntry.riscoDireto === 'number') return dtbEntry.riscoDireto;
@@ -96,8 +95,7 @@ export function calcRiscoDireto(dtbEntry: DtbEntry): number {
     .reduce((sum, op) => {
       return sum + Object.entries(op.resVenc).reduce((acc, [bucket, val]) => {
         const num = parseInt(bucket.replace('v', ''));
-        // Prejuízo: v205-v240. Vencidos pesados: v90, v100. Coerente com PDF SCR.
-        if ((num >= 205 && num <= 240) || num === 90 || num === 100) {
+        if ((num >= 310 && num <= 330) || (num >= 270 && num <= 290)) {
           return acc + (val || 0);
         }
         return acc;
@@ -105,27 +103,31 @@ export function calcRiscoDireto(dtbEntry: DtbEntry): number {
     }, 0);
 }
 
-// Separate vencido (overdue) buckets from a-vencer (upcoming) buckets
-// Vencidos: v10-v100 (overdue periods ONLY)
-// A vencer: v110-v200 (upcoming maturity periods)
-// Indeterminado: v250/v255/v260 (prazo indeterminado — NOT overdue, separate category)
+// Classificação oficial de buckets conforme SCR/Bacen Doc 3040 (Anexo 1):
+//   v20, v40         → Limite de crédito (disponível, não desembolsado)
+//   v60, v80         → Créditos a liberar (contratado, ainda não liberado)
+//   v110 – v199      → A vencer (parcelas futuras)
+//   v205 – v290      → Vencidos (inadimplência efetiva)
+//   v310 – v330      → Prejuízo (baixado)
+//
+// IMPORTANTE: v60/v80 NÃO são vencidos — são "a liberar". Vencido começa em v205.
 export function separateVencBuckets(resVenc: ResVenc): { vencidos: Record<string, number>; aVencer: Record<string, number>; indeterminado: Record<string, number> } {
   const vencidos: Record<string, number> = {};
   const aVencer: Record<string, number> = {};
   const indeterminado: Record<string, number> = {};
-  const INDETERMINATE_BUCKETS = ['v250', 'v255', 'v260'];
-  
+
   Object.entries(resVenc).forEach(([key, val]) => {
     const num = parseInt(key.replace('v', ''));
-    if (INDETERMINATE_BUCKETS.includes(key)) {
-      indeterminado[key] = val;
-    } else if (num <= 100) {
+    if (num >= 205 && num <= 330) {
       vencidos[key] = val;
-    } else {
+    } else if (num >= 110 && num <= 199) {
       aVencer[key] = val;
+    } else {
+      // v20/v40 (limite), v60/v80 (a liberar) e quaisquer outros — não entram em vencido/a vencer.
+      indeterminado[key] = val;
     }
   });
-  
+
   return { vencidos, aVencer, indeterminado };
 }
 
