@@ -135,7 +135,12 @@ export default function MonitoramentoNFe() {
       const descricao = `NF ${n.numero}${n.serie ? "/" + n.serie : ""} · ${n.emitente.nome}`.slice(0, 200);
       const { data, error } = await (supabase as any)
         .from("nfe_monitoramento")
-        .insert({ user_id: user.id, chave_acesso: chave, descricao })
+        .insert({
+          user_id: user.id,
+          chave_acesso: chave,
+          descricao,
+          ultimo_resultado: { xml_parsed: n },
+        })
         .select()
         .maybeSingle();
       if (error) {
