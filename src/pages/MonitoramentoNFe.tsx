@@ -526,6 +526,31 @@ function DetalheDialog({
           <p className="text-sm text-muted-foreground py-8 text-center">Sem dados ainda.</p>
         ) : (
           <div className="space-y-6 mt-2">
+            {/* Section 0: Dados da NF-e (do XML importado) */}
+            {xmlParsed && (
+              <section>
+                <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">Dados da nota</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 border rounded">
+                  <Info label="Número" value={xmlParsed.numero} />
+                  <Info label="Série" value={xmlParsed.serie || "—"} />
+                  <Info label="Emissão" value={xmlParsed.dataEmissao ? new Date(xmlParsed.dataEmissao).toLocaleDateString("pt-BR") : "—"} />
+                  <Info label="Valor" value={fmtMoeda(xmlParsed.valor)} />
+                  <div className="col-span-2">
+                    <Info label="Emitente" value={`${xmlParsed.emitente?.nome ?? "—"}${xmlParsed.emitente?.cpfCnpj ? ` (${xmlParsed.emitente.cpfCnpj})` : ""}`} />
+                  </div>
+                  <div className="col-span-2">
+                    <Info label="Sacado" value={`${xmlParsed.sacado?.nome ?? "—"}${xmlParsed.sacado?.cpfCnpj ? ` (${xmlParsed.sacado.cpfCnpj})` : ""}`} />
+                  </div>
+                  {(xmlParsed.sacado?.endereco || xmlParsed.sacado?.cidade) && (
+                    <div className="col-span-2 md:col-span-4">
+                      <Info label="Endereço sacado" value={[xmlParsed.sacado?.endereco, xmlParsed.sacado?.cidade, xmlParsed.sacado?.estado, xmlParsed.sacado?.cep].filter(Boolean).join(" · ")} />
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+
+
             {/* Section 1: PDF da nota */}
             <section>
               <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">DANFE</h3>
