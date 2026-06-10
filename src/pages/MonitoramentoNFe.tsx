@@ -160,9 +160,18 @@ export default function MonitoramentoNFe() {
   }
 
   async function abrirDetalhes(item: Monitoramento) {
-    setConsultando(item.id);
     setDetalhe(item);
     setDanfePdf(null);
+
+    // Se foi importada via XML e nunca consultada no SERPRO, mostra só os dados do XML
+    const temXml = !!item.ultimo_resultado?.xml_parsed;
+    const temSerpro = !!item.ultimo_resultado?.nfeProc;
+    if (temXml && !temSerpro) {
+      return;
+    }
+
+    setConsultando(item.id);
+
 
     // Consulta JSON
     const { data, error } = await supabase.functions.invoke("serpro-nfe", {
@@ -572,26 +581,29 @@ function DetalheDialog({
             })()}
 
 
-            {/* Section 1: PDF da nota */}
-            <section>
-              <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">DANFE</h3>
-              {danfeLoading ? (
-                <div className="flex items-center justify-center py-16 gap-2 text-sm text-muted-foreground border rounded">
-                  <Loader2 className="h-5 w-5 animate-spin" /> Gerando PDF...
-                </div>
-              ) : pdfUrl ? (
-                <iframe src={pdfUrl} className="w-full h-[70vh] border rounded" title="DANFE" />
-              ) : (
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription className="text-xs">
-                    PDF da DANFE indisponível para esta nota.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </section>
+            {/* Section 1: PDF da nota — apenas quando há resposta do SERPRO */}
+            {nfe && (
+              <section>
+                <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">DANFE</h3>
+                {danfeLoading ? (
+                  <div className="flex items-center justify-center py-16 gap-2 text-sm text-muted-foreground border rounded">
+                    <Loader2 className="h-5 w-5 animate-spin" /> Gerando PDF...
+                  </div>
+                ) : pdfUrl ? (
+                  <iframe src={pdfUrl} className="w-full h-[70vh] border rounded" title="DANFE" />
+                ) : (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      PDF da DANFE indisponível para esta nota.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </section>
+            )}
 
-            {/* Section 2: Movimentações */}
+            {/* Section 2: Movimentações — apenas quando há resposta do SERPRO ou eventos */}
+            {(nfe || eventos.length > 0) && (
             <section>
               <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">
                 Movimentações ({eventos.length})
@@ -621,6 +633,7 @@ function DetalheDialog({
                 </Table>
               )}
             </section>
+            )}
           </div>
         )}
       </DialogContent>
