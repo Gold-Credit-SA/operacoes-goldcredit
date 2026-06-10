@@ -160,9 +160,18 @@ export default function MonitoramentoNFe() {
   }
 
   async function abrirDetalhes(item: Monitoramento) {
-    setConsultando(item.id);
     setDetalhe(item);
     setDanfePdf(null);
+
+    // Se foi importada via XML e nunca consultada no SERPRO, mostra só os dados do XML
+    const temXml = !!item.ultimo_resultado?.xml_parsed;
+    const temSerpro = !!item.ultimo_resultado?.nfeProc;
+    if (temXml && !temSerpro) {
+      return;
+    }
+
+    setConsultando(item.id);
+
 
     // Consulta JSON
     const { data, error } = await supabase.functions.invoke("serpro-nfe", {
