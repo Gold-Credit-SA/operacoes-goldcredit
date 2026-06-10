@@ -581,24 +581,26 @@ function DetalheDialog({
             })()}
 
 
-            {/* Section 1: PDF da nota */}
-            <section>
-              <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">DANFE</h3>
-              {danfeLoading ? (
-                <div className="flex items-center justify-center py-16 gap-2 text-sm text-muted-foreground border rounded">
-                  <Loader2 className="h-5 w-5 animate-spin" /> Gerando PDF...
-                </div>
-              ) : pdfUrl ? (
-                <iframe src={pdfUrl} className="w-full h-[70vh] border rounded" title="DANFE" />
-              ) : (
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription className="text-xs">
-                    PDF da DANFE indisponível para esta nota.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </section>
+            {/* Section 1: PDF da nota — apenas quando há resposta do SERPRO */}
+            {nfe && (
+              <section>
+                <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">DANFE</h3>
+                {danfeLoading ? (
+                  <div className="flex items-center justify-center py-16 gap-2 text-sm text-muted-foreground border rounded">
+                    <Loader2 className="h-5 w-5 animate-spin" /> Gerando PDF...
+                  </div>
+                ) : pdfUrl ? (
+                  <iframe src={pdfUrl} className="w-full h-[70vh] border rounded" title="DANFE" />
+                ) : (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      PDF da DANFE indisponível para esta nota.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </section>
+            )}
 
             {/* Section 2: Movimentações */}
             <section>
