@@ -509,7 +509,7 @@ function DetalheDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            NF-e {nfe?.ide?.nNF ?? "—"}{nfe?.ide?.serie ? `/${nfe.ide.serie}` : ""}
+            NF-e {nfe?.ide?.nNF ?? xmlParsed?.numero ?? "—"}{(nfe?.ide?.serie ?? xmlParsed?.serie) ? `/${nfe?.ide?.serie ?? xmlParsed?.serie}` : ""}
             {item?.solicitacao_id ? (
               <Badge className="ml-2 bg-emerald-600 hover:bg-emerald-600 text-white">Notificações ativas</Badge>
             ) : (
