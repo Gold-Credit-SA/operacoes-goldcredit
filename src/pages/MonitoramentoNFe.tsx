@@ -481,12 +481,13 @@ function Info({ label, value }: { label: string; value: any }) {
 }
 
 function DetalheDialog({
-  item, onClose, nfe, total, danfePdf, danfeLoading, consultando, eventos,
+  item, onClose, nfe, total, xmlParsed, danfePdf, danfeLoading, consultando, eventos,
 }: {
   item: Monitoramento | null;
   onClose: () => void;
   nfe: any;
   total: any;
+  xmlParsed?: any;
   danfePdf: string | null;
   danfeLoading: boolean;
   consultando: boolean;
