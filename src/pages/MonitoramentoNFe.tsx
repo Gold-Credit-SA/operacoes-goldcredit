@@ -174,7 +174,7 @@ export default function MonitoramentoNFe() {
       toast.error(`Serpro retornou ${data?.status}: ${typeof data?.data === "string" ? data.data : JSON.stringify(data?.data ?? {}).slice(0, 200)}`);
       return;
     }
-    setDetalhe({ ...item, ultimo_resultado: data.data });
+    setDetalhe({ ...item, ultimo_resultado: { ...(item.ultimo_resultado ?? {}), ...data.data } });
     load();
 
     // DANFE em paralelo (best effort)
