@@ -240,6 +240,7 @@ export default function MonitoramentoNFe() {
 
   const nfe = detalhe?.ultimo_resultado?.nfeProc?.NFe?.infNFe;
   const total = nfe?.total?.ICMSTot;
+  const xmlParsed = detalhe?.ultimo_resultado?.xml_parsed;
 
   return (
     <div className="container max-w-7xl p-6 space-y-6">
