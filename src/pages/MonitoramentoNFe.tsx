@@ -633,6 +633,7 @@ function DetalheDialog({
                 </Table>
               )}
             </section>
+            )}
           </div>
         )}
       </DialogContent>
