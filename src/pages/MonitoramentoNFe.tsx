@@ -602,7 +602,8 @@ function DetalheDialog({
               </section>
             )}
 
-            {/* Section 2: Movimentações */}
+            {/* Section 2: Movimentações — apenas quando há resposta do SERPRO ou eventos */}
+            {(nfe || eventos.length > 0) && (
             <section>
               <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">
                 Movimentações ({eventos.length})
