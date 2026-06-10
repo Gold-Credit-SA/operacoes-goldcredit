@@ -135,7 +135,12 @@ export default function MonitoramentoNFe() {
       const descricao = `NF ${n.numero}${n.serie ? "/" + n.serie : ""} · ${n.emitente.nome}`.slice(0, 200);
       const { data, error } = await (supabase as any)
         .from("nfe_monitoramento")
-        .insert({ user_id: user.id, chave_acesso: chave, descricao })
+        .insert({
+          user_id: user.id,
+          chave_acesso: chave,
+          descricao,
+          ultimo_resultado: { xml_parsed: n },
+        })
         .select()
         .maybeSingle();
       if (error) {
@@ -169,7 +174,7 @@ export default function MonitoramentoNFe() {
       toast.error(`Serpro retornou ${data?.status}: ${typeof data?.data === "string" ? data.data : JSON.stringify(data?.data ?? {}).slice(0, 200)}`);
       return;
     }
-    setDetalhe({ ...item, ultimo_resultado: data.data });
+    setDetalhe({ ...item, ultimo_resultado: { ...(item.ultimo_resultado ?? {}), ...data.data } });
     load();
 
     // DANFE em paralelo (best effort)
@@ -235,6 +240,7 @@ export default function MonitoramentoNFe() {
 
   const nfe = detalhe?.ultimo_resultado?.nfeProc?.NFe?.infNFe;
   const total = nfe?.total?.ICMSTot;
+  const xmlParsed = detalhe?.ultimo_resultado?.xml_parsed;
 
   return (
     <div className="container max-w-7xl p-6 space-y-6">
@@ -392,6 +398,7 @@ export default function MonitoramentoNFe() {
             onClose={() => { setDetalhe(null); setDanfePdf(null); }}
             nfe={nfe}
             total={total}
+            xmlParsed={xmlParsed}
             danfePdf={danfePdf}
             danfeLoading={danfeLoading}
             consultando={consultando === detalhe?.id}
@@ -474,12 +481,13 @@ function Info({ label, value }: { label: string; value: any }) {
 }
 
 function DetalheDialog({
-  item, onClose, nfe, total, danfePdf, danfeLoading, consultando, eventos,
+  item, onClose, nfe, total, xmlParsed, danfePdf, danfeLoading, consultando, eventos,
 }: {
   item: Monitoramento | null;
   onClose: () => void;
   nfe: any;
   total: any;
+  xmlParsed?: any;
   danfePdf: string | null;
   danfeLoading: boolean;
   consultando: boolean;
@@ -501,7 +509,7 @@ function DetalheDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            NF-e {nfe?.ide?.nNF ?? "—"}{nfe?.ide?.serie ? `/${nfe.ide.serie}` : ""}
+            NF-e {nfe?.ide?.nNF ?? xmlParsed?.numero ?? "—"}{(nfe?.ide?.serie ?? xmlParsed?.serie) ? `/${nfe?.ide?.serie ?? xmlParsed?.serie}` : ""}
             {item?.solicitacao_id ? (
               <Badge className="ml-2 bg-emerald-600 hover:bg-emerald-600 text-white">Notificações ativas</Badge>
             ) : (
@@ -518,6 +526,31 @@ function DetalheDialog({
           <p className="text-sm text-muted-foreground py-8 text-center">Sem dados ainda.</p>
         ) : (
           <div className="space-y-6 mt-2">
+            {/* Section 0: Dados da NF-e (do XML importado) */}
+            {xmlParsed && (
+              <section>
+                <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">Dados da nota</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 border rounded">
+                  <Info label="Número" value={xmlParsed.numero} />
+                  <Info label="Série" value={xmlParsed.serie || "—"} />
+                  <Info label="Emissão" value={xmlParsed.dataEmissao ? new Date(xmlParsed.dataEmissao).toLocaleDateString("pt-BR") : "—"} />
+                  <Info label="Valor" value={fmtMoeda(xmlParsed.valor)} />
+                  <div className="col-span-2">
+                    <Info label="Emitente" value={`${xmlParsed.emitente?.nome ?? "—"}${xmlParsed.emitente?.cpfCnpj ? ` (${xmlParsed.emitente.cpfCnpj})` : ""}`} />
+                  </div>
+                  <div className="col-span-2">
+                    <Info label="Sacado" value={`${xmlParsed.sacado?.nome ?? "—"}${xmlParsed.sacado?.cpfCnpj ? ` (${xmlParsed.sacado.cpfCnpj})` : ""}`} />
+                  </div>
+                  {(xmlParsed.sacado?.endereco || xmlParsed.sacado?.cidade) && (
+                    <div className="col-span-2 md:col-span-4">
+                      <Info label="Endereço sacado" value={[xmlParsed.sacado?.endereco, xmlParsed.sacado?.cidade, xmlParsed.sacado?.estado, xmlParsed.sacado?.cep].filter(Boolean).join(" · ")} />
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+
+
             {/* Section 1: PDF da nota */}
             <section>
               <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">DANFE</h3>
