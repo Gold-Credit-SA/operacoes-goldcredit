@@ -526,29 +526,50 @@ function DetalheDialog({
           <p className="text-sm text-muted-foreground py-8 text-center">Sem dados ainda.</p>
         ) : (
           <div className="space-y-6 mt-2">
-            {/* Section 0: Dados da NF-e (do XML importado) */}
-            {xmlParsed && (
-              <section>
-                <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">Dados da nota</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 border rounded">
-                  <Info label="Número" value={xmlParsed.numero} />
-                  <Info label="Série" value={xmlParsed.serie || "—"} />
-                  <Info label="Emissão" value={xmlParsed.dataEmissao ? new Date(xmlParsed.dataEmissao).toLocaleDateString("pt-BR") : "—"} />
-                  <Info label="Valor" value={fmtMoeda(xmlParsed.valor)} />
-                  <div className="col-span-2">
-                    <Info label="Emitente" value={`${xmlParsed.emitente?.nome ?? "—"}${xmlParsed.emitente?.cpfCnpj ? ` (${xmlParsed.emitente.cpfCnpj})` : ""}`} />
-                  </div>
-                  <div className="col-span-2">
-                    <Info label="Sacado" value={`${xmlParsed.sacado?.nome ?? "—"}${xmlParsed.sacado?.cpfCnpj ? ` (${xmlParsed.sacado.cpfCnpj})` : ""}`} />
-                  </div>
-                  {(xmlParsed.sacado?.endereco || xmlParsed.sacado?.cidade) && (
-                    <div className="col-span-2 md:col-span-4">
-                      <Info label="Endereço sacado" value={[xmlParsed.sacado?.endereco, xmlParsed.sacado?.cidade, xmlParsed.sacado?.estado, xmlParsed.sacado?.cep].filter(Boolean).join(" · ")} />
+            {/* Section 0: Dados da NF-e (XML importado ou SERPRO) */}
+            {(() => {
+              const emit = nfe?.emit;
+              const dest = nfe?.dest;
+              const ide = nfe?.ide;
+              const dados = xmlParsed ?? (nfe ? {
+                numero: ide?.nNF,
+                serie: ide?.serie,
+                dataEmissao: ide?.dhEmi || ide?.dEmi,
+                valor: parseFloat(total?.vNF ?? "0") || 0,
+                emitente: { nome: emit?.xNome, cpfCnpj: emit?.CNPJ || emit?.CPF },
+                sacado: {
+                  nome: dest?.xNome,
+                  cpfCnpj: dest?.CNPJ || dest?.CPF,
+                  endereco: dest?.enderDest ? [dest.enderDest.xLgr, dest.enderDest.nro, dest.enderDest.xBairro].filter(Boolean).join(", ") : "",
+                  cidade: dest?.enderDest?.xMun,
+                  estado: dest?.enderDest?.UF,
+                  cep: dest?.enderDest?.CEP,
+                },
+              } : null);
+              if (!dados) return null;
+              return (
+                <section>
+                  <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">Dados da nota</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 border rounded">
+                    <Info label="Número" value={dados.numero ?? "—"} />
+                    <Info label="Série" value={dados.serie || "—"} />
+                    <Info label="Emissão" value={dados.dataEmissao ? new Date(dados.dataEmissao).toLocaleDateString("pt-BR") : "—"} />
+                    <Info label="Valor" value={fmtMoeda(dados.valor)} />
+                    <div className="col-span-2">
+                      <Info label="Emitente" value={`${dados.emitente?.nome ?? "—"}${dados.emitente?.cpfCnpj ? ` (${dados.emitente.cpfCnpj})` : ""}`} />
                     </div>
-                  )}
-                </div>
-              </section>
-            )}
+                    <div className="col-span-2">
+                      <Info label="Sacado" value={`${dados.sacado?.nome ?? "—"}${dados.sacado?.cpfCnpj ? ` (${dados.sacado.cpfCnpj})` : ""}`} />
+                    </div>
+                    {(dados.sacado?.endereco || dados.sacado?.cidade) && (
+                      <div className="col-span-2 md:col-span-4">
+                        <Info label="Endereço sacado" value={[dados.sacado?.endereco, dados.sacado?.cidade, dados.sacado?.estado, dados.sacado?.cep].filter(Boolean).join(" · ")} />
+                      </div>
+                    )}
+                  </div>
+                </section>
+              );
+            })()}
 
 
             {/* Section 1: PDF da nota */}
