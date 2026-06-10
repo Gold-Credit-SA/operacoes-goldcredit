@@ -170,13 +170,23 @@ Deno.serve(async (req) => {
         const chave = String(body.chave ?? "").replace(/\D/g, "");
         if (chave.length !== 44) return jsonResponse({ error: "Chave deve ter 44 dígitos" }, 400);
         const r = await serproFetch(`/nfe/${chave}`, { method: "GET" });
-        // Persiste último resultado se a chave estiver monitorada por este usuário
+        // Persiste último resultado preservando xml_parsed (importado via XML)
         if (r.ok) {
+          const { data: existing } = await supabase
+            .from("nfe_monitoramento")
+            .select("ultimo_resultado")
+            .eq("user_id", user.id)
+            .eq("chave_acesso", chave)
+            .maybeSingle();
+          const xmlParsed = (existing?.ultimo_resultado as Record<string, unknown> | null)?.xml_parsed;
+          const merged = xmlParsed && r.json && typeof r.json === "object"
+            ? { ...(r.json as Record<string, unknown>), xml_parsed: xmlParsed }
+            : r.json;
           await supabase
             .from("nfe_monitoramento")
             .update({
               ultima_consulta_em: new Date().toISOString(),
-              ultimo_resultado: r.json,
+              ultimo_resultado: merged,
             })
             .eq("user_id", user.id)
             .eq("chave_acesso", chave);
