@@ -398,6 +398,7 @@ export default function MonitoramentoNFe() {
             onClose={() => { setDetalhe(null); setDanfePdf(null); }}
             nfe={nfe}
             total={total}
+            xmlParsed={xmlParsed}
             danfePdf={danfePdf}
             danfeLoading={danfeLoading}
             consultando={consultando === detalhe?.id}
