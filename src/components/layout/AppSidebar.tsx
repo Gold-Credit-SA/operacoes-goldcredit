@@ -60,7 +60,7 @@ export function AppSidebar() {
 
   const userInitial = profile?.name?.charAt(0).toUpperCase() || 'U';
   const isCarteiraActive = location.pathname.startsWith('/carteira');
-  const isContratosActive = location.pathname.startsWith('/contratos');
+  // const isContratosActive = location.pathname.startsWith('/contratos');
   const isAnaliseActive = location.pathname.startsWith('/analise-credito');
 
   // ── Prefetch helpers ──────────────────────────────────────────────
