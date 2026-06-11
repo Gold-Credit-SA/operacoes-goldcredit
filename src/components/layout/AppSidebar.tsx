@@ -25,14 +25,15 @@ export function AppSidebar() {
     { path: '/carteira/gestao', label: 'Gestão de Carteira', icon: Settings2 },
   ];
 
-  const [contratosOpen, setContratosOpen] = useState(
-    location.pathname.startsWith('/contratos')
-  );
-
-  const contratosItems = [
-    { path: '/contratos/documentos', label: 'Documentos', icon: FileText },
-    { path: '/contratos/assinatura-digital', label: 'Assinatura Digital', icon: PenTool },
-  ];
+  // GoldSign hidden — not in use for now
+  // const [contratosOpen, setContratosOpen] = useState(
+  //   location.pathname.startsWith('/contratos')
+  // );
+  // const contratosItems = [
+  //   { path: '/contratos/documentos', label: 'Documentos', icon: FileText },
+  //   { path: '/contratos/assinatura-digital', label: 'Assinatura Digital', icon: PenTool },
+  // ];
+  const isContratosActive = false;
 
   const [analiseOpen, setAnaliseOpen] = useState(
     location.pathname.startsWith('/analise-credito')
@@ -173,8 +174,6 @@ export function AppSidebar() {
             {/* Carteira: ícone leva para giro */}
             {renderIconLink('/carteira/giro', 'Carteira', Briefcase, isCarteiraActive, prefetchPortfolio)}
 
-            {/* Contratos: ícone leva para documentos */}
-            {renderIconLink('/contratos/documentos', 'GoldSign', FileSignature, isContratosActive)}
 
             {/* Análise de Crédito: ícone leva para nova análise */}
             {renderIconLink('/analise-credito/novo', 'Análise de Crédito', Brain, isAnaliseActive)}
@@ -287,45 +286,6 @@ export function AppSidebar() {
           </div>
         )}
 
-        {/* Contratos dropdown */}
-        <button
-          onClick={() => setContratosOpen(!contratosOpen)}
-          className={cn(
-            "flex items-center justify-between w-full px-4 py-3 rounded-lg text-sm font-medium transition-all duration-150",
-            isContratosActive
-              ? "text-sidebar-foreground bg-sidebar-accent"
-              : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
-          )}
-        >
-          <span className="flex items-center gap-3">
-            <FileSignature className={cn("h-5 w-5", isContratosActive ? "text-primary" : "text-sidebar-foreground/50")} />
-            GoldSign
-          </span>
-          <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", contratosOpen ? "rotate-180" : "")} />
-        </button>
-
-        {contratosOpen && (
-          <div className="ml-4 pl-4 border-l border-sidebar-border space-y-1">
-            {contratosItems.map((item) => {
-              const isActive = location.pathname === item.path;
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150",
-                    isActive
-                      ? "text-sidebar-foreground bg-sidebar-accent font-medium"
-                      : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/40"
-                  )}
-                >
-                  <item.icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-sidebar-foreground/40")} />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        )}
 
         {/* Análise de Crédito dropdown */}
         <button
