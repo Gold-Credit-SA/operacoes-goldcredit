@@ -180,13 +180,15 @@ export default function CedenteConsulta() {
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(Boolean(preloadedCedente || searchParams.get('cpf_cnpj')));
   const [search, setSearch] = useState('');
+  const [gerente, setGerente] = useState<string>('');
+  const [gestores, setGestores] = useState<Array<{ gerente: string; total: number }>>([]);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
-  const fetchCedentes = useCallback(async (searchTerm?: string) => {
+  const fetchCedentes = useCallback(async (searchTerm?: string, gerenteFilter?: string) => {
     setIsLoadingList(true);
     try {
       const { data, error } = await supabase.functions.invoke('external-db', {
-        body: { action: 'cedentes-list', filters: { search: searchTerm } }
+        body: { action: 'cedentes-list', filters: { search: searchTerm, gerente: gerenteFilter || undefined } }
       });
 
       if (error) throw error;
@@ -202,6 +204,19 @@ export default function CedenteConsulta() {
     } finally {
       setIsLoadingList(false);
     }
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase.functions.invoke('external-db', {
+          body: { action: 'gestores-list' }
+        });
+        if (data?.success) setGestores(data.data || []);
+      } catch (err) {
+        console.error('Error fetching gestores:', err);
+      }
+    })();
   }, []);
 
   const fetchCedenteDetail = useCallback(async (cpf_cnpj: string) => {
