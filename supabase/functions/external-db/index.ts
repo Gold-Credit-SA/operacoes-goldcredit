@@ -89,24 +89,30 @@ Deno.serve(async (req) => {
       }
 
       case 'cedentes-list': {
-        let result;
-        if (filters?.search) {
-          const searchTerm = `%${filters.search}%`;
-          result = await sql`
-            SELECT * 
-            FROM smartsecurities_cedentes 
-            WHERE nome ILIKE ${searchTerm} OR cpf_cnpj ILIKE ${searchTerm}
-            ORDER BY nome 
-            LIMIT 500
-          `;
-        } else {
-          result = await sql`
-            SELECT * 
-            FROM smartsecurities_cedentes 
-            ORDER BY nome 
-            LIMIT 500
-          `;
-        }
+        const searchTerm = filters?.search ? `%${filters.search}%` : null;
+        const gerente = filters?.gerente || null;
+        const result = await sql`
+          SELECT *
+          FROM smartsecurities_cedentes
+          WHERE
+            (${searchTerm}::text IS NULL OR nome ILIKE ${searchTerm} OR cpf_cnpj ILIKE ${searchTerm})
+            AND (${gerente}::text IS NULL OR gerente = ${gerente})
+          ORDER BY nome
+          LIMIT 500
+        `;
+        return new Response(JSON.stringify({ success: true, data: result }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      case 'gestores-list': {
+        const result = await sql`
+          SELECT gerente, COUNT(*)::int AS total
+          FROM smartsecurities_cedentes
+          WHERE gerente IS NOT NULL AND TRIM(gerente) <> ''
+          GROUP BY gerente
+          ORDER BY gerente
+        `;
         return new Response(JSON.stringify({ success: true, data: result }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
