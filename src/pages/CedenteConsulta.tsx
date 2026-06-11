@@ -715,6 +715,61 @@ export default function CedenteConsulta() {
         )}
       </div>
 
+      {gerente && (
+        <div className="mb-6 max-w-5xl">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold text-foreground">
+              Carteira de {gerente}
+            </h3>
+            <span className="text-xs text-muted-foreground">
+              {isLoadingList ? 'Carregando...' : `${cedentes.length} cedente${cedentes.length !== 1 ? 's' : ''}`}
+            </span>
+          </div>
+          <div className="border border-border rounded-lg bg-card overflow-hidden">
+            <div className="max-h-[320px] overflow-y-auto divide-y divide-border">
+              {isLoadingList ? (
+                <div className="flex items-center justify-center py-8 gap-3">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  <span className="text-sm text-muted-foreground">Carregando carteira...</span>
+                </div>
+              ) : cedentes.length === 0 ? (
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  Nenhum cedente nesta carteira
+                </div>
+              ) : (
+                cedentes.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => handleSelectCedente(c)}
+                    className={`w-full text-left px-4 py-2.5 hover:bg-accent/50 transition-colors flex items-center justify-between gap-4 ${selectedCedente?.id === c.id ? 'bg-accent' : ''}`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-foreground truncate">{c.nome || 'Sem nome'}</p>
+                        {c.bloqueado === 'S' && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-destructive/15 text-destructive font-medium">Bloqueado</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground font-mono">{c.cpf_cnpj || '-'}{c.cidade ? ` • ${c.cidade}${c.uf ? '/' + c.uf : ''}` : ''}</p>
+                    </div>
+                    <div className="hidden sm:flex items-center gap-4 text-right text-xs">
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase">Limite</p>
+                        <p className="font-medium text-foreground">{c.limite_global ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(c.limite_global) : '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase">Risco</p>
+                        <p className="font-medium text-primary">{c.risco_atual ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(c.risco_atual) : '-'}</p>
+                      </div>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <CedenteSearch
         cedentes={cedentes}
         selectedCedente={selectedCedente}
