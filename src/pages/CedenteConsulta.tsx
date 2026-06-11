@@ -689,6 +689,31 @@ export default function CedenteConsulta() {
 
   return (
     <MainLayout title="Consulta" subtitle="Consulta detalhada de cedentes com cruzamento de dados">
+      <div className="mb-4 max-w-2xl flex items-center gap-2">
+        <label className="text-sm font-medium text-foreground whitespace-nowrap">Gestor:</label>
+        <Select value={gerente || 'all'} onValueChange={(v) => setGerente(v === 'all' ? '' : v)}>
+          <SelectTrigger className="h-10 bg-card">
+            <SelectValue placeholder="Todos os gestores" />
+          </SelectTrigger>
+          <SelectContent className="bg-popover z-50 max-h-[400px]">
+            <SelectItem value="all">Todos os gestores ({gestores.reduce((s, g) => s + g.total, 0)})</SelectItem>
+            {gestores.map((g) => (
+              <SelectItem key={g.gerente} value={g.gerente}>
+                {g.gerente} ({g.total})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {gerente && (
+          <button
+            onClick={() => setGerente('')}
+            className="text-xs text-muted-foreground hover:text-foreground px-2"
+          >
+            Limpar
+          </button>
+        )}
+      </div>
+
       <CedenteSearch
         cedentes={cedentes}
         selectedCedente={selectedCedente}
