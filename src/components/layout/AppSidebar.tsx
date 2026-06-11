@@ -166,6 +166,15 @@ export function AppSidebar() {
             {/* Carteira: ícone leva para giro */}
             {renderIconLink('/carteira/giro', 'Carteira', Briefcase, isCarteiraActive, prefetchPortfolio)}
 
+            {/* GoldSign — desabilitado */}
+            <Tooltip delayDuration={100}>
+              <TooltipTrigger asChild>
+                <div className="flex items-center justify-center w-10 h-10 mx-auto rounded-lg opacity-40 cursor-not-allowed text-sidebar-foreground/30">
+                  <FileSignature className="h-5 w-5" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right">GoldSign</TooltipContent>
+            </Tooltip>
 
             {/* Análise de Crédito: ícone leva para nova análise */}
             {renderIconLink('/analise-credito/novo', 'Análise de Crédito', Brain, isAnaliseActive)}
