@@ -287,6 +287,11 @@ export function AppSidebar() {
           </div>
         )}
 
+        {/* GoldSign — desabilitado */}
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium opacity-40 cursor-not-allowed text-sidebar-foreground/30 select-none">
+          <FileSignature className="h-5 w-5" />
+          GoldSign
+        </div>
 
         {/* Análise de Crédito dropdown */}
         <button
