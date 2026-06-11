@@ -5,6 +5,7 @@ import { CedenteSearch } from '@/components/consulta/CedenteSearch';
 import { CedenteInfoPanel } from '@/components/consulta/CedenteInfoPanel';
 import { LoadingPlaceholder } from '@/components/consulta/LoadingPlaceholder';
 import { supabase } from '@/integrations/supabase/client';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search } from 'lucide-react';
 
 interface CedenteListItem {
@@ -180,13 +181,15 @@ export default function CedenteConsulta() {
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(Boolean(preloadedCedente || searchParams.get('cpf_cnpj')));
   const [search, setSearch] = useState('');
+  const [gerente, setGerente] = useState<string>('');
+  const [gestores, setGestores] = useState<Array<{ gerente: string; total: number }>>([]);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
-  const fetchCedentes = useCallback(async (searchTerm?: string) => {
+  const fetchCedentes = useCallback(async (searchTerm?: string, gerenteFilter?: string) => {
     setIsLoadingList(true);
     try {
       const { data, error } = await supabase.functions.invoke('external-db', {
-        body: { action: 'cedentes-list', filters: { search: searchTerm } }
+        body: { action: 'cedentes-list', filters: { search: searchTerm, gerente: gerenteFilter || undefined } }
       });
 
       if (error) throw error;
@@ -202,6 +205,19 @@ export default function CedenteConsulta() {
     } finally {
       setIsLoadingList(false);
     }
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase.functions.invoke('external-db', {
+          body: { action: 'gestores-list' }
+        });
+        if (data?.success) setGestores(data.data || []);
+      } catch (err) {
+        console.error('Error fetching gestores:', err);
+      }
+    })();
   }, []);
 
   const fetchCedenteDetail = useCallback(async (cpf_cnpj: string) => {
@@ -660,10 +676,10 @@ export default function CedenteConsulta() {
     if (!initialLoadDone) return;
     
     const debounce = setTimeout(() => {
-      fetchCedentes(search);
+      fetchCedentes(search, gerente);
     }, 300);
     return () => clearTimeout(debounce);
-  }, [search, fetchCedentes, initialLoadDone]);
+  }, [search, gerente, fetchCedentes, initialLoadDone]);
 
   const handleSelectCedente = (cedente: CedenteListItem) => {
     setSelectedCedente(cedente);
@@ -674,6 +690,31 @@ export default function CedenteConsulta() {
 
   return (
     <MainLayout title="Consulta" subtitle="Consulta detalhada de cedentes com cruzamento de dados">
+      <div className="mb-4 max-w-2xl flex items-center gap-2">
+        <label className="text-sm font-medium text-foreground whitespace-nowrap">Gestor:</label>
+        <Select value={gerente || 'all'} onValueChange={(v) => setGerente(v === 'all' ? '' : v)}>
+          <SelectTrigger className="h-10 bg-card">
+            <SelectValue placeholder="Todos os gestores" />
+          </SelectTrigger>
+          <SelectContent className="bg-popover z-50 max-h-[400px]">
+            <SelectItem value="all">Todos os gestores ({gestores.reduce((s, g) => s + g.total, 0)})</SelectItem>
+            {gestores.map((g) => (
+              <SelectItem key={g.gerente} value={g.gerente}>
+                {g.gerente} ({g.total})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {gerente && (
+          <button
+            onClick={() => setGerente('')}
+            className="text-xs text-muted-foreground hover:text-foreground px-2"
+          >
+            Limpar
+          </button>
+        )}
+      </div>
+
       <CedenteSearch
         cedentes={cedentes}
         selectedCedente={selectedCedente}
