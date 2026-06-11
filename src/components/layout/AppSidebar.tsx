@@ -25,14 +25,6 @@ export function AppSidebar() {
     { path: '/carteira/gestao', label: 'Gestão de Carteira', icon: Settings2 },
   ];
 
-  // GoldSign hidden — not in use for now
-  // const [contratosOpen, setContratosOpen] = useState(
-  //   location.pathname.startsWith('/contratos')
-  // );
-  // const contratosItems = [
-  //   { path: '/contratos/documentos', label: 'Documentos', icon: FileText },
-  //   { path: '/contratos/assinatura-digital', label: 'Assinatura Digital', icon: PenTool },
-  // ];
   const isContratosActive = false;
 
   const [analiseOpen, setAnaliseOpen] = useState(
@@ -174,6 +166,15 @@ export function AppSidebar() {
             {/* Carteira: ícone leva para giro */}
             {renderIconLink('/carteira/giro', 'Carteira', Briefcase, isCarteiraActive, prefetchPortfolio)}
 
+            {/* GoldSign — desabilitado */}
+            <Tooltip delayDuration={100}>
+              <TooltipTrigger asChild>
+                <div className="flex items-center justify-center w-10 h-10 mx-auto rounded-lg opacity-40 cursor-not-allowed text-sidebar-foreground/30">
+                  <FileSignature className="h-5 w-5" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right">GoldSign</TooltipContent>
+            </Tooltip>
 
             {/* Análise de Crédito: ícone leva para nova análise */}
             {renderIconLink('/analise-credito/novo', 'Análise de Crédito', Brain, isAnaliseActive)}
@@ -286,6 +287,11 @@ export function AppSidebar() {
           </div>
         )}
 
+        {/* GoldSign — desabilitado */}
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium opacity-40 cursor-not-allowed text-sidebar-foreground/30 select-none">
+          <FileSignature className="h-5 w-5" />
+          GoldSign
+        </div>
 
         {/* Análise de Crédito dropdown */}
         <button
