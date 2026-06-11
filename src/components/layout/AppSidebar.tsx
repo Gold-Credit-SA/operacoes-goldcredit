@@ -25,14 +25,6 @@ export function AppSidebar() {
     { path: '/carteira/gestao', label: 'Gestão de Carteira', icon: Settings2 },
   ];
 
-  // GoldSign hidden — not in use for now
-  // const [contratosOpen, setContratosOpen] = useState(
-  //   location.pathname.startsWith('/contratos')
-  // );
-  // const contratosItems = [
-  //   { path: '/contratos/documentos', label: 'Documentos', icon: FileText },
-  //   { path: '/contratos/assinatura-digital', label: 'Assinatura Digital', icon: PenTool },
-  // ];
   const isContratosActive = false;
 
   const [analiseOpen, setAnaliseOpen] = useState(
