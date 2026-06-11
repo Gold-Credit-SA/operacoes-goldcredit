@@ -675,10 +675,10 @@ export default function CedenteConsulta() {
     if (!initialLoadDone) return;
     
     const debounce = setTimeout(() => {
-      fetchCedentes(search);
+      fetchCedentes(search, gerente);
     }, 300);
     return () => clearTimeout(debounce);
-  }, [search, fetchCedentes, initialLoadDone]);
+  }, [search, gerente, fetchCedentes, initialLoadDone]);
 
   const handleSelectCedente = (cedente: CedenteListItem) => {
     setSelectedCedente(cedente);
