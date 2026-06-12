@@ -232,7 +232,7 @@ export default function AdminSettings() {
     setDialogOpen(true);
   };
 
-  const handleSave = async (formData: { name: string; email: string; password: string }) => {
+  const handleSave = async (formData: { name: string; email: string; password: string; role: string }) => {
     if (!formData.name || !formData.email) {
       toast({ title: 'Campos obrigatórios', description: 'Nome e e-mail são obrigatórios.', variant: 'destructive' });
       return;
@@ -253,6 +253,9 @@ export default function AdminSettings() {
         if (formData.password) updateData.password = formData.password;
         if (formData.email && formData.email !== editingUser.email) {
           updateData.email = formData.email;
+        }
+        if (formData.role && editingUser.email !== MASTER_EMAIL) {
+          updateData.role = formData.role;
         }
         const { data, error } = await supabase.functions.invoke('admin-users', {
           body: { action: 'update', ...updateData },
