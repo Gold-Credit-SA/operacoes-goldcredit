@@ -10,7 +10,7 @@ interface ProtectedRouteProps {
 
 export const ProtectedRoute = forwardRef<HTMLDivElement, ProtectedRouteProps>(
   function ProtectedRoute({ children, requireAdmin = false }, ref) {
-    const { user, isMaster, mustChangePassword, loading } = useAuth();
+    const { user, isAdmin, mustChangePassword, loading } = useAuth();
     const location = useLocation();
 
     if (loading) {
