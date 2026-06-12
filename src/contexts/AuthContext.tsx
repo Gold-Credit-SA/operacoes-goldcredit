@@ -61,87 +61,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const fetchProfile = useCallback(async (userId: string) => {
-    try {
-      const { data: profileData, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      if (error) {
-        console.error('Error fetching profile:', error);
-        return null;
-      }
-
-      return profileData;
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-      return null;
-    }
-  }, []);
-
   useEffect(() => {
     let mounted = true;
 
-    // Get initial session only once
+    const applyProfile = (data: { profile: Profile | null; role: string | null }) => {
+      if (!mounted) return;
+      setProfile(data.profile);
+      setRole(data.role);
+    };
+
     const initializeAuth = async () => {
       if (initializedRef.current) return;
       initializedRef.current = true;
 
       try {
         const { data: { session: initialSession } } = await supabase.auth.getSession();
-        
         if (!mounted) return;
 
         if (initialSession?.user) {
           setCacheUserScope(initialSession.user.id);
           setSession(initialSession);
           setUser(initialSession.user);
-          
-          const profileData = await fetchProfile(initialSession.user.id);
-          if (mounted) {
-            setProfile(profileData);
-          }
+          const data = await fetchProfile(initialSession.user.id);
+          applyProfile(data);
         } else {
           setCacheUserScope(null);
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+        if (mounted) setLoading(false);
       }
     };
 
     initializeAuth();
 
-    // Set up auth state listener - ALWAYS set up, not just on first mount
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
         if (!mounted) return;
-
-        // Update session and user state
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
 
         if (currentSession?.user) {
           setCacheUserScope(currentSession.user.id);
-          // Use setTimeout to avoid Supabase deadlock issue
           setTimeout(async () => {
             if (!mounted) return;
-            const profileData = await fetchProfile(currentSession.user.id);
-            if (mounted) {
-              setProfile(profileData);
-            }
+            const data = await fetchProfile(currentSession.user.id);
+            applyProfile(data);
           }, 0);
         } else {
           setCacheUserScope(null);
           setProfile(null);
+          setRole(null);
         }
 
-        // Ensure loading is false after auth state change
         setLoading(false);
       }
     );
@@ -159,19 +132,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
-    // Limpa cache em memória + persistido (evita vazar dados entre usuários)
     queryClient.clear();
     await clearPersistedCache();
     setCacheUserScope(null);
     setUser(null);
     setSession(null);
     setProfile(null);
+    setRole(null);
   }, [queryClient]);
 
   const refreshProfile = useCallback(async () => {
     if (user) {
       const data = await fetchProfile(user.id);
-      setProfile(data);
+      setProfile(data.profile);
+      setRole(data.role);
     }
   }, [user, fetchProfile]);
 
