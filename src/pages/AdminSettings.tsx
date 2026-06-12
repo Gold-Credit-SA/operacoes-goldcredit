@@ -739,7 +739,7 @@ export default function AdminSettings() {
       <UserFormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        editingUser={editingUser ? { name: editingUser.name, email: editingUser.email } : null}
+        editingUser={editingUser ? { name: editingUser.name, email: editingUser.email, role: editingUser.user_roles?.[0]?.role } : null}
         onSave={handleSave}
         saving={saving}
         isMasterUser={editingUser?.email === MASTER_EMAIL}
