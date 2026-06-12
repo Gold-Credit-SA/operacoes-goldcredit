@@ -92,7 +92,7 @@ export function UserCard({ user, isCurrentUser, isMaster, onEdit, onDelete }: Us
               className={`${isMaster ? 'bg-primary text-primary-foreground' : ''}`}
             >
               {isMaster && <Shield className="h-3 w-3 mr-1" />}
-              {isMaster ? 'Administrador' : 'Usuário'}
+              {isMaster ? 'Master' : ROLE_LABELS[user.user_roles[0]?.role] || 'Usuário'}
             </Badge>
 
             <div className="flex items-center gap-1">
