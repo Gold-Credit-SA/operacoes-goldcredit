@@ -12,7 +12,7 @@ import logoGoldCredit from '@/assets/logo-gold-credit.png';
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { profile, isMaster, signOut } = useAuth();
+  const { profile, isAdmin, signOut } = useAuth();
   const { collapsed, toggle } = useSidebarState();
   const [carteiraOpen, setCarteiraOpen] = useState(
     location.pathname.startsWith('/carteira')
@@ -42,7 +42,7 @@ export function AppSidebar() {
     { path: '/consulta', label: 'Cedentes', icon: Search },
     { path: '/nfe', label: 'NF-e', icon: Receipt },
     { path: '/cobranca', label: 'Cobrança', icon: MessageCircle },
-    ...(isMaster ? [{ path: '/admin', label: 'Configurações', icon: Settings }] : []),
+    ...(isAdmin ? [{ path: '/admin', label: 'Configurações', icon: Settings }] : []),
   ];
 
   const handleLogout = async () => {

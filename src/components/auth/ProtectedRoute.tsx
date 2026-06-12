@@ -10,7 +10,7 @@ interface ProtectedRouteProps {
 
 export const ProtectedRoute = forwardRef<HTMLDivElement, ProtectedRouteProps>(
   function ProtectedRoute({ children, requireAdmin = false }, ref) {
-    const { user, isMaster, mustChangePassword, loading } = useAuth();
+    const { user, isAdmin, mustChangePassword, loading } = useAuth();
     const location = useLocation();
 
     if (loading) {
@@ -29,7 +29,7 @@ export const ProtectedRoute = forwardRef<HTMLDivElement, ProtectedRouteProps>(
       return <Navigate to="/alterar-senha" replace />;
     }
 
-    if (requireAdmin && !isMaster) {
+    if (requireAdmin && !isAdmin) {
       return <Navigate to="/consulta" replace />;
     }
 

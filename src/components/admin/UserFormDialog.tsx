@@ -19,20 +19,16 @@ import {
 } from '@/components/ui/dialog';
 import { Loader2, User, Mail, Lock, Eye, EyeOff, Shield } from 'lucide-react';
 
-export type UserRole = 'admin' | 'gestor' | 'analista' | 'user';
+export type UserRole = 'admin' | 'user';
 
 export const ROLE_OPTIONS: { value: UserRole; label: string; description: string }[] = [
-  { value: 'admin', label: 'Administrador', description: 'Acesso total ao sistema' },
-  { value: 'gestor', label: 'Gestor', description: 'Gerencia carteiras e cedentes' },
-  { value: 'analista', label: 'Analista', description: 'Realiza análises e consultas' },
-  { value: 'user', label: 'Usuário', description: 'Acesso padrão de operação' },
+  { value: 'user', label: 'Usuário', description: 'Acesso a tudo, exceto configurações' },
+  { value: 'admin', label: 'Administrador', description: 'Acesso total, incluindo configurações' },
 ];
 
 export const ROLE_LABELS: Record<string, string> = {
   admin: 'Administrador',
   master: 'Master',
-  gestor: 'Gestor',
-  analista: 'Analista',
   user: 'Usuário',
 };
 
