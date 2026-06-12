@@ -14,6 +14,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Pencil, Trash2, Shield, Calendar, Mail } from 'lucide-react';
+import { ROLE_LABELS } from './UserFormDialog';
 
 interface UserCardProps {
   user: {
