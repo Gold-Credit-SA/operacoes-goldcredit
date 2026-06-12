@@ -14,6 +14,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Pencil, Trash2, Shield, Calendar, Mail } from 'lucide-react';
+import { ROLE_LABELS } from './UserFormDialog';
 
 interface UserCardProps {
   user: {
@@ -91,7 +92,7 @@ export function UserCard({ user, isCurrentUser, isMaster, onEdit, onDelete }: Us
               className={`${isMaster ? 'bg-primary text-primary-foreground' : ''}`}
             >
               {isMaster && <Shield className="h-3 w-3 mr-1" />}
-              {isMaster ? 'Administrador' : 'Usuário'}
+              {isMaster ? 'Master' : ROLE_LABELS[user.user_roles[0]?.role] || 'Usuário'}
             </Badge>
 
             <div className="flex items-center gap-1">

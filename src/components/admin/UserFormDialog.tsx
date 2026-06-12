@@ -3,6 +3,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -10,18 +17,36 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Loader2, User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Loader2, User, Mail, Lock, Eye, EyeOff, Shield } from 'lucide-react';
+
+export type UserRole = 'admin' | 'gestor' | 'analista' | 'user';
+
+export const ROLE_OPTIONS: { value: UserRole; label: string; description: string }[] = [
+  { value: 'admin', label: 'Administrador', description: 'Acesso total ao sistema' },
+  { value: 'gestor', label: 'Gestor', description: 'Gerencia carteiras e cedentes' },
+  { value: 'analista', label: 'Analista', description: 'Realiza análises e consultas' },
+  { value: 'user', label: 'Usuário', description: 'Acesso padrão de operação' },
+];
+
+export const ROLE_LABELS: Record<string, string> = {
+  admin: 'Administrador',
+  master: 'Master',
+  gestor: 'Gestor',
+  analista: 'Analista',
+  user: 'Usuário',
+};
 
 interface UserFormData {
   name: string;
   email: string;
   password: string;
+  role: UserRole;
 }
 
 interface UserFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  editingUser: { name: string; email: string } | null;
+  editingUser: { name: string; email: string; role?: string } | null;
   onSave: (data: UserFormData) => Promise<void>;
   saving: boolean;
   isMasterUser?: boolean;
@@ -39,28 +64,23 @@ export function UserFormDialog({
     name: editingUser?.name || '',
     email: editingUser?.email || '',
     password: '',
+    role: (editingUser?.role as UserRole) || 'user',
   });
   const [showPassword, setShowPassword] = useState(false);
 
-  // Sync form when editingUser prop changes
   useEffect(() => {
     if (open) {
       setFormData({
         name: editingUser?.name || '',
         email: editingUser?.email || '',
         password: '',
+        role: (editingUser?.role as UserRole) || 'user',
       });
       setShowPassword(false);
     }
   }, [open, editingUser]);
 
-  // Reset form when dialog opens
   const handleOpenChange = (isOpen: boolean) => {
-    if (isOpen && editingUser) {
-      setFormData({ name: editingUser.name, email: editingUser.email, password: '' });
-    } else if (isOpen) {
-      setFormData({ name: '', email: '', password: '' });
-    }
     setShowPassword(false);
     onOpenChange(isOpen);
   };
@@ -87,7 +107,6 @@ export function UserFormDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5 py-4">
-          {/* Nome */}
           <div className="space-y-2">
             <Label htmlFor="name" className="text-sm font-medium flex items-center gap-2">
               <User className="h-4 w-4 text-muted-foreground" />
@@ -101,12 +120,8 @@ export function UserFormDialog({
               className="h-11"
               required
             />
-            <p className="text-xs text-muted-foreground">
-              Nome que será exibido no sistema
-            </p>
           </div>
 
-          {/* Email */}
           <div className="space-y-2">
             <Label htmlFor="email" className="text-sm font-medium flex items-center gap-2">
               <Mail className="h-4 w-4 text-muted-foreground" />
@@ -131,7 +146,37 @@ export function UserFormDialog({
             </p>
           </div>
 
-          {/* Senha */}
+          <div className="space-y-2">
+            <Label htmlFor="role" className="text-sm font-medium flex items-center gap-2">
+              <Shield className="h-4 w-4 text-muted-foreground" />
+              Nível de acesso
+            </Label>
+            <Select
+              value={formData.role}
+              onValueChange={(value) => setFormData({ ...formData, role: value as UserRole })}
+              disabled={isMasterUser}
+            >
+              <SelectTrigger id="role" className="h-11">
+                <SelectValue placeholder="Selecione o nível" />
+              </SelectTrigger>
+              <SelectContent>
+                {ROLE_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{opt.label}</span>
+                      <span className="text-xs text-muted-foreground">{opt.description}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {isMasterUser
+                ? 'O administrador master tem nível fixo e não pode ser alterado'
+                : 'Define quais áreas do sistema este usuário poderá acessar'}
+            </p>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="password" className="text-sm font-medium flex items-center gap-2">
               <Lock className="h-4 w-4 text-muted-foreground" />
@@ -164,12 +209,7 @@ export function UserFormDialog({
           </div>
 
           <DialogFooter className="gap-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={saving}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
               Cancelar
             </Button>
             <Button type="submit" disabled={saving}>
