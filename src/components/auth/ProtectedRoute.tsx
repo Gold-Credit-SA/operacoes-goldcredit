@@ -29,7 +29,7 @@ export const ProtectedRoute = forwardRef<HTMLDivElement, ProtectedRouteProps>(
       return <Navigate to="/alterar-senha" replace />;
     }
 
-    if (requireAdmin && !isMaster) {
+    if (requireAdmin && !isAdmin) {
       return <Navigate to="/consulta" replace />;
     }
 
