@@ -33,13 +33,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const initializedRef = useRef(false);
   const queryClient = useQueryClient();
 
   const isMaster = user?.email === MASTER_EMAIL;
-  const isAdmin = isMaster;
+  const isAdmin = isMaster || role === 'admin';
   const mustChangePassword = profile?.must_change_password === true;
+
+  const fetchProfile = useCallback(async (userId: string) => {
+    try {
+      const [{ data: profileData, error }, { data: roleData }] = await Promise.all([
+        supabase.from('profiles').select('*').eq('user_id', userId).single(),
+        supabase.from('user_roles').select('role').eq('user_id', userId).maybeSingle(),
+      ]);
+
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return { profile: null, role: null };
+      }
+
+      return { profile: profileData, role: (roleData?.role as string) ?? null };
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      return { profile: null, role: null };
+    }
+  }, []);
 
   const fetchProfile = useCallback(async (userId: string) => {
     try {
